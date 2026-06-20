@@ -857,6 +857,44 @@
     color: color-mix(in srgb, var(--color-cream) 88%, transparent);
   }
 
+  /* Inline external link (provisions / transfers) */
+  .info-link {
+    font-family: var(--font-body);
+    font-weight: 600;
+    color: var(--color-earth);
+    text-decoration: underline;
+    text-decoration-color: var(--color-ochre);
+    text-underline-offset: 3px;
+    transition: color 200ms ease;
+  }
+  .info-link:hover {
+    color: var(--color-ochre);
+  }
+
+  /* Disclaimer / notice callout (Part 5.6 — restrained, hairline over heavy box) */
+  .notice {
+    margin-top: 1.25rem;
+    border-left: 3px solid color-mix(in srgb, var(--color-ochre) 60%, transparent);
+    border-radius: 0 0.5rem 0.5rem 0;
+    background-color: color-mix(in srgb, var(--color-ochre) 6%, var(--color-cream));
+    padding: 0.9rem 1rem;
+  }
+  .notice__label {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-earth) 70%, var(--color-ochre));
+  }
+  .notice__body {
+    margin-top: 0.35rem;
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
+  }
+
   /* --- FAQ accordion (Part 7) — native details/summary --------------------- */
   .faq {
     border-top: 1px solid var(--color-hairline);

@@ -74,3 +74,31 @@ export const faqs: Faq[] = [
     a: 'The trail is sold as exclusive use for a single private group of up to 10 guests — you have the trail and camps to yourselves.',
   },
 ];
+
+// Practical "before you arrive" info — provisions and transfers, each with a disclaimer.
+// External links are PLACEHOLDERS until the real URLs are supplied.
+export const provisions = {
+  kicker: 'Food & provisions',
+  title: 'Where do I buy food for a self-catered trail?',
+  intro:
+    'To make your stay as seamless as possible, you are welcome to pre-order groceries and supplies ahead of arrival. The closest fully-stocked supermarket is Checkers Bela Bela, at the Bela Mall off the N1 — about 80 km from us.',
+  linkText: 'Checkers Bela Bela store details, hours & location',
+  linkUrl: '#', // PLACEHOLDER — add the Checkers Bela Bela store-info URL
+  howTo:
+    'For the most efficient service we recommend downloading the Checkers Sixty60 app: order your items in advance and collect at the store on your drive up, or arrange delivery directly through the app.',
+  disclaimer:
+    'All grocery orders, payments, collections and delivery arrangements are strictly a direct transaction between you and Checkers. The Rooiberg Wander takes no responsibility for the accuracy, timing, quality, handling or fulfilment of your orders, and cannot manage or take receipt of third-party orders on your behalf.',
+};
+
+export const transfers = {
+  kicker: 'Transfers & transport',
+  title: 'How do I arrange transfers to the trail?',
+  intro:
+    'For guests flying into the region or needing private transport to the trail, we recommend booking your transfers through EZ Shuttle — a reliable local operator familiar with the routes and access points to our location.',
+  linkText: 'EZ Shuttle',
+  linkUrl: '#', // PLACEHOLDER — add the EZ Shuttle booking URL
+  booking:
+    'Please coordinate your pick-up times, vehicle requirements and rates directly with them, in advance of your trip.',
+  disclaimer:
+    'All transport arrangements, bookings, payments and itineraries are strictly a direct transaction between you and EZ Shuttle. The Rooiberg Wander operates entirely independently of all transit providers and takes no responsibility for scheduling, delays, vehicle safety, service quality, cancellations, or any incidents occurring during your journey to or from the trail.',
+};

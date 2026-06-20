@@ -5,7 +5,7 @@ import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import FaqAccordion from '../components/FaqAccordion.astro';
-import { logisticsBlocks, faqs } from '../data/logistics';
+import { logisticsBlocks, faqs, provisions, transfers } from '../data/logistics';
 import { webPageSchema, breadcrumbSchema, faqPageSchema } from '../data/schema';
 import lion from '../assets/images/big5-lion-rooiberg.jpg';
 
@@ -63,6 +63,44 @@ const jsonLd = [
           </div>
         ))
       }
+    </div>
+  </Section>
+
+  <Section bg="cream" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      {/* Food & provisions */}
+      <div class="logblock">
+        <p class="logblock__kicker">{provisions.kicker}</p>
+        <h2 class="logblock__title">{provisions.title}</h2>
+        <p class="logblock__body">{provisions.intro}</p>
+        <p class="mt-3">
+          <a href={provisions.linkUrl} class="info-link">
+            {provisions.linkText} <span aria-hidden="true">&rarr;</span>
+          </a>
+        </p>
+        <p class="logblock__body">{provisions.howTo}</p>
+        <div class="notice">
+          <p class="notice__label">Please note</p>
+          <p class="notice__body">{provisions.disclaimer}</p>
+        </div>
+      </div>
+
+      {/* Transfers & transport */}
+      <div class="logblock">
+        <p class="logblock__kicker">{transfers.kicker}</p>
+        <h2 class="logblock__title">{transfers.title}</h2>
+        <p class="logblock__body">{transfers.intro}</p>
+        <p class="mt-3">
+          <a href={transfers.linkUrl} class="info-link">
+            {transfers.linkText} <span aria-hidden="true">&rarr;</span>
+          </a>
+        </p>
+        <p class="logblock__body">{transfers.booking}</p>
+        <div class="notice">
+          <p class="notice__label">Please note</p>
+          <p class="notice__body">{transfers.disclaimer}</p>
+        </div>
+      </div>
     </div>
   </Section>
 
