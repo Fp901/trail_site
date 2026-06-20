@@ -1,0 +1,38 @@
+---
+// Privacy (/privacy) — STUB. Required by Part 11.7 and linked from the footer, but the
+// operator's verbatim POPIA/GDPR policy text has not been supplied yet. noindex until the
+// real policy lands (then remove noindex). Do NOT fabricate policy content.
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+
+const title = 'Privacy Policy — The Rooiberg Wander';
+const description =
+  'How The Rooiberg Wander collects, uses and protects your personal information.';
+---
+
+<Layout title={title} description={description} path="/privacy" noindex={true}>
+  <Section bg="cream" labelledby="privacy-heading">
+    <div class="max-w-3xl">
+      <h1 id="privacy-heading" class="font-display text-4xl text-earth sm:text-5xl">
+        Privacy Policy
+      </h1>
+
+      <p
+        class="mt-6 rounded-2xl border border-ochre/40 bg-ochre/10 p-4 font-body text-sm text-earth"
+      >
+        <strong>Placeholder — content pending.</strong> The operator's verbatim POPIA / GDPR
+        privacy policy will be inserted here before launch. This page is intentionally hidden
+        from search engines until then.
+      </p>
+
+      <div class="mt-8 space-y-4 font-body leading-relaxed text-charcoal/85">
+        <p>
+          When complete, this policy will cover what personal information we collect to take and
+          fulfil a booking, the lawful basis for processing it, how long we keep it, the
+          processors we use (including our database, payment and email providers), any
+          cross-border transfer of data, and how to contact us with a data request.
+        </p>
+      </div>
+    </div>
+  </Section>
+</Layout>

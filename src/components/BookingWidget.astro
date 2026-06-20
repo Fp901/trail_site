@@ -1,0 +1,149 @@
+---
+// BookingWidget (Part 9.2) — vanilla-JS island. Collects dates/group/residency/lead details,
+// shows a clearly-labelled estimate (server confirms the real total), and calls the typed
+// createCheckout Action, then redirects to Paystack's hosted checkout. No price is ever sent.
+import { rates, formatRand } from '../data/rates';
+
+const localTotal = rates.find((r) => r.id === 'local')!.total;
+const intlTotal = rates.find((r) => r.id === 'international')!.total;
+---
+
+<form
+  id="booking-form"
+  class="bform"
+  data-total-local={formatRand(localTotal)}
+  data-total-international={formatRand(intlTotal)}
+  novalidate
+>
+  <div class="bform__grid">
+    <div class="form-field">
+      <label for="bf-start">Start date (Day 1, arrival)</label>
+      <input id="bf-start" name="startDate" type="date" required />
+    </div>
+
+    <div class="form-field">
+      <label for="bf-group">Group size</label>
+      <select id="bf-group" name="groupSize" required>
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+          <option value={n}>{n}{n === 10 ? ' (max)' : ''}</option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  <fieldset class="form-field">
+    <legend>Residency</legend>
+    <div class="bform__radios">
+      <label class="bform__radio">
+        <input type="radio" name="residency" value="local" checked /> Local resident
+      </label>
+      <label class="bform__radio">
+        <input type="radio" name="residency" value="international" /> International visitor
+      </label>
+    </div>
+  </fieldset>
+
+  <div class="bform__grid">
+    <div class="form-field">
+      <label for="bf-name">Lead guest name</label>
+      <input id="bf-name" name="leadName" type="text" autocomplete="name" maxlength="120" required />
+    </div>
+    <div class="form-field">
+      <label for="bf-email">Email</label>
+      <input id="bf-email" name="leadEmail" type="email" autocomplete="email" maxlength="180" required />
+    </div>
+  </div>
+
+  {/* Honeypot — must stay empty */}
+  <div class="hp" aria-hidden="true">
+    <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
+  </div>
+
+  <p class="bform__estimate">
+    Estimated total: <strong data-estimate>{formatRand(localTotal)}</strong> per group
+    <span class="bform__estnote">— final total confirmed at checkout</span>
+  </p>
+
+  <button type="submit" class="btn btn-primary bform__submit">Continue to secure payment</button>
+
+  <p class="bform__status" data-status role="status" aria-live="polite"></p>
+
+  <p class="bform__privacy">
+    By continuing you agree we may use your details to take and fulfil your booking. See our
+    <a href="/privacy">Privacy Policy</a> and <a href="/rates#refund-heading">cancellation policy</a>.
+  </p>
+</form>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initBooking() {
+    const form = document.getElementById('booking-form') as HTMLFormElement | null;
+    if (!form || form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+
+    const estimate = form.querySelector<HTMLElement>('[data-estimate]');
+    const status = form.querySelector<HTMLElement>('[data-status]');
+    const startInput = form.querySelector<HTMLInputElement>('#bf-start');
+    const submit = form.querySelector<HTMLButtonElement>('.bform__submit');
+
+    const totals: Record<string, string> = {
+      local: form.dataset.totalLocal ?? '',
+      international: form.dataset.totalInternational ?? '',
+    };
+
+    // Min start date = today (set at view time, not build time).
+    if (startInput) startInput.min = new Date().toISOString().slice(0, 10);
+
+    const updateEstimate = () => {
+      const residency =
+        form.querySelector<HTMLInputElement>('input[name="residency"]:checked')?.value ?? 'local';
+      if (estimate) estimate.textContent = totals[residency] ?? '';
+    };
+    form
+      .querySelectorAll<HTMLInputElement>('input[name="residency"]')
+      .forEach((el) => el.addEventListener('change', updateEstimate));
+    updateEstimate();
+
+    const setStatus = (msg: string, kind: 'error' | 'info' = 'error') => {
+      if (!status) return;
+      status.textContent = msg;
+      status.dataset.kind = kind;
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('', 'info');
+      const fd = new FormData(form);
+      const payload = {
+        startDate: String(fd.get('startDate') ?? ''),
+        groupSize: Number(fd.get('groupSize') ?? 0),
+        residency: String(fd.get('residency') ?? 'local') as 'local' | 'international',
+        leadName: String(fd.get('leadName') ?? ''),
+        leadEmail: String(fd.get('leadEmail') ?? ''),
+        company: (fd.get('company') as string) || undefined,
+      };
+
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = 'Taking you to checkout…';
+      }
+
+      const { data, error } = await actions.createCheckout(payload);
+
+      if (error) {
+        setStatus(error.message || 'Something went wrong. Please try again.');
+        if (submit) {
+          submit.disabled = false;
+          submit.textContent = 'Continue to secure payment';
+        }
+        return;
+      }
+      if (data?.authorizationUrl) {
+        window.location.href = data.authorizationUrl;
+      }
+    });
+  }
+
+  document.addEventListener('astro:page-load', initBooking);
+</script>

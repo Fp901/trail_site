@@ -1,0 +1,40 @@
+// Public rates (display) — Part 8.5 + 2026 brief. Prices are quoted VAT-INCLUSIVE per group.
+// SA residents: R60,000 incl. VAT. Foreign nationals: +20% = R72,000 incl. VAT.
+// The server-side price authority (lib/pricing.ts) reuses these constants. Never expose
+// per-person breakdowns or owner splits (Part 12).
+
+export const VAT_RATE = 0.15;
+export const TOTAL_LOCAL = 60000; // per group, VAT-inclusive
+export const INTERNATIONAL_PREMIUM = 0.2; // +20% for foreign nationals
+export const TOTAL_INTERNATIONAL = TOTAL_LOCAL * (1 + INTERNATIONAL_PREMIUM); // 72,000
+
+// VAT portion contained within a VAT-inclusive amount.
+export const vatPortion = (inclTotal: number) =>
+  Math.round(inclTotal - inclTotal / (1 + VAT_RATE));
+
+export interface RateCard {
+  id: 'local' | 'international';
+  label: string;
+  total: number; // VAT-inclusive headline figure
+  note: string;
+}
+
+export const rates: RateCard[] = [
+  {
+    id: 'local',
+    label: 'SA Residents',
+    total: TOTAL_LOCAL, // R60,000
+    note: 'Flat rate for exclusive use by up to 10 guests. Includes all conservation levies.',
+  },
+  {
+    id: 'international',
+    label: 'Foreign Nationals',
+    total: TOTAL_INTERNATIONAL, // R72,000
+    note: 'A 20% premium on the resident rate. Exclusive use by up to 10 guests. Includes all conservation levies.',
+  },
+];
+
+// Format ZAR with comma thousands separators to match the brief ("R60,000").
+export function formatRand(amount: number): string {
+  return 'R' + amount.toLocaleString('en-US');
+}

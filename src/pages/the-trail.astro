@@ -1,0 +1,85 @@
+---
+// The Trail (/the-trail) — Part 8.2 + 2026 brief. No-walking-on-arrival + direct Day-4 departure;
+// premium vertical timeline; route map; vista banner.
+import { Image } from 'astro:assets';
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+import ItineraryTimeline from '../components/ItineraryTimeline.astro';
+import RouteMap from '../components/RouteMap.astro';
+import { webPageSchema, breadcrumbSchema, touristTripSchema } from '../data/schema';
+import vista from '../assets/images/rooiberg-bushveld-vista.jpg';
+
+const title = 'The Trail — Day-by-Day Slackpacking Itinerary';
+const description =
+  'Day by day through the Rooiberg: arrival, then three ~20 km mountain days over Groenkop, the high ridge to ViervanAcht and the open plains. Self-catered, ported, exclusive.';
+
+const jsonLd = [
+  webPageSchema({ path: '/the-trail', name: title, description }),
+  breadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'The Trail', path: '/the-trail' },
+  ]),
+  touristTripSchema,
+];
+---
+
+<Layout title={title} description={description} path="/the-trail" jsonLd={jsonLd}>
+  <Section bg="cream" labelledby="trail-heading" space="lg">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        The Trail · 3 nights / 3 days · ~60 km
+      </p>
+      <h1 id="trail-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl md:text-6xl">
+        A three-day walking trail through the Rooiberg
+      </h1>
+      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
+        You do not walk on the arrival day, and you depart straight after the final walk on Day 4.
+        In between lie three walking days of roughly 20 km — a mountain crossing, a high-ridge
+        traverse and a plains return — each moving from one sanctuary to the next while your
+        luggage and provisions travel ahead, kept cool and dry.
+      </p>
+      <p class="mt-4 font-body text-base leading-relaxed text-charcoal/80">
+        The walking is graded moderate to challenging, over mountain ascents, rocky kloofs and
+        donga terrain. A good level of hiking fitness is required.
+      </p>
+    </div>
+  </Section>
+
+  <figure class="media-band">
+    <Image
+      src={vista}
+      alt="Open bushveld and layered mountains of the Rooiberg, Limpopo, under a wide sky."
+      widths={[768, 1280, 1920]}
+      sizes="100vw"
+      loading="lazy"
+    />
+  </figure>
+
+  <Section bg="cream" labelledby="itinerary-heading" space="md">
+    <h2 id="itinerary-heading" class="font-display text-2xl text-earth sm:text-3xl">
+      How does each day unfold?
+    </h2>
+    <div class="mt-10 max-w-3xl sm:mt-12">
+      <ItineraryTimeline />
+    </div>
+    <p class="mt-8 max-w-3xl font-body text-sm italic text-charcoal/60">
+      Altitude profiles for the two mountain days (the Groenkop crossing and the high-ridge
+      traverse) are coming soon.
+    </p>
+  </Section>
+
+  <Section bg="cream" labelledby="route-heading" space="md">
+    <div class="max-w-3xl">
+      <h2 id="route-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        Where does the trail go?
+      </h2>
+      <p class="mt-5 font-body text-base leading-relaxed text-charcoal/85">
+        The Rooiberg Wander is a circuitous trail that begins and ends at Rotavi Lodge: over
+        Groenkop to Oukraal, up the high ridges via L-Kloof to ViervanAcht by way of the
+        Welgedacht lookout, and back across the open plains along the Sand River. The map below
+        is illustrative.
+      </p>
+    </div>
+    <RouteMap class="mt-10 sm:mt-12" />
+  </Section>
+</Layout>

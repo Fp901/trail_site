@@ -1,0 +1,40 @@
+---
+// DayCard — Part 7. One itinerary day. distanceKm null => "No walking" (Day 1).
+interface Props {
+  day: number;
+  title: string;
+  distanceKm: number | null;
+  from?: string;
+  to?: string;
+  description: string;
+  colorVar?: string;
+}
+const { day, title, distanceKm, from, to, description, colorVar } = Astro.props;
+const accent = colorVar ?? '--color-green';
+const noWalking = distanceKm === null;
+---
+
+<li class="daycard" style={`--accent: var(${accent});`}>
+  <div class="daycard__marker">
+    <span class="daycard__daylabel">Day</span>
+    <span class="daycard__num">{day}</span>
+  </div>
+  <div class="daycard__body">
+    <div class="daycard__head">
+      <h3 class="daycard__title">{title}</h3>
+      <span class:list={['daycard__distance', noWalking && 'daycard__distance--rest']}>
+        {noWalking ? 'No walking' : `~${distanceKm} km`}
+      </span>
+    </div>
+    {
+      from && to && (
+        <p class="daycard__route">
+          <span>{from}</span>
+          <span class="daycard__arrow" aria-hidden="true">&rarr;</span>
+          <span>{to}</span>
+        </p>
+      )
+    }
+    <p class="daycard__desc">{description}</p>
+  </div>
+</li>

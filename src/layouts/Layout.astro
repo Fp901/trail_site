@@ -1,0 +1,73 @@
+---
+// Base shell — Part 6 step 2. <html lang="en-ZA"> document, head meta, self-hosted
+// fonts + global tokens, View Transitions, skip-link, and the <main> content slot.
+// Nav (step 3) and Footer (step 5) slot into this layout in their build-order steps.
+import { ClientRouter } from 'astro:transitions';
+import { site, withBase } from '../data/site';
+import Seo from '../components/Seo.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+// Self-hosted fonts (no Google CDN — Part 2). Relocated here from the step-1 harness.
+// Fontsource emits @font-face with font-display: swap (good LCP behaviour — Part 10.3).
+import '@fontsource-variable/inter';
+import '@fontsource/playfair-display/400.css';
+import '@fontsource/playfair-display/600.css';
+import '@fontsource/playfair-display/700.css';
+import '@fontsource/playfair-display/800.css';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description: string;
+  path: string;
+  image?: string;
+  type?: 'website' | 'article';
+  noindex?: boolean;
+  jsonLd?: Record<string, unknown>[];
+  // Home passes true: nav sits transparent over the hero. Interior pages reserve nav height.
+  navOverHero?: boolean;
+}
+
+const {
+  title,
+  description,
+  path,
+  image,
+  type,
+  noindex,
+  jsonLd,
+  navOverHero = false,
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang={site.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <meta name="generator" content={Astro.generator} />
+    <Seo
+      title={title}
+      description={description}
+      path={path}
+      image={image}
+      type={type}
+      noindex={noindex}
+      jsonLd={jsonLd}
+    />
+    {/* NOTE (Part 11.2): native CSP is not yet fully compatible with <ClientRouter />.
+        Reconcile at step 13 (hash injected scripts or gate transitions where CSP flags). */}
+    <ClientRouter />
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Skip to content</a>
+    <Nav overHero={navOverHero} />
+    {/* Interior pages reserve the fixed-nav height; over-hero pages let the hero sit beneath it. */}
+    <main id="main" style={navOverHero ? undefined : 'padding-top: var(--nav-h);'}>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

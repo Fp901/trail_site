@@ -1,0 +1,63 @@
+---
+// Booking confirmation callback (Part 9.2). prerender=false. Verifies the transaction by
+// reference for display only — the webhook (verified) is the source of truth for confirmation.
+// Resilient when payments aren't configured yet (shows a neutral "confirming" state).
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import { payments } from '../../lib/payments';
+
+export const prerender = false;
+
+const reference = Astro.url.searchParams.get('reference') ?? Astro.url.searchParams.get('trxref');
+
+let state: 'success' | 'pending' | 'error' = 'pending';
+if (reference) {
+  try {
+    const result = await payments.verifyTransaction(reference);
+    state = result.status === 'success' ? 'success' : 'pending';
+  } catch {
+    state = 'error';
+  }
+}
+
+const heading =
+  state === 'success' ? 'Your booking is confirmed' : 'We’re confirming your booking';
+---
+
+<Layout
+  title="Booking confirmation — The Rooiberg Wander"
+  description="Your Rooiberg Wander booking confirmation."
+  path="/booking/confirm"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="confirm-heading" space="lg">
+    <div class="max-w-2xl">
+      <h1 id="confirm-heading" class="font-display text-4xl text-earth sm:text-5xl">
+        {heading}
+      </h1>
+
+      {
+        state === 'success' && (
+          <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+            Thank you. Your payment was received and your exclusive booking is secured. A
+            confirmation email and tax invoice are on their way. We look forward to welcoming
+            your group to the Rooiberg.
+          </p>
+        )
+      }
+      {
+        state !== 'success' && (
+          <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+            Thank you. We’re finalising your payment confirmation. If your payment was
+            successful you’ll receive a confirmation email shortly — there’s no need to pay
+            again. If anything looks wrong, please contact us.
+          </p>
+        )
+      }
+
+      <p class="mt-8">
+        <a href="/" class="btn btn-secondary">Return home</a>
+      </p>
+    </div>
+  </Section>
+</Layout>

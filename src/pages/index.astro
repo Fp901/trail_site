@@ -1,0 +1,168 @@
+---
+// Home (/) — Part 8.1. Hero → StatsBar → Promise → teasers.
+import { Image } from 'astro:assets';
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+import Hero from '../components/Hero.astro';
+import StatsBar from '../components/StatsBar.astro';
+import { withBase } from '../data/site';
+import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
+import panorama from '../assets/images/rooiberg-dusk-panorama.jpg';
+import {
+  organizationSchema,
+  webPageSchema,
+  breadcrumbSchema,
+  touristTripSchema,
+} from '../data/schema';
+
+const title = 'The Rooiberg Wander — Malaria-Free Big 5 Slackpacking Trail';
+const description =
+  'A self-catering walking safari in the Waterberg — 3 nights and 3 days through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from Johannesburg.';
+
+const jsonLd = [
+  organizationSchema,
+  webPageSchema({ path: '/', name: title, description }),
+  breadcrumbSchema([{ name: 'Home', path: '/' }]),
+  touristTripSchema,
+];
+
+// Teasers into the deeper pages (copy mirrors §8.8; Rates shows the VAT-inclusive total).
+const teasers = [
+  {
+    index: '01',
+    title: 'The Trail',
+    href: '/the-trail',
+    text: 'No walking on arrival day; then three mountain days of roughly 20 km, sanctuary to sanctuary, and a direct departure after the final walk.',
+  },
+  {
+    index: '02',
+    title: 'The Sanctuaries',
+    href: '/sanctuaries',
+    text: 'Rotavi Lodge, Oukraal and ViervanAcht — three distinct sanctuaries under one premium trail standard.',
+  },
+  {
+    index: '03',
+    title: 'Rates & Booking',
+    href: '/rates',
+    text: 'R60,000 per exclusive group of up to ten, incl. VAT and all conservation levies. See what is included and book.',
+  },
+];
+---
+
+<Layout
+  title={title}
+  description={description}
+  path="/"
+  navOverHero={true}
+  jsonLd={jsonLd}
+>
+  <Hero
+    image={heroImage}
+    imageAlt="Golden-hour light over the layered mountains of the Rooiberg, Limpopo."
+  />
+  <StatsBar />
+
+  {/* Promise — the unpack-and-walk model. GEO H2 answered in the first sentence (Part 10.5). */}
+  <Section bg="cream" labelledby="promise-heading">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        The unpack-and-walk trail
+      </p>
+      <h2
+        id="promise-heading"
+        class="mt-4 font-display text-3xl text-earth sm:text-4xl md:text-5xl"
+      >
+        What is The Rooiberg Wander?
+      </h2>
+      <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
+        The Rooiberg Wander is a 3-night, 3-day self-catered slackpacking trail through 15,000
+        hectares of malaria-free Big 5 mountain wilderness near Rooiberg in Limpopo — just 2.5
+        hours from Johannesburg. You walk; we move everything else.
+      </p>
+      <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
+        Over three days you cross the Groenkop and Elandsberg mountains on foot — deep kloofs,
+        riverbeds and open savanna plains — guided at all times by two qualified, armed
+        wilderness guides. You bring your own food and drinks; your luggage and provisions are
+        moved between camps each day, kept cool and dry, and dedicated staff at each sanctuary
+        help with cleaning, cooking, the braai and the washing-up. The reserve is yours alone:
+        exclusive use for a single group of up to ten.
+      </p>
+
+      <ul class="mt-8 flex flex-wrap gap-x-8 gap-y-3 font-body text-sm font-medium text-earth">
+        <li class="border-l-2 border-ochre pl-3">100% malaria-free</li>
+        <li class="border-l-2 border-ochre pl-3">Two armed guides</li>
+        <li class="border-l-2 border-ochre pl-3">Luggage moved daily</li>
+        <li class="border-l-2 border-ochre pl-3">Exclusive use · max 10</li>
+      </ul>
+
+      <p class="mt-10">
+        <a href={withBase('/rates')} class="btn btn-primary">View rates and book the trail</a>
+      </p>
+    </div>
+  </Section>
+
+  <figure class="media-band">
+    <Image
+      src={panorama}
+      alt="Dusk over the Rooiberg mountains, with a bush dinner set beside a lily-covered waterhole."
+      widths={[768, 1280]}
+      sizes="100vw"
+      loading="lazy"
+    />
+  </figure>
+
+  <Section bg="cream" labelledby="why-heading" space="md">
+    <h2 id="why-heading" class="max-w-3xl font-display text-2xl text-earth sm:text-3xl">
+      How is it different from a normal walking safari?
+    </h2>
+    <p class="mt-5 max-w-2xl font-body leading-relaxed text-charcoal/85">
+      It is a true point-to-point trail, not day walks from a single lodge. You cross the
+      mountains on foot from one private sanctuary to the next, sleeping somewhere new each
+      night, with the comfort of a pool, a braai and a real bed waiting at the end of every day.
+    </p>
+    <div class="mt-10 grid gap-8 sm:grid-cols-3">
+      <div class="border-t-2 border-ochre pt-4">
+        <h3 class="font-display text-xl text-earth">Big 5 on foot</h3>
+        <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
+          Track a true, malaria-free Big 5 wilderness at ground level, safely, with two armed
+          wilderness guides at all times.
+        </p>
+      </div>
+      <div class="border-t-2 border-ochre pt-4">
+        <h3 class="font-display text-xl text-earth">Unpack and walk</h3>
+        <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
+          Self-catered, but you carry only a daypack — your food, drinks and bags travel ahead
+          to the next camp each day, kept cool and dry.
+        </p>
+      </div>
+      <div class="border-t-2 border-ochre pt-4">
+        <h3 class="font-display text-xl text-earth">Exclusive &amp; intimate</h3>
+        <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
+          The whole reserve and all three sanctuaries are yours alone — one private group of up
+          to ten, and no one else.
+        </p>
+      </div>
+    </div>
+  </Section>
+
+  {/* Teasers — paths into the deeper pages. */}
+  <Section bg="cream" space="md" labelledby="explore-heading" class="border-t border-hairline">
+    <h2 id="explore-heading" class="sr-only">Explore the wander</h2>
+    <ul class="grid gap-8 sm:gap-10 md:grid-cols-3">
+      {
+        teasers.map((t) => (
+          <li>
+            <a href={withBase(t.href)} class="teaser group">
+              <span class="teaser__index">{t.index}</span>
+              <h3 class="teaser__title">{t.title}</h3>
+              <p class="teaser__text">{t.text}</p>
+              <span class="teaser__more">
+                Discover <span aria-hidden="true">&rarr;</span>
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+</Layout>

@@ -1,0 +1,10 @@
+---
+// ItineraryTimeline — Part 7. Vertical on desktop AND mobile; organic markers (day numerals
+// strung on a hairline rail), per-day accent. Maps itinerary.ts.
+import { itinerary } from '../data/itinerary';
+import DayCard from './DayCard.astro';
+---
+
+<ol class="timeline">
+  {itinerary.map((d) => <DayCard {...d} />)}
+</ol>

@@ -1,0 +1,48 @@
+---
+// Hero — Part 5.6 / 7 / 8.1. Full-bleed cinematic section. When a real golden-hour
+// Rooiberg photo is supplied it renders via astro:assets as the eager, high-priority LCP
+// image (AVIF/WebP, explicit dims). Until then a labelled CSS placeholder stands in
+// (Part 14: proceed with a labelled placeholder for missing images).
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import { site, withBase } from '../data/site';
+
+interface Props {
+  image?: ImageMetadata;
+  imageAlt?: string;
+}
+const { image, imageAlt = '' } = Astro.props;
+---
+
+<section class="hero" aria-label="Introduction">
+  {
+    image ? (
+      <Image
+        src={image}
+        alt={imageAlt}
+        class="hero__media"
+        loading="eager"
+        fetchpriority="high"
+        widths={[640, 1024, 1600, 2000]}
+        sizes="100vw"
+      />
+    ) : (
+      <div
+        class="hero__media hero__placeholder"
+        role="img"
+        aria-label="Placeholder — a golden-hour view of the Rooiberg's vertical mountain drama. A real photograph will be supplied."
+      />
+    )
+  }
+  <div class="hero__scrim"></div>
+
+  <div class="hero__content mx-auto w-full max-w-screen-2xl px-6 pb-16 sm:pb-20">
+    <p class="hero__overline">Malaria-free Big 5 slackpacking · Rooiberg, Limpopo</p>
+    <h1 class="hero__title">Three days on foot through a private Big&nbsp;5 wilderness</h1>
+    <p class="hero__hook">{site.hook}</p>
+    <div class="hero__actions">
+      <a href={withBase('/rates')} class="btn btn-primary">Rates &amp; Booking</a>
+      <a href={withBase('/the-trail')} class="btn btn-ghost">Explore the trail</a>
+    </div>
+  </div>
+</section>

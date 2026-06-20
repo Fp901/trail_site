@@ -1,0 +1,57 @@
+---
+// SEO <head> emitter — Part 7 contract. Outputs canonical, meta description, an
+// optional noindex, Open Graph + Twitter tags, and JSON-LD.
+// The ONLY permitted set:html is our own serialized JSON-LD (Part 11.3) — never user input.
+import { site } from '../data/site';
+
+interface Props {
+  title: string;
+  description: string;
+  path: string; // route path, e.g. "/the-trail" — used to build the absolute canonical
+  image?: string;
+  type?: 'website' | 'article';
+  noindex?: boolean;
+  jsonLd?: Record<string, unknown>[];
+}
+
+const {
+  title,
+  description,
+  path,
+  image = site.ogImage,
+  type = 'website',
+  noindex = false,
+  jsonLd = [],
+} = Astro.props;
+
+const canonical = new URL(path, site.url).href;
+const ogImage = new URL(image, site.url).href;
+const ogLocale = site.locale.replace('-', '_'); // en-ZA -> en_ZA
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+{noindex && <meta name="robots" content="noindex, nofollow" />}
+
+{/* Open Graph */}
+<meta property="og:type" content={type} />
+<meta property="og:site_name" content={site.name} />
+<meta property="og:locale" content={ogLocale} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+<meta property="og:image" content={ogImage} />
+
+{/* Twitter */}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+
+{/* JSON-LD — our own serialized data only (Part 11.3) */}
+{
+  jsonLd.map((node) => (
+    <script type="application/ld+json" set:html={JSON.stringify(node)} />
+  ))
+}

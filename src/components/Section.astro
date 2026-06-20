@@ -1,0 +1,31 @@
+---
+// Section — layout primitive (Part 4 / 5.5). Standardises the container width, horizontal
+// padding and vertical rhythm so pages compose consistently. Visual treatment stays in Part 5.
+interface Props {
+  as?: keyof HTMLElementTagNameMap;
+  bg?: 'none' | 'cream' | 'earth';
+  space?: 'sm' | 'md' | 'lg';
+  labelledby?: string;
+  class?: string;
+  containerClass?: string;
+}
+const {
+  as = 'section',
+  bg = 'none',
+  space = 'lg',
+  labelledby,
+  class: cls,
+  containerClass,
+} = Astro.props;
+
+const Tag = as;
+const bgClass = bg === 'cream' ? 'bg-cream' : bg === 'earth' ? 'bg-earth text-cream' : '';
+const spaceClass =
+  space === 'sm' ? 'py-12 sm:py-16' : space === 'md' ? 'py-16 sm:py-20' : 'py-20 sm:py-28';
+---
+
+<Tag class:list={[bgClass, cls]} aria-labelledby={labelledby}>
+  <div class:list={['mx-auto max-w-screen-2xl px-6', spaceClass, containerClass]}>
+    <slot />
+  </div>
+</Tag>

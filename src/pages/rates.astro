@@ -1,0 +1,192 @@
+---
+// Rates & Booking (/rates) — Part 8.5. VAT-inclusive rates matrix, what's included, the booking
+// area (BookingWidget mounts here at step 12), and the refund/cancellation policy.
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+import RatesTable from '../components/RatesTable.astro';
+import BookingWidget from '../components/BookingWidget.astro';
+import InquiryForm from '../components/InquiryForm.astro';
+import { rates } from '../data/rates';
+import { refundPolicy } from '../data/policies';
+import { site } from '../data/site';
+import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
+
+// Live booking renders only once Supabase + Paystack are configured; until then the page shows
+// a "coming soon" note + enquiry. Adding the env vars (then rebuilding) switches it on.
+const bookingEnabled = Boolean(
+  import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_PAYSTACK_PUBLIC_KEY,
+);
+
+const title = 'Rates & Booking — Book the Trail';
+const description =
+  'R60,000 per exclusive group of up to 10 (SA residents, incl. VAT & conservation levies); +20% for foreign nationals. See what is included and book.';
+
+const included = [
+  'Exclusive use of the reserve and all three sanctuaries (up to 10 guests)',
+  'Two qualified, armed wilderness guides throughout',
+  'Daily transport of your baggage and provisions between camps',
+  'Camp assistants for cleaning, kitchen prep and the braai',
+  'All reserve conservation levies',
+  'VAT at 15%',
+];
+const excluded = [
+  'All food and beverages — the trail is self-catered',
+  'Travel to and from Rotavi Lodge',
+  'Personal travel insurance',
+];
+
+const jsonLd = [
+  webPageSchema({ path: '/rates', name: title, description }),
+  breadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Rates & Booking', path: '/rates' },
+  ]),
+  ...rates.map((r) =>
+    offerSchema({
+      price: r.total,
+      name: `The Rooiberg Wander — ${r.label}`,
+      description: 'Exclusive group of up to 10, incl. VAT and conservation levies.',
+    }),
+  ),
+];
+---
+
+<Layout title={title} description={description} path="/rates" jsonLd={jsonLd}>
+  <Section bg="cream" labelledby="rates-heading" space="lg">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Rates &amp; Booking
+      </p>
+      <h1 id="rates-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl md:text-6xl">
+        How much does the trail cost?
+      </h1>
+      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
+        The Rooiberg Wander is priced <strong>per group, not per person</strong> — one flat rate
+        for exclusive use of the whole reserve by up to ten guests, inclusive of VAT and all
+        conservation levies.
+      </p>
+    </div>
+  </Section>
+
+  <Section bg="cream" labelledby="matrix-heading" space="md" containerClass="!pt-0">
+    <h2 id="matrix-heading" class="sr-only">Rates</h2>
+    <RatesTable />
+    <p class="mt-6 max-w-3xl font-body text-sm text-charcoal/70">
+      Prices are in South African Rand and include VAT at 15%. A valid tax invoice is issued on
+      confirmation of payment.
+    </p>
+  </Section>
+
+  <Section bg="cream" labelledby="included-heading" space="md" containerClass="!pt-0">
+    <div class="grid gap-10 md:grid-cols-2">
+      <div>
+        <h2 id="included-heading" class="font-display text-2xl text-earth sm:text-3xl">
+          What's included?
+        </h2>
+        <ul class="incl-list incl-list--in">
+          {included.map((i) => <li>{i}</li>)}
+        </ul>
+      </div>
+      <div>
+        <h2 class="font-display text-2xl text-earth sm:text-3xl">What to arrange yourself</h2>
+        <ul class="incl-list incl-list--out">
+          {excluded.map((i) => <li>{i}</li>)}
+        </ul>
+      </div>
+    </div>
+  </Section>
+
+  {/* Booking area — live BookingWidget when configured, else a calm "coming soon" + enquiry. */}
+  <Section bg="cream" labelledby="book-heading" space="md" containerClass="!pt-0">
+    <div id="book" class="max-w-3xl">
+      <h2 id="book-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        How do I book?
+      </h2>
+      {
+        bookingEnabled ? (
+          <Fragment>
+            <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+              Choose your start date and group size and pay securely by card. Your booking is
+              confirmed once payment is received, and a tax invoice is issued with your receipt.
+            </p>
+            <div class="mt-8">
+              <BookingWidget />
+            </div>
+          </Fragment>
+        ) : (
+          <div class="booking-placeholder">
+            <p class="font-body leading-relaxed text-charcoal/85">
+              Online booking — check live dates and pay securely by card — is being finalised. In
+              the meantime, email us to enquire about dates and reserve your group.
+            </p>
+            <p class="mt-6">
+              <a href={`mailto:${site.notifyEmail}`} class="btn btn-primary">Enquire about dates</a>
+            </p>
+            <p class="mt-4 font-body text-sm text-charcoal/60">
+              Secure online booking with instant confirmation is coming soon.
+            </p>
+          </div>
+        )
+      }
+    </div>
+  </Section>
+
+  {
+    bookingEnabled && (
+      <Section bg="cream" labelledby="enquire-heading" space="md" containerClass="!pt-0">
+        <div class="max-w-3xl">
+          <h2 id="enquire-heading" class="font-display text-2xl text-earth sm:text-3xl">
+            Prefer to enquire first?
+          </h2>
+          <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+            Send us your details and target dates and we’ll be in touch.
+          </p>
+          <div class="mt-8">
+            <InquiryForm />
+          </div>
+        </div>
+      </Section>
+    )
+  }
+
+  {/* Refund & cancellation policy (Part 9 / draft in policies.ts). Also referenced at checkout. */}
+  <Section bg="cream" labelledby="refund-heading" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <h2 id="refund-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        Cancellations &amp; refunds
+      </h2>
+      <p class="mt-4 font-body leading-relaxed text-charcoal/85">{refundPolicy.intro}</p>
+
+      <table class="policy-table">
+        <caption class="sr-only">Refund schedule by notice given before arrival</caption>
+        <thead>
+          <tr>
+            <th scope="col">Notice before arrival</th>
+            <th scope="col">Refund of total paid</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            refundPolicy.tiers.map((t) => (
+              <tr>
+                <th scope="row">{t.window}</th>
+                <td>{t.refund}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+
+      <dl class="policy-clauses">
+        {
+          refundPolicy.clauses.map((c) => (
+            <div>
+              <dt>{c.heading}</dt>
+              <dd>{c.body}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </Section>
+</Layout>

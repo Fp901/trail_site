@@ -1,0 +1,24 @@
+---
+// RatesTable — Part 7 / 8.5. SA residents vs foreign nationals; strong VAT-inclusive total
+// with the "incl. VAT (15%) & conservation levies" note. Per group, never per person (Part 12).
+import { rates, formatRand, vatPortion } from '../data/rates';
+---
+
+<div class="rates">
+  {
+    rates.map((r) => (
+      <div class:list={['ratecard', r.id === 'local' && 'ratecard--primary']}>
+        <p class="ratecard__label">{r.label}</p>
+        <p class="ratecard__price">
+          {formatRand(r.total)}
+          <span class="ratecard__per">per group</span>
+        </p>
+        <p class="ratecard__incl">
+          incl. VAT (15%) &amp; conservation levies · up to 10 guests
+        </p>
+        <p class="ratecard__note">{r.note}</p>
+        <p class="ratecard__vat">Includes {formatRand(vatPortion(r.total))} VAT.</p>
+      </div>
+    ))
+  }
+</div>

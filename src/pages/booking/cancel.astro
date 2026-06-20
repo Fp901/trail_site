@@ -1,0 +1,46 @@
+---
+// Booking cancel / abandoned checkout (Part 9.2). prerender=false. Releases the hold by marking
+// a still-pending booking cancelled. Resilient when Supabase isn't configured yet.
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import { getSupabaseAdmin } from '../../lib/supabase';
+
+export const prerender = false;
+
+const reference = Astro.url.searchParams.get('reference') ?? Astro.url.searchParams.get('trxref');
+if (reference) {
+  try {
+    const supabase = getSupabaseAdmin();
+    await supabase
+      .from('bookings')
+      .update({ status: 'cancelled', hold_expires_at: null })
+      .eq('processor_reference', reference)
+      .eq('status', 'pending');
+  } catch {
+    // Not configured yet, or already handled — nothing to surface to the user.
+  }
+}
+---
+
+<Layout
+  title="Booking cancelled — The Rooiberg Wander"
+  description="Your Rooiberg Wander booking was not completed."
+  path="/booking/cancel"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="cancel-heading" space="lg">
+    <div class="max-w-2xl">
+      <h1 id="cancel-heading" class="font-display text-4xl text-earth sm:text-5xl">
+        Your booking was not completed
+      </h1>
+      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+        No payment was taken and the dates have been released. You’re welcome to try again
+        whenever you’re ready.
+      </p>
+      <p class="mt-8 flex flex-wrap gap-4">
+        <a href="/rates" class="btn btn-primary">Back to rates &amp; booking</a>
+        <a href="/" class="btn btn-secondary">Return home</a>
+      </p>
+    </div>
+  </Section>
+</Layout>

@@ -1,0 +1,38 @@
+# The Rooiberg Wander — robots.txt (Part 10.6)
+# General crawling allowed; transactional routes kept out of the index.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /booking/
+
+# Explicitly welcome major search + AI crawlers.
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# PLACEHOLDER domain — keep in sync with `site` in astro.config.mjs.
+Sitemap: https://www.rooibergwander.co.za/sitemap-index.xml

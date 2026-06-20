@@ -1,0 +1,79 @@
+---
+// Trail Logistics & FAQ (/logistics) — Part 8.4. Three mandatory blocks (safety emphasised)
+// + visible answer-first Q&A (Part 10.5). FAQPage JSON-LD included (Part 10.4, harmless).
+import { Image } from 'astro:assets';
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+import FaqAccordion from '../components/FaqAccordion.astro';
+import { logisticsBlocks, faqs } from '../data/logistics';
+import { webPageSchema, breadcrumbSchema, faqPageSchema } from '../data/schema';
+import lion from '../assets/images/big5-lion-rooiberg.jpg';
+
+const title = 'Trail Logistics, Safety & FAQ';
+const description =
+  'Self-catered with daily porterage and dedicated camp staff; the Two-Man Rule of two armed wilderness guides; moderate-to-challenging grading; 100% malaria-free.';
+
+const jsonLd = [
+  webPageSchema({ path: '/logistics', name: title, description }),
+  breadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Trail Logistics & FAQ', path: '/logistics' },
+  ]),
+  faqPageSchema(faqs),
+];
+---
+
+<Layout title={title} description={description} path="/logistics" jsonLd={jsonLd}>
+  <Section bg="cream" labelledby="logistics-heading" space="lg">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Before you walk
+      </p>
+      <h1
+        id="logistics-heading"
+        class="mt-4 font-display text-4xl text-earth sm:text-5xl md:text-6xl"
+      >
+        Trail logistics &amp; safety
+      </h1>
+      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
+        How catering, porterage, fitness and safety work on the trail — in a true, 100%
+        malaria-free Big 5 wilderness.
+      </p>
+    </div>
+  </Section>
+
+  <figure class="media-band">
+    <Image
+      src={lion}
+      alt="A male lion resting in the Rooiberg bushveld — a true Big 5 environment walked on foot with two armed guides."
+      widths={[768, 1280, 1920]}
+      sizes="100vw"
+      loading="lazy"
+    />
+  </figure>
+
+  <Section bg="cream" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      {
+        logisticsBlocks.map((b) => (
+          <div class:list={['logblock', b.emphasis && 'logblock--safety']}>
+            <p class="logblock__kicker">{b.kicker}</p>
+            <h2 class="logblock__title">{b.title}</h2>
+            <p class="logblock__body">{b.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </Section>
+
+  <Section bg="cream" labelledby="faq-heading" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <h2 id="faq-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        Frequently asked questions
+      </h2>
+      <div class="mt-8">
+        <FaqAccordion />
+      </div>
+    </div>
+  </Section>
+</Layout>

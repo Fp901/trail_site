@@ -1,0 +1,43 @@
+---
+// Custom 404 (Part 10.1 / 11). On-brand, helpful — links back to the main pages.
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+import { nav, withBase } from '../data/site';
+---
+
+<Layout
+  title="Page not found — The Rooiberg Wander"
+  description="The page you were looking for could not be found."
+  path="/404"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="nf-heading" space="lg">
+    <div class="max-w-2xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        404
+      </p>
+      <h1 id="nf-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl md:text-6xl">
+        You’ve wandered off the trail
+      </h1>
+      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+        The page you were looking for isn’t here. Let’s get you back on the path.
+      </p>
+
+      <ul class="mt-8 flex flex-wrap gap-x-6 gap-y-3 font-body">
+        {
+          nav.map((item) => (
+            <li>
+              <a href={withBase(item.href)} class="nav-link text-earth">
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+
+      <p class="mt-10">
+        <a href={withBase('/')} class="btn btn-primary">Return home</a>
+      </p>
+    </div>
+  </Section>
+</Layout>

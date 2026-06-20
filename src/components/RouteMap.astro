@@ -1,0 +1,90 @@
+---
+// RouteMap — Part 7 / 8.6. Styled STATIC SVG of the conceptual loop. No mapping library,
+// no GPS. role="img" + <title>/<desc> for SR; a visible legend + landmark key carry the
+// text equivalent (good for a11y and LLM extraction). Day colours match the timeline.
+import { routeViewBox, routePins, routeSegments } from '../data/route';
+
+interface Props {
+  class?: string;
+}
+const { class: cls } = Astro.props;
+---
+
+<figure class:list={['routemap', cls]}>
+  <div class="routemap__panel">
+    <svg
+      class="routemap__svg"
+      viewBox={routeViewBox}
+      role="img"
+      aria-labelledby="routemap-title routemap-desc"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <title id="routemap-title">Route map of The Rooiberg Wander</title>
+      <desc id="routemap-desc">
+        A circuitous walking route that begins and ends at Rotavi Lodge. Day 2 climbs from Rotavi
+        Lodge over Groenkop to Oukraal; Day 3 traverses from Oukraal to ViervanAcht via the
+        Welgedacht lookout; Day 4 returns across the plains from ViervanAcht to Rotavi Lodge.
+        Illustrative and not drawn to scale.
+      </desc>
+
+      {
+        routeSegments.map((s) => (
+          <path
+            d={s.path}
+            fill="none"
+            stroke={`var(${s.colorVar})`}
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-dasharray="1 16"
+          />
+        ))
+      }
+
+      {
+        routePins.map((p) => (
+          <g class:list={['routemap__pin', p.isHub && 'routemap__pin--hub']}>
+            <circle cx={p.x} cy={p.y} r={p.isHub ? 11 : 8} />
+            <text x={p.x} y={p.y - 18} text-anchor="middle" class="routemap__pinlabel">
+              {p.name}
+            </text>
+            <text x={p.x} y={p.y + 30} text-anchor="middle" class="routemap__pinrole">
+              {p.role}
+            </text>
+          </g>
+        ))
+      }
+    </svg>
+  </div>
+
+  {/* Legend — day-coloured segments */}
+  <ul class="routemap__legend">
+    {
+      routeSegments.map((s) => (
+        <li class="routemap__legenditem">
+          <span class="routemap__swatch" style={`background: var(${s.colorVar});`} aria-hidden="true" />
+          <span>
+            <strong>Day {s.day}</strong> · {s.from} &rarr; {s.to}
+          </span>
+        </li>
+      ))
+    }
+  </ul>
+
+  {/* Landmark key — text equivalent of the illustrative landmarks per segment */}
+  <div class="routemap__key">
+    {
+      routeSegments.map((s) => (
+        <div class="routemap__keygroup">
+          <p class="routemap__keyhead" style={`color: var(${s.colorVar});`}>
+            Day {s.day}
+          </p>
+          <p class="routemap__keylist">{s.landmarks.join(' · ')}</p>
+        </div>
+      ))
+    }
+  </div>
+
+  <figcaption class="routemap__note">
+    Illustrative route — not to scale or GPS-accurate.
+  </figcaption>
+</figure>

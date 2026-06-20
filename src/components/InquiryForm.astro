@@ -1,0 +1,95 @@
+---
+// InquiryForm (Part 7) — optional "enquire" path. Vanilla-JS island → createInquiry Action.
+// Honeypot + length caps + POPIA note + calm success state. No PII stored on the client.
+---
+
+<form id="inquiry-form" class="bform" novalidate>
+  <div class="bform__grid">
+    <div class="form-field">
+      <label for="iq-name">Your name</label>
+      <input id="iq-name" name="name" type="text" autocomplete="name" maxlength="120" required />
+    </div>
+    <div class="form-field">
+      <label for="iq-email">Email</label>
+      <input id="iq-email" name="email" type="email" autocomplete="email" maxlength="180" required />
+    </div>
+  </div>
+
+  <div class="bform__grid">
+    <div class="form-field">
+      <label for="iq-group">Group size</label>
+      <input id="iq-group" name="groupSize" type="text" maxlength="40" placeholder="e.g. 8 guests" />
+    </div>
+    <div class="form-field">
+      <label for="iq-dates">Target dates</label>
+      <input id="iq-dates" name="targetDates" type="text" maxlength="120" placeholder="e.g. April 2027" />
+    </div>
+  </div>
+
+  <div class="form-field">
+    <label for="iq-message">Message (optional)</label>
+    <textarea id="iq-message" name="message" rows="4" maxlength="2000"></textarea>
+  </div>
+
+  {/* Honeypot */}
+  <div class="hp" aria-hidden="true">
+    <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
+  </div>
+
+  <button type="submit" class="btn btn-primary bform__submit">Send enquiry</button>
+
+  <p class="bform__status" data-status role="status" aria-live="polite"></p>
+
+  <p class="bform__privacy">
+    We use your details only to respond to your enquiry. See our
+    <a href="/privacy">Privacy Policy</a>.
+  </p>
+</form>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initInquiry() {
+    const form = document.getElementById('inquiry-form') as HTMLFormElement | null;
+    if (!form || form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+
+    const status = form.querySelector<HTMLElement>('[data-status]');
+    const submit = form.querySelector<HTMLButtonElement>('.bform__submit');
+    const setStatus = (msg: string, kind: 'error' | 'success' = 'error') => {
+      if (!status) return;
+      status.textContent = msg;
+      status.dataset.kind = kind;
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('', 'success');
+      const fd = new FormData(form);
+      const payload = {
+        name: String(fd.get('name') ?? ''),
+        email: String(fd.get('email') ?? ''),
+        groupSize: (fd.get('groupSize') as string) || undefined,
+        targetDates: (fd.get('targetDates') as string) || undefined,
+        message: (fd.get('message') as string) || undefined,
+        company: (fd.get('company') as string) || undefined,
+      };
+
+      if (submit) submit.disabled = true;
+      const { data, error } = await actions.createInquiry(payload);
+
+      if (error) {
+        setStatus(error.message || 'Something went wrong. Please email us directly.');
+        if (submit) submit.disabled = false;
+        return;
+      }
+      if (data?.ok) {
+        form.reset();
+        setStatus('Thank you — your enquiry is on its way. We’ll be in touch soon.', 'success');
+        if (submit) submit.disabled = false;
+      }
+    });
+  }
+
+  document.addEventListener('astro:page-load', initInquiry);
+</script>

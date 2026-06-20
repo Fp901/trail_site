@@ -1,0 +1,21 @@
+---
+// FaqAccordion — Part 7. Native <details>/<summary> (keyboard + SR friendly out of the box).
+// `name` makes them an exclusive accordion in modern browsers; degrades gracefully otherwise.
+import { faqs } from '../data/logistics';
+---
+
+<div class="faq">
+  {
+    faqs.map((item) => (
+      <details class="faq__item" name="faq">
+        <summary class="faq__q">
+          <span>{item.q}</span>
+          <span class="faq__icon" aria-hidden="true" />
+        </summary>
+        <div class="faq__a">
+          <p>{item.a}</p>
+        </div>
+      </details>
+    ))
+  }
+</div>

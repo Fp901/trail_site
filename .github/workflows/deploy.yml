@@ -1,0 +1,66 @@
+name: Deploy demo to GitHub Pages
+
+# Builds the STATIC marketing demo and publishes it to GitHub Pages.
+# NOTE: GitHub Pages is static-only — the booking backend (Astro Actions, the Paystack webhook,
+# and the SSR booking/confirm + booking/cancel pages) cannot run here and is removed for this
+# build. The Rates page shows its "booking coming soon" state. For live booking, deploy to a
+# server host (Vercel) per README.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Detects whether this is a user/org page (served at /) or a project page (served at
+      # /<repo>) and exposes base_path + origin for a correct Astro `base` / `site`.
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # GitHub Pages cannot run servers — strip the SSR/backend pieces before a static build.
+      - name: Remove server-only code (static host)
+        run: rm -rf src/actions src/pages/api src/pages/booking
+
+      - name: Build static site
+        run: npm run build
+        env:
+          BUILD_TARGET: static
+          PAGES_BASE: ${{ steps.pages.outputs.base_path }}
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,73 @@
+---
+// Primary navigation — Part 5.6 / Part 7. Sticky top bar driven by site.ts.
+// `overHero`: when true (Home), the bar is transparent with light text over the hero
+// and switches to cream/blur + dark text on scroll. When false (interior pages), it is
+// solid cream from the top. The MobileMenu overlay (md:hidden) handles small screens.
+import { nav, site, withBase } from '../data/site';
+import MobileMenu from './MobileMenu.astro';
+
+interface Props {
+  overHero?: boolean;
+}
+const { overHero = false } = Astro.props;
+
+const path = Astro.url.pathname;
+const isActive = (href: string) => {
+  const target = withBase(href);
+  return href === '/' ? path === target : path === target || path.startsWith(target + '/');
+};
+---
+
+<header class="site-header fixed inset-x-0 top-0 z-40" data-over-hero={String(overHero)}>
+  <nav
+    aria-label="Primary"
+    class="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4"
+  >
+    <a href={withBase('/')} class="font-display text-lg font-bold tracking-wide sm:text-xl">
+      {site.name}
+    </a>
+
+    <ul class="hidden items-center gap-8 md:flex">
+      {
+        nav.map((item) => (
+          <li>
+            <a
+              href={withBase(item.href)}
+              class="nav-link font-body text-sm"
+              aria-current={isActive(item.href) ? 'page' : undefined}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <MobileMenu />
+  </nav>
+</header>
+
+<script>
+  // Toggle data-scrolled on the sticky header (cream/blur once scrolled — Part 5.6).
+  // The scroll listener is attached once to window (persists across View Transitions);
+  // setupNav re-syncs the freshly-rendered header on every astro:page-load.
+  function setupNav() {
+    const header = document.querySelector('.site-header');
+    if (!header) return;
+    header.setAttribute('data-scrolled', String(window.scrollY > 8));
+
+    const w = window as unknown as { __navScrollBound?: boolean };
+    if (!w.__navScrollBound) {
+      w.__navScrollBound = true;
+      window.addEventListener(
+        'scroll',
+        () => {
+          const h = document.querySelector('.site-header');
+          if (h) h.setAttribute('data-scrolled', String(window.scrollY > 8));
+        },
+        { passive: true },
+      );
+    }
+  }
+  document.addEventListener('astro:page-load', setupNav);
+</script>

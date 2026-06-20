@@ -1,0 +1,120 @@
+---
+// Mobile menu overlay — Part 5.6. Vanilla-JS Astro component (NOT a framework island):
+// honours the "forbidden: heavy JS frameworks" / near-zero-JS mandate while delivering the
+// full accessible behaviour — full-screen overlay, aria-expanded/-controls, focus-trap,
+// Esc-to-close, scroll-lock, restore-focus, close-on-link.
+import { nav, withBase } from '../data/site';
+---
+
+<button
+  type="button"
+  id="menu-toggle"
+  class="mobile-menu-toggle md:hidden"
+  aria-label="Open menu"
+  aria-expanded="false"
+  aria-controls="mobile-menu"
+>
+  <span class="sr-only">Menu</span>
+  <span class="hamburger" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </span>
+</button>
+
+<div
+  id="mobile-menu"
+  class="mobile-menu md:hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Site menu"
+  hidden
+>
+  <div class="mobile-menu__inner">
+    <button type="button" id="menu-close" class="mobile-menu__close" aria-label="Close menu">
+      <span aria-hidden="true">&times;</span>
+    </button>
+    <nav aria-label="Mobile">
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={withBase(item.href)} class="mobile-menu__link">
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+</div>
+
+<script>
+  function initMobileMenu() {
+    const toggle = document.getElementById('menu-toggle');
+    const menu = document.getElementById('mobile-menu');
+    const closeBtn = document.getElementById('menu-close');
+    if (!toggle || !menu || !closeBtn) return;
+    if (menu.dataset.bound === 'true') return; // avoid double-binding the same element
+    menu.dataset.bound = 'true';
+
+    // Local non-null aliases (const arrow closures below preserve this narrowing).
+    const menuEl = menu;
+    const toggleEl = toggle;
+    const closeEl = closeBtn;
+
+    const focusable = () =>
+      Array.from(menuEl.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'));
+    let lastFocused: HTMLElement | null = null;
+
+    const close = () => {
+      menuEl.classList.remove('is-open');
+      toggleEl.setAttribute('aria-expanded', 'false');
+      toggleEl.setAttribute('aria-label', 'Open menu');
+      document.documentElement.style.overflow = '';
+      document.removeEventListener('keydown', onKeydown);
+      const hide = () => {
+        if (!menuEl.classList.contains('is-open')) menuEl.hidden = true;
+        menuEl.removeEventListener('transitionend', hide);
+      };
+      menuEl.addEventListener('transitionend', hide);
+      window.setTimeout(hide, 300); // fallback if no transitionend (e.g. reduced motion)
+      lastFocused?.focus();
+    };
+
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        close();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const f = focusable();
+        if (f.length === 0) return;
+        const first = f[0];
+        const last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    const open = () => {
+      lastFocused = document.activeElement as HTMLElement;
+      menuEl.hidden = false;
+      requestAnimationFrame(() => menuEl.classList.add('is-open'));
+      toggleEl.setAttribute('aria-expanded', 'true');
+      toggleEl.setAttribute('aria-label', 'Close menu');
+      document.documentElement.style.overflow = 'hidden';
+      focusable()[0]?.focus();
+      document.addEventListener('keydown', onKeydown);
+    };
+
+    toggleEl.addEventListener('click', open);
+    closeEl.addEventListener('click', close);
+    menuEl.querySelectorAll('a').forEach((a) => a.addEventListener('click', close));
+  }
+  document.addEventListener('astro:page-load', initMobileMenu);
+</script>
