@@ -31,6 +31,10 @@ jobs:
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
+        with:
+          # Enable Pages (GitHub Actions build) automatically on the first run, so you don't
+          # have to toggle it in Settings first. Needs the `pages: write` permission (set above).
+          enablement: true
 
       - uses: actions/setup-node@v4
         with:
