@@ -10,6 +10,17 @@ marked done. Dates are the working dates.
 
 ---
 
+## Typography → Fraunces + Inter; hero mobile contrast — 2026-06-20
+- **Fonts:** display face Playfair → **Fraunces** (self-hosted via Fontsource `full.css` = opsz +
+  wght + SOFT + WONK axes); Inter kept for body/UI. Kept self-hosting (project already self-hosts
+  + CLAUDE.md forbids CDN webfonts; user's instruction permitted self-host) — **no Google CDN
+  link**. Updated `@theme` tokens (`--font-display`/`--font-body`); all components already use the
+  tokens. Heading tuning: weight 600, line-height 1.1, letter-spacing -0.015em,
+  `font-optical-sizing: auto`, `font-variation-settings: "SOFT" 25, "WONK" 0`. Body line-height
+  1.55. Tabular figures on prices/stats/day numbers/dates. Removed `@fontsource/playfair-display`.
+- **Hero mobile contrast:** stronger/taller bottom scrim on ≤640px, subtle text-shadow on hero
+  text, and content nudged lower (pb-12 on mobile) so the H1 sits over the darker zone, not the sky.
+
 ## StatsBar divider fix — 2026-06-20
 - StatsBar dividers switched from the `gap:1px` + background trick (which dropped the first
   divider at some widths due to subpixel rounding) to reliable per-item borders.
