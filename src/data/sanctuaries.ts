@@ -30,7 +30,7 @@ export const sanctuaries: Sanctuary[] = [
     name: 'Rotavi Lodge',
     role: 'The Valley Basecamp · Start & End Point',
     description:
-      'Your start and end point: an established, comfortable lodge enveloped by the tranquillity of the lower valley. You arrive here on Day 1 to register and be briefed, leave your vehicle in secure shaded parking, and return on Day 4 to shower, share a final meal and depart.',
+      'Your start and end point. A comfortable, established lodge low in the valley. You arrive on Day 1 to register and get your briefing, leave the car in secure shaded parking, and come back on Day 4 to shower, eat and head home.',
     alt: 'The valley around Rotavi Lodge, the basecamp at the foot of the Rooiberg where the trail begins and ends.',
     accentVar: '--color-ochre',
     image: rotaviImg,
@@ -40,7 +40,7 @@ export const sanctuaries: Sanctuary[] = [
     name: 'Oukraal',
     role: 'The Bush Sanctuary · Night 2',
     description:
-      'Deeply tucked away in the thick bushveld — a miniature natural retreat where the evening sounds of the wild surround you. You reach it on Day 2 after the mountain crossing over Groenkop, with your luggage and provisions already waiting.',
+      'Deep in the thick bushveld, where the evening sounds of the wild are close. You reach it on Day 2 after the crossing over Groenkop, with your luggage and food already there.',
     alt: 'Kudu in the thick green bushveld around Oukraal, the bush sanctuary reached on the second day.',
     accentVar: '--color-green',
     image: oukraalImg,
@@ -50,7 +50,7 @@ export const sanctuaries: Sanctuary[] = [
     name: 'ViervanAcht',
     role: 'The Mountain Sanctuary · Night 3',
     description:
-      'Positioned higher up the ridges with sweeping vistas — the ultimate setting to watch the African sun set behind the mountains. You arrive on Day 3 along the high ridge traverse, by way of the Welgedacht lookout.',
+      'Higher up the ridges, with the long view. This is where you watch the sun drop behind the mountains. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout.',
     alt: 'Giraffes at sunset on the ridges near ViervanAcht, the mountain sanctuary and the third night of the trail.',
     accentVar: '--color-day4',
     image: viervanachtImg,

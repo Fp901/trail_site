@@ -13,21 +13,21 @@ export const logisticsBlocks: LogBlock[] = [
   {
     id: 'catering',
     kicker: 'Catering',
-    title: 'Is the trail catered or self-catered?',
-    body: 'The Rooiberg Wander is a fully self-catered slackpacking trail — you bring your own food and drinks, and we take care of the rest. Your provisions and baggage are transported between camps each day and kept cool and dry, and each sanctuary has dedicated staff to help with kitchen prep, cooking, the braai and the washing-up.',
+    title: 'Self-catered, with help at every camp',
+    body: 'The Rooiberg Wander is fully self-catered. You bring your own food and drinks; we move them. Your provisions and bags travel between camps each day, kept cool and dry, and every sanctuary has staff to help with kitchen prep, cooking, the braai and the washing-up.',
   },
   {
     id: 'safety',
     kicker: 'Safety',
-    title: 'Is it safe in a Big 5 reserve?',
-    body: 'You are accompanied at all times by two qualified, armed wilderness guides — the Two-Man Rule — for safe tracking in a true Big 5 environment. The reserve is also 100% malaria-free.',
+    title: 'Two armed guides, the whole way',
+    body: 'Two qualified, armed wilderness guides are with you at all times. This is the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. The reserve is also 100% malaria-free.',
     emphasis: true,
   },
   {
     id: 'grading',
     kicker: 'Grading & fitness',
-    title: 'How hard is the walking?',
-    body: 'The trail is graded moderate to challenging, with mountain ascents, rocky kloofs and donga terrain across roughly 20 km a day (about 60 km in total). A good level of hiking fitness is required to enjoy it.',
+    title: 'Moderate to challenging',
+    body: 'You cover about 20 km a day, roughly 60 km in total, over mountain ascents, rocky kloofs and donga terrain. You need a good level of hiking fitness.',
   },
 ];
 
@@ -39,11 +39,11 @@ export interface Faq {
 export const faqs: Faq[] = [
   {
     q: 'What is slackpacking?',
-    a: 'Slackpacking is multi-day hiking without a heavy pack: you walk the trail while your luggage and provisions are carried ahead for you. On The Rooiberg Wander, support vehicles move everything between sanctuaries each day — kept cool and dry — so you walk with only a daypack.',
+    a: 'Slackpacking is multi-day hiking without a heavy pack. You walk the trail while your luggage and food are carried ahead. On The Rooiberg Wander, support vehicles move everything between sanctuaries each day, kept cool and dry, so you walk with only a daypack.',
   },
   {
     q: 'Where is the trail and how do I get there?',
-    a: 'The trail is near Rooiberg in Limpopo (the Waterberg), in the Groenkop and Elandsberg mountains — about 2.5 hours by road from Johannesburg. You drive to Rotavi Lodge and leave your vehicle in secure on-site parking for the duration.',
+    a: 'The trail is near Rooiberg in Limpopo (the Waterberg), in the Groenkop and Elandsberg mountains, about 2.5 hours by road from Johannesburg. You drive to Rotavi Lodge and leave your car in secure on-site parking for the trail.',
   },
   {
     q: 'Is the area malaria-free?',
@@ -51,27 +51,27 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How fit do I need to be?',
-    a: 'The trail is graded moderate to challenging — mountain ascents, rocky kloofs and donga terrain over about 20 km a day. A good level of hiking fitness is required.',
+    a: 'The trail is graded moderate to challenging: mountain ascents, rocky kloofs and donga terrain over about 20 km a day. You need a good level of hiking fitness.',
   },
   {
     q: 'How far do you walk each day?',
-    a: 'Roughly 20 km on each of the three walking days — about 60 km in total. There is no walking on the arrival day.',
+    a: 'Roughly 20 km on each of the three walking days, about 60 km in total. There is no walking on the arrival day.',
   },
   {
     q: 'Is a walking safari in a Big 5 reserve safe?',
-    a: 'Yes. You are accompanied at all times by two qualified, armed wilderness guides under the Two-Man Rule — the standard for safe tracking on foot in a Big 5 environment.',
+    a: 'Yes. Two qualified, armed wilderness guides are with you at all times under the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve.',
   },
   {
     q: 'Who carries the luggage and food?',
-    a: 'You do not. Your provisions and baggage are moved between camps daily and kept cool and dry, and dedicated staff at each sanctuary help with kitchen prep, cooking, the braai and the washing-up.',
+    a: 'You do not. Your food and bags are moved between camps daily and kept cool and dry, and staff at each sanctuary help with kitchen prep, cooking, the braai and the washing-up.',
   },
   {
     q: 'What are the camps like?',
-    a: 'Each of the three sanctuaries has a swimming pool, a fully equipped kitchen with refrigeration, braai facilities, safe drinking water and free WiFi — each with its own distinct character.',
+    a: 'Each of the three sanctuaries has a swimming pool, a fully equipped kitchen with a fridge, braai facilities, safe drinking water and free WiFi. Each has its own character.',
   },
   {
     q: 'How big is the group?',
-    a: 'The trail is sold as exclusive use for a single private group of up to 10 guests — you have the trail and camps to yourselves.',
+    a: 'The trail is sold as exclusive use for one private group of up to 10 guests. You have the trail and camps to yourselves.',
   },
 ];
 
@@ -79,26 +79,26 @@ export const faqs: Faq[] = [
 // External links are PLACEHOLDERS until the real URLs are supplied.
 export const provisions = {
   kicker: 'Food & provisions',
-  title: 'Where do I buy food for a self-catered trail?',
+  title: 'Stocking up before you arrive',
   intro:
-    'To make your stay as seamless as possible, you are welcome to pre-order groceries and supplies ahead of arrival. The closest fully-stocked supermarket is Checkers Bela Bela, at the Bela Mall off the N1 — about 80 km from us.',
+    'You are welcome to pre-order groceries and supplies before you arrive. The closest fully-stocked supermarket is Checkers Bela Bela, at the Bela Mall off the N1, about 80 km from us.',
   linkText: 'Checkers Bela Bela store details, hours & location',
   linkUrl: '#', // PLACEHOLDER — add the Checkers Bela Bela store-info URL
   howTo:
-    'For the most efficient service we recommend downloading the Checkers Sixty60 app: order your items in advance and collect at the store on your drive up, or arrange delivery directly through the app.',
+    'We recommend the Checkers Sixty60 app. Order in advance and collect at the store on your drive up, or have it delivered through the app.',
   disclaimer:
-    'All grocery orders, payments, collections and delivery arrangements are strictly a direct transaction between you and Checkers. The Rooiberg Wander takes no responsibility for the accuracy, timing, quality, handling or fulfilment of your orders, and cannot manage or take receipt of third-party orders on your behalf.',
+    'All grocery orders, payments, collections and deliveries are strictly between you and Checkers. The Rooiberg Wander takes no responsibility for the accuracy, timing, quality, handling or fulfilment of your orders, and cannot manage or take receipt of third-party orders on your behalf.',
 };
 
 export const transfers = {
   kicker: 'Transfers & transport',
-  title: 'How do I arrange transfers to the trail?',
+  title: 'Getting here',
   intro:
-    'For guests flying into the region or needing private transport to the trail, we recommend booking your transfers through EZ Shuttle — a reliable local operator familiar with the routes and access points to our location.',
+    'If you are flying in or would rather be driven, we recommend EZ Shuttle, a local operator that knows the routes and access points to us.',
   linkText: 'EZ Shuttle',
   linkUrl: '#', // PLACEHOLDER — add the EZ Shuttle booking URL
   booking:
-    'Please coordinate your pick-up times, vehicle requirements and rates directly with them, in advance of your trip.',
+    'Arrange your pick-up times, vehicle and rates with them directly, before your trip.',
   disclaimer:
-    'All transport arrangements, bookings, payments and itineraries are strictly a direct transaction between you and EZ Shuttle. The Rooiberg Wander operates entirely independently of all transit providers and takes no responsibility for scheduling, delays, vehicle safety, service quality, cancellations, or any incidents occurring during your journey to or from the trail.',
+    'All transport arrangements, bookings, payments and itineraries are strictly between you and EZ Shuttle. The Rooiberg Wander operates independently of all transit providers and takes no responsibility for scheduling, delays, vehicle safety, service quality, cancellations, or any incident on your way to or from the trail.',
 };

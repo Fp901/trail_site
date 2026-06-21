@@ -6,9 +6,9 @@ import SanctuaryCard from '../components/SanctuaryCard.astro';
 import { sanctuaries, sanctuaryAmenities } from '../data/sanctuaries';
 import { webPageSchema, breadcrumbSchema, touristAttractionSchema } from '../data/schema';
 
-const title = 'The Sanctuaries — Three Private Trail Camps';
+const title = 'The Sanctuaries | Three private trail camps';
 const description =
-  'Rotavi Lodge, Oukraal and ViervanAcht — three distinct private sanctuaries with pools, braai, equipped kitchens, safe drinking water and free WiFi, under one premium trail standard.';
+  'Rotavi Lodge, Oukraal and ViervanAcht. Three private camps with pools, braai, equipped kitchens, safe drinking water and free WiFi.';
 
 const jsonLd = [
   webPageSchema({ path: '/sanctuaries', name: title, description }),
@@ -32,12 +32,11 @@ const jsonLd = [
         id="sanctuaries-heading"
         class="mt-4 font-display text-4xl text-earth sm:text-5xl md:text-6xl"
       >
-        Where do you sleep on the trail?
+        Where you sleep each night
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        You sleep at three private sanctuaries — Rotavi Lodge, Oukraal and ViervanAcht. Each has a
-        distinct character, yet all three are held to one premium trail standard, and the whole
-        reserve is yours alone for an exclusive group of up to ten.
+        You sleep at three private sanctuaries: Rotavi Lodge, Oukraal and ViervanAcht. Each has
+        its own character, and the whole reserve is yours alone for one group of up to ten.
       </p>
       <ul class="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-body text-sm font-medium text-earth">
         {

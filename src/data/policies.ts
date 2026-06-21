@@ -30,8 +30,8 @@ export const refundPolicy = {
   // Tiered refund of the total amount paid, by notice given before arrival (Day 1).
   tiers: [
     { window: '60 or more days before arrival', refund: '90% refund (10% administration fee retained)' },
-    { window: '45–59 days before arrival', refund: '50% refund' },
-    { window: '30–44 days before arrival', refund: '25% refund' },
+    { window: '45 to 59 days before arrival', refund: '50% refund' },
+    { window: '30 to 44 days before arrival', refund: '25% refund' },
     { window: 'Fewer than 30 days before arrival, or no-show', refund: 'No refund' },
   ] as RefundTier[],
 
@@ -46,7 +46,7 @@ export const refundPolicy = {
     },
     {
       heading: 'If we cancel or reschedule',
-      body: 'If we have to cancel or move your trail — for reasons including guest or wildlife safety, fire, flood, access, or other circumstances beyond our reasonable control, or because the route is not yet operational for your chosen date — you will be offered a free transfer to an alternative date or a full refund of monies paid to us. We are not liable for any other costs you may incur, such as flights, accommodation, visas or travel insurance.',
+      body: 'If we have to cancel or move your trail, for reasons such as guest or wildlife safety, fire, flood, access, or other circumstances beyond our reasonable control, you will be offered a free transfer to another date or a full refund of monies paid to us. We are not liable for other costs you may incur, such as flights, accommodation, visas or travel insurance.',
     },
     {
       heading: 'Force majeure',

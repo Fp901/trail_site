@@ -16,7 +16,7 @@ export const itinerary: ItineraryDay[] = [
     title: 'Arrival & Briefing',
     distanceKm: null,
     description:
-      'Arrive and register at Rotavi Lodge, the valley basecamp. Park in the shaded, secure on-site parking — your vehicles stay here for the trail. After a full safety and route briefing by your two armed guides, settle into the rhythm of the bush with a relaxed afternoon at the pool and an evening together around the fire.',
+      'Arrive and register at Rotavi Lodge, the valley basecamp. Park in the shaded, secure on-site parking; your vehicles stay here for the whole trail. Your two armed guides run a full safety and route briefing, then the afternoon is yours at the pool, with the evening around the fire.',
   },
   {
     day: 2,
@@ -25,7 +25,7 @@ export const itinerary: ItineraryDay[] = [
     from: 'Rotavi Lodge',
     to: 'Oukraal',
     description:
-      'An early start for the challenging, scenic climb over Groenkop, where 360° views stretch up to 100 km. Pass deep kloofs, massive fig trees and dramatic rock formations on the way to Oukraal, the bush sanctuary — your luggage and evening provisions already waiting on arrival.',
+      'An early start for the climb over Groenkop, where the view opens up to 100 km in every direction. The path passes deep kloofs, massive fig trees and rock formations on the way to Oukraal, the bush sanctuary. Your luggage and evening food are there when you arrive.',
     colorVar: '--color-day2',
   },
   {
@@ -35,7 +35,7 @@ export const itinerary: ItineraryDay[] = [
     from: 'Oukraal',
     to: 'ViervanAcht',
     description:
-      'Ascend the high ridges via the deeply ravined L-Kloof to the pristine Welgedacht lookout, with panoramic views over Marakele. Descend into the historic Welgedacht Donga — carved into the rock by thousands of years of rainstorms — and arrive at ViervanAcht, the mountain sanctuary, for the view, the pool and the campfire.',
+      'Climb the high ridges through the deeply-ravined L-Kloof to the Welgedacht lookout, with views over Marakele. Drop into the Welgedacht Donga, cut into the rock by thousands of years of rainstorms, and reach ViervanAcht, the mountain sanctuary. The view, the pool and the fire are waiting.',
     colorVar: '--color-day3',
   },
   {

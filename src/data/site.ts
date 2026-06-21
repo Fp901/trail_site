@@ -21,7 +21,7 @@ export const site = {
 
   // Sitewide SEO fallback description (pages pass their own per Part 8.8).
   defaultDescription:
-    'A self-catering walking safari in the Waterberg: a 3-night, 3-day slackpacking trail through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo — 2.5 hours from Johannesburg.',
+    'A self-catering walking safari in the Waterberg. A 3-night, 3-day slackpacking trail through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from Johannesburg.',
 
   // Social-card fallback.
   ogImage: '/images/og-default.jpg',
@@ -31,9 +31,9 @@ export const site = {
 export const quickFacts = [
   { label: 'Distance', value: '~20 km/day · ~60 km total over 3 walking days' },
   { label: 'Group size', value: 'Exclusive bookings, up to 10 guests' },
-  { label: 'Catering', value: 'Self-catered — bring your own food & drinks; we move them daily' },
+  { label: 'Catering', value: 'Self-catered. Bring your own food and drinks; we move them daily' },
   { label: 'Guides & safety', value: 'Two qualified, armed wilderness guides at all times' },
-  { label: 'Grading', value: 'Moderate to challenging — a good level of hiking fitness needed' },
+  { label: 'Grading', value: 'Moderate to challenging. You need a good level of hiking fitness' },
   { label: 'Malaria', value: '100% malaria-free' },
   { label: 'Getting there', value: 'About 2.5 hours by road from Johannesburg' },
 ] as const;

@@ -17,7 +17,7 @@ const bookingEnabled = Boolean(
   import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_PAYSTACK_PUBLIC_KEY,
 );
 
-const title = 'Rates & Booking — Book the Trail';
+const title = 'Rates & Booking | The Rooiberg Wander';
 const description =
   'R60,000 per exclusive group of up to 10 (SA residents, incl. VAT & conservation levies); +20% for foreign nationals. See what is included and book.';
 
@@ -30,7 +30,7 @@ const included = [
   'VAT at 15%',
 ];
 const excluded = [
-  'All food and beverages — the trail is self-catered',
+  'All food and beverages (the trail is self-catered)',
   'Travel to and from Rotavi Lodge',
   'Personal travel insurance',
 ];
@@ -44,7 +44,7 @@ const jsonLd = [
   ...rates.map((r) =>
     offerSchema({
       price: r.total,
-      name: `The Rooiberg Wander — ${r.label}`,
+      name: `The Rooiberg Wander: ${r.label}`,
       description: 'Exclusive group of up to 10, incl. VAT and conservation levies.',
     }),
   ),
@@ -58,12 +58,12 @@ const jsonLd = [
         Rates &amp; Booking
       </p>
       <h1 id="rates-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl md:text-6xl">
-        How much does the trail cost?
+        What the trail costs
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        The Rooiberg Wander is priced <strong>per group, not per person</strong> — one flat rate
-        for exclusive use of the whole reserve by up to ten guests, inclusive of VAT and all
-        conservation levies.
+        The Rooiberg Wander is priced <strong>per group, not per person</strong>. One flat rate
+        buys exclusive use of the whole reserve for up to ten guests, with VAT and all
+        conservation levies included.
       </p>
     </div>
   </Section>
@@ -81,7 +81,7 @@ const jsonLd = [
     <div class="grid gap-10 md:grid-cols-2">
       <div>
         <h2 id="included-heading" class="font-display text-2xl text-earth sm:text-3xl">
-          What's included?
+          Included in the price
         </h2>
         <ul class="incl-list incl-list--in">
           {included.map((i) => <li>{i}</li>)}
@@ -100,7 +100,7 @@ const jsonLd = [
   <Section bg="cream" labelledby="book-heading" space="md" containerClass="!pt-0">
     <div id="book" class="max-w-3xl">
       <h2 id="book-heading" class="font-display text-2xl text-earth sm:text-3xl">
-        How do I book?
+        Booking the trail
       </h2>
       {
         bookingEnabled ? (
@@ -116,8 +116,8 @@ const jsonLd = [
         ) : (
           <div class="booking-placeholder">
             <p class="font-body leading-relaxed text-charcoal/85">
-              Online booking — check live dates and pay securely by card — is being finalised. In
-              the meantime, email us to enquire about dates and reserve your group.
+              Online booking is being finalised. For now, email us to check dates and reserve
+              your group.
             </p>
             <p class="mt-6">
               <a href={`mailto:${site.notifyEmail}`} class="btn btn-primary">Enquire about dates</a>
@@ -136,7 +136,7 @@ const jsonLd = [
       <Section bg="cream" labelledby="enquire-heading" space="md" containerClass="!pt-0">
         <div class="max-w-3xl">
           <h2 id="enquire-heading" class="font-display text-2xl text-earth sm:text-3xl">
-            Prefer to enquire first?
+            Enquire first
           </h2>
           <p class="mt-4 font-body leading-relaxed text-charcoal/85">
             Send us your details and target dates and we’ll be in touch.

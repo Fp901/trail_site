@@ -10,6 +10,16 @@ marked done. Dates are the working dates.
 
 ---
 
+## Copy edit: de-dash + de-AI across all user-facing text — 2026-06-21
+- Removed every em-dash/en-dash from visible copy (rephrased, didn't just swap commas);
+  page-title separators changed to "|". Cut AI tells (seamless, "premium trail standard",
+  "Discover", purple phrasing like "enveloped by tranquillity"/"sweeping vistas"/"ultimate
+  setting"). Marketing section headings turned from questions into statements (FAQ keeps real
+  Q&A). Facts/prices/names/structure unchanged. Built HTML + llms.txt verified 0 dashes.
+- Files: data/{site,itinerary,sanctuaries,logistics,policies}.ts; components/{RouteMap,
+  BookingWidget}.astro; pages/{index,the-trail,sanctuaries,logistics,rates,404,privacy,
+  booking/confirm,booking/cancel}.astro; public/llms.txt.
+
 ## Typography → Fraunces + Inter; hero mobile contrast — 2026-06-20
 - **Fonts:** display face Playfair → **Fraunces** (self-hosted via Fontsource `full.css` = opsz +
   wght + SOFT + WONK axes); Inter kept for body/UI. Kept self-hosting (project already self-hosts

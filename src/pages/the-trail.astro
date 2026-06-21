@@ -9,9 +9,9 @@ import RouteMap from '../components/RouteMap.astro';
 import { webPageSchema, breadcrumbSchema, touristTripSchema } from '../data/schema';
 import vista from '../assets/images/rooiberg-bushveld-vista.jpg';
 
-const title = 'The Trail — Day-by-Day Slackpacking Itinerary';
+const title = 'The Trail | Day-by-day slackpacking itinerary';
 const description =
-  'Day by day through the Rooiberg: arrival, then three ~20 km mountain days over Groenkop, the high ridge to ViervanAcht and the open plains. Self-catered, ported, exclusive.';
+  'Day by day through the Rooiberg: arrival, then three ~20 km mountain days over Groenkop, the high ridge to ViervanAcht and the open plains. Self-catered and fully ported.';
 
 const jsonLd = [
   webPageSchema({ path: '/the-trail', name: title, description }),
@@ -33,9 +33,9 @@ const jsonLd = [
         A three-day walking trail through the Rooiberg
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        You do not walk on the arrival day, and you depart straight after the final walk on Day 4.
-        In between lie three walking days of roughly 20 km — a mountain crossing, a high-ridge
-        traverse and a plains return — each moving from one sanctuary to the next while your
+        You do not walk on the arrival day, and you leave straight after the final walk on Day 4.
+        In between are three walking days of roughly 20 km: a mountain crossing, a high-ridge
+        traverse and a plains return. Each day moves from one sanctuary to the next while your
         luggage and provisions travel ahead, kept cool and dry.
       </p>
       <p class="mt-4 font-body text-base leading-relaxed text-charcoal/80">
@@ -57,7 +57,7 @@ const jsonLd = [
 
   <Section bg="cream" labelledby="itinerary-heading" space="md">
     <h2 id="itinerary-heading" class="font-display text-2xl text-earth sm:text-3xl">
-      How does each day unfold?
+      Day by day
     </h2>
     <div class="mt-10 max-w-3xl sm:mt-12">
       <ItineraryTimeline />
@@ -71,7 +71,7 @@ const jsonLd = [
   <Section bg="cream" labelledby="route-heading" space="md">
     <div class="max-w-3xl">
       <h2 id="route-heading" class="font-display text-2xl text-earth sm:text-3xl">
-        Where does the trail go?
+        The route
       </h2>
       <p class="mt-5 font-body text-base leading-relaxed text-charcoal/85">
         The Rooiberg Wander is a circuitous trail that begins and ends at Rotavi Lodge: over
