@@ -50,7 +50,7 @@ export const sanctuaries: Sanctuary[] = [
     name: 'ViervanAcht',
     role: 'The Mountain Sanctuary · Night 3',
     description:
-      'Higher up the ridges, with the long view. This is where you watch the sun drop behind the mountains. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout.',
+      'Higher up the ridges, with distant views. This is where you watch the sun drop behind the mountains. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range.',
     alt: 'Giraffes at sunset on the ridges near ViervanAcht, the mountain sanctuary and the third night of the trail.',
     accentVar: '--color-day4',
     image: viervanachtImg,

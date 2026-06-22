@@ -31,6 +31,18 @@ marked done. Dates are the working dates.
 - **Hero mobile contrast:** stronger/taller bottom scrim on ≤640px, subtle text-shadow on hero
   text, and content nudged lower (pb-12 on mobile) so the H1 sits over the darker zone, not the sky.
 
+## Client copy edits + elevation profiles — 2026-06-22
+- Applied the edited-copy doc (round-tripped by `ref:` codes): terminology (wilderness guides →
+  trail guides; sanctuaries/reserve → safari lodges/trail in several spots; braai → barbeque in
+  a few); distances (Day 2 ~15 km, Day 3 ~20 km, Day 4 ~18 km; ~55 km total); richer Day 2/3
+  wording; foreign-rate note expanded; removed 3 route landmarks. Two small fixes flagged to
+  client (em-dash → comma in Day 2; "pro rated" → "pro-rated"). "The S" teaser title treated as
+  an incomplete edit and left as "The Sanctuaries".
+- **Elevation profiles:** added Day 2/3/4 route height profiles (client PNGs, cropped) into each
+  DayCard with alt text + caption; removed the "coming soon" note.
+- Flagged consistency gaps (distances/terminology still old in some SEO-locked + other spots) for
+  client decision on a full sweep. verify green.
+
 ## StatsBar divider fix — 2026-06-20
 - StatsBar dividers switched from the `gap:1px` + background trick (which dropped the first
   divider at some widths due to subpixel rounding) to reliable per-item borders.

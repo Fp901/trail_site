@@ -33,7 +33,7 @@ export const routeSegments: RouteSegment[] = [
     from: 'Rotavi Lodge',
     to: 'Oukraal',
     path: 'M158 432 Q 228 232 432 120',
-    landmarks: ['Daskop dam', 'Groenkop summit', 'Exit of Groenkop climb', 'Scenic dam'],
+    landmarks: ['Groenkop summit', 'Exit of Groenkop climb', 'Scenic dam'],
   },
   {
     day: 3,
@@ -43,7 +43,6 @@ export const routeSegments: RouteSegment[] = [
     path: 'M432 120 Q 632 162 660 360',
     landmarks: [
       'Entrance to L-Kloof',
-      'Wooden bridge',
       'Kareedam',
       'Welgedacht lookout',
       'Scenic donga',
@@ -59,7 +58,6 @@ export const routeSegments: RouteSegment[] = [
     landmarks: [
       'Scenic riverbed walk',
       'Scenic viewpoint',
-      'Welgedacht donga',
       'Welgedacht plains',
       'Daskop & Daskop dam',
     ],

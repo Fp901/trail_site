@@ -14,20 +14,20 @@ export const logisticsBlocks: LogBlock[] = [
     id: 'catering',
     kicker: 'Catering',
     title: 'Self-catered, with help at every camp',
-    body: 'The Rooiberg Wander is fully self-catered. You bring your own food and drinks; we move them. Your provisions and bags travel between camps each day, kept cool and dry, and every sanctuary has staff to help with kitchen prep, cooking, the braai and the washing-up.',
+    body: 'The Rooiberg Wander is fully self-catered. You bring your own food and drinks; we move them. Your provisions and bags travel between camps each day, kept cool and dry, and every sanctuary has staff to help with kitchen prep, cooking, the barbeque and washing-up.',
   },
   {
     id: 'safety',
     kicker: 'Safety',
     title: 'Two armed guides, the whole way',
-    body: 'Two qualified, armed wilderness guides are with you at all times. This is the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. The reserve is also 100% malaria-free.',
+    body: 'Two qualified, armed trail guides are with you at all times. This is the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. The reserve is also 100% malaria-free.',
     emphasis: true,
   },
   {
     id: 'grading',
     kicker: 'Grading & fitness',
     title: 'Moderate to challenging',
-    body: 'You cover about 20 km a day, roughly 60 km in total, over mountain ascents, rocky kloofs and donga terrain. You need a good level of hiking fitness.',
+    body: 'You cover about 15 to 20 km a day, roughly 55 km in total, over mountain ascents, rocky kloofs and donga terrain. You need a good level of hiking fitness.',
   },
 ];
 
@@ -94,7 +94,7 @@ export const transfers = {
   kicker: 'Transfers & transport',
   title: 'Getting here',
   intro:
-    'If you are flying in or would rather be driven, we recommend EZ Shuttle, a local operator that knows the routes and access points to us.',
+    'If you are flying in or would rather be driven, we recommend EZ Shuttle, a local operator that knows the routes and access points to reach us.',
   linkText: 'EZ Shuttle',
   linkUrl: '#', // PLACEHOLDER — add the EZ Shuttle booking URL
   booking:

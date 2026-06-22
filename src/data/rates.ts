@@ -30,7 +30,7 @@ export const rates: RateCard[] = [
     id: 'international',
     label: 'Foreign Nationals',
     total: TOTAL_INTERNATIONAL, // R72,000
-    note: 'A 20% premium on the resident rate. Exclusive use by up to 10 guests. Includes all conservation levies.',
+    note: 'A 20% premium on the resident rate to cover additional conservation levies. Exclusive use by up to 10 guests. Includes all conservation levies. The Foreign National premium is pro-rated for groups comprising a mix of Foreign Nationals and Residents.',
   },
 ];
 

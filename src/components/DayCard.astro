@@ -1,5 +1,9 @@
 ---
 // DayCard — Part 7. One itinerary day. distanceKm null => "No walking" (Day 1).
+// Walking days may carry an elevation profile image (route height profile).
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
 interface Props {
   day: number;
   title: string;
@@ -8,8 +12,22 @@ interface Props {
   to?: string;
   description: string;
   colorVar?: string;
+  elevation?: ImageMetadata;
+  elevationAlt?: string;
+  elevationCaption?: string;
 }
-const { day, title, distanceKm, from, to, description, colorVar } = Astro.props;
+const {
+  day,
+  title,
+  distanceKm,
+  from,
+  to,
+  description,
+  colorVar,
+  elevation,
+  elevationAlt,
+  elevationCaption,
+} = Astro.props;
 const accent = colorVar ?? '--color-green';
 const noWalking = distanceKm === null;
 ---
@@ -36,5 +54,19 @@ const noWalking = distanceKm === null;
       )
     }
     <p class="daycard__desc">{description}</p>
+    {
+      elevation && (
+        <figure class="daycard__elevation">
+          <Image
+            src={elevation}
+            alt={elevationAlt ?? `Day ${day} elevation profile`}
+            widths={[320, 480, 640]}
+            sizes="(min-width: 640px) 360px, 90vw"
+            loading="lazy"
+          />
+          {elevationCaption && <figcaption>{elevationCaption}</figcaption>}
+        </figure>
+      )
+    }
   </div>
 </li>

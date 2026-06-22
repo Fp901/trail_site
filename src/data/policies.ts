@@ -25,7 +25,7 @@ export const refundPolicy = {
   contactEmail: site.notifyEmail,
 
   intro:
-    'The Rooiberg Wander is booked as exclusive use of the whole reserve for a single private group, with payment made in full at the time of booking. Because each booking reserves the entire reserve, its guides and camp staff for your group alone, cancellations are subject to the schedule below. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
+    'The Rooiberg Wander is booked as exclusive use of the whole trail for a single private group, with payment made in full at the time of booking. Because each booking reserves the entire trail, its guides and camp staff for your group alone, cancellations are subject to the schedule below. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
 
   // Tiered refund of the total amount paid, by notice given before arrival (Day 1).
   tiers: [
