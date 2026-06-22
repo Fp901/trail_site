@@ -19,7 +19,7 @@ export interface Sanctuary {
 export const sanctuaryAmenities = [
   'Swimming pool',
   'Fully equipped kitchen & refrigeration',
-  'Braai facilities',
+  'Barbeque facilities',
   'Safe drinking water',
   'Free WiFi',
 ];
@@ -38,20 +38,20 @@ export const sanctuaries: Sanctuary[] = [
   {
     id: 'oukraal',
     name: 'Oukraal',
-    role: 'The Bush Sanctuary · Night 2',
+    role: 'The Bush Lodge · Night 2',
     description:
       'Deep in the thick bushveld, where the evening sounds of the wild are close. You reach it on Day 2 after the crossing over Groenkop, with your luggage and food already there.',
-    alt: 'Kudu in the thick green bushveld around Oukraal, the bush sanctuary reached on the second day.',
+    alt: 'Kudu in the thick green bushveld around Oukraal, the bush lodge reached on the second day.',
     accentVar: '--color-green',
     image: oukraalImg,
   },
   {
     id: 'viervanacht',
     name: 'ViervanAcht',
-    role: 'The Mountain Sanctuary · Night 3',
+    role: 'The Mountain Lodge · Night 3',
     description:
       'Higher up the ridges, with distant views. This is where you watch the sun drop behind the mountains. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range.',
-    alt: 'Giraffes at sunset on the ridges near ViervanAcht, the mountain sanctuary and the third night of the trail.',
+    alt: 'Giraffes at sunset on the ridges near ViervanAcht, the mountain lodge and the third night of the trail.',
     accentVar: '--color-day4',
     image: viervanachtImg,
   },

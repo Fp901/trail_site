@@ -32,7 +32,7 @@ export const quickFacts = [
   { label: 'Distance', value: '~20 km/day · ~60 km total over 3 walking days' },
   { label: 'Group size', value: 'Exclusive bookings, up to 10 guests' },
   { label: 'Catering', value: 'Self-catered. Bring your own food and drinks; we move them daily' },
-  { label: 'Guides & safety', value: 'Two qualified, armed wilderness guides at all times' },
+  { label: 'Guides & safety', value: 'Two qualified, armed trail guides at all times' },
   { label: 'Grading', value: 'Moderate to challenging. You need a good level of hiking fitness' },
   { label: 'Malaria', value: '100% malaria-free' },
   { label: 'Getting there', value: 'About 2.5 hours by road from Johannesburg' },
@@ -43,7 +43,7 @@ export const quickFacts = [
 export const stats = [
   { value: '3', label: 'Nights' },
   { value: '3', label: 'Days Walking' },
-  { value: '3', label: 'Private Sanctuaries' },
+  { value: '3', label: 'Private Lodges' },
   { value: 'Max 10', label: 'Guests (Exclusive Group Use)' },
 ] as const;
 
@@ -61,7 +61,7 @@ export function withBase(path: string): string {
 export const nav = [
   { label: 'Home', href: '/' },
   { label: 'The Trail', href: '/the-trail' },
-  { label: 'The Sanctuaries', href: '/sanctuaries' },
+  { label: 'The Safari Lodges', href: '/sanctuaries' },
   { label: 'Trail Logistics & FAQ', href: '/logistics' },
   { label: 'Rates & Booking', href: '/rates' },
 ] as const;

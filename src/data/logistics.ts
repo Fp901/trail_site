@@ -14,7 +14,7 @@ export const logisticsBlocks: LogBlock[] = [
     id: 'catering',
     kicker: 'Catering',
     title: 'Self-catered, with help at every camp',
-    body: 'The Rooiberg Wander is fully self-catered. You bring your own food and drinks; we move them. Your provisions and bags travel between camps each day, kept cool and dry, and every sanctuary has staff to help with kitchen prep, cooking, the barbeque and washing-up.',
+    body: 'The Rooiberg Wander is fully self-catered. You bring your own food and drinks; we move them. Your provisions and bags travel between camps each day, kept cool and dry, and every lodge has staff to help with kitchen prep, cooking, the barbeque and washing-up.',
   },
   {
     id: 'safety',
@@ -39,7 +39,7 @@ export interface Faq {
 export const faqs: Faq[] = [
   {
     q: 'What is slackpacking?',
-    a: 'Slackpacking is multi-day hiking without a heavy pack. You walk the trail while your luggage and food are carried ahead. On The Rooiberg Wander, support vehicles move everything between sanctuaries each day, kept cool and dry, so you walk with only a daypack.',
+    a: 'Slackpacking is multi-day hiking without a heavy pack. You walk the trail while your luggage and food are carried ahead. On The Rooiberg Wander, support vehicles move everything between lodges each day, kept cool and dry, so you walk with only a daypack.',
   },
   {
     q: 'Where is the trail and how do I get there?',
@@ -51,23 +51,23 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How fit do I need to be?',
-    a: 'The trail is graded moderate to challenging: mountain ascents, rocky kloofs and donga terrain over about 20 km a day. You need a good level of hiking fitness.',
+    a: 'The trail is graded moderate to challenging: mountain ascents, rocky kloofs and donga terrain over about 15 to 20 km a day. You need a good level of hiking fitness.',
   },
   {
     q: 'How far do you walk each day?',
-    a: 'Roughly 20 km on each of the three walking days, about 60 km in total. There is no walking on the arrival day.',
+    a: 'Between 15 and 20 km on each of the three walking days, about 55 km in total. There is no walking on the arrival day.',
   },
   {
     q: 'Is a walking safari in a Big 5 reserve safe?',
-    a: 'Yes. Two qualified, armed wilderness guides are with you at all times under the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve.',
+    a: 'Yes. Two qualified, armed trail guides are with you at all times under the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve.',
   },
   {
     q: 'Who carries the luggage and food?',
-    a: 'You do not. Your food and bags are moved between camps daily and kept cool and dry, and staff at each sanctuary help with kitchen prep, cooking, the braai and the washing-up.',
+    a: 'You do not. Your food and bags are moved between camps daily and kept cool and dry, and staff at each lodge help with kitchen prep, cooking, the barbeque and the washing-up.',
   },
   {
     q: 'What are the camps like?',
-    a: 'Each of the three sanctuaries has a swimming pool, a fully equipped kitchen with a fridge, braai facilities, safe drinking water and free WiFi. Each has its own character.',
+    a: 'Each of the three lodges has a swimming pool, a fully equipped kitchen with a fridge, barbeque facilities, safe drinking water and free WiFi. Each has its own character.',
   },
   {
     q: 'How big is the group?',

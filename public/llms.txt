@@ -9,24 +9,24 @@
 
 - Format: a circuitous, point-to-point slackpacking trail. You walk while your luggage and
   provisions are moved between camps each day, kept cool and dry. Fully self-catered, with
-  staff at each camp who help with cooking, the braai and cleanup.
+  staff at each camp who help with cooking, the barbeque and cleanup.
 - Duration: 3 nights / 3 days. No walking on the arrival day (Day 1); depart immediately after
   the final walk on Day 4.
-- Walking: three days of roughly 20 km each, about 60 km in total.
+- Walking: three days of 15 to 20 km each, about 55 km in total.
 - Terrain: the Groenkop and Elandsberg mountains, with deep kloofs, riverbeds and open savanna
   plains. Grading: moderate to challenging; a good level of hiking fitness is required.
 - Malaria: 100% malaria-free.
-- Group: exclusive use of the whole reserve and all three sanctuaries for a single private
+- Group: exclusive use of the whole reserve and all three safari lodges for a single private
   group of up to 10 guests.
-- Safety: the Two-Man Rule. Two qualified, armed wilderness guides accompany you at all times.
-- Sanctuaries (each with a swimming pool, equipped kitchen, refrigeration, braai, safe drinking
-  water and free WiFi): Rotavi Lodge (valley basecamp, start & end), Oukraal (bush sanctuary,
-  Night 2), ViervanAcht (mountain sanctuary, Night 3).
+- Safety: the Two-Man Rule. Two qualified, armed trail guides accompany you at all times.
+- Safari lodges (each with a swimming pool, equipped kitchen, refrigeration, barbeque, safe
+  drinking water and free WiFi): Rotavi Lodge (valley basecamp, start & end), Oukraal (bush
+  lodge, Night 2), ViervanAcht (mountain lodge, Night 3).
 - Route: begins and ends at Rotavi Lodge. Over Groenkop to Oukraal (Day 2); up the high ridges
   via L-Kloof to ViervanAcht by way of the Welgedacht lookout, with views over Marakele (Day 3);
   across the plains along the Sand River back to Rotavi Lodge (Day 4).
 - Price (per group, VAT-inclusive): SA residents R60,000; foreign nationals R72,000 (+20%).
-  Includes accommodation, two armed guides, daily baggage and catering transport, camp
+  Includes accommodation, two armed trail guides, daily baggage and catering transport, camp
   assistants and all conservation levies. Excludes all food and beverages (self-catered),
   travel to and from Rotavi Lodge, and personal travel insurance.
 
@@ -34,7 +34,7 @@
 
 - Home: /
 - The Trail (day-by-day itinerary + route map): /the-trail
-- The Sanctuaries (Rotavi Lodge, Oukraal, ViervanAcht): /sanctuaries
+- The Safari Lodges (Rotavi Lodge, Oukraal, ViervanAcht): /sanctuaries
 - Trail Logistics, Safety & FAQ (catering, safety, grading, malaria-free): /logistics
 - Rates & Booking (pricing, what's included, cancellation policy): /rates
 

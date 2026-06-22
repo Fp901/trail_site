@@ -40,8 +40,11 @@ marked done. Dates are the working dates.
   an incomplete edit and left as "The Sanctuaries".
 - **Elevation profiles:** added Day 2/3/4 route height profiles (client PNGs, cropped) into each
   DayCard with alt text + caption; removed the "coming soon" note.
-- Flagged consistency gaps (distances/terminology still old in some SEO-locked + other spots) for
-  client decision on a full sweep. verify green.
+- Flagged consistency gaps for client decision. **Sweep then done per client:** all visible
+  "sanctuary/sanctuaries" → "safari lodges/lodges" (nav + mobile menu label, page meta + breadcrumb,
+  role labels, image alts, FAQs, llms.txt; /sanctuaries URL kept); "wilderness guides" → "trail
+  guides" everywhere; "braai" → "barbeque" everywhere; distances aligned to 15–20 km/day, ~55 km
+  total in all spots (incl. FAQ + meta + schema); teaser logic fixed. verify green.
 
 ## StatsBar divider fix — 2026-06-20
 - StatsBar dividers switched from the `gap:1px` + background trick (which dropped the first

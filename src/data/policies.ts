@@ -58,7 +58,7 @@ export const refundPolicy = {
     },
     {
       heading: 'Safety and conduct',
-      body: 'Because the trail operates in a Big 5 environment, guests must follow all instructions from the armed wilderness guides at all times, including the Two-Man Rule. Guests who place themselves or others at risk, or who materially breach safety instructions, may be removed from the trail without refund.',
+      body: 'Because the trail operates in a Big 5 environment, guests must follow all instructions from the armed trail guides at all times, including the Two-Man Rule. Guests who place themselves or others at risk, or who materially breach safety instructions, may be removed from the trail without refund.',
     },
     {
       heading: 'No-show and unused services',

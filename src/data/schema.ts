@@ -98,7 +98,7 @@ export const touristTripSchema = {
   '@type': 'TouristTrip',
   name: site.name,
   description:
-    'A 3-night, 3-day self-catered slackpacking trail on foot through 15,000 ha of malaria-free Big 5 mountain wilderness near Rooiberg, Limpopo (the Waterberg), about 2.5 hours from Johannesburg. Roughly 20 km a day with daily luggage porterage; exclusive use for up to 10 guests, with two armed wilderness guides at all times.',
+    'A 3-night, 3-day self-catered slackpacking trail on foot through 15,000 ha of malaria-free Big 5 mountain wilderness near Rooiberg, Limpopo (the Waterberg), about 2.5 hours from Johannesburg. Roughly 15 to 20 km a day with daily luggage porterage; exclusive use for up to 10 guests, with two armed trail guides at all times.',
   touristType: ['Slackpacking', 'Walking safari', 'Multi-day hiking trail'],
   provider: { '@id': ORG_ID },
 };

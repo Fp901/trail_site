@@ -34,7 +34,7 @@ export const itinerary: ItineraryDay[] = [
     from: 'Rotavi Lodge',
     to: 'Oukraal',
     description:
-      'Set off early for the rewarding climb over Groenkop. The trail is tough but the payoff is huge: 360° views that reach 100 km. You’ll wind past deep kloofs, towering fig trees, and striking rock formations, all leading to Oukraal, a quiet bush sanctuary where your luggage and dinner supplies are already waiting.',
+      'Set off early for the rewarding climb over Groenkop. The trail is tough but the payoff is huge: 360° views that reach 100 km. You’ll wind past deep kloofs, towering fig trees, and striking rock formations, all leading to Oukraal, a quiet bush lodge where your luggage and dinner supplies are already waiting.',
     colorVar: '--color-day2',
     elevation: elevationDay2,
     elevationAlt:
@@ -48,7 +48,7 @@ export const itinerary: ItineraryDay[] = [
     from: 'Oukraal',
     to: 'ViervanAcht',
     description:
-      'Climb the high ridges through the deeply-ravined Elandsberg L-Kloof to the lookout point with stunning views over the Marakele range. Drop into the Welgedacht Donga, cut into the rock by thousands of years of rainstorms, and reach ViervanAcht, the mountain sanctuary. The view, the pool and the fire are waiting.',
+      'Climb the high ridges through the deeply-ravined Elandsberg L-Kloof to the lookout point with stunning views over the Marakele range. Drop into the Welgedacht Donga, cut into the rock by thousands of years of rainstorms, and reach ViervanAcht, the mountain lodge. The view, the pool and the fire are waiting.',
     colorVar: '--color-day3',
     elevation: elevationDay3,
     elevationAlt:

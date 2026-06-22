@@ -6,15 +6,15 @@ import SanctuaryCard from '../components/SanctuaryCard.astro';
 import { sanctuaries, sanctuaryAmenities } from '../data/sanctuaries';
 import { webPageSchema, breadcrumbSchema, touristAttractionSchema } from '../data/schema';
 
-const title = 'The Sanctuaries | Three private trail camps';
+const title = 'The Safari Lodges | Three private trail lodges';
 const description =
-  'Rotavi Lodge, Oukraal and ViervanAcht. Three private camps with pools, braai, equipped kitchens, safe drinking water and free WiFi.';
+  'Rotavi Lodge, Oukraal and ViervanAcht. Three private safari lodges with pools, barbeque, equipped kitchens, safe drinking water and free WiFi.';
 
 const jsonLd = [
   webPageSchema({ path: '/sanctuaries', name: title, description }),
   breadcrumbSchema([
     { name: 'Home', path: '/' },
-    { name: 'The Sanctuaries', path: '/sanctuaries' },
+    { name: 'The Safari Lodges', path: '/sanctuaries' },
   ]),
   ...sanctuaries.map((s) =>
     touristAttractionSchema({ name: s.name, description: s.description }),
