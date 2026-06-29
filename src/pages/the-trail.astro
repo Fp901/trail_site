@@ -7,6 +7,7 @@ import Section from '../components/Section.astro';
 import ItineraryTimeline from '../components/ItineraryTimeline.astro';
 import RouteMap from '../components/RouteMap.astro';
 import { webPageSchema, breadcrumbSchema, touristTripSchema } from '../data/schema';
+import { wildlifeGroups, birdingHighlights, wildlifeCounts } from '../data/wildlife';
 import vista from '../assets/images/rooiberg-bushveld-vista.jpg';
 
 const title = 'The Trail | Day-by-day slackpacking itinerary';
@@ -77,5 +78,55 @@ const jsonLd = [
       </p>
     </div>
     <RouteMap class="mt-10 sm:mt-12" />
+  </Section>
+
+  {/* Wildlife & birding — GEO answer-first ("what animals will I see"). */}
+  <Section bg="cream" labelledby="wildlife-heading" space="md">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Wildlife &amp; birding
+      </p>
+      <h2 id="wildlife-heading" class="mt-4 font-display text-2xl text-earth sm:text-3xl">
+        What you’ll see on foot
+      </h2>
+      <p class="mt-5 font-body text-base leading-relaxed text-charcoal/85">
+        You walk through a Big 5 reserve that holds more than {wildlifeCounts.mammals} mammal
+        species and over {wildlifeCounts.birds} recorded birds, from lion, leopard, elephant and
+        buffalo to wide-ranging plains game. Tracking is always on foot, with two armed guides.
+      </p>
+    </div>
+
+    <div class="mt-10 grid gap-6 sm:grid-cols-2">
+      {
+        wildlifeGroups.map((g) => (
+          <article class="wildlife-card">
+            <h3 class="wildlife-card__title">{g.title}</h3>
+            <p class="wildlife-card__blurb">{g.blurb}</p>
+            <ul class="wildlife-card__list">
+              {g.species.map((s) => (
+                <li>{s}</li>
+              ))}
+            </ul>
+          </article>
+        ))
+      }
+    </div>
+
+    <div class="mt-6 max-w-3xl">
+      <article class="wildlife-card">
+        <h3 class="wildlife-card__title">Birding highlights</h3>
+        <p class="wildlife-card__blurb">
+          More than {wildlifeCounts.birds} bird species have been recorded on the reserve. A few of
+          the showy, sought-after ones:
+        </p>
+        <ul class="wildlife-card__list wildlife-card__list--wide">
+          {birdingHighlights.map((b) => <li>{b}</li>)}
+        </ul>
+      </article>
+      <p class="mt-5 font-body text-sm italic text-charcoal/75">
+        Full bird, mammal and tree species lists are available on request. Sightings are wild and
+        never guaranteed.
+      </p>
+    </div>
   </Section>
 </Layout>

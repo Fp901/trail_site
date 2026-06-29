@@ -10,6 +10,27 @@ marked done. Dates are the working dates.
 
 ---
 
+## Owner update: contact, max-12, launch offer, wildlife, seasons, kit list — 2026-06-29
+- **Contact (Hanlie):** new email `hanlie@rooibergwander.co.za`; WhatsApp +27 82 905 8832 with
+  click-to-chat; office hours 08h00 to 17h00. Added a header WhatsApp link, a footer contact block,
+  a mobile-menu contact block, and a site-wide floating WhatsApp button. Data in `site.ts.contact`.
+- **Header:** larger brand wordmark + tagline "A Luxury Slackpack Self-Catering Walking Safari".
+- **Max 12 guests** (was 10) swept across copy, RatesTable, BookingWidget, the createCheckout action
+  (`max(12)`), and the DB check constraint (`group_size between 1 and 12`).
+- **Launch offer:** trail launches 1 October 2026 with a 50% Launch-Phase discount. Banner on Home +
+  Rates; RatesTable shows the discounted price (with the standard price struck through). DISPLAY-only
+  for now — server price authority (`lib/pricing.ts`) still computes the full total (flagged).
+- **Wildlife & birding** section on The Trail (built from the owner's "Species on RoiSan.xlsx":
+  168 birds, 66 mammals) — curated groups + birding highlights; full lists "on request".
+- **When to walk** (Waterberg seasons) + **What to pack** (kit list) sections on Logistics.
+- **Lodges:** amenities now include Ice, Wood, Bedding; FAQ "what are the camps like" updated
+  (2-person suites, ice machine, wood). Home "sleep somewhere new" now reads "a camp fire".
+- **Domain:** `public/CNAME` → www.rooibergwander.co.za (primary); removed placeholder comments.
+- Files: data/{site,rates,logistics,sanctuaries,wildlife,schema}.ts; components/{Nav,Footer,
+  MobileMenu,RatesTable,WhatsAppIcon}.astro; layouts/Layout.astro; pages/{index,the-trail,
+  logistics,rates,sanctuaries}.astro; actions/index.ts; styles/global.css; public/{CNAME,llms.txt};
+  supabase/migrations/0001_init.sql. `npm run check` 0 errors; build green.
+
 ## Copy edit: de-dash + de-AI across all user-facing text — 2026-06-21
 - Removed every em-dash/en-dash from visible copy (rephrased, didn't just swap commas);
   page-title separators changed to "|". Cut AI tells (seamless, "premium trail standard",

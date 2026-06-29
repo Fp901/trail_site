@@ -3,20 +3,32 @@
 
 export const site = {
   name: 'The Rooiberg Wander',
+  headerTagline: 'A Luxury Slackpack Self-Catering Walking Safari',
   operator: 'RoiSan Reserve NPC',
   location: 'Rooiberg, Limpopo, South Africa',
   region: 'Waterberg, Limpopo',
   terrainHa: 15000,
   driveFromJoburg: '2.5 hours',
   hook: 'Self-catering walking safari in the Waterberg',
-  maxGuests: 10,
+  maxGuests: 12,
 
-  // Operator notify / enquiries email (PLACEHOLDER domain — confirm before real setup).
-  notifyEmail: 'bookings@placeholder-rooibergwander.co.za',
+  // Enquiries / bookings email.
+  notifyEmail: 'hanlie@rooibergwander.co.za',
+
+  // Contact (shown in header + footer).
+  contact: {
+    name: 'Hanlie',
+    email: 'hanlie@rooibergwander.co.za',
+    phone: '+27 82 905 8832',
+    whatsapp: '27829058832',
+    whatsappUrl:
+      'https://wa.me/27829058832?text=Hi%20Hanlie%2C%20I%27d%20like%20to%20enquire%20about%20The%20Rooiberg%20Wander.',
+    officeHours: '08h00 to 17h00',
+  },
 
   locale: 'en-ZA',
 
-  // PLACEHOLDER production domain — confirm before launch. Must match `site` in astro.config.mjs.
+  // Production domain (primary). Must match `site` in astro.config.mjs.
   url: 'https://www.rooibergwander.co.za',
 
   // Sitewide SEO fallback description (pages pass their own per Part 8.8).
@@ -29,8 +41,8 @@ export const site = {
 
 // Quick facts — Part 8.5 / new brief. Reused on Rates and (some) on the Trail page.
 export const quickFacts = [
-  { label: 'Distance', value: '~20 km/day · ~60 km total over 3 walking days' },
-  { label: 'Group size', value: 'Exclusive bookings, up to 10 guests' },
+  { label: 'Distance', value: '~15–20 km/day · ~55 km total over 3 walking days' },
+  { label: 'Group size', value: 'Exclusive bookings, up to 12 guests' },
   { label: 'Catering', value: 'Self-catered. Bring your own food and drinks; we move them daily' },
   { label: 'Guides & safety', value: 'Two qualified, armed trail guides at all times' },
   { label: 'Grading', value: 'Moderate to challenging. You need a good level of hiking fitness' },
@@ -38,13 +50,12 @@ export const quickFacts = [
   { label: 'Getting there', value: 'About 2.5 hours by road from Johannesburg' },
 ] as const;
 
-// Stats bar — four items, verbatim from Part 7/8 read together as
-// "3 Nights · 3 Days Walking · 3 Private Sanctuaries · Max 10 Guests (Exclusive Group Use)".
+// Stats bar — four items.
 export const stats = [
   { value: '3', label: 'Nights' },
   { value: '3', label: 'Days Walking' },
   { value: '3', label: 'Private Lodges' },
-  { value: 'Max 10', label: 'Guests (Exclusive Group Use)' },
+  { value: 'Max 12', label: 'Guests (Exclusive Group Use)' },
 ] as const;
 
 // Prefix a root-relative path with the configured base (Astro `base`), so internal links work

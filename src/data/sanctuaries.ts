@@ -21,6 +21,9 @@ export const sanctuaryAmenities = [
   'Fully equipped kitchen & refrigeration',
   'Barbeque facilities',
   'Safe drinking water',
+  'Ice',
+  'Wood',
+  'Bedding',
   'Free WiFi',
 ];
 

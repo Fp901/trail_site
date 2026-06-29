@@ -67,11 +67,11 @@ export const faqs: Faq[] = [
   },
   {
     q: 'What are the camps like?',
-    a: 'Each of the three lodges has a swimming pool, a fully equipped kitchen with a fridge, barbeque facilities, safe drinking water and free WiFi. Each has its own character.',
+    a: 'Each of the three lodges accommodates guests in 2 person suites, includes bedding, has a swimming pool, a fully equipped kitchen with a fridge, ice machine, wood, barbeque facilities, safe drinking water and free WiFi. Each has its own character.',
   },
   {
     q: 'How big is the group?',
-    a: 'The trail is sold as exclusive use for one private group of up to 10 guests. You have the trail and camps to yourselves.',
+    a: 'The trail is sold as exclusive use for one private group of up to 12 guests. You have the trail and camps to yourselves.',
   },
 ];
 
@@ -102,3 +102,68 @@ export const transfers = {
   disclaimer:
     'All transport arrangements, bookings, payments and itineraries are strictly between you and EZ Shuttle. The Rooiberg Wander operates independently of all transit providers and takes no responsibility for scheduling, delays, vehicle safety, service quality, cancellations, or any incident on your way to or from the trail.',
 };
+
+// Day-pack kit list. Items grounded in the brief; a full list is sent on booking.
+export const kitList = {
+  kicker: 'What to pack',
+  title: 'What to pack for a slackpacking trail',
+  intro:
+    'You walk with a light daypack while the rest of your luggage travels ahead to the next lodge. Pack for warm days and cool mornings in the Waterberg, in neutral colours for the game areas.',
+  items: [
+    'Walking shoes',
+    'Layered clothing for the Waterberg',
+    'Sun protection',
+    'A daypack',
+    'A water bottle',
+    'A headlamp',
+    'Personal medication',
+    'Neutral colours for the game areas',
+  ],
+  note: 'A full packing list is sent when you book.',
+};
+
+// "When to walk" — the Waterberg seasons (evergreen SEO; client-supplied copy, lightly edited).
+export interface Season {
+  name: string;
+  months: string;
+  lead: string;
+  climate: string;
+  experience: string;
+  pack: string;
+}
+
+export const seasonsIntro =
+  'Because the trail winds through high mountain ridges, deep rocky kloofs and open savanna plains, your walking experience changes with the season. The region is 100% malaria-free year-round, so it is safe to walk in any season.';
+
+export const seasons: Season[] = [
+  {
+    name: 'Autumn & Winter: The Prime Walking Window',
+    months: 'May to August',
+    lead: 'This is widely considered the best season for long-distance wilderness tracking in the Limpopo bushveld.',
+    climate:
+      'Expect crisp mornings, often dropping to a refreshing 3°C to 10°C, that clear into mild, cloudless days averaging around 20°C to 24°C.',
+    experience:
+      'The winter bush is thin, dry and gold, with maximum visibility for tracking wildlife on foot. As surface water dries up, animals gather around the permanent waterholes and river systems, so game viewing is predictable and rewarding.',
+    pack: 'A solid layered clothing system. Bring a warm beanie and a fleece for the early-morning briefings at Rotavi Lodge, then shed layers as the day warms up.',
+  },
+  {
+    name: 'Spring: The Great Awakening',
+    months: 'September to October',
+    lead: 'The shoulder months are a unique, transitional window for seasoned bush walkers.',
+    climate:
+      'Temperatures climb quickly, with midday highs of 28°C to 34°C. The air is dry and the sun is intense.',
+    experience:
+      'This is the peak dry season. The landscape can look stark, but the bush reveals its survival strategies: many indigenous trees flower before the first rains, and wildlife activity around the remaining waterpoints is at its highest.',
+    pack: 'High-factor sun protection, a wide-brimmed hat, and extra water-carrying capacity in your daypack.',
+  },
+  {
+    name: 'Summer: The Green Season',
+    months: 'November to April',
+    lead: 'A spectacular transformation for those who love lush biodiversity, birding and dramatic skies.',
+    climate:
+      'True summer conditions, with midday temperatures often around 30°C to 35°C and high humidity. Late-afternoon thunderstorms are common, bringing dramatic light and quick relief from the heat.',
+    experience:
+      'The green season brings dense vegetation, flowing streams and newborn animals, and the bushveld turns a vivid emerald green. The thick foliage makes tracking large mammals harder, but the birdlife is spectacular as migratory species arrive in their thousands.',
+    pack: 'Lightweight, breathable, moisture-wicking walking clothing and reliable waterproof gear for afternoon showers.',
+  },
+];

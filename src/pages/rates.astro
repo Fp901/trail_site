@@ -6,7 +6,7 @@ import Section from '../components/Section.astro';
 import RatesTable from '../components/RatesTable.astro';
 import BookingWidget from '../components/BookingWidget.astro';
 import InquiryForm from '../components/InquiryForm.astro';
-import { rates } from '../data/rates';
+import { rates, LAUNCH_OFFER, LAUNCH_DATE } from '../data/rates';
 import { refundPolicy } from '../data/policies';
 import { site } from '../data/site';
 import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
@@ -19,10 +19,10 @@ const bookingEnabled = Boolean(
 
 const title = 'Rates & Booking | The Rooiberg Wander';
 const description =
-  'R60,000 per exclusive group of up to 10 (SA residents, incl. VAT & conservation levies); +20% for foreign nationals. See what is included and book.';
+  'R60,000 per exclusive group of up to 12 (SA residents, incl. VAT & conservation levies); +20% for foreign nationals. See what is included and book.';
 
 const included = [
-  'Exclusive use of the reserve and all three safari lodges (up to 10 guests)',
+  'Exclusive use of the reserve and all three safari lodges (up to 12 guests)',
   'Two qualified, armed trail guides throughout',
   'Daily transport of your baggage and provisions between camps',
   'Camp assistants for cleaning, kitchen prep and the barbeque',
@@ -45,7 +45,7 @@ const jsonLd = [
     offerSchema({
       price: r.total,
       name: `The Rooiberg Wander: ${r.label}`,
-      description: 'Exclusive group of up to 10, incl. VAT and conservation levies.',
+      description: 'Exclusive group of up to 12, incl. VAT and conservation levies.',
     }),
   ),
 ];
@@ -62,11 +62,25 @@ const jsonLd = [
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         The Rooiberg Wander is priced <strong>per group, not per person</strong>. One flat rate
-        buys exclusive use of the whole reserve for up to ten guests, with VAT and all
+        buys exclusive use of the whole reserve for up to twelve guests, with VAT and all
         conservation levies included.
       </p>
     </div>
   </Section>
+
+  {
+    LAUNCH_OFFER && (
+      <Section bg="cream" space="md" containerClass="!pt-0">
+        <div class="launch-banner">
+          <p class="launch-banner__eyebrow">Launch offer</p>
+          <p class="launch-banner__lead">
+            The Rooiberg Wander launches on {LAUNCH_DATE}. Book a Launch Phase departure and save
+            <strong> 50%</strong> on the rates below.
+          </p>
+        </div>
+      </Section>
+    )
+  }
 
   <Section bg="cream" labelledby="matrix-heading" space="md" containerClass="!pt-0">
     <h2 id="matrix-heading" class="sr-only">Rates</h2>

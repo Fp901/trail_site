@@ -5,7 +5,15 @@ import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import FaqAccordion from '../components/FaqAccordion.astro';
-import { logisticsBlocks, faqs, provisions, transfers } from '../data/logistics';
+import {
+  logisticsBlocks,
+  faqs,
+  provisions,
+  transfers,
+  kitList,
+  seasons,
+  seasonsIntro,
+} from '../data/logistics';
 import { webPageSchema, breadcrumbSchema, faqPageSchema } from '../data/schema';
 import lion from '../assets/images/big5-lion-rooiberg.jpg';
 
@@ -101,6 +109,53 @@ const jsonLd = [
           <p class="notice__body">{transfers.disclaimer}</p>
         </div>
       </div>
+    </div>
+  </Section>
+
+  {/* What to pack — day-pack kit list (doubles as SEO: "what to pack for a slackpacking trail"). */}
+  <Section bg="cream" space="md" labelledby="pack-heading" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <p class="logblock__kicker">{kitList.kicker}</p>
+      <h2 id="pack-heading" class="logblock__title">{kitList.title}</h2>
+      <p class="logblock__body">{kitList.intro}</p>
+      <ul class="mt-6 grid gap-x-8 gap-y-3 sm:grid-cols-2">
+        {
+          kitList.items.map((item) => (
+            <li class="border-l-2 border-ochre pl-3 font-body text-charcoal/90">{item}</li>
+          ))
+        }
+      </ul>
+      <p class="mt-6 font-body text-sm italic text-charcoal/75">{kitList.note}</p>
+    </div>
+  </Section>
+
+  {/* When to walk — the Waterberg seasons (evergreen SEO). */}
+  <Section bg="cream" space="md" labelledby="seasons-heading" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <p class="logblock__kicker">When to walk</p>
+      <h2 id="seasons-heading" class="logblock__title">
+        When to walk: the seasons of the Rooiberg Wander
+      </h2>
+      <p class="logblock__body">{seasonsIntro}</p>
+    </div>
+    <div class="mt-10 grid gap-6 lg:grid-cols-3">
+      {
+        seasons.map((s) => (
+          <article class="season-card">
+            <p class="season-card__months">{s.months}</p>
+            <h3 class="season-card__name">{s.name}</h3>
+            <p class="season-card__lead">{s.lead}</p>
+            <dl class="season-card__detail">
+              <dt>Climate</dt>
+              <dd>{s.climate}</dd>
+              <dt>The experience</dt>
+              <dd>{s.experience}</dd>
+              <dt>What to pack</dt>
+              <dd>{s.pack}</dd>
+            </dl>
+          </article>
+        ))
+      }
     </div>
   </Section>
 

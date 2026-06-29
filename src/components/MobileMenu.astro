@@ -3,7 +3,8 @@
 // honours the "forbidden: heavy JS frameworks" / near-zero-JS mandate while delivering the
 // full accessible behaviour — full-screen overlay, aria-expanded/-controls, focus-trap,
 // Esc-to-close, scroll-lock, restore-focus, close-on-link.
-import { nav, withBase } from '../data/site';
+import { nav, site, withBase } from '../data/site';
+import WhatsAppIcon from './WhatsAppIcon.astro';
 ---
 
 <button
@@ -45,6 +46,20 @@ import { nav, withBase } from '../data/site';
         }
       </ul>
     </nav>
+
+    <div class="mobile-menu__contact">
+      <a
+        href={site.contact.whatsappUrl}
+        target="_blank"
+        rel="noopener"
+        class="mobile-menu__contact-wa"
+      >
+        <WhatsAppIcon size={20} />
+        WhatsApp {site.contact.name} {site.contact.phone}
+      </a>
+      <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>
+      <span>Office hours {site.contact.officeHours}</span>
+    </div>
   </div>
 </div>
 

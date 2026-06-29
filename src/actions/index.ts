@@ -25,7 +25,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
-      groupSize: z.number().int().min(1).max(10),
+      groupSize: z.number().int().min(1).max(12),
       residency: z.enum(['local', 'international']),
       leadName: z.string().trim().min(1).max(120),
       leadEmail: z.string().trim().email().max(180),

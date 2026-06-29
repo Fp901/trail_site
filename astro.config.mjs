@@ -10,8 +10,9 @@ import vercel from '@astrojs/vercel';
 //     by the Pages workflow (GitHub Pages cannot run servers). See README "Deploying".
 const isStatic = process.env.BUILD_TARGET === 'static';
 
-// For GitHub Pages project sites the app is served from a subpath, e.g. /my-repo.
-// The workflow passes PAGES_BASE and SITE_URL; defaults keep root + the placeholder domain.
+// On the custom domain (www.rooibergwander.co.za) the site is served from the root, so base is
+// undefined. For a GitHub Pages *project* subpath (e.g. /trail_site, before the domain is wired)
+// the workflow passes PAGES_BASE/SITE_URL from configure-pages, which read the configured domain.
 const base = process.env.PAGES_BASE || undefined;
 const site = process.env.SITE_URL || 'https://www.rooibergwander.co.za';
 

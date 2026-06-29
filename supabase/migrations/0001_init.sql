@@ -10,7 +10,7 @@ create table if not exists public.bookings (
   created_at          timestamptz not null default now(),
   start_date          date not null,                 -- Day 1 (arrival)
   end_date            date not null,                 -- Day 4 (departure)
-  group_size          int  not null check (group_size between 1 and 10),
+  group_size          int  not null check (group_size between 1 and 12),
   residency           text not null check (residency in ('local','international')),
   lead_name           text not null,
   lead_email          text not null,
