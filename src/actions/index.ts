@@ -34,6 +34,16 @@ export const server = {
     handler: async (input) => {
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
 
+      // Booking window: from today up to 365 days ahead, inclusive (server-authoritative).
+      // ISO YYYY-MM-DD strings compare lexicographically, so plain string comparison is safe here.
+      const today = new Date().toISOString().slice(0, 10);
+      if (input.startDate < today || input.startDate > addDays(today, 365)) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: 'Choose a start date from today up to 12 months (365 days) ahead.',
+        });
+      }
+
       // SERVER is the price authority (Part 11.4).
       const quote = computeQuote({ residency: input.residency, groupSize: input.groupSize });
 

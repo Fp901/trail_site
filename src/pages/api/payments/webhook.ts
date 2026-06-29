@@ -42,8 +42,44 @@ export const POST: APIRoute = async ({ request }) => {
     .eq('processor_reference', reference)
     .single();
 
-  // Idempotent: only act while still pending.
-  if (booking && booking.status === 'pending') {
+  // Paid-but-unbookable alerting (interim, until we have an audit log). The payment HAS succeeded
+  // here, so silently returning 200 would lose money with no record. We log + email the operator
+  // for manual confirm/refund via the Paystack dashboard, then 200 so Paystack does not retry.
+  const notify = import.meta.env.BOOKINGS_NOTIFY_TO ?? site.notifyEmail;
+  const at = new Date().toISOString();
+  const alertManualReview = async (subject: string, bookingId?: string) => {
+    try {
+      await sendEmail({
+        to: notify,
+        subject,
+        html: `<p>A Paystack payment succeeded but the booking could not be confirmed automatically.
+Please confirm or refund this transaction manually from the Paystack dashboard.</p>
+<ul>
+<li><strong>Paystack reference:</strong> ${reference}</li>
+<li><strong>Amount paid:</strong> R${(verify.amountCents / 100).toLocaleString('en-US')} (${verify.amountCents} cents)</li>
+${bookingId ? `<li><strong>Booking ID:</strong> ${bookingId}</li>` : ''}
+<li><strong>Time:</strong> ${at}</li>
+</ul>`,
+      });
+    } catch {
+      // Best-effort: the console.error above is the durable record if the alert email fails.
+    }
+  };
+
+  // Payment succeeded but no booking row exists for this reference.
+  if (!booking) {
+    console.error('[webhook] MANUAL REVIEW — payment received but booking reference not found', {
+      reference,
+      transactionId: verify.transactionId,
+      amountCents: verify.amountCents,
+      at,
+    });
+    await alertManualReview('ACTION REQUIRED: payment received but booking reference not found');
+    return new Response('manual-review: reference not found', { status: 200 });
+  }
+
+  // Happy path — confirm a still-pending booking. Idempotent: only acts while pending.
+  if (booking.status === 'pending') {
     if (verify.amountCents !== booking.amount_due_cents) {
       // Amount mismatch — do not confirm; flag for manual review.
       console.error('[webhook] amount mismatch for booking', booking.id);
@@ -84,7 +120,23 @@ export const POST: APIRoute = async ({ request }) => {
     } catch {
       /* ignore */
     }
+
+    return new Response('ok', { status: 200 });
   }
 
+  // Payment succeeded but the hold had already been cancelled/swept (paid-but-cancelled race).
+  // Money is taken with no active hold — alert for manual confirm or refund.
+  if (booking.status === 'cancelled') {
+    console.error('[webhook] MANUAL REVIEW — payment received but booking hold expired/cancelled', {
+      reference,
+      bookingId: booking.id,
+      amountCents: verify.amountCents,
+      at,
+    });
+    await alertManualReview('ACTION REQUIRED: payment received but booking hold expired', booking.id);
+    return new Response('manual-review: booking hold expired', { status: 200 });
+  }
+
+  // Anything else (e.g. already 'confirmed') — idempotent replay, nothing to do.
   return new Response('ok', { status: 200 });
 };

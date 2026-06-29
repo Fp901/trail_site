@@ -92,8 +92,15 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
       international: form.dataset.totalInternational ?? '',
     };
 
-    // Min start date = today (set at view time, not build time).
-    if (startInput) startInput.min = new Date().toISOString().slice(0, 10);
+    // Booking window = today up to 365 days ahead (set at view time, not build time). The server
+    // re-validates this; the min/max just keep the native date picker inside the allowed range.
+    if (startInput) {
+      const now = new Date();
+      startInput.min = now.toISOString().slice(0, 10);
+      const max = new Date(now);
+      max.setUTCDate(max.getUTCDate() + 365);
+      startInput.max = max.toISOString().slice(0, 10);
+    }
 
     const updateEstimate = () => {
       const residency =

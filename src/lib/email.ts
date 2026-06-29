@@ -11,7 +11,7 @@ const stripHeader = (v: string) => v.replace(/[\r\n]+/g, ' ').trim();
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
   const key = import.meta.env.EMAIL_API_KEY;
-  const from = import.meta.env.EMAIL_FROM ?? 'The Rooiberg Wander <bookings@example.com>';
+  const from = import.meta.env.EMAIL_FROM ?? 'The Rooiberg Wander <hanlie@rooibergwander.co.za>';
   if (!key) {
     if (import.meta.env.DEV) {
       console.warn('[email] EMAIL_API_KEY not set — skipping send to', stripHeader(msg.to));

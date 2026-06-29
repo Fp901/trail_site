@@ -276,7 +276,7 @@ Reusable, typed (TS interfaces). Treatment per Part 5.
 
 Source of truth for the website = the 13 June memo. Reproduce given strings **verbatim**. Bulk data lives typed in `src/data/*.ts`.
 
-**Global strings (`site.ts`):** name "The Rooiberg Wander"; operator "RoiSan Reserve NPC"; location "RoiSan Reserve, Limpopo Waterberg, South Africa"; terrain ~8,000 ha; hook **"Bring your own flavor; we take care of the rest."**; max 10 guests; operator notify email `bookings@placeholder-roobergwander.co.za` *(verbatim from brief — note brand is "Rooiberg" but placeholder reads "rooberg"; confirm before real setup; do not silently "fix")*.
+**Global strings (`site.ts`):** name "The Rooiberg Wander"; operator "RoiSan Reserve NPC"; location "RoiSan Reserve, Limpopo Waterberg, South Africa"; terrain ~8,000 ha; hook **"Bring your own flavor; we take care of the rest."**; max 10 guests; operator notify email `hanlie@rooibergwander.co.za` *(corrected from original brief)*.
 **Nav:** Home · The Trail · The Sanctuaries · Trail Logistics &amp; FAQ · Rates &amp; Booking.
 
 ### 8.1 Home (`/`)
@@ -506,7 +506,7 @@ Validate type/format + length-cap every field (server-side is authoritative; cli
 ## Part 12 — Content fidelity guardrails
 - Use the exact strings in Part 8 for hook, stats, itinerary, rates, and safety copy.
 - Hook: **"Bring your own flavor; we take care of the rest."**
-- Operator-notify placeholder email: `bookings@placeholder-roobergwander.co.za` — ⚠️ brand is "Rooiberg" but placeholder reads "rooberg"; verbatim from brief; **confirm before real setup; don't silently "fix"**.
+- Operator-notify email: `hanlie@rooibergwander.co.za` — corrected from original brief.
 - Standardise **VierVanAcht** (website-brief form) over the business plan's "ViervanAcht".
 - **VAT (operator decision):** the entity is VAT-registered and consumer prices are displayed **VAT-inclusive** at 15% (R62,100 local / R74,520 international). This **supersedes the brief's "excl. VAT" display wording**; R54,000 is retained as the ex-VAT net base. Confirmation receipts must be valid tax invoices (VAT number, VAT shown).
 - Never surface internal-only data: the R60k figure, owner profit splits, staffing/salaries, conservation-levy projections, named individuals from the business plan.
@@ -536,7 +536,7 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 7. **INP target mismatch** (200ms vs 150ms). **Resolved:** official ≤ 200ms; **internal target < 150ms**, alert > 160ms (Part 10.3).
 8. **Fonts** ("avoid Inter" vs Inter for body). **Resolved:** "avoid Inter" applies to the **hero/display** face only; **Inter is the body face** (Parts 2, 5.2, 5.3).
 9. **Sanctuary spelling** (VierVanAcht vs ViervanAcht). **Resolved:** standardise **VierVanAcht** everywhere (Parts 8.3, 12).
-10. **Placeholder email spelling** ("rooberg" vs "Rooiberg"). **Not silently changed** — reproduced verbatim, flagged for client confirmation (Parts 8, 12).
+10. **Placeholder email spelling.** The original brief's misspelled placeholder has been corrected to `hanlie@rooibergwander.co.za` (corrected from original brief; Parts 8, 12).
 11. **"Conceptual route" vs taking real bookings.** **Flagged:** bookings can be taken for future dates; the route-status notice stays. Whether to open live availability while the route is conceptual is a **product decision** (Part 14).
 12. **Privacy stance** ("form data not stored" → bookings stored). **Resolved:** explicit POPIA program — minimisation, consent, retention, processors, region, Privacy page (Part 11.7).
 13. **Payment provider: Stripe → Paystack (this revision).** The prior draft used Stripe, but Stripe does **not** natively onboard South-Africa-registered businesses in 2026 (SA access only via its Paystack network). **Resolved:** switched to **Paystack** (Stripe-owned; SA's leading developer-first gateway; onboards SA businesses, ~1–3 day verification). This **also resolves** the earlier go-live blocker. The integration is **processor-abstracted** (`lib/payments.ts`) so PayFast (most ubiquitous SA gateway, widest local methods incl. Instant EFT), Peach Payments (enterprise/recurring), or Adumo/Lesaka (largest SA acquirer) can be swapped in. Changed throughout: stack (Part 2), commands (Part 3, dropped the Stripe SDK — Paystack via `fetch`), structure (`lib/payments.ts`, Part 4), booking flow (Part 9: initialize transaction → hosted `authorization_url` → webhook `x-paystack-signature` HMAC-SHA512 + Verify Transaction), security (Part 11.2/11.4/11.6), env (`PAYSTACK_SECRET_KEY`/`PUBLIC_PAYSTACK_PUBLIC_KEY`; no separate webhook secret), and the DB columns (`processor`/`processor_reference`/`processor_txn_id`, default `paystack`).

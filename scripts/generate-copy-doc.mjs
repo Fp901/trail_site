@@ -32,7 +32,7 @@ const PAGES = [
       { tag: 'p', what: 'Footer — location', ref: 'global.footer.location',
         text: 'Rooiberg, Limpopo, South Africa' },
       { tag: 'a', what: 'Footer — contact email', ref: 'global.footer.email', fact: true,
-        text: 'bookings@placeholder-rooibergwander.co.za  (placeholder — real address still to be set)' },
+        text: 'hanlie@rooibergwander.co.za' },
       { tag: 'p', what: 'Footer — copyright', ref: 'global.footer.copyright',
         text: '© [current year] RoiSan Reserve NPC. All rights reserved.' },
     ],

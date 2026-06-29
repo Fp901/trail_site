@@ -9,8 +9,9 @@ export const INTERNATIONAL_PREMIUM = 0.2; // +20% for foreign nationals
 export const TOTAL_INTERNATIONAL = TOTAL_LOCAL * (1 + INTERNATIONAL_PREMIUM); // 72,000
 
 // Launch offer — the trail launches on this date, with a 50% discount during the Launch Phase.
-// NOTE: this is a DISPLAY discount. The server price authority (lib/pricing.ts) still computes the
-// full standard total; wire the launch discount into the server flow before online booking goes live.
+// LAUNCH_DISCOUNT is the single source of truth for the discount rate: it drives BOTH the display
+// here AND the real amount charged server-side (lib/pricing.ts applies it in computeQuote, gated by
+// LAUNCH_DISCOUNT_END). Keep the two in sync via this constant.
 export const LAUNCH_DATE = '1 October 2026';
 export const LAUNCH_OFFER = true;
 export const LAUNCH_DISCOUNT = 0.5; // 50% off
