@@ -58,6 +58,7 @@ export default defineConfig({
       filter: (page) =>
         !page.includes('/api/') &&
         !page.includes('/booking/') &&
+        !page.includes('/pretrip') &&
         !page.includes('/privacy'),
     }),
   ],

@@ -1,0 +1,194 @@
+---
+// PretripForm — post-payment "further information" form. Vanilla-JS island (mirrors BookingWidget).
+// Collects the comprehensive guest manifest + trip details (NO dietary — the trail is self-catered)
+// and submits via the typed submitPretrip Action, which records submitted_at and stops reminders.
+interface Props {
+  token: string;
+  groupSize: number;
+  leadName: string;
+  alreadySubmitted: boolean;
+}
+const { token, groupSize, leadName, alreadySubmitted } = Astro.props;
+const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
+---
+
+<form id="pretrip-form" class="bform" data-token={token} novalidate>
+  {
+    alreadySubmitted && (
+      <p class="pretrip-note">
+        We’ve already received your details — you can update anything below and resubmit.
+      </p>
+    )
+  }
+
+  <fieldset class="pretrip-section">
+    <legend>Guest manifest ({groupSize} {groupSize === 1 ? 'guest' : 'guests'})</legend>
+    <p class="pretrip-hint">
+      Full names and ID/passport numbers are required for reserve access in a Big 5 area.
+    </p>
+    {
+      guests.map((n) => (
+        <div class="pretrip-guest" data-guest>
+          <p class="pretrip-guest__num">Guest {n}{n === 1 ? ' · lead' : ''}</p>
+          <div class="bform__grid">
+            <div class="form-field">
+              <label>Full name
+                <input data-g-name type="text" maxlength="120" value={n === 1 ? leadName : ''} autocomplete="off" />
+              </label>
+            </div>
+            <div class="form-field">
+              <label>ID / passport number
+                <input data-g-id type="text" maxlength="60" autocomplete="off" />
+              </label>
+            </div>
+          </div>
+          <div class="bform__grid">
+            <div class="form-field">
+              <label>Emergency contact name
+                <input data-g-ec-name type="text" maxlength="120" autocomplete="off" />
+              </label>
+            </div>
+            <div class="form-field">
+              <label>Emergency contact phone
+                <input data-g-ec-phone type="tel" maxlength="40" autocomplete="off" />
+              </label>
+            </div>
+          </div>
+        </div>
+      ))
+    }
+  </fieldset>
+
+  <div class="form-field">
+    <label for="pt-phone">Lead contact phone</label>
+    <input id="pt-phone" type="tel" maxlength="40" autocomplete="tel" />
+  </div>
+
+  <div class="form-field">
+    <label for="pt-medical">Medical conditions, injuries, allergies or fitness limitations the guides should know</label>
+    <textarea id="pt-medical" rows="3" maxlength="3000"></textarea>
+  </div>
+
+  <div class="form-field">
+    <label for="pt-vehicle">Vehicle make/model &amp; registration(s) for secure parking at Rotavi Lodge</label>
+    <textarea id="pt-vehicle" rows="2" maxlength="500"></textarea>
+  </div>
+
+  <div class="form-field">
+    <label for="pt-arrival">Estimated arrival time on Day 1</label>
+    <input id="pt-arrival" type="time" />
+  </div>
+
+  <div class="form-field">
+    <label for="pt-requests">Anything else / special requests</label>
+    <textarea id="pt-requests" rows="3" maxlength="3000"></textarea>
+  </div>
+
+  <label class="pretrip-check">
+    <input type="checkbox" id="pt-selfcater" />
+    <span>I understand the trail is fully self-catered: each group brings their own food and drinks. Each lodge has a kitchen, fridge, braai facilities, safe drinking water, ice and wood.</span>
+  </label>
+
+  <label class="pretrip-check">
+    <input type="checkbox" id="pt-indemnity" required />
+    <span>
+      I confirm every guest accepts the trail indemnity and understands the inherent risks of a
+      guided Big 5 walking trail on foot. <em>[Indemnity wording to be supplied by the operator.]</em>
+    </span>
+  </label>
+
+  {/* Honeypot */}
+  <div class="hp" aria-hidden="true">
+    <label>Company<input data-hp tabindex="-1" autocomplete="off" /></label>
+  </div>
+
+  <button type="submit" class="btn btn-primary bform__submit">Submit pre-trip details</button>
+  <p class="bform__status" data-status role="status" aria-live="polite"></p>
+</form>
+
+<div class="pretrip-success" data-success hidden>
+  <p class="pretrip-success__title">Thank you — your details are in.</p>
+  <p>We have everything we need to prepare for your trail. See you in the Rooiberg.</p>
+</div>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initPretrip() {
+    const form = document.getElementById('pretrip-form') as HTMLFormElement | null;
+    if (!form || form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+
+    const status = form.querySelector<HTMLElement>('[data-status]');
+    const submit = form.querySelector<HTMLButtonElement>('.bform__submit');
+    const success = document.querySelector<HTMLElement>('[data-success]');
+
+    const val = (sel: string) =>
+      (form.querySelector<HTMLInputElement | HTMLTextAreaElement>(sel)?.value ?? '').trim();
+    const setStatus = (msg: string) => {
+      if (status) {
+        status.textContent = msg;
+        status.dataset.kind = 'error';
+      }
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('');
+
+      const guests = Array.from(form.querySelectorAll<HTMLElement>('[data-guest]')).map((row) => ({
+        name: (row.querySelector<HTMLInputElement>('[data-g-name]')?.value ?? '').trim(),
+        idNumber: (row.querySelector<HTMLInputElement>('[data-g-id]')?.value ?? '').trim(),
+        emergencyName: (row.querySelector<HTMLInputElement>('[data-g-ec-name]')?.value ?? '').trim(),
+        emergencyPhone: (row.querySelector<HTMLInputElement>('[data-g-ec-phone]')?.value ?? '').trim(),
+      }));
+
+      const indemnity = form.querySelector<HTMLInputElement>('#pt-indemnity')?.checked ?? false;
+      if (!guests[0]?.name) {
+        setStatus('Please enter at least the lead guest’s name.');
+        return;
+      }
+      if (!indemnity) {
+        setStatus('Please accept the trail indemnity to continue.');
+        return;
+      }
+
+      const payload = {
+        token: form.dataset.token ?? '',
+        leadPhone: val('#pt-phone'),
+        guests,
+        medicalNotes: val('#pt-medical'),
+        vehicleReg: val('#pt-vehicle'),
+        arrivalTime: val('#pt-arrival'),
+        specialRequests: val('#pt-requests'),
+        indemnityAccepted: indemnity,
+        selfCateringAck: form.querySelector<HTMLInputElement>('#pt-selfcater')?.checked ?? false,
+        company: (form.querySelector<HTMLInputElement>('[data-hp]')?.value || undefined) as
+          | string
+          | undefined,
+      };
+
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = 'Saving…';
+      }
+
+      const { error } = await actions.submitPretrip(payload);
+
+      if (error) {
+        setStatus(error.message || 'Something went wrong. Please try again.');
+        if (submit) {
+          submit.disabled = false;
+          submit.textContent = 'Submit pre-trip details';
+        }
+        return;
+      }
+
+      form.hidden = true;
+      if (success) success.hidden = false;
+      success?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+
+  document.addEventListener('astro:page-load', initPretrip);
+</script>

@@ -5,18 +5,33 @@
 import Layout from '../../layouts/Layout.astro';
 import Section from '../../components/Section.astro';
 import { payments } from '../../lib/payments';
+import { getSupabaseAdmin } from '../../lib/supabase';
+import { withBase } from '../../data/site';
 
 export const prerender = false;
 
 const reference = Astro.url.searchParams.get('reference') ?? Astro.url.searchParams.get('trxref');
 
 let state: 'success' | 'pending' | 'error' = 'pending';
+let pretripToken: string | null = null;
 if (reference) {
   try {
     const result = await payments.verifyTransaction(reference);
     state = result.status === 'success' ? 'success' : 'pending';
   } catch {
     state = 'error';
+  }
+  // Fetch the booking's pre-trip token so we can send the guest straight to the details form.
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data } = await supabase
+      .from('bookings')
+      .select('pretrip_token')
+      .eq('processor_reference', reference)
+      .maybeSingle();
+    pretripToken = data?.pretrip_token ?? null;
+  } catch {
+    pretripToken = null;
   }
 }
 
@@ -38,11 +53,27 @@ const heading =
 
       {
         state === 'success' && (
-          <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
-            Thank you. Your payment was received and your exclusive booking is secured. A
-            confirmation email and tax invoice are on their way. We look forward to welcoming
-            your group to the Rooiberg.
-          </p>
+          <Fragment>
+            <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+              Thank you. Your payment was received and your exclusive booking is secured. A
+              confirmation email and tax invoice are on their way. We look forward to welcoming
+              your group to the Rooiberg.
+            </p>
+            {pretripToken && (
+              <div class="mt-8 rounded-2xl border border-ochre/50 bg-ochre/10 p-6">
+                <p class="font-display text-xl text-earth">One more step: your pre-trip details</p>
+                <p class="mt-2 font-body leading-relaxed text-charcoal/85">
+                  Please complete a few details for your group within 72 hours so we can prepare for
+                  your trail.
+                </p>
+                <p class="mt-4">
+                  <a href={withBase(`/pretrip/${pretripToken}`)} class="btn btn-primary">
+                    Complete your pre-trip details
+                  </a>
+                </p>
+              </div>
+            )}
+          </Fragment>
         )
       }
       {

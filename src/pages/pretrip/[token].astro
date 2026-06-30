@@ -1,0 +1,87 @@
+---
+// Pre-trip details page (/pretrip/<token>). prerender=false — looks the booking up by its
+// unguessable pretrip_token (server-side, service-role) and renders the "further information" form.
+// noindex; excluded from the sitemap. The static GH Pages build strips this route (no SSR there).
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import PretripForm from '../../components/PretripForm.astro';
+import { getSupabaseAdmin } from '../../lib/supabase';
+
+export const prerender = false;
+
+const { token } = Astro.params;
+const isUuid = !!token && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+
+let booking: { id: string; lead_name: string; start_date: string; group_size: number } | null = null;
+let alreadySubmitted = false;
+
+if (isUuid) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data } = await supabase
+      .from('bookings')
+      .select('id, lead_name, start_date, group_size')
+      .eq('pretrip_token', token)
+      .single();
+    booking = data ?? null;
+    if (booking) {
+      const { data: pt } = await supabase
+        .from('pretrip_details')
+        .select('submitted_at')
+        .eq('booking_id', booking.id)
+        .maybeSingle();
+      alreadySubmitted = !!pt?.submitted_at;
+    }
+  } catch {
+    booking = null;
+  }
+}
+---
+
+<Layout
+  title="Pre-trip details | The Rooiberg Wander"
+  description="Complete your pre-trip details for The Rooiberg Wander."
+  path="/pretrip"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="pretrip-heading" space="lg">
+    {
+      booking ? (
+        <div class="max-w-3xl">
+          <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+            Almost there
+          </p>
+          <h1 id="pretrip-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl">
+            Your pre-trip details
+          </h1>
+          <p class="mt-5 font-body text-lg leading-relaxed text-charcoal">
+            A few details so we can prepare for your trail. Your trail starts on{' '}
+            <strong>{booking.start_date}</strong> (Day 1, arrival), for a group of{' '}
+            <strong>{booking.group_size}</strong>.
+          </p>
+          <div class="mt-10">
+            <PretripForm
+              token={token!}
+              groupSize={booking.group_size}
+              leadName={booking.lead_name}
+              alreadySubmitted={alreadySubmitted}
+            />
+          </div>
+        </div>
+      ) : (
+        <div class="max-w-2xl">
+          <h1 id="pretrip-heading" class="font-display text-4xl text-earth sm:text-5xl">
+            We couldn’t find that booking
+          </h1>
+          <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+            This pre-trip link looks invalid or has expired. Please use the link in your booking
+            confirmation email, or contact us and we’ll help.
+          </p>
+          <p class="mt-8">
+            <a href="/" class="btn btn-secondary">Return home</a>
+          </p>
+        </div>
+      )
+    }
+  </Section>
+</Layout>

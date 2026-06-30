@@ -179,4 +179,93 @@ export const server = {
       return { ok: true };
     },
   }),
+
+  // Pre-trip details (post-payment). Auth = the unguessable pretrip_token in the link. Writes the
+  // submission to pretrip_details (submitted_at), which stops the reminder/escalation sequence.
+  submitPretrip: defineAction({
+    accept: 'json',
+    input: z.object({
+      token: z.string().uuid('Invalid link.'),
+      leadPhone: z.string().trim().max(40).optional(),
+      guests: z
+        .array(
+          z.object({
+            name: z.string().trim().max(120),
+            idNumber: z.string().trim().max(60).optional().default(''),
+            emergencyName: z.string().trim().max(120).optional().default(''),
+            emergencyPhone: z.string().trim().max(40).optional().default(''),
+          }),
+        )
+        .min(1)
+        .max(12),
+      medicalNotes: z.string().trim().max(3000).optional(),
+      vehicleReg: z.string().trim().max(500).optional(),
+      arrivalTime: z.string().trim().max(20).optional(),
+      specialRequests: z.string().trim().max(3000).optional(),
+      indemnityAccepted: z.boolean(),
+      selfCateringAck: z.boolean().optional(),
+      company: z.string().max(0).optional(), // honeypot
+    }),
+    handler: async (input, ctx) => {
+      const ip = clientIp(ctx.request);
+      if (!(await rateLimit(`pretrip:min:${ip}`, 5, 60))) {
+        throw new ActionError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Too many submissions. Please wait a moment and try again.',
+        });
+      }
+      if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
+      if (!input.indemnityAccepted) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: 'Please accept the trail indemnity to continue.',
+        });
+      }
+      if (!input.guests[0]?.name) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: 'Please enter at least the lead guest’s name.',
+        });
+      }
+
+      const supabase = getSupabaseAdmin();
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('id, group_size')
+        .eq('pretrip_token', input.token)
+        .single();
+      if (!booking) {
+        throw new ActionError({ code: 'NOT_FOUND', message: 'We could not find that booking.' });
+      }
+
+      // Cap the manifest to the booked group size; drop fully-empty rows.
+      const guests = input.guests
+        .filter((g) => g.name || g.idNumber || g.emergencyName || g.emergencyPhone)
+        .slice(0, booking.group_size);
+
+      const details = {
+        leadPhone: input.leadPhone ?? '',
+        guests,
+        medicalNotes: input.medicalNotes ?? '',
+        vehicleReg: input.vehicleReg ?? '',
+        arrivalTime: input.arrivalTime ?? '',
+        specialRequests: input.specialRequests ?? '',
+        indemnityAccepted: input.indemnityAccepted,
+        selfCateringAck: input.selfCateringAck ?? false,
+      };
+
+      const { error } = await supabase.from('pretrip_details').upsert(
+        { booking_id: booking.id, details, submitted_at: new Date().toISOString() },
+        { onConflict: 'booking_id' },
+      );
+      if (error) {
+        throw new ActionError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Sorry — we could not save that. Please try again, or email us.',
+        });
+      }
+
+      return { ok: true };
+    },
+  }),
 };

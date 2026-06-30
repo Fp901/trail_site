@@ -45,7 +45,7 @@ jobs:
 
       # GitHub Pages cannot run servers — strip the SSR/backend pieces before a static build.
       - name: Remove server-only code (static host)
-        run: rm -rf src/actions src/pages/api src/pages/booking
+        run: rm -rf src/actions src/pages/api src/pages/booking src/pages/pretrip
 
       - name: Build static site
         run: npm run build
