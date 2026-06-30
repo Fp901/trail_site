@@ -4,7 +4,8 @@
 import type { APIRoute } from 'astro';
 import { payments } from '../../../lib/payments';
 import { getSupabaseAdmin } from '../../../lib/supabase';
-import { sendEmail } from '../../../lib/email';
+import { sendEmail, sendBookingConfirmation } from '../../../lib/email';
+import { recordPaymentEvent } from '../../../lib/audit';
 import { site } from '../../../data/site';
 
 export const prerender = false;
@@ -38,7 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
   const supabase = getSupabaseAdmin();
   const { data: booking } = await supabase
     .from('bookings')
-    .select('id, status, amount_due_cents, lead_email, lead_name, start_date')
+    .select('id, status, amount_due_cents, lead_email, lead_name, start_date, pretrip_token')
     .eq('processor_reference', reference)
     .single();
 
@@ -74,6 +75,12 @@ ${bookingId ? `<li><strong>Booking ID:</strong> ${bookingId}</li>` : ''}
       amountCents: verify.amountCents,
       at,
     });
+    await recordPaymentEvent({
+      eventType: 'reference_not_found',
+      processorReference: reference,
+      amountCents: verify.amountCents,
+      detail: { transactionId: verify.transactionId },
+    });
     await alertManualReview('ACTION REQUIRED: payment received but booking reference not found');
     return new Response('manual-review: reference not found', { status: 200 });
   }
@@ -83,6 +90,13 @@ ${bookingId ? `<li><strong>Booking ID:</strong> ${bookingId}</li>` : ''}
     if (verify.amountCents !== booking.amount_due_cents) {
       // Amount mismatch — do not confirm; flag for manual review.
       console.error('[webhook] amount mismatch for booking', booking.id);
+      await recordPaymentEvent({
+        eventType: 'amount_mismatch',
+        bookingId: booking.id,
+        processorReference: reference,
+        amountCents: verify.amountCents,
+        detail: { expectedCents: booking.amount_due_cents },
+      });
       return new Response('amount mismatch', { status: 200 });
     }
 
@@ -98,14 +112,22 @@ ${bookingId ? `<li><strong>Booking ID:</strong> ${bookingId}</li>` : ''}
       .eq('id', booking.id)
       .eq('status', 'pending');
 
-    // Best-effort emails (failures must not 500 the webhook).
+    await recordPaymentEvent({
+      eventType: 'confirmed',
+      bookingId: booking.id,
+      processorReference: reference,
+      amountCents: verify.amountCents,
+      detail: { transactionId: verify.transactionId },
+    });
+
+    // Best-effort emails (failures must not 500 the webhook). The confirmation now carries the
+    // pre-trip details link + 72-hour deadline as its headline CTA (template in lib/email.ts).
     try {
-      await sendEmail({
+      await sendBookingConfirmation({
         to: booking.lead_email,
-        subject: 'Your Rooiberg Wander booking is confirmed',
-        html: `<p>Thank you — your booking for The Rooiberg Wander is confirmed.</p>
-<p>Start date (arrival, Day 1): <strong>${booking.start_date}</strong></p>
-<p>We will be in touch with the final details. A tax invoice accompanies your payment receipt.</p>`,
+        leadName: booking.lead_name,
+        startDate: booking.start_date,
+        pretripToken: booking.pretrip_token,
       });
     } catch {
       /* ignore */
@@ -133,10 +155,24 @@ ${bookingId ? `<li><strong>Booking ID:</strong> ${bookingId}</li>` : ''}
       amountCents: verify.amountCents,
       at,
     });
+    await recordPaymentEvent({
+      eventType: 'paid_but_cancelled',
+      bookingId: booking.id,
+      processorReference: reference,
+      amountCents: verify.amountCents,
+    });
     await alertManualReview('ACTION REQUIRED: payment received but booking hold expired', booking.id);
     return new Response('manual-review: booking hold expired', { status: 200 });
   }
 
   // Anything else (e.g. already 'confirmed') — idempotent replay, nothing to do.
+  if (booking.status === 'confirmed') {
+    await recordPaymentEvent({
+      eventType: 'duplicate_ignored',
+      bookingId: booking.id,
+      processorReference: reference,
+      amountCents: verify.amountCents,
+    });
+  }
   return new Response('ok', { status: 200 });
 };

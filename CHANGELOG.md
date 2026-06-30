@@ -10,6 +10,29 @@ marked done. Dates are the working dates.
 
 ---
 
+## Security hardening: rate limiting, payment audit trail, CSP — 2026-06-30  (NOT committed)
+
+OWASP gap-closing on the booking engine. **In the working tree, verified green, not committed.**
+- **Rate limiting (A04/A09)** — per-IP limits on `createCheckout` (3/min, 10/hr) and `createInquiry`
+  via an in-Postgres fixed-window counter (`check_rate_limit()` in migration `0005`). `lib/ratelimit.ts`
+  (fail-open) + IP from `x-forwarded-for`. Closes the scripted hold-spam / availability-DoS vector.
+- **Payment audit trail (A09)** — `payment_events` table (migration `0005`) + `lib/audit.ts`. The
+  webhook now records every outcome (confirmed / amount_mismatch / paid_but_cancelled /
+  reference_not_found / duplicate_ignored), PII-free, additively (no control-flow change).
+- **CSP (A05)** — enabled Astro `security.csp` (`astro.config.mjs`). Emits a `<meta>` CSP with a
+  **strict hashed `script-src`** (no `unsafe-inline`), `style-src 'self' 'unsafe-inline'` (inline
+  style attrs can't be hashed; style injection can't run JS), `object-src 'none'`, `base-uri`/
+  `form-action 'self'`, `connect-src 'self' https://*.supabase.co`. Framing still via
+  `X-Frame-Options: DENY`. ⚠️ Needs a browser smoke-test (View Transitions + Paystack redirect) to
+  confirm zero console violations before fully trusting; rollback = `security.csp: false`.
+- Migration `0005_security_ratelimit_audit.sql` (also adds a daily `cleanup-rate-limits` cron).
+- Decision recorded: **stay on Paystack** for now (verify SA onboarding pre-launch); swap path to
+  PayFast/Peach stays open via `lib/payments.ts`.
+
+> ⚠️ Also uncommitted (previous session): the **pre-trip reminder/escalation system** — migrations
+> `0003`/`0004`, `api/cron/pretrip-reminders.ts`, the `lib/email.ts` templates, the webhook
+> confirmation-email swap, `vercel.json` crons, and `CRON_SECRET`. Commit both batches together.
+
 ## Booking engine: pricing, hold sweep, webhook safety, date rules, availability calendar — 2026-06-29
 
 Two batches of booking-engine work. **Batch A (Fixes 1–4) is committed as `1ea4974`. Batch B

@@ -7,6 +7,7 @@ import { computeQuote } from '../lib/pricing';
 import { getSupabaseAdmin } from '../lib/supabase';
 import { payments } from '../lib/payments';
 import { sendEmail } from '../lib/email';
+import { rateLimit, clientIp } from '../lib/ratelimit';
 import { site } from '../data/site';
 
 // 4-day window: Day 1 arrival → Day 4 departure. end = start + 3 days.
@@ -31,7 +32,19 @@ export const server = {
       leadEmail: z.string().trim().email().max(180),
       company: z.string().max(0).optional(), // honeypot — must be empty
     }),
-    handler: async (input) => {
+    handler: async (input, ctx) => {
+      // Rate limit per IP (A04/A09) — caps scripted hold-spam. 3/min and 10/hour.
+      const ip = clientIp(ctx.request);
+      if (
+        !(await rateLimit(`checkout:min:${ip}`, 3, 60)) ||
+        !(await rateLimit(`checkout:hr:${ip}`, 10, 3600))
+      ) {
+        throw new ActionError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Too many booking attempts. Please wait a moment and try again.',
+        });
+      }
+
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
 
       // Booking window (server-authoritative): minimum 7 days lead time, maximum 365 days ahead,
@@ -114,7 +127,19 @@ export const server = {
       message: z.string().trim().max(2000).optional(),
       company: z.string().max(0).optional(), // honeypot
     }),
-    handler: async (input) => {
+    handler: async (input, ctx) => {
+      // Rate limit per IP (A04/A09). 3/min and 10/hour.
+      const ip = clientIp(ctx.request);
+      if (
+        !(await rateLimit(`inquiry:min:${ip}`, 3, 60)) ||
+        !(await rateLimit(`inquiry:hr:${ip}`, 10, 3600))
+      ) {
+        throw new ActionError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Too many submissions. Please wait a moment and try again.',
+        });
+      }
+
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
 
       const supabase = getSupabaseAdmin();
