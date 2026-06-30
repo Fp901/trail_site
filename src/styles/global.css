@@ -758,6 +758,175 @@
     overflow: hidden;
   }
 
+  /* --- Availability calendar (vanilla; Part 9.2) --------------------------- */
+  .bform__callabel {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .bform__nextavail {
+    margin-top: 0.1rem;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-green);
+  }
+  .bform__flat {
+    margin-top: 0.75rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
+  }
+  .bcal {
+    margin-top: 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 18%, transparent);
+    border-radius: 0.75rem;
+    background-color: #fff;
+    padding: 0.85rem;
+  }
+  .bcal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+  .bcal__month {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    color: var(--color-earth);
+  }
+  .bcal__nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-hairline);
+    background-color: var(--color-cream);
+    color: var(--color-earth);
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+  .bcal__nav:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-ochre) 22%, var(--color-cream));
+  }
+  .bcal__nav:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .bcal__dow,
+  .bcal__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+  }
+  .bcal__dow {
+    margin-bottom: 0.3rem;
+  }
+  .bcal__dow span {
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+  }
+  .bcal__cell {
+    aspect-ratio: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--color-charcoal);
+    min-height: 2.4rem;
+  }
+  .bcal__cell--blank {
+    border: 0;
+  }
+  .bcal__cell--avail {
+    background-color: color-mix(in srgb, var(--color-green) 12%, #fff);
+    border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
+    color: var(--color-earth);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .bcal__cell--avail:hover {
+    background-color: var(--color-ochre);
+    border-color: var(--color-ochre);
+    color: var(--color-earth);
+  }
+  .bcal__cell--avail.is-selected {
+    background-color: var(--color-ochre);
+    border-color: var(--color-earth);
+    color: var(--color-earth);
+    font-weight: 700;
+  }
+  .bcal__cell--avail:focus-visible {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 1px;
+  }
+  .bcal__cell--taken {
+    background-color: color-mix(in srgb, #9c2b1b 10%, #fff);
+    border-color: color-mix(in srgb, #9c2b1b 30%, transparent);
+    color: color-mix(in srgb, #9c2b1b 70%, var(--color-charcoal));
+    text-decoration: line-through;
+    cursor: not-allowed;
+  }
+  .bcal__cell--out {
+    background-color: transparent;
+    color: color-mix(in srgb, var(--color-charcoal) 30%, transparent);
+    cursor: not-allowed;
+  }
+  .bcal__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-top: 0.7rem;
+  }
+  .bcal__key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+  }
+  .bcal__key::before {
+    content: '';
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 0.2rem;
+    border: 1px solid transparent;
+  }
+  .bcal__key--avail::before {
+    background-color: color-mix(in srgb, var(--color-green) 12%, #fff);
+    border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
+  }
+  .bcal__key--taken::before {
+    background-color: color-mix(in srgb, #9c2b1b 10%, #fff);
+    border-color: color-mix(in srgb, #9c2b1b 40%, transparent);
+  }
+  .bcal__key--out::before {
+    background-color: transparent;
+    border-color: var(--color-hairline);
+  }
+  .bcal__selected {
+    margin-top: 0.6rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-earth);
+    min-height: 1.2em;
+  }
+
   /* --- Rates (Part 5.6 / 8.5) ---------------------------------------------- */
   .rates {
     display: grid;

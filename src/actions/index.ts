@@ -34,13 +34,21 @@ export const server = {
     handler: async (input) => {
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
 
-      // Booking window: from today up to 365 days ahead, inclusive (server-authoritative).
-      // ISO YYYY-MM-DD strings compare lexicographically, so plain string comparison is safe here.
+      // Booking window (server-authoritative): minimum 7 days lead time, maximum 365 days ahead,
+      // both inclusive. ISO YYYY-MM-DD strings compare lexicographically, so string comparison is safe.
       const today = new Date().toISOString().slice(0, 10);
-      if (input.startDate < today || input.startDate > addDays(today, 365)) {
+      const earliest = addDays(today, 7); // at least 7 days notice
+      const latest = addDays(today, 365); // no more than 12 months ahead
+      if (input.startDate < earliest) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: 'Choose a start date from today up to 12 months (365 days) ahead.',
+          message: `Bookings require at least 7 days notice. The earliest available start date is ${earliest}.`,
+        });
+      }
+      if (input.startDate > latest) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: 'Choose a start date no more than 12 months (365 days) ahead.',
         });
       }
 

@@ -10,6 +10,52 @@ marked done. Dates are the working dates.
 
 ---
 
+## Booking engine: pricing, hold sweep, webhook safety, date rules, availability calendar — 2026-06-29
+
+Two batches of booking-engine work. **Batch A (Fixes 1–4) is committed as `1ea4974`. Batch B
+(Fixes 5–7 + the 365-day window) is NOT yet committed — it is in the working tree, verified green.**
+
+**Batch A — committed `1ea4974`:**
+- **Fix 1 — launch discount now charged, not just displayed** (`lib/pricing.ts`): `computeQuote`
+  applies the 50% launch discount (`LAUNCH_DISCOUNT` from `data/rates.ts`) to the amount sent to
+  Paystack while `now <= LAUNCH_DISCOUNT_END`. Added `launchDiscountApplied` + `discountEndDate` to
+  the quote. Full-rate constants untouched, so it auto-reverts. ⚠ `LAUNCH_DISCOUNT_END = '2026-12-31'`
+  is a PLACEHOLDER — confirm the real Launch-Phase end date before production.
+- **Fix 2 — expired-hold sweep** (`supabase/migrations/0002_hold_sweep.sql`): pg_cron job
+  `expire-stale-holds` runs every 10 min, cancels `pending` rows past `hold_expires_at` so the
+  exclusion constraint releases their dates. Webhook idempotency guard (status='pending') already
+  prevents a swept row being revived — confirmed, no change.
+- **Fix 3 — notify email**: every old `placeholder-roobergwander` / `bookings@example.com` reference
+  replaced with `hanlie@rooibergwander.co.za` (`.env.example`, `lib/email.ts` From fallback,
+  `scripts/generate-copy-doc.mjs`, and the 3 CLAUDE.md spots, marked "corrected from original brief").
+- **Fix 4 — paid-but-cancelled race** (`api/payments/webhook.ts`): if a payment verifies but the
+  booking row is missing or already `cancelled`, the webhook now logs + emails `BOOKINGS_NOTIFY_TO`
+  an "ACTION REQUIRED" alert (manual confirm/refund) instead of a silent 200. Happy path + the
+  already-confirmed idempotency path are byte-for-byte unchanged.
+
+**Batch B — NOT YET COMMITTED (working tree, verified green):**
+- **365-day booking window** (`actions/index.ts` + `BookingWidget.astro`): start dates capped at
+  today..+365 (server-authoritative; client date bounds mirror it).
+- **Fix 5 — 7-day minimum lead time** (`actions/index.ts`): rejects `< today+7` with
+  "Bookings require at least 7 days notice. The earliest available start date is [date]."; keeps the
+  365-day ceiling with its own message. No day-of-week restriction. Verified +6 reject / +7 accept /
+  +365 accept / +366 reject.
+- **Fix 6 — availability calendar** (`BookingWidget.astro` + `global.css`): replaced the native date
+  input with a vanilla month-grid calendar (hidden `#bf-start` keeps the payload identical). Reads
+  `unavailable_windows` client-side with the ANON key only (dates only, no PII). Three visual states:
+  available (selectable) / taken (greyed, a day where a 4-day trip would overlap) / unavailable
+  (outside 7–365). Shows "Next available: [date]" and jumps to the first bookable month. No library.
+- **Fix 7 — flat-pricing line** on the widget: "Exclusive use. One group at a time. Priced per trip
+  regardless of group size."
+
+**Open items / next session:**
+- Commit Batch B (Fixes 5–7 + 365-day window); then optionally push (`1ea4974` also unpushed).
+- Confirm real `LAUNCH_DISCOUNT_END`.
+- Known minor: ~10-min availability lag (calendar vs unschept holds) — degrades gracefully via the
+  CONFLICT message; could sweep on-read. Calendar keyboard nav is tab-only (no arrow-key roving).
+  Paid-but-cancelled still needs an audit-log/events table (interim = email alert). Tax invoice
+  (VAT number) still not generated. CSP `connect-src` must allow `*.supabase.co` when CSP is enabled.
+
 ## Owner update: contact, max-12, launch offer, wildlife, seasons, kit list — 2026-06-29
 - **Contact (Hanlie):** new email `hanlie@rooibergwander.co.za`; WhatsApp +27 82 905 8832 with
   click-to-chat; office hours 08h00 to 17h00. Added a header WhatsApp link, a footer contact block,

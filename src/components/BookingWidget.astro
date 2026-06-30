@@ -15,20 +15,40 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
   data-total-international={formatRand(intlTotal)}
   novalidate
 >
-  <div class="bform__grid">
-    <div class="form-field">
-      <label for="bf-start">Start date (Day 1, arrival)</label>
-      <input id="bf-start" name="startDate" type="date" required />
+  <div class="form-field bform__datefield">
+    <span class="bform__callabel" id="bf-cal-label">Start date (Day 1, arrival)</span>
+    <p class="bform__nextavail" data-nextavail hidden></p>
+    <div class="bcal" data-calendar role="group" aria-labelledby="bf-cal-label">
+      <div class="bcal__head">
+        <button type="button" class="bcal__nav" data-cal-prev aria-label="Previous month">
+          <span aria-hidden="true">&lsaquo;</span>
+        </button>
+        <span class="bcal__month" data-cal-month aria-live="polite"></span>
+        <button type="button" class="bcal__nav" data-cal-next aria-label="Next month">
+          <span aria-hidden="true">&rsaquo;</span>
+        </button>
+      </div>
+      <div class="bcal__dow" aria-hidden="true">
+        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+      </div>
+      <div class="bcal__grid" data-cal-grid></div>
+      <div class="bcal__legend" aria-hidden="true">
+        <span class="bcal__key bcal__key--avail">Available</span>
+        <span class="bcal__key bcal__key--taken">Taken</span>
+        <span class="bcal__key bcal__key--out">Unavailable</span>
+      </div>
     </div>
+    <input id="bf-start" name="startDate" type="hidden" required />
+    <p class="bcal__selected" data-cal-selected aria-live="polite"></p>
+  </div>
 
-    <div class="form-field">
-      <label for="bf-group">Group size</label>
-      <select id="bf-group" name="groupSize" required>
-        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-          <option value={n}>{n}{n === 12 ? ' (max)' : ''}</option>
-        ))}
-      </select>
-    </div>
+  <div class="form-field">
+    <label for="bf-group">Group size</label>
+    <select id="bf-group" name="groupSize" required>
+      {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+        <option value={n}>{n}{n === 12 ? ' (max)' : ''}</option>
+      ))}
+    </select>
   </div>
 
   <fieldset class="form-field">
@@ -64,6 +84,10 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
     <span class="bform__estnote">Final total confirmed at checkout.</span>
   </p>
 
+  <p class="bform__flat">
+    Exclusive use. One group at a time. Priced per trip regardless of group size.
+  </p>
+
   <button type="submit" class="btn btn-primary bform__submit">Continue to secure payment</button>
 
   <p class="bform__status" data-status role="status" aria-live="polite"></p>
@@ -76,6 +100,174 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
 
 <script>
   import { actions } from 'astro:actions';
+
+  // Anon, PUBLIC creds only (never the service-role key). The unavailable_windows view is
+  // RLS-granted to anon and exposes ONLY date ranges — no PII.
+  const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
+  const SUPABASE_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+  // Date helpers — UTC, ISO YYYY-MM-DD (mirror the server's lead-time/window rules).
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const isoYMD = (y: number, m0: number, d: number) => `${y}-${pad(m0 + 1)}-${pad(d)}`;
+  const addDaysIso = (iso: string, n: number) => {
+    const dt = new Date(iso + 'T00:00:00Z');
+    dt.setUTCDate(dt.getUTCDate() + n);
+    return dt.toISOString().slice(0, 10);
+  };
+  const humanDate = (iso: string, opts: Intl.DateTimeFormatOptions) =>
+    new Date(iso + 'T00:00:00Z').toLocaleDateString('en-ZA', { timeZone: 'UTC', ...opts });
+
+  interface Win {
+    start: string;
+    end: string;
+  }
+
+  async function fetchWindows(): Promise<Win[]> {
+    if (!SUPABASE_URL || !SUPABASE_ANON) return [];
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/unavailable_windows?select=start_date,end_date`,
+        { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } },
+      );
+      if (!res.ok) return [];
+      const rows = await res.json();
+      return Array.isArray(rows)
+        ? rows.map((r: { start_date: string; end_date: string }) => ({
+            start: r.start_date,
+            end: r.end_date,
+          }))
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function setupCalendar(form: HTMLFormElement, startInput: HTMLInputElement) {
+    const cal = form.querySelector<HTMLElement>('[data-calendar]');
+    if (!cal) return;
+    const grid = cal.querySelector<HTMLElement>('[data-cal-grid]');
+    const monthLabel = cal.querySelector<HTMLElement>('[data-cal-month]');
+    const prevBtn = cal.querySelector<HTMLButtonElement>('[data-cal-prev]');
+    const nextBtn = cal.querySelector<HTMLButtonElement>('[data-cal-next]');
+    const field = cal.closest<HTMLElement>('.bform__datefield');
+    const nextAvailEl = field?.querySelector<HTMLElement>('[data-nextavail]') ?? null;
+    const selectedEl = field?.querySelector<HTMLElement>('[data-cal-selected]') ?? null;
+    if (!grid || !monthLabel || !prevBtn || !nextBtn) return;
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const earliest = addDaysIso(todayIso, 7); // 7-day minimum lead time (mirrors the server)
+    const latest = addDaysIso(todayIso, 365); // 365-day ceiling (mirrors the server)
+
+    let windows: Win[] = [];
+    let selected = '';
+    const viewIdx = (y: number, m: number) => y * 12 + m;
+    const minIdx = viewIdx(+todayIso.slice(0, 4), +todayIso.slice(5, 7) - 1);
+    const maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
+    let view = { y: +earliest.slice(0, 4), m: +earliest.slice(5, 7) - 1 };
+
+    // A day is "taken" if a 4-day trip starting on it would overlap an unavailable window — that is
+    // exactly what the DB exclusion constraint rejects, so a selectable date can never 409 at submit.
+    const stateOf = (d: string): 'out' | 'taken' | 'avail' => {
+      if (d < earliest || d > latest) return 'out';
+      const end = addDaysIso(d, 3);
+      for (const w of windows) {
+        if (d <= w.end && end >= w.start) return 'taken';
+      }
+      return 'avail';
+    };
+
+    const nextAvailable = (): string | null => {
+      let d = earliest;
+      while (d <= latest) {
+        if (stateOf(d) === 'avail') return d;
+        d = addDaysIso(d, 1);
+      }
+      return null;
+    };
+
+    const selectDate = (iso: string) => {
+      selected = iso;
+      startInput.value = iso;
+      if (selectedEl)
+        selectedEl.textContent =
+          'Selected start: ' +
+          humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      render();
+    };
+
+    const render = () => {
+      monthLabel.textContent = humanDate(isoYMD(view.y, view.m, 1), {
+        month: 'long',
+        year: 'numeric',
+      });
+      prevBtn.disabled = viewIdx(view.y, view.m) <= minIdx;
+      nextBtn.disabled = viewIdx(view.y, view.m) >= maxIdx;
+      grid.innerHTML = '';
+      const firstDow = new Date(Date.UTC(view.y, view.m, 1)).getUTCDay(); // 0=Sun
+      const lead = (firstDow + 6) % 7; // Monday-first
+      for (let i = 0; i < lead; i++) {
+        const blank = document.createElement('span');
+        blank.className = 'bcal__cell bcal__cell--blank';
+        grid.appendChild(blank);
+      }
+      const days = new Date(Date.UTC(view.y, view.m + 1, 0)).getUTCDate();
+      for (let day = 1; day <= days; day++) {
+        const iso = isoYMD(view.y, view.m, day);
+        const st = stateOf(iso);
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.textContent = String(day);
+        cell.className = `bcal__cell bcal__cell--${st}`;
+        const human = humanDate(iso, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+        if (st === 'avail') {
+          cell.setAttribute('aria-label', human);
+          cell.setAttribute('aria-pressed', iso === selected ? 'true' : 'false');
+          if (iso === selected) cell.classList.add('is-selected');
+          cell.addEventListener('click', () => selectDate(iso));
+        } else {
+          cell.disabled = true;
+          cell.setAttribute('aria-label', `${human} — ${st === 'taken' ? 'taken' : 'unavailable'}`);
+        }
+        grid.appendChild(cell);
+      }
+    };
+
+    const updateNextAvail = () => {
+      if (!nextAvailEl) return;
+      const na = nextAvailable();
+      nextAvailEl.textContent = na
+        ? 'Next available: ' + humanDate(na, { day: 'numeric', month: 'long', year: 'numeric' })
+        : 'No dates are currently available. Please contact us.';
+      nextAvailEl.hidden = false;
+    };
+
+    prevBtn.addEventListener('click', () => {
+      const idx = viewIdx(view.y, view.m) - 1;
+      if (idx < minIdx) return;
+      view = { y: Math.floor(idx / 12), m: ((idx % 12) + 12) % 12 };
+      render();
+    });
+    nextBtn.addEventListener('click', () => {
+      const idx = viewIdx(view.y, view.m) + 1;
+      if (idx > maxIdx) return;
+      view = { y: Math.floor(idx / 12), m: ((idx % 12) + 12) % 12 };
+      render();
+    });
+
+    render(); // immediate paint (no taken dates yet)
+    fetchWindows().then((w) => {
+      windows = w;
+      updateNextAvail();
+      const na = nextAvailable();
+      if (na) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 }; // land on the first bookable month
+      render();
+    });
+  }
 
   function initBooking() {
     const form = document.getElementById('booking-form') as HTMLFormElement | null;
@@ -92,15 +284,7 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
       international: form.dataset.totalInternational ?? '',
     };
 
-    // Booking window = today up to 365 days ahead (set at view time, not build time). The server
-    // re-validates this; the min/max just keep the native date picker inside the allowed range.
-    if (startInput) {
-      const now = new Date();
-      startInput.min = now.toISOString().slice(0, 10);
-      const max = new Date(now);
-      max.setUTCDate(max.getUTCDate() + 365);
-      startInput.max = max.toISOString().slice(0, 10);
-    }
+    if (startInput) setupCalendar(form, startInput);
 
     const updateEstimate = () => {
       const residency =
@@ -122,6 +306,13 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
       e.preventDefault();
       setStatus('', 'info');
       const fd = new FormData(form);
+
+      // Friendly guard — the server still re-validates the date regardless.
+      if (!String(fd.get('startDate') ?? '')) {
+        setStatus('Please choose a start date from the calendar.');
+        return;
+      }
+
       const payload = {
         startDate: String(fd.get('startDate') ?? ''),
         groupSize: Number(fd.get('groupSize') ?? 0),
