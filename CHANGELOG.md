@@ -10,6 +10,62 @@ marked done. Dates are the working dates.
 
 ---
 
+## Split payment: deposit + balance — 2026-07-01  (NOT committed)
+
+Money-touching. **In the working tree, verified green (`astro check` + `build`), not committed.** No
+live Paystack test has run yet. Did **not** touch the GiST constraint, hold-sweep, pre-trip reminders,
+or the discount-window logic (the split is taken from the already-discounted total).
+- **Rule (server-authoritative).** Gap today→`start_date`: **< 30 days → 100% up front** (`payment_plan
+  = full`, unchanged behaviour); **≥ 30 days → 50% deposit now + 50% balance later** (`deposit_balance`).
+  Balance link sent **45 days before `start_date`** (anchored to `start_date`, not `confirmed_at`).
+- **Edge case.** Booked 30–45 days out (deposit applies but the 45-day point has passed) → the balance
+  link is emailed **immediately at confirmation** in the webhook, not left for a cron that would never
+  fire correctly.
+- **`lib/pricing.ts`** — `computeQuote` takes optional `startDate`; adds `paymentPlan` / `depositCents`
+  / `balanceCents` (deposit + balance reconcile to `totalCents` exactly, no rounding drift). New
+  constants `SPLIT_THRESHOLD_DAYS` (30) / `DEPOSIT_FRACTION` (0.5) / `BALANCE_LEAD_DAYS` (45).
+  `BOOKING_DEPOSIT_PERCENT` env is no longer read.
+- **`actions/index.ts`** — `createCheckout` passes `startDate` to the quote, charges `amountDueCents`
+  (deposit or full), and persists `payment_plan` / `deposit_paid_cents` / `balance_due_cents`.
+- **`lib/balance.ts`** (new) — `sendBalancePaymentLink()`: creates the **second** Paystack checkout via
+  the **same `PaymentProcessor` interface** (no parallel path), CAS-guards `balance_link_sent_at`,
+  rolls back on email failure so the cron retries. Reference prefixed `rwb_`.
+- **`api/payments/webhook.ts`** — dual lookup: `processor_reference` (deposit) first, else
+  `balance_processor_reference` (balance). New **balance branch**: verify amount == `balance_due_cents`,
+  idempotent CAS on `balance_paid_at`, bump `amount_paid_cents` to the total, email "paid in full";
+  inconsistencies (non-confirmed booking / amount mismatch) raise the existing **ACTION REQUIRED**
+  alert. Deposit branch now computes `balance_due_date` and fires the edge-case immediate link. The
+  existing pending→confirmed confirm/race logic is unchanged.
+- **`api/cron/balance-reminders.ts`** (new) + second `vercel.json` cron (07:00 daily) — sends the
+  balance link at `balance_due_date`, and a **one-time** operator "balance overdue" alert once the trip
+  is within 30 days and still unpaid (**flag only — no auto-cancel, date not released**; reconfirm as
+  policy). Same `CRON_SECRET` gate + CAS discipline as the pre-trip cron. **2 crons now = Hobby limit.**
+- **`lib/email.ts`** — deposit variant of the confirmation email + 3 new templates (balance link,
+  balance paid-in-full, balance overdue). **`lib/audit.ts`** — 3 new event types (`balance_confirmed`
+  / `balance_amount_mismatch` / `balance_inconsistent`).
+- **Migration `0008_split_payment.sql`** — additive columns (`payment_plan`, `deposit_paid_cents`,
+  `balance_due_cents`, `balance_due_date`, `balance_link_sent_at`, `balance_paid_at`,
+  `balance_overdue_alert_sent`, `balance_processor_reference`, `balance_processor_txn_id`) + a partial
+  unique index on the balance reference. Existing `processor_reference` unique constraint untouched.
+
+## Booking-engine session: 7-day pre-trip window · "max 10" copy · operator dashboard · trip-info — 2026-06-30  (NOT committed)
+
+Four changes, verified green, not committed.
+- **7-day pre-trip window.** Migration `0007_pretrip_7day_window.sql` renames the guard columns
+  (`…_24h_sent`→`…_day3_sent`, `…_60h_sent`→`…_day6_sent`); cron thresholds now **72h / 144h / 168h**
+  (day 3 / 6 / 7); confirmation + reminder + overdue email copy say "7 days". Daily cron unchanged.
+- **"Max 10" copy sweep.** All public "up to 12 / twelve / Max 12" display copy → **10** with the
+  "optional two extra by special arrangement" nuance (site/index/sanctuaries/rates/logistics data +
+  pages, `RatesTable`, `llms.txt`, booking dropdown relabelled 10=recommended, 11–12=by arrangement).
+  **Validation max stays 12** (zod + `maxGuests`) — the special-arrangement case must stay bookable.
+- **Operator dashboard (view-only).** `lib/auth.ts` (Supabase Auth email+pw, httpOnly cookies,
+  server-side `getAdminUser` gate, optional `ADMIN_EMAIL` allowlist — no new dependency);
+  `adminLogin`/`adminLogout` actions; `/admin/login`, `/admin` (bookings list + overdue flag),
+  `/admin/bookings/[id]` (record + pre-trip manifest). Sitemap + static-build strip updated.
+- **Trip-info page.** `/trip-info/[token]` (confirmed-only, same anti-enumeration as `/pretrip`):
+  links out to `/the-trail` + `/logistics`, shows the **private gate coordinates** + what3words +
+  season-for-`start_date`; linked from the confirmation email (`tripInfoUrl`).
+
 ## Security hardening: rate limiting, payment audit trail, CSP — 2026-06-30  (NOT committed)
 
 OWASP gap-closing on the booking engine. **In the working tree, verified green, not committed.**

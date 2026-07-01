@@ -8,6 +8,7 @@ import { getSupabaseAdmin } from '../lib/supabase';
 import { payments } from '../lib/payments';
 import { sendEmail } from '../lib/email';
 import { rateLimit, clientIp } from '../lib/ratelimit';
+import { signInAdmin, signOutAdmin } from '../lib/auth';
 import { site } from '../data/site';
 
 // 4-day window: Day 1 arrival → Day 4 departure. end = start + 3 days.
@@ -65,8 +66,13 @@ export const server = {
         });
       }
 
-      // SERVER is the price authority (Part 11.4).
-      const quote = computeQuote({ residency: input.residency, groupSize: input.groupSize });
+      // SERVER is the price authority (Part 11.4). startDate drives the split-payment rule: a trip
+      // 30+ days out pays a 50% deposit now + 50% balance later; inside 30 days pays in full.
+      const quote = computeQuote({
+        residency: input.residency,
+        groupSize: input.groupSize,
+        startDate: input.startDate,
+      });
 
       const supabase = getSupabaseAdmin();
       const holdMinutes = Number(import.meta.env.HOLD_MINUTES ?? 30);
@@ -75,6 +81,9 @@ export const server = {
       const endDate = addDays(startDate, 3);
 
       // Insert pending booking. The DB overlap exclusion constraint + hold prevent double-booking.
+      // amount_due_cents is the FIRST charge (deposit for deposit_balance, full total otherwise);
+      // balance_due_date is computed at confirmation in the webhook (it anchors to confirmed_at for
+      // the edge case), so it is left null here.
       const { data, error } = await supabase
         .from('bookings')
         .insert({
@@ -88,6 +97,9 @@ export const server = {
           total_cents: quote.totalCents,
           amount_due_cents: quote.amountDueCents,
           currency: quote.currency,
+          payment_plan: quote.paymentPlan,
+          deposit_paid_cents: quote.depositCents,
+          balance_due_cents: quote.balanceCents,
           processor: 'paystack',
           processor_reference: reference,
           hold_expires_at: new Date(Date.now() + holdMinutes * 60_000).toISOString(),
@@ -265,6 +277,46 @@ export const server = {
         });
       }
 
+      return { ok: true };
+    },
+  }),
+
+  // ---- Operator dashboard auth (Part 3) ------------------------------------
+  // Sign in to the admin dashboard. Rate-limited to blunt password guessing. On success the session
+  // cookies are set server-side; the client then navigates to /admin (where the server re-verifies).
+  adminLogin: defineAction({
+    accept: 'json',
+    input: z.object({
+      email: z.string().trim().email().max(180),
+      password: z.string().min(1).max(200),
+    }),
+    handler: async (input, ctx) => {
+      const ip = clientIp(ctx.request);
+      if (
+        !(await rateLimit(`adminlogin:min:${ip}`, 5, 60)) ||
+        !(await rateLimit(`adminlogin:hr:${ip}`, 20, 3600))
+      ) {
+        throw new ActionError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Too many sign-in attempts. Please wait a moment and try again.',
+        });
+      }
+
+      const user = await signInAdmin(ctx.cookies, input.email, input.password);
+      if (!user) {
+        // Generic message — never reveal whether the email exists (no enumeration).
+        throw new ActionError({ code: 'UNAUTHORIZED', message: 'Invalid email or password.' });
+      }
+      return { ok: true };
+    },
+  }),
+
+  // Sign out of the admin dashboard — clears the session cookies.
+  adminLogout: defineAction({
+    accept: 'json',
+    input: z.object({}).optional(),
+    handler: async (_input, ctx) => {
+      signOutAdmin(ctx.cookies);
       return { ok: true };
     },
   }),

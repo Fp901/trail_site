@@ -1,0 +1,172 @@
+---
+// Admin dashboard — bookings list (Part 3). prerender=false; gated server-side. View-only.
+// Reads via the service-role client (server only) — never exposed to the browser.
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import { getAdminUser } from '../../lib/auth';
+import { getSupabaseAdmin } from '../../lib/supabase';
+import { withBase } from '../../data/site';
+
+export const prerender = false;
+
+const user = await getAdminUser(Astro.cookies);
+if (!user) {
+  return Astro.redirect(withBase('/admin/login'));
+}
+
+// 7-day (168h) overdue threshold — mirrors the pre-trip cron (Part 1).
+const OVERDUE_MS = 168 * 3600_000;
+const now = Date.now();
+
+interface Row {
+  id: string;
+  start_date: string;
+  end_date: string;
+  lead_name: string;
+  lead_email: string;
+  status: string;
+  group_size: number;
+  amount_paid_cents: number | null;
+  confirmed_at: string | null;
+}
+
+let rows: Row[] = [];
+let loadError = false;
+const submittedIds = new Set<string>();
+
+try {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(
+      'id, start_date, end_date, lead_name, lead_email, status, group_size, amount_paid_cents, confirmed_at',
+    )
+    .order('start_date', { ascending: true });
+  if (error) throw error;
+  rows = data ?? [];
+
+  if (rows.length) {
+    const { data: subs } = await supabase
+      .from('pretrip_details')
+      .select('booking_id')
+      .not('submitted_at', 'is', null)
+      .in(
+        'booking_id',
+        rows.map((r) => r.id),
+      );
+    for (const s of subs ?? []) submittedIds.add(s.booking_id);
+  }
+} catch {
+  loadError = true;
+}
+
+const fmtMoney = (cents: number | null) =>
+  cents == null ? '—' : 'R' + Math.round(cents / 100).toLocaleString('en-US');
+
+// A confirmed booking is "pre-trip overdue" if 7+ days have passed since confirmation with no
+// submitted pre-trip details.
+const isOverdue = (r: Row) =>
+  r.status === 'confirmed' &&
+  !submittedIds.has(r.id) &&
+  !!r.confirmed_at &&
+  now - new Date(r.confirmed_at).getTime() >= OVERDUE_MS;
+---
+
+<Layout
+  title="Bookings | Operator dashboard"
+  description="Operator dashboard."
+  path="/admin"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="admin-heading" space="lg">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+          Operator dashboard
+        </p>
+        <h1 id="admin-heading" class="mt-3 font-display text-4xl text-earth sm:text-5xl">
+          Bookings
+        </h1>
+      </div>
+      <div class="flex items-center gap-4 font-body text-sm text-charcoal/70">
+        <span>{user.email}</span>
+        <button id="admin-logout" type="button" class="btn btn-secondary" data-redirect={withBase('/admin/login')}>
+          Sign out
+        </button>
+      </div>
+    </div>
+
+    {
+      loadError ? (
+        <p class="mt-10 font-body text-charcoal">
+          Could not load bookings. Check that the database is configured and try again.
+        </p>
+      ) : rows.length === 0 ? (
+        <p class="mt-10 font-body text-charcoal">No bookings yet.</p>
+      ) : (
+        <div class="admin-tablewrap mt-10">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th scope="col">Start date</th>
+                <th scope="col">Lead guest</th>
+                <th scope="col">Status</th>
+                <th scope="col">Group</th>
+                <th scope="col">Paid</th>
+                <th scope="col">Pre-trip</th>
+                <th scope="col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr class:list={[isOverdue(r) && 'admin-row--overdue']}>
+                  <td data-label="Start date">{r.start_date}</td>
+                  <td data-label="Lead guest">
+                    <span class="admin-name">{r.lead_name}</span>
+                    <span class="admin-sub">{r.lead_email}</span>
+                  </td>
+                  <td data-label="Status">
+                    <span class:list={['admin-badge', `admin-badge--${r.status}`]}>{r.status}</span>
+                  </td>
+                  <td data-label="Group">{r.group_size}</td>
+                  <td data-label="Paid">{fmtMoney(r.amount_paid_cents)}</td>
+                  <td data-label="Pre-trip">
+                    {submittedIds.has(r.id) ? (
+                      <span class="admin-ok">Submitted</span>
+                    ) : isOverdue(r) ? (
+                      <span class="admin-flag">Overdue (7+ days)</span>
+                    ) : (
+                      <span class="admin-sub">Not yet</span>
+                    )}
+                  </td>
+                  <td data-label="">
+                    <a href={withBase(`/admin/bookings/${r.id}`)} class="admin-link">
+                      View &rarr;
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </Section>
+</Layout>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initAdminLogout() {
+    const btn = document.getElementById('admin-logout') as HTMLButtonElement | null;
+    if (!btn || btn.dataset.bound === 'true') return;
+    btn.dataset.bound = 'true';
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      await actions.adminLogout({});
+      window.location.href = btn.dataset.redirect || '/admin/login';
+    });
+  }
+
+  document.addEventListener('astro:page-load', initAdminLogout);
+</script>

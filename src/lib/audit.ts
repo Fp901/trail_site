@@ -8,7 +8,11 @@ export type PaymentEventType =
   | 'amount_mismatch'
   | 'paid_but_cancelled'
   | 'reference_not_found'
-  | 'duplicate_ignored';
+  | 'duplicate_ignored'
+  // Split payment (balance / second transaction)
+  | 'balance_confirmed'
+  | 'balance_amount_mismatch'
+  | 'balance_inconsistent';
 
 export async function recordPaymentEvent(e: {
   eventType: PaymentEventType;

@@ -1,9 +1,10 @@
 // Pre-trip reminder/escalation cron (triggered by Vercel Cron — see vercel.json). prerender=false.
 //
-// TIMING is relative to bookings.confirmed_at (set once in the webhook), NOT the trip start_date:
-//   confirmed_at + 24h  → guest reminder   (pretrip_reminder_24h_sent)
-//   confirmed_at + 60h  → guest reminder   (pretrip_reminder_60h_sent)
-//   confirmed_at + 72h  → operator alert   (pretrip_overdue_alert_sent)
+// TIMING is relative to bookings.confirmed_at (set once in the webhook), NOT the trip start_date.
+// The deadline communicated to guests is SEVEN DAYS:
+//   confirmed_at + 72h  (day 3) → guest reminder   (pretrip_reminder_day3_sent)
+//   confirmed_at + 144h (day 6) → guest reminder   (pretrip_reminder_day6_sent)
+//   confirmed_at + 168h (day 7) → operator alert   (pretrip_overdue_alert_sent)
 // Any stage is SKIPPED if the guest already submitted (a pretrip_details row with submitted_at).
 //
 // Idempotency: each stage is "claimed" by a compare-and-set (flip the _sent flag false→true and
@@ -37,19 +38,19 @@ export const GET: APIRoute = async ({ request }) => {
   const now = Date.now();
   const notify = import.meta.env.BOOKINGS_NOTIFY_TO ?? site.notifyEmail;
 
-  // Candidates: confirmed, at least 24h past confirmation (the earliest threshold), with at least
-  // one guard still open. Submitted bookings are filtered out in JS via the embedded relation.
-  const cutoff24 = new Date(now - 24 * HOUR).toISOString();
+  // Candidates: confirmed, at least 72h past confirmation (the earliest threshold, day 3), with at
+  // least one guard still open. Submitted bookings are filtered out in JS via the embedded relation.
+  const cutoff72 = new Date(now - 72 * HOUR).toISOString();
   const { data: rows, error } = await supabase
     .from('bookings')
     .select(
-      'id, lead_name, lead_email, start_date, confirmed_at, processor_reference, pretrip_token, pretrip_reminder_24h_sent, pretrip_reminder_60h_sent, pretrip_overdue_alert_sent',
+      'id, lead_name, lead_email, start_date, confirmed_at, processor_reference, pretrip_token, pretrip_reminder_day3_sent, pretrip_reminder_day6_sent, pretrip_overdue_alert_sent',
     )
     .eq('status', 'confirmed')
     .not('confirmed_at', 'is', null)
-    .lte('confirmed_at', cutoff24)
+    .lte('confirmed_at', cutoff72)
     .or(
-      'pretrip_reminder_24h_sent.eq.false,pretrip_reminder_60h_sent.eq.false,pretrip_overdue_alert_sent.eq.false',
+      'pretrip_reminder_day3_sent.eq.false,pretrip_reminder_day6_sent.eq.false,pretrip_overdue_alert_sent.eq.false',
     );
 
   if (error) {
@@ -86,8 +87,8 @@ export const GET: APIRoute = async ({ request }) => {
     return Array.isArray(data) && data.length > 0;
   };
 
-  let sent24 = 0;
-  let sent60 = 0;
+  let sentDay3 = 0;
+  let sentDay6 = 0;
   let overdue = 0;
 
   for (const b of candidates) {
@@ -96,8 +97,8 @@ export const GET: APIRoute = async ({ request }) => {
 
     const hours = (now - new Date(b.confirmed_at).getTime()) / HOUR;
 
-    // 72h — internal operator escalation.
-    if (hours >= 72 && !b.pretrip_overdue_alert_sent) {
+    // 168h (day 7) — internal operator escalation.
+    if (hours >= 168 && !b.pretrip_overdue_alert_sent) {
       if (await claim(b.id, 'pretrip_overdue_alert_sent')) {
         try {
           await sendPretripOverdueAlert({
@@ -115,45 +116,45 @@ export const GET: APIRoute = async ({ request }) => {
       }
     }
 
-    // 60h — second guest reminder.
-    if (hours >= 60 && !b.pretrip_reminder_60h_sent) {
-      if (await claim(b.id, 'pretrip_reminder_60h_sent')) {
+    // 144h (day 6) — second guest reminder.
+    if (hours >= 144 && !b.pretrip_reminder_day6_sent) {
+      if (await claim(b.id, 'pretrip_reminder_day6_sent')) {
         try {
           await sendPretripReminder({
             to: b.lead_email,
             leadName: b.lead_name,
             startDate: b.start_date,
             pretripToken: b.pretrip_token,
-            stage: '60h',
+            stage: 'day6',
           });
-          sent60++;
+          sentDay6++;
         } catch {
-          console.error('[pretrip-cron] 60h reminder email failed for', b.id);
+          console.error('[pretrip-cron] day-6 reminder email failed for', b.id);
         }
       }
     }
 
-    // 24h — first guest reminder.
-    if (hours >= 24 && !b.pretrip_reminder_24h_sent) {
-      if (await claim(b.id, 'pretrip_reminder_24h_sent')) {
+    // 72h (day 3) — first guest reminder.
+    if (hours >= 72 && !b.pretrip_reminder_day3_sent) {
+      if (await claim(b.id, 'pretrip_reminder_day3_sent')) {
         try {
           await sendPretripReminder({
             to: b.lead_email,
             leadName: b.lead_name,
             startDate: b.start_date,
             pretripToken: b.pretrip_token,
-            stage: '24h',
+            stage: 'day3',
           });
-          sent24++;
+          sentDay3++;
         } catch {
-          console.error('[pretrip-cron] 24h reminder email failed for', b.id);
+          console.error('[pretrip-cron] day-3 reminder email failed for', b.id);
         }
       }
     }
   }
 
   return new Response(
-    JSON.stringify({ ok: true, scanned: candidates.length, sent24, sent60, overdue }),
+    JSON.stringify({ ok: true, scanned: candidates.length, sentDay3, sentDay6, overdue }),
     { status: 200, headers: { 'content-type': 'application/json' } },
   );
 };

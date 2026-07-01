@@ -1798,6 +1798,133 @@
     text-transform: uppercase;
     color: color-mix(in srgb, var(--color-cream) 78%, var(--color-ochre));
   }
+
+  /* Operator dashboard (Part 3) — internal, view-only. Uses the existing earth/ochre/cream tokens;
+     no new component library. Table collapses to stacked cards on narrow screens. */
+  .admin-tablewrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-hairline);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--color-cream) 92%, white);
+  }
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--color-charcoal);
+  }
+  .admin-table th,
+  .admin-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+  .admin-table thead th {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-earth) 70%, transparent);
+  }
+  .admin-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .admin-row--overdue {
+    background: color-mix(in srgb, var(--color-day4, #9c5b3b) 12%, transparent);
+  }
+  .admin-name {
+    display: block;
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .admin-sub {
+    display: block;
+    font-size: 0.8rem;
+    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+  }
+  .admin-link {
+    color: var(--color-green);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .admin-badge {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    border: 1px solid var(--color-hairline);
+  }
+  .admin-badge--confirmed {
+    background: color-mix(in srgb, var(--color-green) 18%, transparent);
+    color: var(--color-green);
+  }
+  .admin-badge--pending {
+    background: color-mix(in srgb, var(--color-ochre) 22%, transparent);
+    color: color-mix(in srgb, var(--color-earth) 80%, var(--color-ochre));
+  }
+  .admin-badge--cancelled {
+    background: color-mix(in srgb, var(--color-charcoal) 10%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+  }
+  .admin-ok {
+    color: var(--color-green);
+    font-weight: 600;
+  }
+  .admin-flag {
+    color: var(--color-day4, #9c5b3b);
+    font-weight: 700;
+  }
+  .admin-dl {
+    display: grid;
+    gap: 0;
+    border: 1px solid var(--color-hairline);
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+  .admin-dl > div {
+    display: grid;
+    grid-template-columns: minmax(9rem, 14rem) 1fr;
+    gap: 1rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+  .admin-dl > div:last-child {
+    border-bottom: 0;
+  }
+  .admin-dl dt {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-earth) 70%, transparent);
+  }
+  .admin-dl dd {
+    font-family: var(--font-body);
+    color: var(--color-charcoal);
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .admin-guests {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .admin-guests li {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-hairline);
+    border-radius: 0.75rem;
+  }
+  @media (max-width: 640px) {
+    .admin-dl > div {
+      grid-template-columns: 1fr;
+      gap: 0.15rem;
+    }
+  }
 }
 
 /* -----------------------------------------------------------------------------

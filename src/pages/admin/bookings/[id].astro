@@ -1,0 +1,212 @@
+---
+// Admin booking detail (Part 3). prerender=false; gated server-side. View-only. Shows the full
+// booking record plus the submitted pre-trip details (guest manifest, medical notes, emergency
+// contacts, indemnity acceptance). Reads via the service-role client (server only).
+import Layout from '../../../layouts/Layout.astro';
+import Section from '../../../components/Section.astro';
+import { getAdminUser } from '../../../lib/auth';
+import { getSupabaseAdmin } from '../../../lib/supabase';
+import { withBase } from '../../../data/site';
+
+export const prerender = false;
+
+const user = await getAdminUser(Astro.cookies);
+if (!user) {
+  return Astro.redirect(withBase('/admin/login'));
+}
+
+const { id } = Astro.params;
+const isUuid =
+  !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+interface PretripGuest {
+  name?: string;
+  idNumber?: string;
+  emergencyName?: string;
+  emergencyPhone?: string;
+}
+interface PretripDetails {
+  leadPhone?: string;
+  guests?: PretripGuest[];
+  medicalNotes?: string;
+  vehicleReg?: string;
+  arrivalTime?: string;
+  specialRequests?: string;
+  indemnityAccepted?: boolean;
+  selfCateringAck?: boolean;
+}
+
+let booking: Record<string, any> | null = null;
+let pretrip: { submitted_at: string | null; details: PretripDetails | null } | null = null;
+
+if (isUuid) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data } = await supabase.from('bookings').select('*').eq('id', id).maybeSingle();
+    booking = data ?? null;
+    if (booking) {
+      const { data: pt } = await supabase
+        .from('pretrip_details')
+        .select('submitted_at, details')
+        .eq('booking_id', booking.id)
+        .maybeSingle();
+      pretrip = pt ?? null;
+    }
+  } catch {
+    booking = null;
+  }
+}
+
+const fmtMoney = (cents: number | null | undefined) =>
+  cents == null ? '—' : 'R' + Math.round(cents / 100).toLocaleString('en-US');
+const fmtDateTime = (v: string | null | undefined) =>
+  v ? new Date(v).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' }) : '—';
+
+// Field rows for the booking record (label, value).
+const bookingRows: [string, string][] = booking
+  ? [
+      ['Status', booking.status],
+      ['Start date (Day 1)', booking.start_date],
+      ['End date (Day 4)', booking.end_date],
+      ['Group size', String(booking.group_size)],
+      ['Residency', booking.residency],
+      ['Lead guest', booking.lead_name],
+      ['Lead email', booking.lead_email],
+      ['Total (incl. VAT)', fmtMoney(booking.total_cents)],
+      ['Amount due', fmtMoney(booking.amount_due_cents)],
+      ['Amount paid', fmtMoney(booking.amount_paid_cents)],
+      ['Currency', booking.currency],
+      ['Processor', booking.processor],
+      ['Processor reference', booking.processor_reference],
+      ['Processor txn id', booking.processor_txn_id ?? '—'],
+      ['Created', fmtDateTime(booking.created_at)],
+      ['Confirmed', fmtDateTime(booking.confirmed_at)],
+      ['Hold expires', fmtDateTime(booking.hold_expires_at)],
+    ]
+  : [];
+
+const details = pretrip?.details ?? null;
+const guests = (details?.guests ?? []).filter(
+  (g) => g.name || g.idNumber || g.emergencyName || g.emergencyPhone,
+);
+---
+
+<Layout
+  title="Booking detail | Operator dashboard"
+  description="Operator dashboard."
+  path="/admin/bookings"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="detail-heading" space="lg">
+    <p class="font-body text-sm">
+      <a href={withBase('/admin')} class="admin-link">&larr; All bookings</a>
+    </p>
+
+    {
+      !booking ? (
+        <Fragment>
+          <h1 id="detail-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl">
+            Booking not found
+          </h1>
+          <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+            That booking could not be found.
+          </p>
+        </Fragment>
+      ) : (
+        <Fragment>
+          <h1 id="detail-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl">
+            {booking.lead_name}
+          </h1>
+          <p class="mt-3 font-body text-lg text-charcoal/80">
+            {booking.start_date} → {booking.end_date} ·{' '}
+            <span class:list={['admin-badge', `admin-badge--${booking.status}`]}>
+              {booking.status}
+            </span>
+          </p>
+
+          <div class="mt-10 grid gap-10 lg:grid-cols-2">
+            <div>
+              <h2 class="font-display text-2xl text-earth">Booking record</h2>
+              <dl class="admin-dl mt-5">
+                {bookingRows.map(([label, value]) => (
+                  <div>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+
+            <div>
+              <h2 class="font-display text-2xl text-earth">Pre-trip details</h2>
+              {!pretrip || !pretrip.submitted_at ? (
+                <p class="mt-5 font-body leading-relaxed text-charcoal/80">
+                  Not yet submitted.
+                </p>
+              ) : (
+                <Fragment>
+                  <dl class="admin-dl mt-5">
+                    <div>
+                      <dt>Submitted</dt>
+                      <dd>{fmtDateTime(pretrip.submitted_at)}</dd>
+                    </div>
+                    <div>
+                      <dt>Lead phone</dt>
+                      <dd>{details?.leadPhone || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Estimated arrival</dt>
+                      <dd>{details?.arrivalTime || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Vehicle(s) for parking</dt>
+                      <dd>{details?.vehicleReg || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Medical notes</dt>
+                      <dd>{details?.medicalNotes || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Special requests</dt>
+                      <dd>{details?.specialRequests || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Indemnity accepted</dt>
+                      <dd>{details?.indemnityAccepted ? 'Yes' : 'No'}</dd>
+                    </div>
+                    <div>
+                      <dt>Self-catering acknowledged</dt>
+                      <dd>{details?.selfCateringAck ? 'Yes' : 'No'}</dd>
+                    </div>
+                  </dl>
+
+                  <h3 class="mt-8 font-display text-xl text-earth">
+                    Guest manifest ({guests.length})
+                  </h3>
+                  {guests.length === 0 ? (
+                    <p class="mt-3 font-body text-charcoal/80">No guest rows captured.</p>
+                  ) : (
+                    <ol class="admin-guests mt-4">
+                      {guests.map((g, i) => (
+                        <li>
+                          <p class="admin-name">
+                            {i + 1}. {g.name || '—'}
+                          </p>
+                          <p class="admin-sub">ID / passport: {g.idNumber || '—'}</p>
+                          <p class="admin-sub">
+                            Emergency: {g.emergencyName || '—'}
+                            {g.emergencyPhone ? ` · ${g.emergencyPhone}` : ''}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </Fragment>
+              )}
+            </div>
+          </div>
+        </Fragment>
+      )
+    }
+  </Section>
+</Layout>

@@ -59,6 +59,8 @@ export default defineConfig({
         !page.includes('/api/') &&
         !page.includes('/booking/') &&
         !page.includes('/pretrip') &&
+        !page.includes('/trip-info') &&
+        !page.includes('/admin') &&
         !page.includes('/privacy'),
     }),
   ],

@@ -15,6 +15,26 @@ export const LAUNCH_DISCOUNT_END = '2026-12-31';
 
 const toCents = (rand: number) => Math.round(rand * 100);
 
+// Split-payment rule (money policy). A booking made this many days (or more) before its start date
+// pays a deposit now and the balance later; inside this window it pays in full up front.
+export const SPLIT_THRESHOLD_DAYS = 30;
+// Deposit fraction for split bookings (50% deposit, 50% balance).
+export const DEPOSIT_FRACTION = 0.5;
+// The balance link is sent this many days before start_date (anchored to start_date).
+export const BALANCE_LEAD_DAYS = 45;
+
+const MS_PER_DAY = 86_400_000;
+
+// Whole days from `today` (UTC date) to `startDate` (ISO YYYY-MM-DD), both treated as UTC midnight.
+export function daysUntil(startDate: string, now: Date = new Date()): number {
+  const today = now.toISOString().slice(0, 10);
+  return Math.round(
+    (Date.parse(`${startDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / MS_PER_DAY,
+  );
+}
+
+export type PaymentPlan = 'full' | 'deposit_balance';
+
 export interface Quote {
   residency: Residency;
   groupSize: number;
@@ -22,16 +42,15 @@ export interface Quote {
   vatCents: number;
   totalCents: number; // VAT-inclusive — the amount the customer owes (discount already applied)
   depositPercent: number;
-  amountDueCents: number; // total * depositPercent / 100 (full payment when percent = 100)
+  amountDueCents: number; // the FIRST charge: deposit (deposit_balance) or full total (full)
   currency: string;
   launchDiscountApplied: boolean; // true if the launch discount reduced this quote
   discountEndDate: string | null; // ISO date the launch discount runs until (null when not applied)
-}
-
-// Deposit vs full — decision is FULL payment (BOOKING_DEPOSIT_PERCENT=100). Clamped 1..100.
-function depositPercent(): number {
-  const raw = Number(import.meta.env.BOOKING_DEPOSIT_PERCENT ?? 100);
-  return Number.isFinite(raw) && raw > 0 && raw <= 100 ? raw : 100;
+  // Split payment (Part: deposit + balance). When no startDate is supplied (display contexts), the
+  // plan defaults to 'full' and balanceCents is 0.
+  paymentPlan: PaymentPlan;
+  depositCents: number; // deposit portion of total (== totalCents when plan is 'full')
+  balanceCents: number; // balance portion of total (0 when plan is 'full'); deposit + balance == total
 }
 
 // Launch discount is active while now is on or before LAUNCH_DISCOUNT_END (inclusive of that whole
@@ -41,29 +60,52 @@ function launchDiscountActive(now: Date = new Date()): boolean {
   return now.getTime() <= end.getTime();
 }
 
-export function computeQuote(input: { residency: Residency; groupSize: number }): Quote {
+// SERVER price authority. Pass `startDate` (and optionally `now`) to apply the split-payment rule:
+//   gap (today → startDate) < SPLIT_THRESHOLD_DAYS  → pay 100% now ('full')
+//   gap >= SPLIT_THRESHOLD_DAYS                      → pay a 50% deposit now, 50% balance later
+// The split is taken from the ALREADY-DISCOUNTED total, so the launch discount applies to the full
+// price before the 50/50 split (deposit + balance always sum to totalCents — no rounding drift).
+// With no startDate (display/estimate contexts) the plan is 'full'.
+export function computeQuote(input: {
+  residency: Residency;
+  groupSize: number;
+  startDate?: string;
+  now?: Date;
+}): Quote {
+  const now = input.now ?? new Date();
   const baseRand = input.residency === 'international' ? TOTAL_INTERNATIONAL : TOTAL_LOCAL;
 
   // Apply the launch discount to the standard rate when the window is open. The discounted figure
   // is the VAT-inclusive total we actually charge; VAT/net are derived from it so they stay consistent.
-  const launchDiscountApplied = launchDiscountActive();
+  const launchDiscountApplied = launchDiscountActive(now);
   const totalRand = launchDiscountApplied ? baseRand * (1 - LAUNCH_DISCOUNT) : baseRand;
 
   const totalCents = toCents(totalRand); // VAT-inclusive, the amount charged
   const vatCents = totalCents - Math.round(totalCents / (1 + VAT_RATE));
   const netCents = totalCents - vatCents;
-  const percent = depositPercent();
-  const amountDueCents = Math.round((totalCents * percent) / 100);
+
+  // Split decision (from the discounted total). Deposit is rounded; balance is the remainder so the
+  // two always reconcile to totalCents exactly.
+  const gapDays = input.startDate ? daysUntil(input.startDate, now) : 0;
+  const isSplit = !!input.startDate && gapDays >= SPLIT_THRESHOLD_DAYS;
+  const depositCents = isSplit ? Math.round(totalCents * DEPOSIT_FRACTION) : totalCents;
+  const balanceCents = isSplit ? totalCents - depositCents : 0;
+  const paymentPlan: PaymentPlan = isSplit ? 'deposit_balance' : 'full';
+  const amountDueCents = depositCents; // the first charge
+
   return {
     residency: input.residency,
     groupSize: input.groupSize,
     netCents,
     vatCents,
     totalCents,
-    depositPercent: percent,
+    depositPercent: Math.round((depositCents / totalCents) * 100),
     amountDueCents,
     currency: CURRENCY,
     launchDiscountApplied,
     discountEndDate: launchDiscountApplied ? LAUNCH_DISCOUNT_END : null,
+    paymentPlan,
+    depositCents,
+    balanceCents,
   };
 }

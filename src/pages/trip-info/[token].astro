@@ -1,0 +1,163 @@
+---
+// Trip-info page (/trip-info/<token>) — Part 4. A short orientation page each CONFIRMED guest can
+// reach via their pre-trip token. It does NOT duplicate the public itinerary/packing/FAQ content;
+// it points to those pages and adds the one piece of private information that must not be on a
+// public, search-indexed page: the reserve gate coordinates.
+//
+// Same anti-enumeration handling as /pretrip/[token]: look up by the unguessable pretrip_token,
+// require a CONFIRMED booking, and show a single generic "not found" message otherwise. noindex;
+// excluded from the sitemap; stripped from the static GH Pages build (no SSR there).
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import { getSupabaseAdmin } from '../../lib/supabase';
+import { withBase } from '../../data/site';
+import { seasons } from '../../data/logistics';
+
+export const prerender = false;
+
+const { token } = Astro.params;
+const isUuid =
+  !!token && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+
+let booking: { lead_name: string; start_date: string; end_date: string } | null = null;
+
+if (isUuid) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data } = await supabase
+      .from('bookings')
+      .select('lead_name, start_date, end_date, status')
+      .eq('pretrip_token', token)
+      .eq('status', 'confirmed')
+      .maybeSingle();
+    booking = data ?? null;
+  } catch {
+    booking = null;
+  }
+}
+
+// Gate location — PRIVATE. Lives only here, never on a public page.
+const GATE_LAT = -24.6740333;
+const GATE_LNG = 27.8515837;
+const W3W = 'trademarked.actor.clambers';
+const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${GATE_LAT},${GATE_LNG}`;
+const w3wUrl = `https://what3words.com/${W3W}`;
+
+// Which Waterberg season does the trip start in? Reuses the public season copy (data/logistics.ts).
+//   May–Aug → Autumn & Winter (index 0) · Sep–Oct → Spring (index 1) · Nov–Apr → Summer (index 2)
+function seasonForDate(iso: string) {
+  const month = Number(iso.slice(5, 7)); // 1–12
+  if (month >= 5 && month <= 8) return seasons[0];
+  if (month >= 9 && month <= 10) return seasons[1];
+  return seasons[2];
+}
+const season = booking ? seasonForDate(booking.start_date) : null;
+---
+
+<Layout
+  title="Your trip info | The Rooiberg Wander"
+  description="Everything you need before you arrive for The Rooiberg Wander."
+  path="/trip-info"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="tripinfo-heading" space="lg">
+    {
+      booking ? (
+        <div class="max-w-3xl">
+          <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+            Your trip
+          </p>
+          <h1 id="tripinfo-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl">
+            See you in the Rooiberg{booking.lead_name ? `, ${booking.lead_name}` : ''}
+          </h1>
+          <p class="mt-5 font-body text-lg leading-relaxed text-charcoal">
+            Your booking is confirmed. You arrive on <strong>{booking.start_date}</strong> (Day 1)
+            and depart after the final walk on <strong>{booking.end_date}</strong> (Day 4).
+          </p>
+          {season && (
+            <p class="mt-3 font-body leading-relaxed text-charcoal/85">
+              You’re walking in <strong>{season.name}</strong> ({season.months}). {season.lead}{' '}
+              <a href={withBase('/logistics#seasons-heading')} class="admin-link">
+                What to pack for the season &rarr;
+              </a>
+            </p>
+          )}
+
+          <h2 class="mt-12 font-display text-2xl text-earth sm:text-3xl">
+            Everything you need to know before you arrive
+          </h2>
+          <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+            Read these two pages in full before your trip — they cover the day-by-day route, what to
+            pack, your fitness, transport, provisions and the full FAQ.
+          </p>
+          <div class="mt-8 grid gap-6 sm:grid-cols-2">
+            <a href={withBase('/the-trail')} class="teaser group">
+              <h3 class="teaser__title">The Trail</h3>
+              <p class="teaser__text">
+                Your day-by-day itinerary: the arrival evening, three walking days and the final
+                morning.
+              </p>
+              <span class="teaser__more">
+                Read the itinerary <span aria-hidden="true">&rarr;</span>
+              </span>
+            </a>
+            <a href={withBase('/logistics')} class="teaser group">
+              <h3 class="teaser__title">Trail Logistics &amp; FAQ</h3>
+              <p class="teaser__text">
+                Packing, fitness, getting here, provisions, safety and the full list of questions.
+              </p>
+              <span class="teaser__more">
+                Read the logistics <span aria-hidden="true">&rarr;</span>
+              </span>
+            </a>
+          </div>
+
+          <div class="mt-12 rounded-2xl border border-ochre/50 bg-ochre/10 p-6 sm:p-8">
+            <h2 class="font-display text-2xl text-earth sm:text-3xl">The reserve gate</h2>
+            <p class="mt-3 font-body leading-relaxed text-charcoal/85">
+              Drive to the reserve gate to start your trail. These are the exact coordinates — they
+              are shared only with confirmed guests, so they are not on our public pages.
+            </p>
+            <dl class="admin-dl mt-6">
+              <div>
+                <dt>Coordinates</dt>
+                <dd>
+                  {GATE_LAT}, {GATE_LNG}{' '}
+                  <a href={mapsUrl} target="_blank" rel="noopener" class="admin-link">
+                    Open in Google Maps &rarr;
+                  </a>
+                </dd>
+              </div>
+              <div>
+                <dt>what3words</dt>
+                <dd>
+                  ///{W3W}{' '}
+                  <a href={w3wUrl} target="_blank" rel="noopener" class="admin-link">
+                    Open in what3words &rarr;
+                  </a>
+                </dd>
+              </div>
+            </dl>
+            <p class="mt-5 font-body text-sm leading-relaxed text-charcoal/80">
+              <strong>Save or bookmark this page</strong> — it is the one place your gate
+              coordinates live, so keep the link handy for your drive up.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div class="max-w-2xl">
+          <h1 id="tripinfo-heading" class="font-display text-4xl text-earth sm:text-5xl">
+            We couldn’t find that trip
+          </h1>
+          <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+            This link looks invalid or has expired. Please use the link in your booking confirmation
+            email, or contact us and we’ll help.
+          </p>
+          <p class="mt-8">
+            <a href={withBase('/')} class="btn btn-secondary">Return home</a>
+          </p>
+        </div>
+      )
+    }
+  </Section>
+</Layout>

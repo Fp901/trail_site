@@ -21,6 +21,9 @@ interface ImportMetaEnv {
   readonly BOOKINGS_NOTIFY_TO?: string;
   readonly BOOKING_DEPOSIT_PERCENT?: string;
   readonly HOLD_MINUTES?: string;
+  readonly CRON_SECRET?: string;
+  // Operator dashboard (Part 3): if set, only this email may sign in.
+  readonly ADMIN_EMAIL?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

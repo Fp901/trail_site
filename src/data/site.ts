@@ -42,7 +42,7 @@ export const site = {
 // Quick facts — Part 8.5 / new brief. Reused on Rates and (some) on the Trail page.
 export const quickFacts = [
   { label: 'Distance', value: '~15–20 km/day · ~55 km total over 3 walking days' },
-  { label: 'Group size', value: 'Exclusive bookings, up to 12 guests' },
+  { label: 'Group size', value: 'Exclusive use, up to 10 guests (optional two extra by special arrangement)' },
   { label: 'Catering', value: 'Self-catered. Bring your own food and drinks; we move them daily' },
   { label: 'Guides & safety', value: 'Two qualified, armed trail guides at all times' },
   { label: 'Grading', value: 'Moderate to challenging. You need a good level of hiking fitness' },
@@ -55,7 +55,7 @@ export const stats = [
   { value: '3', label: 'Nights' },
   { value: '3', label: 'Days Walking' },
   { value: '3', label: 'Private Lodges' },
-  { value: 'Max 12', label: 'Guests (Exclusive Group Use)' },
+  { value: 'Up to 10', label: 'Guests (Exclusive Group Use)' },
 ] as const;
 
 // Prefix a root-relative path with the configured base (Astro `base`), so internal links work

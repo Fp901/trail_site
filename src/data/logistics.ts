@@ -71,7 +71,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How big is the group?',
-    a: 'The trail is sold as exclusive use for one private group of up to 12 guests. You have the trail and camps to yourselves.',
+    a: 'The trail is sold as exclusive use for one private group of up to 10 guests, with an optional two extra by special arrangement. You have the trail and camps to yourselves.',
   },
 ];
 

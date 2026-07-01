@@ -1,0 +1,97 @@
+---
+// Admin login (Part 3). prerender=false. Public route (the only admin route without a session
+// gate), but if a valid session already exists we send the operator straight to the dashboard.
+// The form submits via the typed adminLogin Action, which sets the httpOnly session cookies
+// server-side; the real gate is the server-side getAdminUser() check on every other admin page.
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import { getAdminUser } from '../../lib/auth';
+import { withBase } from '../../data/site';
+
+export const prerender = false;
+
+if (await getAdminUser(Astro.cookies)) {
+  return Astro.redirect(withBase('/admin'));
+}
+---
+
+<Layout
+  title="Operator sign in | The Rooiberg Wander"
+  description="Operator dashboard sign in."
+  path="/admin/login"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="login-heading" space="lg">
+    <div class="max-w-md">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Operator
+      </p>
+      <h1 id="login-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl">
+        Sign in
+      </h1>
+      <p class="mt-5 font-body leading-relaxed text-charcoal/85">
+        This area is for the operator only.
+      </p>
+
+      <form id="admin-login" class="bform mt-8" data-redirect={withBase('/admin')} novalidate>
+        <div class="form-field">
+          <label for="al-email">Email</label>
+          <input id="al-email" name="email" type="email" autocomplete="username" maxlength="180" required />
+        </div>
+        <div class="form-field">
+          <label for="al-password">Password</label>
+          <input id="al-password" name="password" type="password" autocomplete="current-password" maxlength="200" required />
+        </div>
+        <button type="submit" class="btn btn-primary bform__submit">Sign in</button>
+        <p class="bform__status" data-status role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </Section>
+</Layout>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initAdminLogin() {
+    const form = document.getElementById('admin-login') as HTMLFormElement | null;
+    if (!form || form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+
+    const status = form.querySelector<HTMLElement>('[data-status]');
+    const submit = form.querySelector<HTMLButtonElement>('.bform__submit');
+    const redirectTo = form.dataset.redirect || '/admin';
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (status) {
+        status.textContent = '';
+        status.dataset.kind = 'info';
+      }
+      const fd = new FormData(form);
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = 'Signing in…';
+      }
+
+      const { error } = await actions.adminLogin({
+        email: String(fd.get('email') ?? ''),
+        password: String(fd.get('password') ?? ''),
+      });
+
+      if (error) {
+        if (status) {
+          status.textContent = error.message || 'Invalid email or password.';
+          status.dataset.kind = 'error';
+        }
+        if (submit) {
+          submit.disabled = false;
+          submit.textContent = 'Sign in';
+        }
+        return;
+      }
+      window.location.href = redirectTo;
+    });
+  }
+
+  document.addEventListener('astro:page-load', initAdminLogin);
+</script>

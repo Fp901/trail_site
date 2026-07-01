@@ -46,7 +46,11 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
     <label for="bf-group">Group size</label>
     <select id="bf-group" name="groupSize" required>
       {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-        <option value={n}>{n}{n === 12 ? ' (max)' : ''}</option>
+        <option value={n}>
+          {n}
+          {n === 10 ? ' (recommended)' : ''}
+          {n > 10 ? ' (by special arrangement)' : ''}
+        </option>
       ))}
     </select>
   </div>
