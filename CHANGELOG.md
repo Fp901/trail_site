@@ -10,6 +10,22 @@ marked done. Dates are the working dates.
 
 ---
 
+## Online indemnity/waiver removed — signed in person on arrival — 2026-07-01  (NOT committed)
+
+Per the solicitor, guests sign the trail indemnity **in person on arrival**, so all online indemnity
+collection was removed (the never-applied waiver-record work + the older `indemnityAccepted` checkbox).
+Migration `0010` was never run in Supabase, so this is a clean removal with no schema to unwind.
+- **Deleted `0010_waiver_record.sql`** (never applied) — `pretrip_details` keeps only `submitted_at`
+  + `details` jsonb; no `waiver_*` columns exist.
+- **`PretripForm.astro`** — removed the entire indemnity/waiver fieldset (indemnity text, "read and
+  understood" checkbox, "type your full name to sign" field) + its client validation/payload. Replaced
+  with a short note: *the indemnity is signed in person on arrival at Rotavi Lodge*.
+- **`submitPretrip` action** — dropped `indemnityAccepted` + `waiverSignatureName` from the zod input,
+  the acceptance check, and the `details`/waiver columns from the upsert. Still writes guest manifest,
+  contact, medical, vehicle, arrival, special requests, self-catering ack + `submitted_at`.
+- **`/admin/bookings/[id]`** — removed the waiver + indemnity display rows and columns.
+- **`global.css`** — removed the now-unused `.pretrip-indemnity` style.
+
 ## Staggered-groups availability + callback-URL audit — 2026-07-01  (NOT committed)
 
 Two targeted fixes to the core availability model. Verified green (`astro check` + `build`), not committed.

@@ -216,7 +216,6 @@ export const server = {
       vehicleReg: z.string().trim().max(500).optional(),
       arrivalTime: z.string().trim().max(20).optional(),
       specialRequests: z.string().trim().max(3000).optional(),
-      indemnityAccepted: z.boolean(),
       selfCateringAck: z.boolean().optional(),
       company: z.string().max(0).optional(), // honeypot
     }),
@@ -229,12 +228,6 @@ export const server = {
         });
       }
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
-      if (!input.indemnityAccepted) {
-        throw new ActionError({
-          code: 'BAD_REQUEST',
-          message: 'Please accept the trail indemnity to continue.',
-        });
-      }
       if (!input.guests[0]?.name) {
         throw new ActionError({
           code: 'BAD_REQUEST',
@@ -257,6 +250,8 @@ export const server = {
         .filter((g) => g.name || g.idNumber || g.emergencyName || g.emergencyPhone)
         .slice(0, booking.group_size);
 
+      // The trail indemnity is signed in person on arrival (solicitor's requirement), so no waiver
+      // is captured online.
       const details = {
         leadPhone: input.leadPhone ?? '',
         guests,
@@ -264,7 +259,6 @@ export const server = {
         vehicleReg: input.vehicleReg ?? '',
         arrivalTime: input.arrivalTime ?? '',
         specialRequests: input.specialRequests ?? '',
-        indemnityAccepted: input.indemnityAccepted,
         selfCateringAck: input.selfCateringAck ?? false,
       };
 

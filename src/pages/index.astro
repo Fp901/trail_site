@@ -6,7 +6,8 @@ import Section from '../components/Section.astro';
 import Hero from '../components/Hero.astro';
 import StatsBar from '../components/StatsBar.astro';
 import { withBase } from '../data/site';
-import { LAUNCH_OFFER, LAUNCH_DATE } from '../data/rates';
+import { LAUNCH_OFFER, LAUNCH_DATE, inclusions, exclusions } from '../data/rates';
+import { faqs } from '../data/logistics';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
 import panorama from '../assets/images/rooiberg-dusk-panorama.jpg';
 import {
@@ -38,7 +39,7 @@ const teasers = [
   {
     index: '02',
     title: 'The Safari Lodges',
-    href: '/sanctuaries',
+    href: '/accommodation',
     text: 'Rotavi Lodge, Oukraal and ViervanAcht. Three private safari lodges, each with its own character.',
   },
   {
@@ -48,6 +49,27 @@ const teasers = [
     text: 'Launching 1 October 2026 with a 50% Launch Phase discount. R60,000 per exclusive group of up to ten, incl. VAT and all conservation levies.',
   },
 ];
+
+// Homepage trust-signal band (below the hero).
+const trustSignals = [
+  'Private Big 5 Reserve',
+  'Malaria-Free',
+  'Armed Professional Guides',
+  'Exclusive Group Use',
+  'Self-Catered & Ported', // NB: changed from "Fully Catered" — the trail is self-catered (see summary)
+];
+
+// FAQ highlights — 4 common questions pulled verbatim from the full /logistics FAQ (no duplication
+// of content; the answers live in data/logistics.ts). A "Read more" links to the full list.
+const faqHighlightQuestions = [
+  'What is slackpacking?',
+  'Is the area malaria-free?',
+  'How fit do I need to be?',
+  'How big is the group?',
+];
+const faqHighlights = faqHighlightQuestions
+  .map((q) => faqs.find((f) => f.q === q))
+  .filter((f): f is (typeof faqs)[number] => Boolean(f));
 ---
 
 <Layout
@@ -62,6 +84,13 @@ const teasers = [
     imageAlt="Golden-hour light over the layered mountains of the Rooiberg, Limpopo."
   />
   <StatsBar />
+
+  {/* Trust signals — slim band of proof points directly below the hero/stats. */}
+  <div class="trust-bar">
+    <ul class="trust-bar__list">
+      {trustSignals.map((s) => <li>{s}</li>)}
+    </ul>
+  </div>
 
   {
     LAUNCH_OFFER && (
@@ -160,6 +189,72 @@ const teasers = [
         </p>
       </div>
     </div>
+  </Section>
+
+  {/* What's included / what's not — pulled from the same source as the Rates page (data/rates.ts). */}
+  <Section bg="cream" space="md" labelledby="included-home-heading" class="border-t border-hairline">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        One flat rate, per group
+      </p>
+      <h2
+        id="included-home-heading"
+        class="mt-4 font-display text-2xl text-earth sm:text-3xl md:text-4xl"
+      >
+        What the price includes
+      </h2>
+      <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+        VAT and all conservation levies are included. Here is exactly what your group rate covers —
+        and the few things to arrange yourself.
+      </p>
+    </div>
+    <div class="mt-10 grid gap-10 md:grid-cols-2">
+      <div>
+        <h3 class="font-display text-xl text-earth">Included</h3>
+        <ul class="incl-list incl-list--in">
+          {inclusions.map((i) => <li>{i}</li>)}
+        </ul>
+      </div>
+      <div>
+        <h3 class="font-display text-xl text-earth">Not included</h3>
+        <ul class="incl-list incl-list--out">
+          {exclusions.map((i) => <li>{i}</li>)}
+        </ul>
+      </div>
+    </div>
+    <p class="mt-8">
+      <a href={withBase('/rates')} class="btn btn-secondary">See full rates &amp; book</a>
+    </p>
+  </Section>
+
+  {/* FAQ highlights — 4 common questions; the full list lives on /logistics (not duplicated). */}
+  <Section bg="cream" space="md" labelledby="faq-home-heading" class="border-t border-hairline">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Good to know
+      </p>
+      <h2 id="faq-home-heading" class="mt-4 font-display text-2xl text-earth sm:text-3xl md:text-4xl">
+        Common questions
+      </h2>
+    </div>
+    <dl class="mt-10 grid max-w-4xl gap-8 sm:grid-cols-2">
+      {
+        faqHighlights.map((f) => (
+          <div class="border-t-2 border-ochre pt-4">
+            <dt class="font-display text-lg text-earth">{f.q}</dt>
+            <dd class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">{f.a}</dd>
+          </div>
+        ))
+      }
+    </dl>
+    <p class="mt-8">
+      <a
+        href={withBase('/logistics')}
+        class="font-body text-sm font-semibold text-green underline underline-offset-4"
+      >
+        Read the full FAQ <span aria-hidden="true">&rarr;</span>
+      </a>
+    </p>
   </Section>
 
   {/* Teasers — paths into the deeper pages. */}

@@ -200,58 +200,8 @@
     }
   }
 
-  /* --- Header WhatsApp link ------------------------------------------------ */
-  .nav-whatsapp {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: inherit;
-    text-decoration: none;
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    font-weight: 500;
-    padding: 0.35rem 0.75rem;
-    border: 1px solid currentColor;
-    border-radius: 0.6rem;
-    opacity: 0.9;
-    transition:
-      opacity 200ms ease,
-      background-color 200ms ease,
-      color 200ms ease;
-  }
-  .nav-whatsapp:hover {
-    opacity: 1;
-    background-color: var(--color-ochre);
-    border-color: var(--color-ochre);
-    color: var(--color-earth);
-  }
-
-  /* --- Floating WhatsApp click-to-chat (site-wide) ------------------------- */
-  .wa-float {
-    position: fixed;
-    right: 1rem;
-    bottom: 1rem;
-    z-index: 50;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 3.5rem;
-    height: 3.5rem;
-    border-radius: 9999px;
-    background-color: #25d366;
-    color: #fff;
-    box-shadow: 0 6px 18px rgba(61, 43, 31, 0.28);
-    transition: transform 200ms ease;
-  }
-  .wa-float:hover {
-    transform: scale(1.06);
-  }
-  @media (min-width: 768px) {
-    .wa-float {
-      right: 1.5rem;
-      bottom: 1.5rem;
-    }
-  }
+  /* Floating WhatsApp (mobile-only) now lives in WhatsAppButton.astro via Tailwind utilities;
+     the header WhatsApp link was removed (footer is the desktop contact path). */
 
   /* --- Mobile menu (Part 5.6) ---------------------------------------------- */
   .mobile-menu-toggle {
@@ -649,6 +599,16 @@
     .bform__grid {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
+  }
+  /* Booking form (name/email row): keep both inputs on the same baseline even when one label wraps
+     to a different height. align-items:end bottom-aligns the fields (the input is each field's last
+     child), and we drop the stacked-field top margin that otherwise offsets the second cell inside
+     the grid. Scoped to #booking-form so the pre-trip form's grids are unaffected. */
+  #booking-form .bform__grid {
+    align-items: end;
+  }
+  #booking-form .bform__grid > .form-field + .form-field {
+    margin-top: 0;
   }
   .form-field {
     display: flex;
@@ -1560,11 +1520,104 @@
     font-size: clamp(2rem, 5vw, 2.75rem);
     color: var(--color-earth);
   }
+  .sanctuary__context {
+    margin-top: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-left: 2px solid var(--accent);
+    padding-left: 0.7rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
+  }
   .sanctuary__desc {
     margin-top: 1rem;
     max-width: 46ch;
     line-height: 1.7;
     color: color-mix(in srgb, var(--color-charcoal) 90%, transparent);
+  }
+
+  /* --- Accommodation page: exclusivity note + amenities grid --------------- */
+  .lodge-note {
+    border: 1px solid color-mix(in srgb, var(--color-ochre) 45%, transparent);
+    border-radius: 1rem;
+    background-color: color-mix(in srgb, var(--color-ochre) 10%, var(--color-cream));
+    padding: 1.25rem 1.5rem;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--color-earth);
+  }
+  .amenity-grid {
+    margin-top: 1.75rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    .amenity-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  .amenity-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--color-hairline);
+    border-radius: 0.7rem;
+    background-color: color-mix(in srgb, var(--color-cream) 55%, #fff);
+    padding: 0.75rem 0.9rem;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--color-charcoal);
+  }
+  .amenity-item::before {
+    content: '';
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background-color: var(--color-ochre);
+  }
+
+  /* --- Homepage trust bar — slim band of proof points below the hero ------- */
+  .trust-bar {
+    background-color: var(--color-earth);
+    border-top: 1px solid color-mix(in srgb, var(--color-ochre) 30%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ochre) 30%, transparent);
+  }
+  .trust-bar__list {
+    margin: 0 auto;
+    max-width: var(--container, 96rem);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 1.5rem;
+    padding: 0.9rem 1.5rem;
+    list-style: none;
+  }
+  .trust-bar__list li {
+    position: relative;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-cream) 88%, var(--color-ochre));
+  }
+  /* Divider between items (not before the first). Hidden when items wrap to a new line is acceptable. */
+  .trust-bar__list li + li::before {
+    content: '';
+    position: absolute;
+    left: -0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 0.9rem;
+    background-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
   }
 
   /* --- RouteMap (Part 7 / 8.6) --------------------------------------------- */

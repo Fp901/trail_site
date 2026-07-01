@@ -129,9 +129,9 @@ applied to a real database. Security hardening done: server-side **rate limiting
 ### 🔴 Blocks a clean go-live
 1. ~~**Pre-trip form page `/pretrip/[token]` + submission action.**~~ ✅ DONE — `/pretrip/[token]`
    + `PretripForm` + the `submitPretrip` action write `pretrip_details.submitted_at` (stops the
-   reminders). ⚠️ **Gap:** the waiver is only an `indemnityAccepted` boolean inside the `details`
-   jsonb — there is **no `waiver_accepted_at` / `waiver_ip_address` / signature-name** captured. If a
-   legally-robust waiver record is required, add those columns + capture them in the form/action.
+   reminders). **Indemnity/waiver: NOT collected online** — per the solicitor, guests sign the
+   indemnity **in person on arrival** (the form shows a note to that effect). No online waiver record,
+   no `waiver_*` columns; migration `0010` was removed before ever being applied.
 2. **Valid SA tax invoice generation.** The confirmation email *says* a tax invoice accompanies the
    receipt, but none is produced. Needs the **VAT number** + an invoice template (VAT shown
    separately, invoice number, etc.). **Now also applies to the balance payment** (its receipt must

@@ -47,3 +47,19 @@ export const rates: RateCard[] = [
 export function formatRand(amount: number): string {
   return 'R' + amount.toLocaleString('en-US');
 }
+
+// What the group rate includes / excludes. Single source of truth shared by the Rates page and the
+// homepage "What's included" section so the two can never drift.
+export const inclusions = [
+  'Exclusive use of the reserve and all three safari lodges (up to 10 guests; optional two extra by special arrangement)',
+  'Two qualified, armed trail guides throughout',
+  'Daily transport of your baggage and provisions between camps',
+  'Camp assistants for cleaning, kitchen prep and the barbeque',
+  'All reserve conservation levies',
+  'VAT at 15%',
+];
+export const exclusions = [
+  'All food and beverages (the trail is self-catered)',
+  'Travel to and from Rotavi Lodge',
+  'Personal travel insurance',
+];

@@ -1,0 +1,88 @@
+---
+// The Safari Lodges (/accommodation) — Part 8.3, carried forward from the former /sanctuaries page
+// (real photography retained) with clearer structure and visual hierarchy. The old /sanctuaries URL
+// 301-redirects here (astro.config.mjs). Three private lodges under one premium trail standard.
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+import SanctuaryCard from '../components/SanctuaryCard.astro';
+import { sanctuaries, sanctuaryAmenities } from '../data/sanctuaries';
+import { webPageSchema, breadcrumbSchema, touristAttractionSchema } from '../data/schema';
+
+const title = 'The Safari Lodges | Three private trail lodges';
+const description =
+  'Rotavi Lodge, Oukraal and ViervanAcht — three private safari lodges on The Rooiberg Wander, each with a pool, equipped kitchen, barbeque, safe drinking water and free WiFi. Yours exclusively.';
+
+const jsonLd = [
+  webPageSchema({ path: '/accommodation', name: title, description }),
+  breadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'The Safari Lodges', path: '/accommodation' },
+  ]),
+  ...sanctuaries.map((s) => touristAttractionSchema({ name: s.name, description: s.description })),
+];
+
+// Trail context per lodge — grounded in the itinerary (Day 2 crosses Groenkop to Oukraal; Day 3
+// takes the Elandsberg L-Kloof to ViervanAcht; Rotavi is the Day 1 arrival and Day 4 return).
+const context: Record<string, string> = {
+  rotavi: 'Day 1 arrival & Day 4 return · the valley basecamp',
+  oukraal: 'Day 2 · Rotavi Lodge → Oukraal, over Groenkop',
+  viervanacht: 'Day 3 · Oukraal → ViervanAcht, via the Elandsberg L-Kloof',
+};
+---
+
+<Layout title={title} description={description} path="/accommodation" jsonLd={jsonLd}>
+  <Section bg="cream" labelledby="lodges-heading" space="lg">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        The Safari Lodges
+      </p>
+      <h1 id="lodges-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl md:text-6xl">
+        Where you sleep each night
+      </h1>
+      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
+        The Rooiberg Wander is point-to-point: you walk from one private safari lodge to the next and
+        sleep somewhere new each night — a pool, a fire and a real bed at the end of every day. Three
+        distinct lodges, one premium standard.
+      </p>
+    </div>
+
+    <div class="mt-8 max-w-3xl">
+      <p class="lodge-note">
+        Up to ten guests, with an optional two by special arrangement. The lodges are yours
+        exclusively — no other guests, ever.
+      </p>
+    </div>
+  </Section>
+
+  <Section bg="cream" labelledby="amenities-heading" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <h2 id="amenities-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        Every lodge has
+      </h2>
+      <p class="mt-3 font-body leading-relaxed text-charcoal/85">
+        Each of the three lodges is fully equipped to the same standard, so you carry only a daypack
+        and everything you need is waiting when you arrive.
+      </p>
+    </div>
+    <ul class="amenity-grid max-w-3xl">
+      {sanctuaryAmenities.map((a) => <li class="amenity-item">{a}</li>)}
+    </ul>
+  </Section>
+
+  <Section bg="cream" space="md" containerClass="!pt-0">
+    {
+      sanctuaries.map((s, i) => (
+        <SanctuaryCard
+          name={s.name}
+          role={s.role}
+          description={s.description}
+          alt={s.alt}
+          accentVar={s.accentVar}
+          image={s.image}
+          context={context[s.id]}
+          reverse={i % 2 === 1}
+        />
+      ))
+    }
+  </Section>
+</Layout>

@@ -89,13 +89,10 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
     <span>I understand the trail is fully self-catered: each group brings their own food and drinks. Each lodge has a kitchen, fridge, braai facilities, safe drinking water, ice and wood.</span>
   </label>
 
-  <label class="pretrip-check">
-    <input type="checkbox" id="pt-indemnity" required />
-    <span>
-      I confirm every guest accepts the trail indemnity and understands the inherent risks of a
-      guided Big 5 walking trail on foot. <em>[Indemnity wording to be supplied by the operator.]</em>
-    </span>
-  </label>
+  <p class="pretrip-note">
+    Your trail indemnity is signed in person on arrival at Rotavi Lodge, before the safety briefing —
+    there is nothing to sign here.
+  </p>
 
   {/* Honeypot */}
   <div class="hp" aria-hidden="true">
@@ -143,13 +140,8 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
         emergencyPhone: (row.querySelector<HTMLInputElement>('[data-g-ec-phone]')?.value ?? '').trim(),
       }));
 
-      const indemnity = form.querySelector<HTMLInputElement>('#pt-indemnity')?.checked ?? false;
       if (!guests[0]?.name) {
         setStatus('Please enter at least the lead guest’s name.');
-        return;
-      }
-      if (!indemnity) {
-        setStatus('Please accept the trail indemnity to continue.');
         return;
       }
 
@@ -161,7 +153,6 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
         vehicleReg: val('#pt-vehicle'),
         arrivalTime: val('#pt-arrival'),
         specialRequests: val('#pt-requests'),
-        indemnityAccepted: indemnity,
         selfCateringAck: form.querySelector<HTMLInputElement>('#pt-selfcater')?.checked ?? false,
         company: (form.querySelector<HTMLInputElement>('[data-hp]')?.value || undefined) as
           | string

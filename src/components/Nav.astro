@@ -5,7 +5,6 @@
 // solid cream from the top. The MobileMenu overlay (md:hidden) handles small screens.
 import { nav, site, withBase } from '../data/site';
 import MobileMenu from './MobileMenu.astro';
-import WhatsAppIcon from './WhatsAppIcon.astro';
 
 interface Props {
   overHero?: boolean;
@@ -45,16 +44,6 @@ const isActive = (href: string) => {
           ))
         }
       </ul>
-      <a
-        href={site.contact.whatsappUrl}
-        target="_blank"
-        rel="noopener"
-        class="nav-whatsapp"
-        aria-label={`WhatsApp ${site.contact.name} on ${site.contact.phone}`}
-      >
-        <WhatsAppIcon size={18} />
-        <span>WhatsApp</span>
-      </a>
     </div>
 
     <MobileMenu />

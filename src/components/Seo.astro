@@ -24,8 +24,9 @@ const {
   jsonLd = [],
 } = Astro.props;
 
-const canonical = new URL(path, site.url).href;
-const ogImage = new URL(image, site.url).href;
+// Canonical + OG absolute URLs use the non-www production domain (site.canonicalUrl), not site.url.
+const canonical = new URL(path, site.canonicalUrl).href;
+const ogImage = new URL(image, site.canonicalUrl).href;
 const ogLocale = site.locale.replace('-', '_'); // en-ZA -> en_ZA
 ---
 

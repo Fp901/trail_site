@@ -57,7 +57,7 @@ import WhatsAppIcon from './WhatsAppIcon.astro';
         <WhatsAppIcon size={20} />
         WhatsApp {site.contact.name} {site.contact.phone}
       </a>
-      <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>
+      <a href={`tel:${site.contact.phone.replace(/\s/g, '')}`}>{site.contact.phone}</a>
       <span>Office hours {site.contact.officeHours}</span>
     </div>
   </div>

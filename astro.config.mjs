@@ -14,12 +14,20 @@ const isStatic = process.env.BUILD_TARGET === 'static';
 // undefined. For a GitHub Pages *project* subpath (e.g. /trail_site, before the domain is wired)
 // the workflow passes PAGES_BASE/SITE_URL from configure-pages, which read the configured domain.
 const base = process.env.PAGES_BASE || undefined;
-const site = process.env.SITE_URL || 'https://www.rooibergwander.co.za';
+// Non-www is the production canonical (per the Vercel domain setup) — keeps the sitemap consistent
+// with the canonical/og:url tags emitted by Seo.astro. SITE_URL (e.g. GitHub Pages) still overrides.
+const site = process.env.SITE_URL || 'https://rooibergwander.co.za';
 
 // https://astro.build/config
 export default defineConfig({
   site,
   base,
+
+  // 301: the old /sanctuaries route is now /accommodation (content carried forward). Permanent so
+  // search engines transfer ranking to the new URL.
+  redirects: {
+    '/sanctuaries': { status: 301, destination: '/accommodation' },
+  },
 
   // Content-Security-Policy (Part 11.2). Astro auto-hashes the inline <script>/<style> it emits and
   // writes a <meta http-equiv> CSP — so script-src stays STRICT ('self' + per-build hashes, no

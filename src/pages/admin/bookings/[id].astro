@@ -32,7 +32,6 @@ interface PretripDetails {
   vehicleReg?: string;
   arrivalTime?: string;
   specialRequests?: string;
-  indemnityAccepted?: boolean;
   selfCateringAck?: boolean;
 }
 
@@ -169,10 +168,6 @@ const guests = (details?.guests ?? []).filter(
                     <div>
                       <dt>Special requests</dt>
                       <dd>{details?.specialRequests || '—'}</dd>
-                    </div>
-                    <div>
-                      <dt>Indemnity accepted</dt>
-                      <dd>{details?.indemnityAccepted ? 'Yes' : 'No'}</dd>
                     </div>
                     <div>
                       <dt>Self-catering acknowledged</dt>

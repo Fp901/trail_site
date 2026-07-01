@@ -28,8 +28,13 @@ export const site = {
 
   locale: 'en-ZA',
 
-  // Production domain (primary). Must match `site` in astro.config.mjs.
+  // Backend URL fallback (server-side URL construction reads PUBLIC_SITE_URL ?? site.url). Left as-is.
   url: 'https://www.rooibergwander.co.za',
+
+  // Canonical PUBLIC domain (non-www) — the production canonical per the Vercel domain setup. Used
+  // ONLY for SEO canonical + og:url + og:image (Seo.astro). Kept separate from `url` so this SEO
+  // change never touches server-side URL construction.
+  canonicalUrl: 'https://rooibergwander.co.za',
 
   // Sitewide SEO fallback description (pages pass their own per Part 8.8).
   defaultDescription:
@@ -72,7 +77,7 @@ export function withBase(path: string): string {
 export const nav = [
   { label: 'Home', href: '/' },
   { label: 'The Trail', href: '/the-trail' },
-  { label: 'The Safari Lodges', href: '/sanctuaries' },
+  { label: 'The Safari Lodges', href: '/accommodation' },
   { label: 'Trail Logistics & FAQ', href: '/logistics' },
   { label: 'Rates & Booking', href: '/rates' },
 ] as const;

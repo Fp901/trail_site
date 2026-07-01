@@ -6,7 +6,7 @@ import Section from '../components/Section.astro';
 import RatesTable from '../components/RatesTable.astro';
 import BookingWidget from '../components/BookingWidget.astro';
 import InquiryForm from '../components/InquiryForm.astro';
-import { rates, LAUNCH_OFFER, LAUNCH_DATE } from '../data/rates';
+import { rates, LAUNCH_OFFER, LAUNCH_DATE, inclusions, exclusions } from '../data/rates';
 import { refundPolicy } from '../data/policies';
 import { site } from '../data/site';
 import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
@@ -21,19 +21,8 @@ const title = 'Rates & Booking | The Rooiberg Wander';
 const description =
   'R60,000 per exclusive group of up to 10 (SA residents, incl. VAT & conservation levies); +20% for foreign nationals. See what is included and book.';
 
-const included = [
-  'Exclusive use of the reserve and all three safari lodges (up to 10 guests; optional two extra by special arrangement)',
-  'Two qualified, armed trail guides throughout',
-  'Daily transport of your baggage and provisions between camps',
-  'Camp assistants for cleaning, kitchen prep and the barbeque',
-  'All reserve conservation levies',
-  'VAT at 15%',
-];
-const excluded = [
-  'All food and beverages (the trail is self-catered)',
-  'Travel to and from Rotavi Lodge',
-  'Personal travel insurance',
-];
+const included = inclusions;
+const excluded = exclusions;
 
 const jsonLd = [
   webPageSchema({ path: '/rates', name: title, description }),
@@ -123,6 +112,10 @@ const jsonLd = [
               Choose your start date and group size and pay securely by card. Your booking is
               confirmed once payment is received, and a tax invoice is issued with your receipt.
             </p>
+            <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
+              Under <strong>Residency</strong>, choose “International visitor” if you are not a South
+              African resident — a 20% conservation levy applies to that rate.
+            </p>
             <div class="mt-8">
               <BookingWidget />
             </div>
@@ -130,11 +123,13 @@ const jsonLd = [
         ) : (
           <div class="booking-placeholder">
             <p class="font-body leading-relaxed text-charcoal/85">
-              Online booking is being finalised. For now, email us to check dates and reserve
-              your group.
+              Online booking is being finalised. For now, message us on WhatsApp to check dates and
+              reserve your group.
             </p>
             <p class="mt-6">
-              <a href={`mailto:${site.notifyEmail}`} class="btn btn-primary">Enquire about dates</a>
+              <a href={site.contact.whatsappUrl} target="_blank" rel="noopener" class="btn btn-primary">
+                Enquire on WhatsApp
+              </a>
             </p>
             <p class="mt-4 font-body text-sm text-charcoal/60">
               Secure online booking with instant confirmation is coming soon.
