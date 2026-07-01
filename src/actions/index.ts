@@ -80,7 +80,9 @@ export const server = {
       const startDate = input.startDate;
       const endDate = addDays(startDate, 3);
 
-      // Insert pending booking. The DB overlap exclusion constraint + hold prevent double-booking.
+      // Insert pending booking. Staggered groups (Option A): the DB unique-start-date index (active
+      // rows only) + the hold prevent two groups starting on the same day; overlapping trip ranges
+      // are allowed. The server is the authority — a duplicate start_date fails the insert here.
       // amount_due_cents is the FIRST charge (deposit for deposit_balance, full total otherwise);
       // balance_due_date is computed at confirmation in the webhook (it anchors to confirmed_at for
       // the edge case), so it is left null here.
@@ -108,7 +110,7 @@ export const server = {
         .single();
 
       if (error || !data) {
-        // Exclusion-constraint violation => the dates were just taken.
+        // Unique-start-date violation => that start date was just taken by another group.
         throw new ActionError({
           code: 'CONFLICT',
           message: 'Those dates have just been taken. Please choose another start date.',

@@ -10,6 +10,35 @@ marked done. Dates are the working dates.
 
 ---
 
+## Staggered-groups availability + callback-URL audit — 2026-07-01  (NOT committed)
+
+Two targeted fixes to the core availability model. Verified green (`astro check` + `build`), not committed.
+- **Availability model → staggered groups (Option A).** The reserve runs concurrent groups across
+  the three lodges; the ONLY real conflict is two groups sharing a **start_date** (both at Lodge 1,
+  night 1). Overlapping date ranges are now allowed.
+  - **Migration `0009_startdate_unique.sql`** — drops the `bookings_no_overlap` GiST daterange
+    exclusion; adds `create unique index bookings_unique_start_date on bookings(start_date) where
+    status in ('pending','confirmed')`. Redefines `unavailable_windows` to expose **only start_date**
+    (single dates, not ranges): bookings' start_date + operator `blocked_dates` **expanded to one row
+    per day** via `generate_series`. View dropped+recreated (can't drop a column via replace), grant +
+    advisory comment re-applied.
+  - **`BookingWidget.astro`** — calendar now marks a day `taken` **only if it exactly matches a
+    blocked start_date** (`Set<string>` membership) instead of the old 4-day overlap test; fetches
+    `?select=start_date`. A day inside another trip's range but not a start date stays selectable.
+  - **`actions/index.ts`** — comments updated; `createCheckout` already relies on the DB (insert
+    fails → `CONFLICT`), so the new unique index catches same-start-date races with no logic change.
+  - **Hold-sweep (`0002`) unaffected** — cancelling a pending row drops it from the partial unique
+    index, freeing the start_date (same as before). Verified, not changed.
+  - **Data safety:** the old constraint forbade overlapping active ranges (stricter than
+    same-start-date), so any permitted data already has distinct active start_dates → the new index
+    applies cleanly. (No live DB exists yet regardless.)
+- **Callback URL audit — no change needed.** Confirmed `initCheckout` passes `callback_url`, built
+  as `${PUBLIC_SITE_URL ?? site.url}/booking/confirm` in both callers (`actions`, `lib/balance`) —
+  correctly from `PUBLIC_SITE_URL`, not hardcoded to a wrong host. Paystack auto-appends
+  `?reference=&trxref=`; `confirm.astro` reads `reference` and calls `verifyTransaction` **display-only
+  (never writes booking status)** — the webhook remains the sole writer. (Appending `?reference=`
+  ourselves was rejected: it would collide with Paystack's own appended query string.)
+
 ## Split payment: deposit + balance — 2026-07-01  (NOT committed)
 
 Money-touching. **In the working tree, verified green (`astro check` + `build`), not committed.** No

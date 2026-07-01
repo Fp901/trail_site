@@ -106,7 +106,8 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
   import { actions } from 'astro:actions';
 
   // Anon, PUBLIC creds only (never the service-role key). The unavailable_windows view is
-  // RLS-granted to anon and exposes ONLY date ranges — no PII.
+  // RLS-granted to anon and exposes ONLY blocked START dates (single dates, no ranges, no PII) —
+  // the exact days a new booking may not start on (staggered-groups model).
   const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
   const SUPABASE_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
@@ -121,28 +122,25 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
   const humanDate = (iso: string, opts: Intl.DateTimeFormatOptions) =>
     new Date(iso + 'T00:00:00Z').toLocaleDateString('en-ZA', { timeZone: 'UTC', ...opts });
 
-  interface Win {
-    start: string;
-    end: string;
-  }
-
-  async function fetchWindows(): Promise<Win[]> {
-    if (!SUPABASE_URL || !SUPABASE_ANON) return [];
+  // Blocked start dates: the exact days a new booking cannot start on. A date that falls inside an
+  // existing trip's range but is not itself a start date stays bookable (lodges run staggered groups).
+  async function fetchBlockedStarts(): Promise<Set<string>> {
+    const blocked = new Set<string>();
+    if (!SUPABASE_URL || !SUPABASE_ANON) return blocked;
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/unavailable_windows?select=start_date,end_date`,
-        { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } },
-      );
-      if (!res.ok) return [];
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/unavailable_windows?select=start_date`, {
+        headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
+      });
+      if (!res.ok) return blocked;
       const rows = await res.json();
-      return Array.isArray(rows)
-        ? rows.map((r: { start_date: string; end_date: string }) => ({
-            start: r.start_date,
-            end: r.end_date,
-          }))
-        : [];
+      if (Array.isArray(rows)) {
+        for (const r of rows as { start_date: string }[]) {
+          if (r?.start_date) blocked.add(r.start_date);
+        }
+      }
+      return blocked;
     } catch {
-      return [];
+      return blocked;
     }
   }
 
@@ -162,22 +160,20 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
     const earliest = addDaysIso(todayIso, 7); // 7-day minimum lead time (mirrors the server)
     const latest = addDaysIso(todayIso, 365); // 365-day ceiling (mirrors the server)
 
-    let windows: Win[] = [];
+    let blocked = new Set<string>();
     let selected = '';
     const viewIdx = (y: number, m: number) => y * 12 + m;
     const minIdx = viewIdx(+todayIso.slice(0, 4), +todayIso.slice(5, 7) - 1);
     const maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
     let view = { y: +earliest.slice(0, 4), m: +earliest.slice(5, 7) - 1 };
 
-    // A day is "taken" if a 4-day trip starting on it would overlap an unavailable window — that is
-    // exactly what the DB exclusion constraint rejects, so a selectable date can never 409 at submit.
+    // Staggered groups: a day is "taken" ONLY if it exactly matches an existing booking's start date
+    // (two groups cannot start on the same day → both at Lodge 1, night 1). A day inside another
+    // trip's range but not itself a start date stays selectable. Mirrors the DB unique-start-date
+    // index, so a selectable date can never 409 at submit.
     const stateOf = (d: string): 'out' | 'taken' | 'avail' => {
       if (d < earliest || d > latest) return 'out';
-      const end = addDaysIso(d, 3);
-      for (const w of windows) {
-        if (d <= w.end && end >= w.start) return 'taken';
-      }
-      return 'avail';
+      return blocked.has(d) ? 'taken' : 'avail';
     };
 
     const nextAvailable = (): string | null => {
@@ -264,8 +260,8 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
     });
 
     render(); // immediate paint (no taken dates yet)
-    fetchWindows().then((w) => {
-      windows = w;
+    fetchBlockedStarts().then((b) => {
+      blocked = b;
       updateNextAvail();
       const na = nextAvailable();
       if (na) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 }; // land on the first bookable month
