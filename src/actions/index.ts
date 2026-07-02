@@ -75,6 +75,26 @@ export const server = {
       });
 
       const supabase = getSupabaseAdmin();
+
+      // One active booking per email. Blocks confirmed bookings (any date) and live pending holds
+      // (hold_expires_at still in the future). Expired pending rows are not matched, so a genuine
+      // retry after an abandoned checkout (hold expired) is allowed through.
+      const now = new Date().toISOString();
+      const { data: existingBooking } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('lead_email', input.leadEmail)
+        .or(`status.eq.confirmed,and(status.eq.pending,hold_expires_at.gt.${now})`)
+        .maybeSingle();
+
+      if (existingBooking) {
+        throw new ActionError({
+          code: 'CONFLICT',
+          message:
+            'You already have an active booking. Please contact us at hanlie@rooibergwander.co.za if you need to make changes.',
+        });
+      }
+
       const holdMinutes = Number(import.meta.env.HOLD_MINUTES ?? 30);
       const reference = `rw_${crypto.randomUUID()}`;
       const startDate = input.startDate;
