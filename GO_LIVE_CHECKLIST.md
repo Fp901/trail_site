@@ -6,59 +6,37 @@ Two lists:
 - **Part B — Still to be built** (engineering work remaining).
 - **Part C — Business inputs/decisions** needed (some block A and B).
 
-Status today: the booking engine is **code-complete** (server pricing + 50% launch discount,
-**split payment: 50% deposit + 50% balance for trips booked 30+ days out**, GiST double-booking
-prevention, hold-sweep cron, availability calendar, hardened webhook handling both the deposit and
-the balance transaction, pre-trip reminder/escalation on a **7-day** window, a **pre-trip form**, an
-authed **operator dashboard**, and a **trip-info** page with the private gate coordinates). It is
-**not live** — no Supabase/Paystack/Resend accounts exist yet, and the public site is the static
-GitHub Pages demo with the backend stripped out. Migrations `0001`–`0008` exist but have not been
-applied to a real database. Security hardening done: server-side **rate limiting** (in-DB), a
-**payment_events** audit trail, and an enforced **CSP** (strict hashed script-src) — see Part B.
-
-> **Working-tree state (not committed):** the four-part session (7-day pre-trip window, "max 10"
-> copy, operator dashboard, trip-info page) and this **split-payment** session are all in the working
-> tree, verified green (`astro check` + `build`), **not yet committed**.
+Status today (2026-07-02): the booking engine is **code-complete** and all commits are on `main`.
+External accounts now live: **Paystack** (SA business verification submitted, test keys available),
+**Resend** (domain verified, EMAIL_API_KEY + EMAIL_FROM + BOOKINGS_NOTIFY_TO set in Vercel),
+**Supabase** project created (eu-west-2), migrations `0001`–`0009` applied, pg_cron enabled, Hanlie's
+auth user created, **Vercel** project live with SSR adapter. **Next:** fill remaining Vercel env vars
+(Supabase keys, Paystack test keys, CRON_SECRET, ADMIN_EMAIL), then run the E2E test (Phase 6).
 
 ---
 
 ## Part A — Operational setup (in order)
 
 ### ⏱️ Start these FIRST — they have external lead times
-- [ ] **Paystack account + SA business verification.** Sign up, submit business docs. Verification
-      typically takes **1–3 business days**, so start day one. (Until verified you can still build
-      and test with **test keys**.) Decided: **cards only, no Instant EFT**.
-- [ ] **Resend account + domain verification.** Add `rooibergwander.co.za`, publish the SPF/DKIM
-      DNS records Resend gives you. DNS propagation can take hours. Needed before any email sends.
+- [x] **Paystack account + SA business verification.** Submitted 2026-07-02. Test keys available now;
+      live keys released once verified (1–3 business days). Decided: **cards only, no Instant EFT**.
+- [x] **Resend account + domain verification.** `rooibergwander.co.za` verified; EMAIL_API_KEY +
+      EMAIL_FROM + BOOKINGS_NOTIFY_TO set in Vercel.
 
 ### Phase 1 — Hosting decision + Vercel (the booking engine only runs on a server host)
-- [ ] **DECISION: where does the live site run?** The booking routes need SSR; GitHub Pages can't
-      do that. **Recommended:** move the whole site to **Vercel** (it serves the static marketing
-      pages *and* the SSR booking/API routes from one origin), point the domain there, and retire
-      (or keep as a staging mirror) the GitHub Pages deploy. Alternative (more complex): marketing on
-      Pages + a separate Vercel app for booking — two origins, extra CORS/domain work. Pick one.
-- [ ] Create a **Vercel** account, import the GitHub repo `Fp901/trail_site`.
-- [ ] Confirm the build works on Vercel (default build = SSR with the Vercel adapter; no
-      `BUILD_TARGET=static`).
-- [ ] **Vercel plan / cron limits.** `vercel.json` now schedules **two** daily crons
-      (`pretrip-reminders` at 06:00, `balance-reminders` at 07:00). Vercel **Hobby allows 2 cron jobs,
-      once-daily** — so this fits Hobby exactly, with **no room for a third**. Any additional cron, or
-      sub-daily cadence, needs **Pro**.
+- [x] **Decision:** Vercel (SSR + static marketing from one origin). GitHub Pages retained as static
+      demo only.
+- [x] Vercel account created; `Fp901/trail_site` imported; SSR adapter build confirmed working.
+- [x] **Vercel plan / cron limits.** Two daily crons (06:00 pretrip-reminders, 07:00 balance-reminders)
+      = Hobby limit exactly. No room for a third cron without upgrading to Pro.
 
 ### Phase 2 — Supabase (database)
-- [ ] Create a **Supabase project**, region **eu-west-2 (London)** — already decided (POPIA-aware).
-- [ ] Enable the **`pg_cron`** extension (Dashboard → Database → Extensions) — required by the
-      hold-sweep job in `0002`.
-- [ ] Apply migrations **in order: `0001` → `0002` → … → `0008`** (SQL editor or CLI).
-      `0005` adds `rate_limits` + `payment_events` + `check_rate_limit()`; `0007` renames the
-      pre-trip guard columns to the **7-day** window (`day3`/`day6`); `0008` adds the **split-payment**
-      columns (`payment_plan`, `deposit_paid_cents`, `balance_due_cents`, `balance_due_date`,
-      `balance_link_sent_at`, `balance_paid_at`, `balance_overdue_alert_sent`,
-      `balance_processor_reference`, `balance_processor_txn_id`) + the balance-reference unique index.
-- [ ] Verify: RLS is on + default-deny; anon can read **only** `unavailable_windows`; the
+- [x] Supabase project created, region **eu-west-2 (London)**.
+- [x] `pg_cron` extension enabled.
+- [x] Migrations `0001`–`0009` applied in order.
+- [ ] **Verify:** RLS is on + default-deny; anon can read **only** `unavailable_windows`; the
       `expire-stale-holds` cron is scheduled (`select * from cron.job;`).
-- [ ] **Create the operator (Hanlie) user** in Supabase → Authentication → Users (email + password)
-      — needed for the `/admin` dashboard. Nothing in the codebase can create this user.
+- [x] Hanlie's operator user created in Supabase → Authentication → Users.
 - [ ] Copy the **Project URL**, **anon key**, and **service-role key**.
 
 ### Phase 3 — Paystack (payments)
@@ -79,8 +57,8 @@ applied to a real database. Security hardening done: server-side **rate limiting
 ### Phase 5 — Environment variables (set ALL in the Vercel project, per `.env.example`)
 - [ ] `PUBLIC_SITE_URL` = `https://www.rooibergwander.co.za`
 - [ ] `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- [ ] `PUBLIC_PAYSTACK_PUBLIC_KEY`, `PAYSTACK_SECRET_KEY`
-- [ ] `EMAIL_API_KEY` (Resend), `EMAIL_FROM` (a verified sender), `BOOKINGS_NOTIFY_TO`
+- [ ] `PUBLIC_PAYSTACK_PUBLIC_KEY`, `PAYSTACK_SECRET_KEY` (test keys to start; swap to live after verification)
+- [x] `EMAIL_API_KEY`, `EMAIL_FROM`, `BOOKINGS_NOTIFY_TO` — set 2026-07-02 via Resend.
 - [ ] `HOLD_MINUTES=30`. (`BOOKING_DEPOSIT_PERCENT` is **no longer read** — deposit vs full is now
       automatic by lead time in `lib/pricing.ts`; leave it or drop it.)
 - [ ] `CRON_SECRET` = long random value (Vercel sends it as `Authorization: Bearer …` to **both**
@@ -192,8 +170,8 @@ applied to a real database. Security hardening done: server-side **rate limiting
       mirroring the pre-trip overdue alert. If instead the booking/date should be released on non-payment,
       that is a **different design** and must be specced.
 - [ ] **Pre-trip form fields** — the current form collects guest names, ID/passport, emergency
-      contacts, medical notes, vehicle reg, arrival time, and an indemnity tick. Confirm this is
-      complete, and whether the **indemnity wording** + a legally-robust waiver record (see B1) are needed.
+      contacts, medical notes, vehicle reg, arrival time, and a self-catering acknowledgment. Confirm
+      this is complete. (Indemnity is signed **in person on arrival** — not collected online.)
 - [ ] **Trip-info gate coordinates** — confirm `-24.6740333, 27.8515837` / `///trademarked.actor.clambers`
       are the correct reserve gate before real guests receive them.
 - [ ] Full **packing list** (the public page shows a short day-pack list + "full list sent on booking").
