@@ -50,7 +50,7 @@ export const server = {
 
       // Booking window (server-authoritative): minimum 7 days lead time, maximum 365 days ahead,
       // both inclusive. ISO YYYY-MM-DD strings compare lexicographically, so string comparison is safe.
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
       const earliest = addDays(today, 7); // at least 7 days notice
       const latest = addDays(today, 365); // no more than 12 months ahead
       if (input.startDate < earliest) {

@@ -15,6 +15,7 @@ const stripHeader = (v: string) => v.replace(/[\r\n]+/g, ' ').trim();
 const randFromCents = (cents: number) =>
   'R ' + Math.round(cents / 100).toLocaleString('en-ZA');
 
+// Date-only strings (YYYY-MM-DD) are anchored to UTC midnight so they display correctly everywhere.
 const humanDate = (v: string) =>
   new Date(v.length <= 10 ? `${v}T00:00:00Z` : v).toLocaleDateString('en-ZA', {
     timeZone: 'UTC',
@@ -22,6 +23,17 @@ const humanDate = (v: string) =>
     month: 'long',
     year: 'numeric',
   });
+
+// Full ISO timestamps (e.g. confirmed_at) are displayed in SAST (UTC+2, no DST).
+const humanDateTime = (v: string) =>
+  new Date(v).toLocaleString('en-ZA', {
+    timeZone: 'Africa/Johannesburg',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }) + ' SAST';
 
 export const escapeHtml = (s: string) =>
   s.replace(
@@ -141,9 +153,7 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
   const key = import.meta.env.EMAIL_API_KEY;
   const from = import.meta.env.EMAIL_FROM ?? 'The Rooiberg Wander <hanlie@rooibergwander.co.za>';
   if (!key) {
-    if (import.meta.env.DEV) {
-      console.warn('[email] EMAIL_API_KEY not set — skipping send to', stripHeader(msg.to));
-    }
+    console.warn('[email] EMAIL_API_KEY not set — email not sent, subject:', msg.subject);
     return;
   }
   const res = await fetch('https://api.resend.com/emails', {
@@ -395,7 +405,7 @@ export async function sendPretripOverdueAlert(opts: {
     infoTable([
       ['Guest', escapeHtml(opts.leadName)],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
-      ['Confirmed', humanDate(opts.confirmedAt)],
+      ['Confirmed', humanDateTime(opts.confirmedAt)],
       ['Reference', `<span style="font-family:monospace;font-size:12px;">${opts.reference}</span>`],
     ]) +
     btn(url, 'View pre-trip form link');

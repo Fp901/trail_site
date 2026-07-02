@@ -5,7 +5,6 @@ import type { APIRoute } from 'astro';
 import { payments } from '../../../lib/payments';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import {
-  sendEmail,
   sendBookingConfirmation,
   sendBalancePaidConfirmation,
   sendBookingOperatorNotification,
@@ -194,8 +193,8 @@ export const POST: APIRoute = async ({ request }) => {
         leadName: booking.lead_name,
         startDate: booking.start_date,
       });
-    } catch {
-      /* best-effort */
+    } catch (err) {
+      console.error('[webhook] balance paid confirmation email failed', err);
     }
 
     return new Response('ok', { status: 200 });
@@ -282,8 +281,8 @@ export const POST: APIRoute = async ({ request }) => {
         balanceDueDate,
         balanceLinkImminent: balanceDueNow,
       });
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.error('[webhook] guest confirmation email failed', err);
     }
     try {
       await sendBookingOperatorNotification({
@@ -298,8 +297,8 @@ export const POST: APIRoute = async ({ request }) => {
         totalCents: booking.total_cents,
         depositCents: booking.deposit_paid_cents,
       });
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.error('[webhook] operator notification email failed', err);
     }
 
     return new Response('ok', { status: 200 });

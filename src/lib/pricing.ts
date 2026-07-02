@@ -25,9 +25,9 @@ export const BALANCE_LEAD_DAYS = 45;
 
 const MS_PER_DAY = 86_400_000;
 
-// Whole days from `today` (UTC date) to `startDate` (ISO YYYY-MM-DD), both treated as UTC midnight.
+// Whole days from today (SAST date, UTC+2) to `startDate` (ISO YYYY-MM-DD).
 export function daysUntil(startDate: string, now: Date = new Date()): number {
-  const today = now.toISOString().slice(0, 10);
+  const today = now.toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
   return Math.round(
     (Date.parse(`${startDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / MS_PER_DAY,
   );
