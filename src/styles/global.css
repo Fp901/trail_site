@@ -699,6 +699,28 @@
     font-size: 0.8rem;
     color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
   }
+  .bform__balance-note {
+    margin-top: 0.4rem;
+    font-size: 0.9rem;
+    color: var(--color-earth);
+    font-family: var(--font-body);
+  }
+  .bform__balance-note strong {
+    font-weight: 700;
+  }
+  .bform__deposit-hint {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    font-family: var(--font-body);
+    line-height: 1.5;
+  }
+  .bform__pricing {
+    margin-top: 1.5rem;
+  }
+  .bform__pricing .bform__estimate {
+    margin-top: 0;
+  }
   .bform__submit {
     margin-top: 1.5rem;
   }

@@ -2,17 +2,33 @@
 // BookingWidget (Part 9.2) — vanilla-JS island. Collects dates/group/residency/lead details,
 // shows a clearly-labelled estimate (server confirms the real total), and calls the typed
 // createCheckout Action, then redirects to Paystack's hosted checkout. No price is ever sent.
-import { rates, formatRand } from '../data/rates';
+import { formatRand } from '../data/rates';
+import { computeQuote, SPLIT_THRESHOLD_DAYS, DEPOSIT_FRACTION } from '../lib/pricing';
 
-const localTotal = rates.find((r) => r.id === 'local')!.total;
-const intlTotal = rates.find((r) => r.id === 'international')!.total;
+// computeQuote (no startDate) returns the effective per-group total for the current pricing phase
+// (launch discount applied when active). groupSize doesn't affect the group total — 1 is a placeholder.
+const localQ = computeQuote({ residency: 'local', groupSize: 1 });
+const intlQ  = computeQuote({ residency: 'international', groupSize: 1 });
+
+// Deposit amounts (50/50 split, same math the server uses for deposit_balance plans).
+const localDepositCents  = Math.round(localQ.totalCents * DEPOSIT_FRACTION);
+const intlDepositCents   = Math.round(intlQ.totalCents  * DEPOSIT_FRACTION);
+const localBalanceCents  = localQ.totalCents - localDepositCents;
+const intlBalanceCents   = intlQ.totalCents  - intlDepositCents;
+
+const fmt = (cents: number) => formatRand(cents / 100);
 ---
 
 <form
   id="booking-form"
   class="bform"
-  data-total-local={formatRand(localTotal)}
-  data-total-international={formatRand(intlTotal)}
+  data-total-local={fmt(localQ.totalCents)}
+  data-total-international={fmt(intlQ.totalCents)}
+  data-deposit-local={fmt(localDepositCents)}
+  data-deposit-international={fmt(intlDepositCents)}
+  data-balance-local={fmt(localBalanceCents)}
+  data-balance-international={fmt(intlBalanceCents)}
+  data-split-days={SPLIT_THRESHOLD_DAYS}
   novalidate
 >
   <div class="form-field bform__datefield">
@@ -83,16 +99,25 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
     <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
   </div>
 
-  <p class="bform__estimate">
-    Estimated total: <strong data-estimate>{formatRand(localTotal)}</strong> per group
-    <span class="bform__estnote">Final total confirmed at checkout.</span>
-  </p>
+  <div class="bform__pricing">
+    <p class="bform__estimate">
+      <span data-payment-label>Estimated total:</span>
+      <strong data-estimate>{fmt(localQ.totalCents)}</strong> per group
+      <span class="bform__estnote" data-est-note>Final amount confirmed at checkout.</span>
+    </p>
+    <p class="bform__balance-note" data-balance-note hidden>
+      Remaining balance of <strong data-balance-amount></strong> due ~45 days before arrival — we'll email a secure payment link.
+    </p>
+    <p class="bform__deposit-hint" data-deposit-hint>
+      Trips departing 30+ days away pay a <strong>50% deposit today</strong>, with the balance collected ~45 days before arrival.
+    </p>
+  </div>
 
   <p class="bform__flat">
     Exclusive use. One group at a time. Priced per trip regardless of group size.
   </p>
 
-  <button type="submit" class="btn btn-primary bform__submit">Continue to secure payment</button>
+  <button type="submit" class="btn btn-primary bform__submit" data-submit>Continue to secure payment</button>
 
   <p class="bform__status" data-status role="status" aria-live="polite"></p>
 
@@ -121,6 +146,8 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
   };
   const humanDate = (iso: string, opts: Intl.DateTimeFormatOptions) =>
     new Date(iso + 'T00:00:00Z').toLocaleDateString('en-ZA', { timeZone: 'UTC', ...opts });
+  const daysBetween = (fromIso: string, toIso: string) =>
+    Math.round((Date.parse(toIso + 'T00:00:00Z') - Date.parse(fromIso + 'T00:00:00Z')) / 86_400_000);
 
   // Blocked start dates: the exact days a new booking cannot start on. A date that falls inside an
   // existing trip's range but is not itself a start date stays bookable (lodges run staggered groups).
@@ -144,7 +171,11 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
     }
   }
 
-  function setupCalendar(form: HTMLFormElement, startInput: HTMLInputElement) {
+  function setupCalendar(
+    form: HTMLFormElement,
+    startInput: HTMLInputElement,
+    onDateSelected: (iso: string) => void,
+  ) {
     const cal = form.querySelector<HTMLElement>('[data-calendar]');
     if (!cal) return;
     const grid = cal.querySelector<HTMLElement>('[data-cal-grid]');
@@ -193,6 +224,7 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
           'Selected start: ' +
           humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       render();
+      onDateSelected(iso);
     };
 
     const render = () => {
@@ -274,23 +306,52 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
     if (!form || form.dataset.bound === 'true') return;
     form.dataset.bound = 'true';
 
-    const estimate = form.querySelector<HTMLElement>('[data-estimate]');
-    const status = form.querySelector<HTMLElement>('[data-status]');
-    const startInput = form.querySelector<HTMLInputElement>('#bf-start');
-    const submit = form.querySelector<HTMLButtonElement>('.bform__submit');
+    const estimate    = form.querySelector<HTMLElement>('[data-estimate]');
+    const paymentLabel = form.querySelector<HTMLElement>('[data-payment-label]');
+    const estNote     = form.querySelector<HTMLElement>('[data-est-note]');
+    const balanceNote = form.querySelector<HTMLElement>('[data-balance-note]');
+    const balanceAmt  = form.querySelector<HTMLElement>('[data-balance-amount]');
+    const depositHint = form.querySelector<HTMLElement>('[data-deposit-hint]');
+    const status      = form.querySelector<HTMLElement>('[data-status]');
+    const startInput  = form.querySelector<HTMLInputElement>('#bf-start');
+    const submit      = form.querySelector<HTMLButtonElement>('[data-submit]');
 
-    const totals: Record<string, string> = {
-      local: form.dataset.totalLocal ?? '',
-      international: form.dataset.totalInternational ?? '',
-    };
+    const SPLIT_DAYS = Number(form.dataset.splitDays ?? 30);
+    const todayIso = new Date().toISOString().slice(0, 10); // UTC — display only, server re-validates
 
-    if (startInput) setupCalendar(form, startInput);
+    const totals    = { local: form.dataset.totalLocal ?? '',    international: form.dataset.totalInternational ?? '' };
+    const deposits  = { local: form.dataset.depositLocal ?? '',  international: form.dataset.depositInternational ?? '' };
+    const balances  = { local: form.dataset.balanceLocal ?? '',  international: form.dataset.balanceInternational ?? '' };
+
+    const residency = () =>
+      form.querySelector<HTMLInputElement>('input[name="residency"]:checked')?.value ?? 'local';
 
     const updateEstimate = () => {
-      const residency =
-        form.querySelector<HTMLInputElement>('input[name="residency"]:checked')?.value ?? 'local';
-      if (estimate) estimate.textContent = totals[residency] ?? '';
+      const res = residency() as 'local' | 'international';
+      const startIso = startInput?.value ?? '';
+      const isDeposit =
+        startIso.length === 10 && daysBetween(todayIso, startIso) >= SPLIT_DAYS;
+
+      if (isDeposit) {
+        if (paymentLabel) paymentLabel.textContent = '50% deposit due today:';
+        if (estimate)     estimate.textContent = deposits[res] ?? '';
+        if (estNote)      estNote.textContent = 'Full amount confirmed at checkout.';
+        if (balanceNote)  balanceNote.hidden = false;
+        if (balanceAmt)   balanceAmt.textContent = balances[res] ?? '';
+        if (depositHint)  depositHint.hidden = true; // redundant once we show the live split
+        if (submit)       submit.textContent = 'Pay deposit & continue to checkout';
+      } else {
+        if (paymentLabel) paymentLabel.textContent = startIso ? 'Total due today:' : 'Estimated total:';
+        if (estimate)     estimate.textContent = totals[res] ?? '';
+        if (estNote)      estNote.textContent = 'Final amount confirmed at checkout.';
+        if (balanceNote)  balanceNote.hidden = true;
+        if (depositHint)  depositHint.hidden = false;
+        if (submit)       submit.textContent = 'Continue to secure payment';
+      }
     };
+
+    if (startInput) setupCalendar(form, startInput, () => updateEstimate());
+
     form
       .querySelectorAll<HTMLInputElement>('input[name="residency"]')
       .forEach((el) => el.addEventListener('change', updateEstimate));
@@ -333,7 +394,7 @@ const intlTotal = rates.find((r) => r.id === 'international')!.total;
         setStatus(error.message || 'Something went wrong. Please try again.');
         if (submit) {
           submit.disabled = false;
-          submit.textContent = 'Continue to secure payment';
+          updateEstimate(); // restore correct button label
         }
         return;
       }
