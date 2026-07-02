@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { computeQuote } from '../lib/pricing';
 import { getSupabaseAdmin } from '../lib/supabase';
 import { payments } from '../lib/payments';
-import { sendEmail } from '../lib/email';
+import { sendInquiryNotification } from '../lib/email';
 import { rateLimit, clientIp } from '../lib/ratelimit';
 import { signInAdmin, signOutAdmin } from '../lib/auth';
 import { site } from '../data/site';
@@ -193,18 +193,14 @@ export const server = {
 
       const notify = import.meta.env.BOOKINGS_NOTIFY_TO ?? site.notifyEmail;
       try {
-        await sendEmail({
+        await sendInquiryNotification({
           to: notify,
           replyTo: input.email,
-          subject: `New enquiry — ${input.name}`,
-          html: `<p>New enquiry from the website.</p>
-<ul>
-<li><strong>Name:</strong> ${escapeHtml(input.name)}</li>
-<li><strong>Email:</strong> ${escapeHtml(input.email)}</li>
-<li><strong>Group size:</strong> ${escapeHtml(input.groupSize ?? '—')}</li>
-<li><strong>Target dates:</strong> ${escapeHtml(input.targetDates ?? '—')}</li>
-</ul>
-<p>${escapeHtml(input.message ?? '')}</p>`,
+          name: input.name,
+          email: input.email,
+          groupSize: input.groupSize,
+          targetDates: input.targetDates,
+          message: input.message,
         });
       } catch {
         // Stored already; notification failure shouldn't fail the user's submission.

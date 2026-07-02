@@ -598,17 +598,15 @@
   @media (min-width: 560px) {
     .bform__grid {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      /* Bottom-align inputs to the same baseline regardless of label height. The input is each
+         field's last child, so end-alignment keeps them visually level when label text differs. */
+      align-items: end;
     }
-  }
-  /* Booking form (name/email row): keep both inputs on the same baseline even when one label wraps
-     to a different height. align-items:end bottom-aligns the fields (the input is each field's last
-     child), and we drop the stacked-field top margin that otherwise offsets the second cell inside
-     the grid. Scoped to #booking-form so the pre-trip form's grids are unaffected. */
-  #booking-form .bform__grid {
-    align-items: end;
-  }
-  #booking-form .bform__grid > .form-field + .form-field {
-    margin-top: 0;
+    /* In a 2-col grid the gap handles column spacing; zero the sibling margin-top that would
+       otherwise push a right-column field down when its left neighbour has a shorter label. */
+    .bform__grid > .form-field + .form-field {
+      margin-top: 0;
+    }
   }
   .form-field {
     display: flex;

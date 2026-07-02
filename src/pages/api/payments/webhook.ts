@@ -8,6 +8,8 @@ import {
   sendEmail,
   sendBookingConfirmation,
   sendBalancePaidConfirmation,
+  sendBookingOperatorNotification,
+  sendManualReviewAlert,
 } from '../../../lib/email';
 import { sendBalancePaymentLink } from '../../../lib/balance';
 import { recordPaymentEvent } from '../../../lib/audit';
@@ -20,7 +22,7 @@ const MS_PER_DAY = 86_400_000;
 // Columns needed for both the deposit (first payment) and balance (second payment) branches.
 const BOOKING_COLS =
   'id, status, amount_due_cents, total_cents, lead_email, lead_name, start_date, pretrip_token, ' +
-  'payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at';
+  'group_size, residency, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at';
 
 export const prerender = false;
 
@@ -82,17 +84,14 @@ export const POST: APIRoute = async ({ request }) => {
   const at = new Date().toISOString();
   const alertManualReview = async (subject: string, bookingId?: string) => {
     try {
-      await sendEmail({
+      await sendManualReviewAlert({
         to: notify,
+        reference,
+        amountCents: verify.amountCents,
         subject,
-        html: `<p>A Paystack payment succeeded but the booking could not be confirmed automatically.
-Please confirm or refund this transaction manually from the Paystack dashboard.</p>
-<ul>
-<li><strong>Paystack reference:</strong> ${reference}</li>
-<li><strong>Amount paid:</strong> R${(verify.amountCents / 100).toLocaleString('en-US')} (${verify.amountCents} cents)</li>
-${bookingId ? `<li><strong>Booking ID:</strong> ${bookingId}</li>` : ''}
-<li><strong>Time:</strong> ${at}</li>
-</ul>`,
+        reason: 'A Paystack payment succeeded but the booking could not be confirmed automatically. Please confirm or refund this transaction manually from the Paystack dashboard.',
+        bookingId,
+        at,
       });
     } catch {
       // Best-effort: the console.error above is the durable record if the alert email fails.
@@ -287,11 +286,17 @@ ${bookingId ? `<li><strong>Booking ID:</strong> ${bookingId}</li>` : ''}
       /* ignore */
     }
     try {
-      await sendEmail({
+      await sendBookingOperatorNotification({
         to: import.meta.env.BOOKINGS_NOTIFY_TO ?? site.notifyEmail,
-        subject: `Booking confirmed — ${booking.lead_name}`,
-        html: `<p>A booking has been confirmed.</p>
-<p>Booking ID: ${booking.id}<br/>Arrival: ${booking.start_date}</p>`,
+        leadName: booking.lead_name,
+        leadEmail: booking.lead_email,
+        startDate: booking.start_date,
+        groupSize: booking.group_size,
+        residency: booking.residency,
+        bookingId: booking.id,
+        paymentPlan: booking.payment_plan,
+        totalCents: booking.total_cents,
+        depositCents: booking.deposit_paid_cents,
       });
     } catch {
       /* ignore */

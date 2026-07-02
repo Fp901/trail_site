@@ -1,5 +1,6 @@
-// Transactional email seam (Part 9.5). Provider = Resend (decided). Lazy key read; in dev with
-// no key it no-ops. CR/LF stripped from any header-bound value (Part 11.9).
+// Transactional email (Part 9.5). Provider = Resend. All styles are inline — email clients ignore
+// stylesheets. Georgia heads (closest email-safe match to Fraunces); system-ui body (≈ Inter).
+// CR/LF stripped from any header-bound value (Part 11.9). Lazy key read; no-ops in dev without key.
 import { site } from '../data/site';
 
 export interface EmailMessage {
@@ -11,9 +12,9 @@ export interface EmailMessage {
 
 const stripHeader = (v: string) => v.replace(/[\r\n]+/g, ' ').trim();
 
-// Money/date formatting for guest-facing emails. Cents → "R12,345"; ISO/timestamp → "1 July 2026".
 const randFromCents = (cents: number) =>
-  'R' + Math.round(cents / 100).toLocaleString('en-US');
+  'R ' + Math.round(cents / 100).toLocaleString('en-ZA');
+
 const humanDate = (v: string) =>
   new Date(v.length <= 10 ? `${v}T00:00:00Z` : v).toLocaleDateString('en-ZA', {
     timeZone: 'UTC',
@@ -22,33 +23,119 @@ const humanDate = (v: string) =>
     year: 'numeric',
   });
 
-// Escape any user-derived value placed in an HTML body (A03 / XSS).
-const escapeHtml = (s: string) =>
+export const escapeHtml = (s: string) =>
   s.replace(
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
 
-// Absolute pre-trip form link for a booking's token. Built once here so the webhook and the cron
-// produce identical URLs. The /pretrip/<token> page that consumes it is separate (future) work.
 export function pretripUrl(token: string): string {
   const base = (import.meta.env.PUBLIC_SITE_URL ?? site.url).replace(/\/$/, '');
   return `${base}/pretrip/${token}`;
 }
 
-// Absolute trip-info link (Part 4) — orientation + the private gate coordinates for confirmed
-// guests. Same token as the pre-trip form.
 export function tripInfoUrl(token: string): string {
   const base = (import.meta.env.PUBLIC_SITE_URL ?? site.url).replace(/\/$/, '');
   return `${base}/trip-info/${token}`;
 }
 
-// Shared ochre CTA button (inline styles — email clients ignore stylesheets). Tokens: ochre / earth.
-const ctaButton = (url: string, label: string) =>
-  `<p style="margin:20px 0;">
-  <a href="${url}" style="display:inline-block;background:#C19A6B;color:#3D2B1F;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:8px;">${label}</a>
-</p>
-<p style="font-size:14px;color:#555;">If the button does not work, copy this link into your browser:<br/><a href="${url}">${url}</a></p>`;
+// ---- Shared layout ------------------------------------------------------------------
+
+// 'alert' swaps the header to a dark red — used for ACTION REQUIRED operator emails.
+type Variant = 'guest' | 'operator' | 'alert';
+
+function layout(variant: Variant, preheader: string, body: string): string {
+  const hBg = variant === 'alert' ? '#6b1a0f' : '#3D2B1F';
+  const accent = variant === 'alert' ? '#c0422a' : '#C19A6B';
+  const siteUrl = (import.meta.env.PUBLIC_SITE_URL ?? site.url).replace(/\/$/, '');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+</head>
+<body style="margin:0;padding:0;background-color:#dcd7cc;-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(preheader)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#dcd7cc;">
+<tr><td align="center" style="padding:32px 12px 48px;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="max-width:600px;">
+
+  <!-- HEADER -->
+  <tr>
+    <td style="background-color:${hBg};border-radius:14px 14px 0 0;padding:32px 40px 28px;">
+      <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:21px;font-weight:bold;color:#F5F0E6;letter-spacing:0.2px;line-height:1.2;">The Rooiberg Wander</p>
+      <p style="margin:8px 0 0;font-size:10px;font-weight:700;letter-spacing:2.8px;text-transform:uppercase;color:${accent};">RoiSan Reserve &middot; Limpopo Waterberg</p>
+    </td>
+  </tr>
+  <!-- Accent rule -->
+  <tr><td style="background-color:${accent};height:3px;font-size:0;line-height:0;"></td></tr>
+
+  <!-- BODY -->
+  <tr>
+    <td style="background-color:#F5F0E6;padding:40px 40px 36px;">
+      ${body}
+    </td>
+  </tr>
+
+  <!-- FOOTER -->
+  <tr>
+    <td style="background-color:#2e2016;border-radius:0 0 14px 14px;padding:24px 40px;text-align:center;">
+      <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C19A6B;">${siteUrl.replace(/^https?:\/\//, '')}</p>
+      <p style="margin:10px 0 0;font-size:11px;color:rgba(245,240,230,0.45);line-height:1.6;">RoiSan Reserve NPC &middot; Limpopo Waterberg, South Africa</p>
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// ---- Shared components --------------------------------------------------------------
+
+function btn(url: string, label: string): string {
+  return `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:28px 0 6px;">
+<tr><td style="background-color:#C19A6B;border-radius:8px;mso-padding-alt:0;">
+  <a href="${url}" style="display:inline-block;padding:14px 30px;font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#3D2B1F;text-decoration:none;border-radius:8px;letter-spacing:0.15px;">${label}</a>
+</td></tr></table>
+<p style="margin:10px 0 24px;font-size:12px;color:#9a8e83;line-height:1.5;">Button not working? Copy this link into your browser:<br><a href="${url}" style="color:#4A5D23;word-break:break-all;">${url}</a></p>`;
+}
+
+function infoTable(rows: Array<[string, string]>): string {
+  const rowsHtml = rows
+    .map(
+      ([label, value]) =>
+        `<tr>
+      <td style="padding:11px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);vertical-align:top;width:38%;">${label}</td>
+      <td style="padding:11px 16px;font-size:14px;color:#2C2C2C;border-bottom:1px solid rgba(61,43,31,0.09);vertical-align:top;">${value}</td>
+    </tr>`,
+    )
+    .join('');
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border:1px solid rgba(61,43,31,0.13);border-radius:10px;overflow:hidden;margin:20px 0;">
+${rowsHtml}
+</table>`;
+}
+
+const hr = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:28px 0;"><tr><td style="border-top:1px solid rgba(61,43,31,0.12);font-size:0;line-height:0;"></td></tr></table>`;
+
+const h1 = (t: string) =>
+  `<h1 style="margin:0 0 6px;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:bold;color:#3D2B1F;line-height:1.2;">${t}</h1>`;
+
+const eyebrow = (t: string) =>
+  `<p style="margin:0 0 14px;font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#C19A6B;">${t}</p>`;
+
+const p = (t: string) =>
+  `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#2C2C2C;">${t}</p>`;
+
+const small = (t: string) =>
+  `<p style="margin:0 0 12px;font-size:13px;line-height:1.6;color:#7a6e64;">${t}</p>`;
+
+const alertBadge = `<p style="margin:0 0 20px;display:inline-block;padding:5px 12px;background-color:#c0422a;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#fff;">&#9888; Action required</p>`;
+
+// ---- sendEmail (base) ---------------------------------------------------------------
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
   const key = import.meta.env.EMAIL_API_KEY;
@@ -57,7 +144,7 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
     if (import.meta.env.DEV) {
       console.warn('[email] EMAIL_API_KEY not set — skipping send to', stripHeader(msg.to));
     }
-    return; // no-op until configured
+    return;
   }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -76,54 +163,69 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
   }
 }
 
-// Booking confirmation (guest) — sent by the webhook on pending→confirmed. The pre-trip details
-// link + 72-hour deadline are the headline call to action, not a footnote.
+// ---- Guest emails -------------------------------------------------------------------
+
 export async function sendBookingConfirmation(opts: {
   to: string;
   leadName: string;
   startDate: string;
   pretripToken: string;
-  // Split payment (optional). When paymentPlan is 'deposit_balance', the email notes the deposit
-  // paid and the balance still due. Omitted / 'full' keeps the original single-payment copy.
   paymentPlan?: 'full' | 'deposit_balance';
   depositCents?: number;
   balanceCents?: number;
   balanceDueDate?: string | null;
-  balanceLinkImminent?: boolean; // true when the balance link is being sent now (edge case)
+  balanceLinkImminent?: boolean;
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
   const tripInfo = tripInfoUrl(opts.pretripToken);
-  const name = opts.leadName ? ` ${escapeHtml(opts.leadName)}` : '';
+  const name = opts.leadName ? escapeHtml(opts.leadName) : 'there';
+  const isDeposit = opts.paymentPlan === 'deposit_balance' && opts.depositCents && opts.balanceCents;
 
-  // Payment summary block. For a deposit_balance booking, state what was paid and what remains.
   let paymentBlock = '';
-  if (opts.paymentPlan === 'deposit_balance' && opts.balanceCents && opts.depositCents) {
+  if (isDeposit) {
     const balanceLine = opts.balanceLinkImminent
-      ? `The remaining balance of <strong>${randFromCents(opts.balanceCents)}</strong> is now due — a separate email with a secure payment link is on its way.`
+      ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due now — a separate email with a secure payment link is on its way.`
       : opts.balanceDueDate
-        ? `The remaining balance of <strong>${randFromCents(opts.balanceCents)}</strong> is due by <strong>${humanDate(opts.balanceDueDate)}</strong>. We will email you a secure payment link about 45 days before your trip — there is nothing to do now.`
-        : `The remaining balance of <strong>${randFromCents(opts.balanceCents)}</strong> will be collected via a secure payment link we email you about 45 days before your trip.`;
-    paymentBlock = `<p style="margin-top:20px;">You have paid your <strong>50% deposit of ${randFromCents(opts.depositCents)}</strong>. ${balanceLine}</p>`;
+        ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due by <strong>${humanDate(opts.balanceDueDate)}</strong>. We'll email you a secure payment link about 45 days before your trip — nothing to do right now.`
+        : `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> will be collected via a secure payment link we'll email you about 45 days before your trip.`;
+
+    paymentBlock =
+      infoTable([
+        ['Deposit paid', randFromCents(opts.depositCents!)],
+        ['Balance due', randFromCents(opts.balanceCents!)],
+        ...(opts.balanceDueDate && !opts.balanceLinkImminent
+          ? ([['Balance by', humanDate(opts.balanceDueDate)]] as Array<[string, string]>)
+          : []),
+      ]) +
+      p(balanceLine);
   }
+
+  const body =
+    eyebrow('Booking confirmation') +
+    h1(`You're confirmed, ${name}.`) +
+    infoTable([
+      ['Trail', 'The Rooiberg Wander'],
+      ['Arrival (Day 1)', humanDate(opts.startDate)],
+      ['Payment', isDeposit ? '50% deposit paid' : 'Paid in full'],
+    ]) +
+    paymentBlock +
+    hr +
+    `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Next: complete your pre-trip details</p>` +
+    p('We need a few details from your group before the trail. The short form takes about five minutes — please complete it <strong>within 7 days</strong> of this email.') +
+    btn(url, 'Complete pre-trip details') +
+    hr +
+    `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Your trip-info page</p>` +
+    p('Your itinerary, packing list, and private gate coordinates are all on your personal trip-info page. Bookmark it for your drive up.') +
+    `<p style="margin:0 0 24px;font-size:14px;"><a href="${tripInfo}" style="color:#4A5D23;word-break:break-all;">${tripInfo}</a></p>` +
+    small('A tax invoice accompanies your payment receipt from Paystack.');
 
   await sendEmail({
     to: opts.to,
     subject: 'Your Rooiberg Wander booking is confirmed',
-    html: `<p>Thank you${name} — your booking for The Rooiberg Wander is confirmed.</p>
-<p>Start date (arrival, Day 1): <strong>${opts.startDate}</strong></p>
-${paymentBlock}
-<p style="margin-top:20px;font-size:16px;"><strong>Next step: complete your pre-trip details within 7 days.</strong></p>
-<p>We need a few details from your group to prepare for your trail. Please complete the short pre-trip form now — it only takes a few minutes.</p>
-${ctaButton(url, 'Complete your pre-trip details')}
-<p>Please complete this <strong>within 7 days</strong> of this email. We will send a reminder if we have not heard from you.</p>
-<p style="margin-top:24px;">Everything you need before you arrive — your itinerary, what to pack, and your reserve gate coordinates — is on your trip-info page. <strong>Bookmark it</strong> for your drive up:</p>
-<p><a href="${tripInfo}">${tripInfo}</a></p>
-<p>A tax invoice accompanies your payment receipt.</p>`,
+    html: layout('guest', `Booking confirmed — arrival ${humanDate(opts.startDate)}`, body),
   });
 }
 
-// Pre-trip reminder (guest) — sent at confirmed_at + 72h (day 3) and again at + 144h (day 6) if
-// still not submitted.
 export async function sendPretripReminder(opts: {
   to: string;
   leadName: string;
@@ -132,20 +234,150 @@ export async function sendPretripReminder(opts: {
   stage: 'day3' | 'day6';
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
-  const name = opts.leadName ? ` ${escapeHtml(opts.leadName)}` : '';
+  const name = opts.leadName ? escapeHtml(opts.leadName) : 'there';
+  const isLate = opts.stage === 'day6';
+
+  const body =
+    eyebrow('Pre-trip reminder') +
+    h1(isLate ? `Still waiting on your details, ${name}.` : `Quick reminder, ${name}.`) +
+    p(
+      isLate
+        ? `We haven't received your pre-trip details for The Rooiberg Wander (arrival <strong>${humanDate(opts.startDate)}</strong>). Please complete the form as soon as possible so we can prepare for your group.`
+        : `We're still waiting on your pre-trip details for The Rooiberg Wander (arrival <strong>${humanDate(opts.startDate)}</strong>). The form only takes a few minutes.`,
+    ) +
+    btn(url, 'Complete pre-trip details') +
+    small('If you have already submitted your details, please disregard this reminder.');
+
   await sendEmail({
     to: opts.to,
-    subject: 'Reminder: complete your Rooiberg Wander pre-trip details',
-    html: `<p>Hi${name},</p>
-<p>We are still waiting on your pre-trip details for The Rooiberg Wander (arrival ${opts.startDate}). Please complete the short form so we can prepare for your trail.</p>
-${ctaButton(url, 'Complete your pre-trip details')}
-<p>Please complete this <strong>within 7 days</strong> of your booking confirmation.</p>`,
+    subject: `Reminder: complete your Rooiberg Wander pre-trip details`,
+    html: layout('guest', `Please complete your pre-trip details before your arrival on ${humanDate(opts.startDate)}`, body),
   });
 }
 
-// Internal escalation (operator) at confirmed_at + 168h (day 7) if still not submitted. Mirrors the
-// "ACTION REQUIRED: ..." convention used for the webhook's manual-review alerts. Flag only —
-// the booking is NOT cancelled, blocked or restricted.
+export async function sendBalanceLinkEmail(opts: {
+  to: string;
+  leadName: string;
+  startDate: string;
+  amountCents: number;
+  dueDate: string | null;
+  url: string;
+}): Promise<void> {
+  const name = opts.leadName ? escapeHtml(opts.leadName) : 'there';
+
+  const body =
+    eyebrow('Balance payment') +
+    h1(`Your balance is due, ${name}.`) +
+    p(`Your Rooiberg Wander trip is coming up and your remaining balance is now ready to pay.`) +
+    infoTable([
+      ['Arrival (Day 1)', humanDate(opts.startDate)],
+      ['Amount due', `<strong>${randFromCents(opts.amountCents)}</strong>`],
+      ...(opts.dueDate ? ([['Pay by', humanDate(opts.dueDate)]] as Array<[string, string]>) : []),
+    ]) +
+    btn(opts.url, 'Pay your balance securely') +
+    small('Your deposit is already paid — this covers the outstanding 50%. A tax invoice accompanies your receipt.');
+
+  await sendEmail({
+    to: opts.to,
+    subject: 'Your Rooiberg Wander balance is due — secure payment link',
+    html: layout('guest', `Balance of ${randFromCents(opts.amountCents)} due for your trip arriving ${humanDate(opts.startDate)}`, body),
+  });
+}
+
+export async function sendBalancePaidConfirmation(opts: {
+  to: string;
+  leadName: string;
+  startDate: string;
+}): Promise<void> {
+  const name = opts.leadName ? escapeHtml(opts.leadName) : 'there';
+
+  const body =
+    eyebrow('Payment complete') +
+    h1(`You're paid in full, ${name}.`) +
+    p(`We've received your balance payment. Your Rooiberg Wander trip is now <strong>fully paid</strong> — there is nothing further to take care of on the payment side.`) +
+    infoTable([['Arrival (Day 1)', humanDate(opts.startDate)]]) +
+    p('We look forward to welcoming your group to the Rooiberg.') +
+    small('A tax invoice accompanies your receipt from Paystack.');
+
+  await sendEmail({
+    to: opts.to,
+    subject: 'Your Rooiberg Wander trip is paid in full',
+    html: layout('guest', `Trip paid in full — see you in the Rooiberg!`, body),
+  });
+}
+
+// ---- Operator emails ----------------------------------------------------------------
+
+export async function sendBookingOperatorNotification(opts: {
+  to: string;
+  leadName: string;
+  leadEmail: string;
+  startDate: string;
+  groupSize: number;
+  residency: string;
+  bookingId: string;
+  paymentPlan: string;
+  totalCents: number;
+  depositCents?: number;
+}): Promise<void> {
+  const isDeposit = opts.paymentPlan === 'deposit_balance';
+
+  const body =
+    eyebrow('New booking') +
+    h1('Booking confirmed.') +
+    p('A new booking has been confirmed and paid. The guest has been sent their confirmation email and pre-trip link.') +
+    infoTable([
+      ['Guest', escapeHtml(opts.leadName)],
+      ['Email', escapeHtml(opts.leadEmail)],
+      ['Arrival (Day 1)', humanDate(opts.startDate)],
+      ['Group size', String(opts.groupSize)],
+      ['Residency', opts.residency],
+      ['Payment', isDeposit ? `Deposit paid — ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full — ${randFromCents(opts.totalCents)}`],
+      ['Plan', opts.paymentPlan],
+      ['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`],
+    ]);
+
+  await sendEmail({
+    to: opts.to,
+    subject: `Booking confirmed — ${opts.leadName}`,
+    html: layout('operator', `New booking from ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
+  });
+}
+
+export async function sendInquiryNotification(opts: {
+  to: string;
+  replyTo: string;
+  name: string;
+  email: string;
+  groupSize?: string;
+  targetDates?: string;
+  message?: string;
+}): Promise<void> {
+  const body =
+    eyebrow('New enquiry') +
+    h1('New enquiry received.') +
+    p('A new enquiry has come in from the website. Reply directly to this email to respond to the guest.') +
+    infoTable([
+      ['Name', escapeHtml(opts.name)],
+      ['Email', escapeHtml(opts.email)],
+      ...(opts.groupSize ? ([['Group size', escapeHtml(opts.groupSize)]] as Array<[string, string]>) : []),
+      ...(opts.targetDates ? ([['Target dates', escapeHtml(opts.targetDates)]] as Array<[string, string]>) : []),
+    ]) +
+    (opts.message
+      ? `<div style="margin:20px 0;padding:16px 20px;background-color:rgba(61,43,31,0.05);border-left:3px solid #C19A6B;border-radius:0 8px 8px 0;">
+          <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#8a7868;">Message</p>
+          <p style="margin:0;font-size:14px;line-height:1.7;color:#2C2C2C;">${escapeHtml(opts.message)}</p>
+        </div>`
+      : '');
+
+  await sendEmail({
+    to: opts.to,
+    replyTo: opts.replyTo,
+    subject: `New enquiry — ${opts.name}`,
+    html: layout('operator', `Enquiry from ${opts.name}`, body),
+  });
+}
+
 export async function sendPretripOverdueAlert(opts: {
   to: string;
   leadName: string;
@@ -155,71 +387,26 @@ export async function sendPretripOverdueAlert(opts: {
   pretripToken: string;
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
+
+  const body =
+    alertBadge +
+    h1('Pre-trip details overdue.') +
+    p('A confirmed guest has not submitted their pre-trip details within 7 days of their booking confirmation. Please follow up directly. <strong>The booking is not affected.</strong>') +
+    infoTable([
+      ['Guest', escapeHtml(opts.leadName)],
+      ['Arrival (Day 1)', humanDate(opts.startDate)],
+      ['Confirmed', humanDate(opts.confirmedAt)],
+      ['Reference', `<span style="font-family:monospace;font-size:12px;">${opts.reference}</span>`],
+    ]) +
+    btn(url, 'View pre-trip form link');
+
   await sendEmail({
     to: opts.to,
     subject: 'ACTION REQUIRED: pre-trip details overdue',
-    html: `<p>A confirmed booking has not completed its pre-trip details within 7 days of confirmation.
-Please follow up with the guest personally. This is a flag for manual follow-up only — the booking
-remains confirmed and is not affected.</p>
-<ul>
-<li><strong>Guest:</strong> ${escapeHtml(opts.leadName)}</li>
-<li><strong>Booking reference:</strong> ${opts.reference}</li>
-<li><strong>Trip start date:</strong> ${opts.startDate}</li>
-<li><strong>Confirmed at:</strong> ${opts.confirmedAt}</li>
-<li><strong>Pre-trip link:</strong> <a href="${url}">${url}</a></li>
-</ul>`,
+    html: layout('alert', `Pre-trip details overdue — ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
   });
 }
 
-// ---- Split payment: balance emails --------------------------------------------------------------
-
-// Balance payment link (guest) — the secure Paystack checkout for the outstanding 50%. Sent 45 days
-// before the trip by the balance-reminders cron, or immediately at confirmation for the edge case.
-export async function sendBalanceLinkEmail(opts: {
-  to: string;
-  leadName: string;
-  startDate: string;
-  amountCents: number;
-  dueDate: string | null;
-  url: string;
-}): Promise<void> {
-  const name = opts.leadName ? ` ${escapeHtml(opts.leadName)}` : '';
-  const dueLine = opts.dueDate
-    ? `<p>Please complete this payment by <strong>${humanDate(opts.dueDate)}</strong> to secure your trip.</p>`
-    : '';
-  await sendEmail({
-    to: opts.to,
-    subject: 'Your Rooiberg Wander balance is due — secure payment link',
-    html: `<p>Hi${name},</p>
-<p>Your Rooiberg Wander trip (arrival <strong>${opts.startDate}</strong>) is coming up, and the
-remaining balance of <strong>${randFromCents(opts.amountCents)}</strong> is now due.</p>
-${dueLine}
-${ctaButton(opts.url, 'Pay your balance securely')}
-<p>Your deposit is already paid; this covers the outstanding 50%. A tax invoice accompanies your
-receipt.</p>`,
-  });
-}
-
-// Balance payment confirmation (guest) — the trip is now paid in full.
-export async function sendBalancePaidConfirmation(opts: {
-  to: string;
-  leadName: string;
-  startDate: string;
-}): Promise<void> {
-  const name = opts.leadName ? ` ${escapeHtml(opts.leadName)}` : '';
-  await sendEmail({
-    to: opts.to,
-    subject: 'Your Rooiberg Wander trip is paid in full',
-    html: `<p>Thank you${name} — we have received your balance payment. Your Rooiberg Wander trip
-(arrival <strong>${opts.startDate}</strong>) is now <strong>paid in full</strong>.</p>
-<p>There is nothing further to pay. A tax invoice accompanies your receipt. We look forward to
-welcoming your group to the Rooiberg.</p>`,
-  });
-}
-
-// Internal escalation (operator) — balance still unpaid once the trip is within 30 days. Mirrors the
-// pre-trip overdue alert: a manual-follow-up FLAG only. The booking is NOT cancelled and the date is
-// NOT released (business policy — reconfirm before go-live).
 export async function sendBalanceOverdueAlert(opts: {
   to: string;
   leadName: string;
@@ -228,18 +415,53 @@ export async function sendBalanceOverdueAlert(opts: {
   balanceCents: number;
   balanceDueDate: string | null;
 }): Promise<void> {
+  const body =
+    alertBadge +
+    h1('Balance payment overdue.') +
+    p('A confirmed deposit booking has not paid its balance and the trip is now within 30 days. Please follow up directly. <strong>The booking and dates are not released automatically.</strong>') +
+    infoTable([
+      ['Guest', escapeHtml(opts.leadName)],
+      ['Arrival (Day 1)', humanDate(opts.startDate)],
+      ['Balance outstanding', `<strong>${randFromCents(opts.balanceCents)}</strong>`],
+      ...(opts.balanceDueDate
+        ? ([['Was due', humanDate(opts.balanceDueDate)]] as Array<[string, string]>)
+        : []),
+      ['Reference', `<span style="font-family:monospace;font-size:12px;">${opts.reference}</span>`],
+    ]);
+
   await sendEmail({
     to: opts.to,
     subject: 'ACTION REQUIRED: balance payment overdue',
-    html: `<p>A confirmed deposit booking has not paid its balance and the trip is now within 30 days.
-Please follow up with the guest personally. This is a flag for manual follow-up only — the booking
-remains confirmed and its dates are NOT released.</p>
-<ul>
-<li><strong>Guest:</strong> ${escapeHtml(opts.leadName)}</li>
-<li><strong>Deposit reference:</strong> ${opts.reference}</li>
-<li><strong>Trip start date:</strong> ${opts.startDate}</li>
-<li><strong>Balance outstanding:</strong> ${randFromCents(opts.balanceCents)}</li>
-${opts.balanceDueDate ? `<li><strong>Balance was due:</strong> ${humanDate(opts.balanceDueDate)}</li>` : ''}
-</ul>`,
+    html: layout('alert', `Balance overdue — ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
+  });
+}
+
+export async function sendManualReviewAlert(opts: {
+  to: string;
+  reference: string;
+  amountCents: number;
+  subject: string;
+  reason: string;
+  bookingId?: string;
+  at: string;
+}): Promise<void> {
+  const body =
+    alertBadge +
+    h1('Manual review required.') +
+    p(opts.reason) +
+    infoTable([
+      ['Paystack reference', `<span style="font-family:monospace;font-size:12px;">${opts.reference}</span>`],
+      ['Amount paid', randFromCents(opts.amountCents)],
+      ...(opts.bookingId
+        ? ([['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`]] as Array<[string, string]>)
+        : []),
+      ['Time', opts.at],
+    ]) +
+    p('Please check the Paystack dashboard to confirm or refund this transaction.');
+
+  await sendEmail({
+    to: opts.to,
+    subject: opts.subject,
+    html: layout('alert', opts.subject, body),
   });
 }
