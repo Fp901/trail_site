@@ -29,8 +29,8 @@ export const server = {
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
       groupSize: z.number().int().min(1).max(12),
       residency: z.enum(['local', 'international']),
-      leadName: z.string().trim().min(1).max(120),
-      leadEmail: z.string().trim().email().max(180),
+      leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
+      leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
       company: z.string().max(0).optional(), // honeypot — must be empty
     }),
     handler: async (input, ctx) => {
@@ -83,7 +83,7 @@ export const server = {
       const { data: existingBooking } = await supabase
         .from('bookings')
         .select('id')
-        .eq('lead_email', input.leadEmail)
+        .eq('lead_email', input.leadEmail.trim().toLowerCase())
         .or(`status.eq.confirmed,and(status.eq.pending,hold_expires_at.gt.${now})`)
         .maybeSingle();
 
@@ -94,6 +94,12 @@ export const server = {
             'You already have an active booking. Please contact us at hanlie@rooibergwander.co.za if you need to make changes.',
         });
       }
+
+      // Normalise contact fields: collapse whitespace in the name, lowercase the email so
+      // lookups, duplicate checks, and Paystack receipts are consistent regardless of how
+      // the customer typed them.
+      const leadName = input.leadName.trim().replace(/\s+/g, ' ');
+      const leadEmail = input.leadEmail.trim().toLowerCase();
 
       const holdMinutes = Number(import.meta.env.HOLD_MINUTES ?? 30);
       const reference = `rw_${crypto.randomUUID()}`;
@@ -113,8 +119,8 @@ export const server = {
           end_date: endDate,
           group_size: input.groupSize,
           residency: input.residency,
-          lead_name: input.leadName,
-          lead_email: input.leadEmail,
+          lead_name: leadName,
+          lead_email: leadEmail,
           status: 'pending',
           total_cents: quote.totalCents,
           amount_due_cents: quote.amountDueCents,
@@ -139,7 +145,7 @@ export const server = {
 
       const siteUrl = import.meta.env.PUBLIC_SITE_URL ?? site.url;
       const init = await payments.initCheckout({
-        email: input.leadEmail,
+        email: leadEmail,
         amountCents: quote.amountDueCents,
         reference,
         callbackUrl: `${siteUrl}/booking/confirm`,
@@ -154,11 +160,11 @@ export const server = {
   createInquiry: defineAction({
     accept: 'json',
     input: z.object({
-      name: z.string().trim().min(1).max(120),
-      email: z.string().trim().email().max(180),
+      name: z.string().trim().min(2, 'Please enter your name.').max(120),
+      email: z.string().trim().email('Please enter a valid email address.').max(180),
       groupSize: z.string().trim().max(40).optional(),
       targetDates: z.string().trim().max(120).optional(),
-      message: z.string().trim().max(2000).optional(),
+      message: z.string().trim().min(20, 'Please include a message of at least 20 characters.').max(2000),
       company: z.string().max(0).optional(), // honeypot
     }),
     handler: async (input, ctx) => {
@@ -176,13 +182,17 @@ export const server = {
 
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
 
+      // Normalise: collapse whitespace in name, lowercase email.
+      const name = input.name.trim().replace(/\s+/g, ' ');
+      const email = input.email.trim().toLowerCase();
+
       const supabase = getSupabaseAdmin();
       const { error } = await supabase.from('inquiries').insert({
-        name: input.name,
-        email: input.email,
+        name,
+        email,
         group_size: input.groupSize ?? null,
         target_dates: input.targetDates ?? null,
-        message: input.message ?? null,
+        message: input.message,
       });
       if (error) {
         throw new ActionError({
@@ -195,9 +205,9 @@ export const server = {
       try {
         await sendInquiryNotification({
           to: notify,
-          replyTo: input.email,
-          name: input.name,
-          email: input.email,
+          replyTo: email,
+          name,
+          email,
           groupSize: input.groupSize,
           targetDates: input.targetDates,
           message: input.message,
@@ -216,7 +226,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       token: z.string().uuid('Invalid link.'),
-      leadPhone: z.string().trim().max(40).optional(),
+      leadPhone: z.string().trim().min(7, 'Please provide a contact number — guides need this on trail.').max(40),
       guests: z
         .array(
           z.object({
@@ -232,7 +242,9 @@ export const server = {
       vehicleReg: z.string().trim().max(500).optional(),
       arrivalTime: z.string().trim().max(20).optional(),
       specialRequests: z.string().trim().max(3000).optional(),
-      selfCateringAck: z.boolean().optional(),
+      selfCateringAck: z.boolean().refine((v) => v === true, {
+        message: 'Please acknowledge the self-catering arrangement before submitting.',
+      }),
       company: z.string().max(0).optional(), // honeypot
     }),
     handler: async (input, ctx) => {
@@ -244,10 +256,23 @@ export const server = {
         });
       }
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
-      if (!input.guests[0]?.name) {
+      if (!input.guests[0]?.name?.trim()) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: 'Please enter at least the lead guest’s name.',
+          message: 'Please enter the lead guest\'s full name.',
+        });
+      }
+      // Emergency contact is required for the lead guest on a Big 5 trail.
+      if (!input.guests[0].emergencyName?.trim() || input.guests[0].emergencyName.trim().length < 2) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: 'Please provide an emergency contact name for the lead guest.',
+        });
+      }
+      if (!input.guests[0].emergencyPhone?.trim() || input.guests[0].emergencyPhone.trim().length < 7) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: 'Please provide an emergency contact number for the lead guest.',
         });
       }
 
@@ -269,13 +294,13 @@ export const server = {
       // The trail indemnity is signed in person on arrival (solicitor's requirement), so no waiver
       // is captured online.
       const details = {
-        leadPhone: input.leadPhone ?? '',
+        leadPhone: input.leadPhone,
         guests,
         medicalNotes: input.medicalNotes ?? '',
         vehicleReg: input.vehicleReg ?? '',
         arrivalTime: input.arrivalTime ?? '',
         specialRequests: input.specialRequests ?? '',
-        selfCateringAck: input.selfCateringAck ?? false,
+        selfCateringAck: input.selfCateringAck,
       };
 
       const { error } = await supabase.from('pretrip_details').upsert(

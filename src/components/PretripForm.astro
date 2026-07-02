@@ -16,7 +16,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
   {
     alreadySubmitted && (
       <p class="pretrip-note">
-        We’ve already received your details — you can update anything below and resubmit.
+        We've already received your details — you can update anything below and resubmit.
       </p>
     )
   }
@@ -28,30 +28,67 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
     </p>
     {
       guests.map((n) => (
-        <div class="pretrip-guest" data-guest>
+        <div class="pretrip-guest" data-guest data-lead={n === 1 ? '' : undefined}>
           <p class="pretrip-guest__num">Guest {n}{n === 1 ? ' · lead' : ''}</p>
           <div class="bform__grid">
             <div class="form-field">
-              <label>Full name
-                <input data-g-name type="text" maxlength="120" value={n === 1 ? leadName : ''} autocomplete="off" />
+              <label for={`g-name-${n}`}>
+                Full name{n === 1 ? ' *' : ''}
               </label>
+              <span class="form-hint">As it appears on ID or passport</span>
+              <input
+                id={`g-name-${n}`}
+                data-g-name
+                type="text"
+                maxlength="120"
+                value={n === 1 ? leadName : ''}
+                autocomplete="off"
+                aria-describedby={`g-name-err-${n}`}
+              />
+              <span class="form-error" id={`g-name-err-${n}`} aria-live="polite"></span>
             </div>
             <div class="form-field">
-              <label>ID / passport number
-                <input data-g-id type="text" maxlength="60" autocomplete="off" />
-              </label>
+              <label for={`g-id-${n}`}>ID / passport number</label>
+              <span class="form-hint">Required for reserve access. Leave blank if unavailable before the trail.</span>
+              <input
+                id={`g-id-${n}`}
+                data-g-id
+                type="text"
+                maxlength="60"
+                autocomplete="off"
+              />
             </div>
           </div>
           <div class="bform__grid">
             <div class="form-field">
-              <label>Emergency contact name
-                <input data-g-ec-name type="text" maxlength="120" autocomplete="off" />
+              <label for={`g-ec-name-${n}`}>
+                Emergency contact name{n === 1 ? ' *' : ''}
               </label>
+              {n === 1 && <span class="form-hint">Someone we can reach if needed on trail</span>}
+              <input
+                id={`g-ec-name-${n}`}
+                data-g-ec-name
+                type="text"
+                maxlength="120"
+                autocomplete="off"
+                aria-describedby={n === 1 ? `g-ec-name-err-${n}` : undefined}
+              />
+              {n === 1 && <span class="form-error" id={`g-ec-name-err-${n}`} aria-live="polite"></span>}
             </div>
             <div class="form-field">
-              <label>Emergency contact phone
-                <input data-g-ec-phone type="tel" maxlength="40" autocomplete="off" />
+              <label for={`g-ec-phone-${n}`}>
+                Emergency contact phone{n === 1 ? ' *' : ''}
               </label>
+              {n === 1 && <span class="form-hint">e.g. +27 11 555 0000</span>}
+              <input
+                id={`g-ec-phone-${n}`}
+                data-g-ec-phone
+                type="tel"
+                maxlength="40"
+                autocomplete="off"
+                aria-describedby={n === 1 ? `g-ec-phone-err-${n}` : undefined}
+              />
+              {n === 1 && <span class="form-error" id={`g-ec-phone-err-${n}`} aria-live="polite"></span>}
             </div>
           </div>
         </div>
@@ -60,12 +97,22 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
   </fieldset>
 
   <div class="form-field">
-    <label for="pt-phone">Lead contact phone</label>
-    <input id="pt-phone" type="tel" maxlength="40" autocomplete="tel" />
+    <label for="pt-phone">Lead contact phone *</label>
+    <span class="form-hint">e.g. +27 82 123 4567 — your guides need this number on trail</span>
+    <input
+      id="pt-phone"
+      type="tel"
+      maxlength="40"
+      autocomplete="tel"
+      required
+      aria-describedby="pt-phone-err"
+    />
+    <span class="form-error" id="pt-phone-err" aria-live="polite"></span>
   </div>
 
   <div class="form-field">
     <label for="pt-medical">Medical conditions, injuries, allergies or fitness limitations the guides should know</label>
+    <span class="form-hint">Write "None" if not applicable.</span>
     <textarea id="pt-medical" rows="3" maxlength="3000"></textarea>
   </div>
 
@@ -76,6 +123,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
 
   <div class="form-field">
     <label for="pt-arrival">Estimated arrival time on Day 1</label>
+    <span class="form-hint">Approximate time — helps the lodge team prepare your welcome.</span>
     <input id="pt-arrival" type="time" />
   </div>
 
@@ -84,14 +132,21 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
     <textarea id="pt-requests" rows="3" maxlength="3000"></textarea>
   </div>
 
-  <label class="pretrip-check">
-    <input type="checkbox" id="pt-selfcater" />
-    <span>I understand the trail is fully self-catered: each group brings their own food and drinks. Each lodge has a kitchen, fridge, braai facilities, safe drinking water, ice and wood.</span>
-  </label>
+  <div class="form-field" id="pt-selfcater-field">
+    <label class="pretrip-check">
+      <input type="checkbox" id="pt-selfcater" required aria-describedby="pt-selfcater-err" />
+      <span>I understand the trail is fully self-catered: each group brings their own food and drinks. Each lodge has a kitchen, fridge, braai facilities, safe drinking water, ice and wood.</span>
+    </label>
+    <span class="form-error" id="pt-selfcater-err" aria-live="polite"></span>
+  </div>
 
   <p class="pretrip-note">
     Your trail indemnity is signed in person on arrival at Rotavi Lodge, before the safety briefing —
     there is nothing to sign here.
+  </p>
+
+  <p class="pretrip-note" style="font-size:0.8rem;color:color-mix(in srgb,#2C2C2C 55%,transparent);">
+    Fields marked * are required.
   </p>
 
   {/* Honeypot */}
@@ -116,12 +171,13 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
     if (!form || form.dataset.bound === 'true') return;
     form.dataset.bound = 'true';
 
-    const status = form.querySelector<HTMLElement>('[data-status]');
-    const submit = form.querySelector<HTMLButtonElement>('.bform__submit');
+    const status  = form.querySelector<HTMLElement>('[data-status]');
+    const submit  = form.querySelector<HTMLButtonElement>('.bform__submit');
     const success = document.querySelector<HTMLElement>('[data-success]');
 
     const val = (sel: string) =>
       (form.querySelector<HTMLInputElement | HTMLTextAreaElement>(sel)?.value ?? '').trim();
+
     const setStatus = (msg: string) => {
       if (status) {
         status.textContent = msg;
@@ -129,31 +185,130 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
       }
     };
 
+    // ---- Inline validation helpers ----------------------------------------
+    type Rule = (v: string) => string | null;
+
+    function firstErr(rawVal: string, rules: Rule[]): string | null {
+      for (const r of rules) { const e = r(rawVal); if (e) return e; }
+      return null;
+    }
+
+    function markField(wrapper: Element | null, msg: string | null): void {
+      if (!wrapper) return;
+      const errEl = wrapper.querySelector<HTMLElement>('.form-error');
+      wrapper.classList.toggle('has-error', !!msg);
+      if (errEl) errEl.textContent = msg ?? '';
+    }
+
+    function bindField(
+      input: HTMLInputElement | HTMLTextAreaElement,
+      rules: Rule[],
+      wrapperSel?: string,
+    ): void {
+      const wrapper = wrapperSel
+        ? document.querySelector(wrapperSel)
+        : input.closest('.form-field');
+      input.addEventListener('blur', () => markField(wrapper, firstErr(input.value, rules)));
+      input.addEventListener('input', () => {
+        if (wrapper?.classList.contains('has-error')) {
+          markField(wrapper, firstErr(input.value, rules));
+        }
+      });
+    }
+
+    const phoneEl   = form.querySelector<HTMLInputElement>('#pt-phone')!;
+    const caterEl   = form.querySelector<HTMLInputElement>('#pt-selfcater')!;
+
+    // Lead guest row (first [data-lead] row)
+    const leadRow   = form.querySelector<HTMLElement>('[data-lead]');
+    const leadNameEl   = leadRow?.querySelector<HTMLInputElement>('[data-g-name]') ?? null;
+    const leadEcNameEl = leadRow?.querySelector<HTMLInputElement>('[data-g-ec-name]') ?? null;
+    const leadEcPhoneEl = leadRow?.querySelector<HTMLInputElement>('[data-g-ec-phone]') ?? null;
+
+    const phoneRules: Rule[] = [
+      v => !v.trim()           ? 'Please provide a contact number — guides need this on trail.' : null,
+      v => v.trim().replace(/\s/g, '').length < 7
+                               ? 'Please enter a valid phone number.'                           : null,
+    ];
+    const nameRules: Rule[] = [
+      v => !v.trim()           ? 'Please enter the lead guest\'s full name.'  : null,
+      v => v.trim().length < 2 ? 'Name must be at least 2 characters.'        : null,
+    ];
+    const ecNameRules: Rule[] = [
+      v => !v.trim()           ? 'Please provide an emergency contact name.'   : null,
+      v => v.trim().length < 2 ? 'Emergency contact name must be at least 2 characters.' : null,
+    ];
+    const ecPhoneRules: Rule[] = [
+      v => !v.trim()                                    ? 'Please provide an emergency contact number.'    : null,
+      v => v.trim().replace(/\s/g, '').length < 7       ? 'Please enter a valid phone number.'            : null,
+    ];
+
+    bindField(phoneEl, phoneRules);
+
+    if (leadNameEl)   bindField(leadNameEl,   nameRules);
+    if (leadEcNameEl)  bindField(leadEcNameEl,  ecNameRules);
+    if (leadEcPhoneEl) bindField(leadEcPhoneEl, ecPhoneRules);
+
+    // Checkbox: validate on change
+    caterEl.addEventListener('change', () => {
+      markField(document.getElementById('pt-selfcater-field'), caterEl.checked ? null : 'Please acknowledge the self-catering arrangement before submitting.');
+    });
+
+    // ---- Submit -----------------------------------------------------------
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       setStatus('');
 
+      // Validate required fields; focus first error.
+      type FieldCheck = [HTMLInputElement | HTMLTextAreaElement, Rule[]];
+      const checks: FieldCheck[] = [
+        ...(leadNameEl    ? [[leadNameEl,    nameRules]   as FieldCheck] : []),
+        ...(leadEcNameEl  ? [[leadEcNameEl,  ecNameRules] as FieldCheck] : []),
+        ...(leadEcPhoneEl ? [[leadEcPhoneEl, ecPhoneRules] as FieldCheck] : []),
+        [phoneEl, phoneRules],
+      ];
+
+      let firstBad: HTMLElement | null = null;
+      for (const [el, rules] of checks) {
+        const err = firstErr(el.value, rules);
+        markField(el.closest('.form-field'), err);
+        if (err && !firstBad) firstBad = el;
+      }
+
+      // Checkbox
+      const caterWrapper = document.getElementById('pt-selfcater-field');
+      if (!caterEl.checked) {
+        markField(caterWrapper, 'Please acknowledge the self-catering arrangement before submitting.');
+        if (!firstBad) firstBad = caterEl;
+      } else {
+        markField(caterWrapper, null);
+      }
+
+      if (firstBad) { firstBad.focus(); return; }
+
+      // Lead guest name fallback guard (should have been caught above)
       const guests = Array.from(form.querySelectorAll<HTMLElement>('[data-guest]')).map((row) => ({
-        name: (row.querySelector<HTMLInputElement>('[data-g-name]')?.value ?? '').trim(),
-        idNumber: (row.querySelector<HTMLInputElement>('[data-g-id]')?.value ?? '').trim(),
+        name:          (row.querySelector<HTMLInputElement>('[data-g-name]')?.value    ?? '').trim(),
+        idNumber:      (row.querySelector<HTMLInputElement>('[data-g-id]')?.value      ?? '').trim(),
         emergencyName: (row.querySelector<HTMLInputElement>('[data-g-ec-name]')?.value ?? '').trim(),
-        emergencyPhone: (row.querySelector<HTMLInputElement>('[data-g-ec-phone]')?.value ?? '').trim(),
+        emergencyPhone:(row.querySelector<HTMLInputElement>('[data-g-ec-phone]')?.value ?? '').trim(),
       }));
 
       if (!guests[0]?.name) {
-        setStatus('Please enter at least the lead guest’s name.');
+        setStatus('Please enter the lead guest\'s full name.');
+        leadNameEl?.focus();
         return;
       }
 
       const payload = {
-        token: form.dataset.token ?? '',
-        leadPhone: val('#pt-phone'),
+        token:           form.dataset.token ?? '',
+        leadPhone:       val('#pt-phone'),
         guests,
-        medicalNotes: val('#pt-medical'),
-        vehicleReg: val('#pt-vehicle'),
-        arrivalTime: val('#pt-arrival'),
+        medicalNotes:    val('#pt-medical'),
+        vehicleReg:      val('#pt-vehicle'),
+        arrivalTime:     val('#pt-arrival'),
         specialRequests: val('#pt-requests'),
-        selfCateringAck: form.querySelector<HTMLInputElement>('#pt-selfcater')?.checked ?? false,
+        selfCateringAck: caterEl.checked,
         company: (form.querySelector<HTMLInputElement>('[data-hp]')?.value || undefined) as
           | string
           | undefined,

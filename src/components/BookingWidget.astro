@@ -86,11 +86,31 @@ const fmt = (cents: number) => formatRand(cents / 100);
   <div class="bform__grid">
     <div class="form-field">
       <label for="bf-name">Lead guest name</label>
-      <input id="bf-name" name="leadName" type="text" autocomplete="name" maxlength="120" required />
+      <span class="form-hint">First and last name, e.g. Sarah van der Merwe</span>
+      <input
+        id="bf-name"
+        name="leadName"
+        type="text"
+        autocomplete="name"
+        maxlength="120"
+        required
+        aria-describedby="bf-name-err"
+      />
+      <span class="form-error" id="bf-name-err" aria-live="polite"></span>
     </div>
     <div class="form-field">
       <label for="bf-email">Email</label>
-      <input id="bf-email" name="leadEmail" type="email" autocomplete="email" maxlength="180" required />
+      <span class="form-hint">We'll send your booking confirmation here.</span>
+      <input
+        id="bf-email"
+        name="leadEmail"
+        type="email"
+        autocomplete="email"
+        maxlength="180"
+        required
+        aria-describedby="bf-email-err"
+      />
+      <span class="form-error" id="bf-email-err" aria-live="polite"></span>
     </div>
   </div>
 
@@ -315,6 +335,49 @@ const fmt = (cents: number) => formatRand(cents / 100);
     const status      = form.querySelector<HTMLElement>('[data-status]');
     const startInput  = form.querySelector<HTMLInputElement>('#bf-start');
     const submit      = form.querySelector<HTMLButtonElement>('[data-submit]');
+    const nameInput   = form.querySelector<HTMLInputElement>('#bf-name')!;
+    const emailInput  = form.querySelector<HTMLInputElement>('#bf-email')!;
+
+    // ---- Inline validation helpers ----------------------------------------
+    type Rule = (v: string) => string | null;
+
+    function firstErr(val: string, rules: Rule[]): string | null {
+      for (const r of rules) { const e = r(val); if (e) return e; }
+      return null;
+    }
+
+    function markField(wrapper: Element | null, msg: string | null): void {
+      if (!wrapper) return;
+      const errEl = wrapper.querySelector<HTMLElement>('.form-error');
+      wrapper.classList.toggle('has-error', !!msg);
+      if (errEl) errEl.textContent = msg ?? '';
+    }
+
+    function bindField(
+      input: HTMLInputElement | HTMLTextAreaElement,
+      rules: Rule[],
+    ): void {
+      const wrapper = input.closest('.form-field');
+      input.addEventListener('blur', () => markField(wrapper, firstErr(input.value, rules)));
+      input.addEventListener('input', () => {
+        if (wrapper?.classList.contains('has-error')) {
+          markField(wrapper, firstErr(input.value, rules));
+        }
+      });
+    }
+
+    const nameRules: Rule[] = [
+      v => !v.trim()           ? 'Please enter your full name.'                   : null,
+      v => v.trim().length < 2 ? 'Name must be at least 2 characters.'            : null,
+    ];
+    const emailRules: Rule[] = [
+      v => !v.trim()           ? 'Please enter your email address.'               : null,
+      v => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
+                               ? "That doesn't look like a valid email address."  : null,
+    ];
+
+    bindField(nameInput,  nameRules);
+    bindField(emailInput, emailRules);
 
     const SPLIT_DAYS = Number(form.dataset.splitDays ?? 30);
     const todayIso = new Date().toISOString().slice(0, 10); // UTC — display only, server re-validates
@@ -368,14 +431,26 @@ const fmt = (cents: number) => formatRand(cents / 100);
       setStatus('', 'info');
       const fd = new FormData(form);
 
-      // Friendly guard — the server still re-validates the date regardless.
-      if (!String(fd.get('startDate') ?? '')) {
+      // Validate all required fields; focus first error.
+      const startVal = String(fd.get('startDate') ?? '');
+      if (!startVal) {
         setStatus('Please choose a start date from the calendar.');
         return;
       }
+      const fieldChecks: Array<[HTMLInputElement | HTMLTextAreaElement, Rule[]]> = [
+        [nameInput,  nameRules],
+        [emailInput, emailRules],
+      ];
+      let firstBad: HTMLElement | null = null;
+      for (const [el, rules] of fieldChecks) {
+        const err = firstErr(el.value, rules);
+        markField(el.closest('.form-field'), err);
+        if (err && !firstBad) firstBad = el;
+      }
+      if (firstBad) { firstBad.focus(); return; }
 
       const payload = {
-        startDate: String(fd.get('startDate') ?? ''),
+        startDate: startVal,
         groupSize: Number(fd.get('groupSize') ?? 0),
         residency: String(fd.get('residency') ?? 'local') as 'local' | 'international',
         leadName: String(fd.get('leadName') ?? ''),

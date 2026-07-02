@@ -671,6 +671,27 @@
     outline-offset: 1px;
     border-color: var(--color-ochre);
   }
+  /* ---- Inline hints and validation errors --------------------------------- */
+  .form-hint {
+    font-size: 0.78rem;
+    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+    line-height: 1.4;
+  }
+  .form-error {
+    font-size: 0.8rem;
+    color: #9c2b1b;
+    line-height: 1.4;
+    display: none;
+  }
+  .form-field.has-error .form-error {
+    display: block;
+  }
+  .form-field.has-error input:not([type='radio']):not([type='checkbox']),
+  .form-field.has-error textarea,
+  .form-field.has-error select {
+    border-color: #9c2b1b;
+  }
+  /* ---- Radios ------------------------------------------------------------- */
   .bform__radios {
     display: flex;
     flex-wrap: wrap;

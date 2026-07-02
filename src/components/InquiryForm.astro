@@ -1,34 +1,66 @@
 ---
 // InquiryForm (Part 7) — optional "enquire" path. Vanilla-JS island → createInquiry Action.
-// Honeypot + length caps + POPIA note + calm success state. No PII stored on the client.
+// Honeypot + length caps + inline field-level validation + POPIA note + calm success state.
 ---
 
 <form id="inquiry-form" class="bform" novalidate>
   <div class="bform__grid">
     <div class="form-field">
       <label for="iq-name">Your name</label>
-      <input id="iq-name" name="name" type="text" autocomplete="name" maxlength="120" required />
+      <span class="form-hint">First and last name</span>
+      <input
+        id="iq-name"
+        name="name"
+        type="text"
+        autocomplete="name"
+        maxlength="120"
+        required
+        aria-describedby="iq-name-err"
+      />
+      <span class="form-error" id="iq-name-err" aria-live="polite"></span>
     </div>
     <div class="form-field">
       <label for="iq-email">Email</label>
-      <input id="iq-email" name="email" type="email" autocomplete="email" maxlength="180" required />
+      <span class="form-hint">We'll reply to this address.</span>
+      <input
+        id="iq-email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        maxlength="180"
+        required
+        aria-describedby="iq-email-err"
+      />
+      <span class="form-error" id="iq-email-err" aria-live="polite"></span>
     </div>
   </div>
 
   <div class="bform__grid">
     <div class="form-field">
       <label for="iq-group">Group size</label>
-      <input id="iq-group" name="groupSize" type="text" maxlength="40" placeholder="e.g. 8 guests" />
+      <span class="form-hint">e.g. 6 guests, or a mix of adults and children</span>
+      <input id="iq-group" name="groupSize" type="text" maxlength="40" />
     </div>
     <div class="form-field">
       <label for="iq-dates">Target dates</label>
-      <input id="iq-dates" name="targetDates" type="text" maxlength="120" placeholder="e.g. April 2027" />
+      <span class="form-hint">e.g. April 2027, or flexible</span>
+      <input id="iq-dates" name="targetDates" type="text" maxlength="120" />
     </div>
   </div>
 
   <div class="form-field">
-    <label for="iq-message">Message (optional)</label>
-    <textarea id="iq-message" name="message" rows="4" maxlength="2000"></textarea>
+    <label for="iq-message">Message</label>
+    <span class="form-hint">Tell us about your group, your preferred dates, and any questions you have. (At least 20 characters.)</span>
+    <textarea
+      id="iq-message"
+      name="message"
+      rows="4"
+      maxlength="2000"
+      required
+      minlength="20"
+      aria-describedby="iq-message-err"
+    ></textarea>
+    <span class="form-error" id="iq-message-err" aria-live="polite"></span>
   </div>
 
   {/* Honeypot */}
@@ -56,23 +88,90 @@
 
     const status = form.querySelector<HTMLElement>('[data-status]');
     const submit = form.querySelector<HTMLButtonElement>('.bform__submit');
+
     const setStatus = (msg: string, kind: 'error' | 'success' = 'error') => {
       if (!status) return;
       status.textContent = msg;
       status.dataset.kind = kind;
     };
 
+    // ---- Inline validation helpers ----------------------------------------
+    type Rule = (v: string) => string | null;
+
+    function firstErr(val: string, rules: Rule[]): string | null {
+      for (const r of rules) { const e = r(val); if (e) return e; }
+      return null;
+    }
+
+    function markField(wrapper: Element | null, msg: string | null): void {
+      if (!wrapper) return;
+      const errEl = wrapper.querySelector<HTMLElement>('.form-error');
+      wrapper.classList.toggle('has-error', !!msg);
+      if (errEl) errEl.textContent = msg ?? '';
+    }
+
+    function bindField(
+      input: HTMLInputElement | HTMLTextAreaElement,
+      rules: Rule[],
+    ): void {
+      const wrapper = input.closest('.form-field');
+      input.addEventListener('blur', () => markField(wrapper, firstErr(input.value, rules)));
+      input.addEventListener('input', () => {
+        if (wrapper?.classList.contains('has-error')) {
+          markField(wrapper, firstErr(input.value, rules));
+        }
+      });
+    }
+
+    const nameEl    = form.querySelector<HTMLInputElement>('#iq-name')!;
+    const emailEl   = form.querySelector<HTMLInputElement>('#iq-email')!;
+    const messageEl = form.querySelector<HTMLTextAreaElement>('#iq-message')!;
+
+    const nameRules: Rule[] = [
+      v => !v.trim()              ? 'Please enter your name.'                    : null,
+      v => v.trim().length < 2    ? 'Name must be at least 2 characters.'        : null,
+    ];
+    const emailRules: Rule[] = [
+      v => !v.trim()              ? 'Please enter your email address.'            : null,
+      v => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
+                                  ? "That doesn't look like a valid email address." : null,
+    ];
+    const messageRules: Rule[] = [
+      v => !v.trim()              ? 'Please include a message so we can help you.' : null,
+      v => v.trim().length < 20   ? 'Message must be at least 20 characters.'     : null,
+    ];
+
+    bindField(nameEl,    nameRules);
+    bindField(emailEl,   emailRules);
+    bindField(messageEl, messageRules);
+
+    // ---- Submit -----------------------------------------------------------
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       setStatus('', 'success');
+
+      // Validate all required fields; focus first error.
+      const checks: Array<[HTMLInputElement | HTMLTextAreaElement, Rule[]]> = [
+        [nameEl, nameRules],
+        [emailEl, emailRules],
+        [messageEl, messageRules],
+      ];
+      let firstBad: HTMLElement | null = null;
+      for (const [el, rules] of checks) {
+        const err = firstErr(el.value, rules);
+        markField(el.closest('.form-field'), err);
+        if (err && !firstBad) firstBad = el;
+      }
+      if (firstBad) { firstBad.focus(); return; }
+
       const fd = new FormData(form);
       const payload = {
-        name: String(fd.get('name') ?? ''),
-        email: String(fd.get('email') ?? ''),
-        groupSize: (fd.get('groupSize') as string) || undefined,
+        name:        String(fd.get('name')        ?? ''),
+        email:       String(fd.get('email')       ?? ''),
+        groupSize:   (fd.get('groupSize')  as string) || undefined,
         targetDates: (fd.get('targetDates') as string) || undefined,
-        message: (fd.get('message') as string) || undefined,
-        company: (fd.get('company') as string) || undefined,
+        message:     String(fd.get('message')     ?? ''),
+        company:     (fd.get('company')    as string) || undefined,
       };
 
       if (submit) submit.disabled = true;
@@ -85,7 +184,7 @@
       }
       if (data?.ok) {
         form.reset();
-        setStatus('Thank you — your enquiry is on its way. We’ll be in touch soon.', 'success');
+        setStatus("Thank you — your enquiry is on its way. We'll be in touch soon.", 'success');
         if (submit) submit.disabled = false;
       }
     });
