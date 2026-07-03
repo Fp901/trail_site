@@ -177,6 +177,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/unavailable_windows?select=start_date`, {
         headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
+        cache: 'no-store', // always fetch fresh — a cancellation must free the date immediately
       });
       if (!res.ok) return blocked;
       const rows = await res.json();
