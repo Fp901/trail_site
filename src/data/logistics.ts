@@ -71,7 +71,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How big is the group?',
-    a: 'The trail is sold as exclusive use for one private group of up to 10 guests, with an optional two extra by special arrangement. You have the trail and camps to yourselves.',
+    a: 'The trail is sold per private group of up to 10 guests, with an optional two extra by special arrangement. You walk privately with your own two guides, and each lodge is exclusively yours on the night you stay.',
   },
 ];
 
@@ -95,7 +95,7 @@ export const transfers = {
   title: 'Getting here',
   intro:
     'If you are flying in or would rather be driven, we recommend EZ Shuttle, a local operator that knows the routes and access points to reach us.',
-  linkText: 'EZ Shuttle — book a transfer',
+  linkText: 'Book a transfer with EZ Shuttle',
   linkUrl: 'https://www.ezshuttle.co.za/',
   booking:
     'Arrange your pick-up times, vehicle and rates with them directly, before your trip.',

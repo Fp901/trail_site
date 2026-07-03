@@ -59,6 +59,11 @@ const {
     <p class="sanctuary__desc">{description}</p>
     {
       amenities && amenities.length > 0 && (
+        <p class="sanctuary__amenities-label">Lodge amenities</p>
+      )
+    }
+    {
+      amenities && amenities.length > 0 && (
         <ul class="sanctuary__amenities">
           {amenities.map((a) => (
             <li class="sanctuary__amenity">

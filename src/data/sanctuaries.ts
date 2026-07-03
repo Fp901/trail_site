@@ -10,7 +10,7 @@ export type AmenityIconName =
   | 'pool'
   | 'suite'
   | 'kitchen'
-  | 'braai'
+  | 'barbeque'
   | 'water'
   | 'ice'
   | 'wood'
@@ -60,7 +60,7 @@ export const sanctuaries: Sanctuary[] = [
       { icon: 'pool', label: 'Swimming pool' },
       { icon: 'suite', label: '2-person suites, bedding included' },
       { icon: 'kitchen', label: 'Equipped kitchen & fridge' },
-      { icon: 'braai', label: 'Braai & evening fire' },
+      { icon: 'barbeque', label: 'Barbeque & evening fire' },
       { icon: 'wifi', label: 'Free WiFi' },
     ],
   },
@@ -69,7 +69,7 @@ export const sanctuaries: Sanctuary[] = [
     name: 'Oukraal',
     role: 'The Bush Lodge · Night 2',
     description:
-      'Deep in the thick Limpopo bushveld, where the evening sounds of the wild are close. You reach this private bush lodge on Day 2 after the mountain crossing over Groenkop — your luggage and dinner supplies already waiting, kept cool and dry.',
+      'Deep in the thick Limpopo bushveld, where the evening sounds of the wild are close. You reach this private bush lodge on Day 2 after the mountain crossing over Groenkop, with your luggage and dinner supplies already waiting, kept cool and dry.',
     alt: 'Kudu in the thick green bushveld around Oukraal, the bush lodge reached on the second day.',
     accentVar: '--color-green',
     image: oukraalImg,
@@ -77,8 +77,8 @@ export const sanctuaries: Sanctuary[] = [
       { icon: 'pool', label: 'Swimming pool' },
       { icon: 'suite', label: '2-person suites, bedding included' },
       { icon: 'kitchen', label: 'Equipped kitchen, fridge & ice' },
-      { icon: 'braai', label: 'Braai under the stars' },
-      { icon: 'water', label: 'Safe drinking water' },
+      { icon: 'barbeque', label: 'Barbeque under the stars' },
+      { icon: 'wifi', label: 'Free WiFi' },
       { icon: 'wood', label: 'Firewood supplied' },
     ],
   },
@@ -87,7 +87,7 @@ export const sanctuaries: Sanctuary[] = [
     name: 'ViervanAcht',
     role: 'The Mountain Lodge · Night 3',
     description:
-      'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range — then watch the sun drop behind the mountains from the pool.',
+      'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range. Then watch the sun drop behind the mountains from the pool.',
     alt: 'Giraffes at sunset on the ridges near ViervanAcht, the mountain lodge and the third night of the trail.',
     accentVar: '--color-day4',
     image: viervanachtImg,
@@ -96,7 +96,7 @@ export const sanctuaries: Sanctuary[] = [
       { icon: 'pool', label: 'Swimming pool' },
       { icon: 'suite', label: '2-person suites, bedding included' },
       { icon: 'kitchen', label: 'Equipped kitchen, fridge & ice' },
-      { icon: 'braai', label: 'Braai & fire' },
+      { icon: 'barbeque', label: 'Barbeque & fire' },
       { icon: 'wifi', label: 'Free WiFi' },
     ],
   },

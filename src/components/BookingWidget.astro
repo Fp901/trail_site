@@ -114,7 +114,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
     </div>
     <div class="form-field">
       <label for="bf-phone">Mobile number</label>
-      <span class="form-hint">e.g. +27 82 123 4567 — so we can reach you if needed</span>
+      <span class="form-hint">e.g. +27 82 123 4567, so we can reach you if needed</span>
       <input
         id="bf-phone"
         name="leadPhone"
@@ -140,7 +140,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
       <span class="bform__estnote" data-est-note>Final amount confirmed at checkout.</span>
     </p>
     <p class="bform__balance-note" data-balance-note hidden>
-      Remaining balance of <strong data-balance-amount></strong> due ~45 days before arrival — we'll email a secure payment link.
+      Remaining balance of <strong data-balance-amount></strong> due ~45 days before arrival. We'll email a secure payment link.
     </p>
     <p class="bform__deposit-hint" data-deposit-hint>
       Trips departing 30+ days away pay a <strong>50% deposit today</strong>, with the balance collected ~45 days before arrival.
@@ -299,7 +299,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
           cell.addEventListener('click', () => selectDate(iso));
         } else {
           cell.disabled = true;
-          cell.setAttribute('aria-label', `${human} — ${st === 'taken' ? 'taken' : 'unavailable'}`);
+          cell.setAttribute('aria-label', `${human}, ${st === 'taken' ? 'taken' : 'unavailable'}`);
         }
         grid.appendChild(cell);
       }

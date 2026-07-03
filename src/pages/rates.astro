@@ -10,6 +10,9 @@ import { rates, LAUNCH_OFFER, LAUNCH_DATE, inclusions, exclusions } from '../dat
 import { refundPolicy } from '../data/policies';
 import { site } from '../data/site';
 import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
+// Official card-network marks (MIT-licensed set; see src/assets/payment/LICENSE.md).
+import visaMark from '../assets/payment/visa.svg';
+import mastercardMark from '../assets/payment/mastercard.svg';
 
 // Live booking renders only once Supabase + Paystack are configured; until then the page shows
 // a "coming soon" note + enquiry. Adding the env vars (then rebuilding) switches it on.
@@ -114,7 +117,7 @@ const jsonLd = [
             </p>
             <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
               Under <strong>Residency</strong>, choose “International visitor” if you are not a South
-              African resident — a 20% conservation levy applies to that rate.
+              African resident, as a 20% conservation levy applies to that rate.
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}
@@ -123,7 +126,7 @@ const jsonLd = [
                 <span class="booking-assure__icon" aria-hidden="true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4m8-4v4M4 9h16M5 5h14a1 1 0 0 1 1 1v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1Z"/></svg>
                 </span>
-                50% deposit secures dates 30+ days out — balance due 45 days before arrival
+                50% deposit secures dates 30+ days out; the balance is due 45 days before arrival
               </li>
               <li>
                 <span class="booking-assure__icon" aria-hidden="true">
@@ -149,9 +152,9 @@ const jsonLd = [
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3M12 14.5v2.5"/></svg>
               </span>
               Secure card payment via Paystack
-              <span class="payment-trust__brands" aria-label="Visa and Mastercard accepted">
-                <span class="payment-trust__visa" aria-hidden="true">VISA</span>
-                <span class="payment-trust__mc" aria-hidden="true"><i></i><i></i></span>
+              <span class="payment-trust__brands">
+                <img src={visaMark.src} alt="Visa" width="37" height="24" loading="lazy" />
+                <img src={mastercardMark.src} alt="Mastercard" width="37" height="24" loading="lazy" />
               </span>
             </p>
           </Fragment>

@@ -223,7 +223,7 @@ export const server = {
       if (error) {
         throw new ActionError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Sorry — we could not submit that. Please email us directly.',
+          message: 'Sorry, we could not submit that. Please email us directly.',
         });
       }
 
@@ -252,7 +252,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       token: z.string().uuid('Invalid link.'),
-      leadPhone: z.string().trim().min(7, 'Please provide a contact number — guides need this on trail.').max(40),
+      leadPhone: z.string().trim().min(7, 'Please provide a contact number. Guides need this on trail.').max(40),
       guests: z
         .array(
           z.object({
@@ -320,7 +320,7 @@ export const server = {
       if (error) {
         throw new ActionError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Sorry — we could not save that. Please try again, or email us.',
+          message: 'Sorry, we could not save that. Please try again, or email us.',
         });
       }
 

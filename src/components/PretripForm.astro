@@ -16,7 +16,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
   {
     alreadySubmitted && (
       <p class="pretrip-note">
-        We've already received your details — you can update anything below and resubmit.
+        We've already received your details. You can update anything below and resubmit.
       </p>
     )
   }
@@ -51,7 +51,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
 
   <div class="form-field">
     <label for="pt-phone">Lead contact phone *</label>
-    <span class="form-hint">e.g. +27 82 123 4567 — your guides need this number on trail</span>
+    <span class="form-hint">e.g. +27 82 123 4567. Your guides need this number on trail.</span>
     <input
       id="pt-phone"
       type="tel"
@@ -76,7 +76,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
 
   <div class="form-field">
     <label for="pt-arrival">Estimated arrival time on Day 1</label>
-    <span class="form-hint">Approximate time — helps the lodge team prepare your welcome.</span>
+    <span class="form-hint">Approximate time, to help the lodge team prepare your welcome.</span>
     <input id="pt-arrival" type="time" />
   </div>
 
@@ -88,14 +88,14 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
   <div class="form-field" id="pt-selfcater-field">
     <label class="pretrip-check">
       <input type="checkbox" id="pt-selfcater" required aria-describedby="pt-selfcater-err" />
-      <span>I understand the trail is fully self-catered: each group brings their own food and drinks. Each lodge has a kitchen, fridge, braai facilities, safe drinking water, ice and wood.</span>
+      <span>I understand the trail is fully self-catered: each group brings their own food and drinks. Each lodge has a kitchen, fridge, barbeque facilities, safe drinking water, ice and wood.</span>
     </label>
     <span class="form-error" id="pt-selfcater-err" aria-live="polite"></span>
   </div>
 
   <p class="pretrip-note">
-    Your trail indemnity is signed in person on arrival at Rotavi Lodge, before the safety briefing —
-    there is nothing to sign here.
+    Your trail indemnity is signed in person on arrival at Rotavi Lodge, before the safety briefing,
+    so there is nothing to sign here.
   </p>
 
   <p class="pretrip-note" style="font-size:0.8rem;color:color-mix(in srgb,#2C2C2C 55%,transparent);">
@@ -112,7 +112,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
 </form>
 
 <div class="pretrip-success" data-success hidden>
-  <p class="pretrip-success__title">Thank you — your details are in.</p>
+  <p class="pretrip-success__title">Thank you. Your details are in.</p>
   <p>We have everything we need to prepare for your trail. See you in the Rooiberg.</p>
 </div>
 
@@ -177,7 +177,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
     const leadNameEl = leadRow?.querySelector<HTMLInputElement>('[data-g-name]') ?? null;
 
     const phoneRules: Rule[] = [
-      v => !v.trim()                                  ? 'Please provide a contact number — guides need this on trail.' : null,
+      v => !v.trim()                                  ? 'Please provide a contact number. Guides need this on trail.' : null,
       v => v.trim().replace(/\s/g, '').length < 7     ? 'Please enter a valid phone number.'                          : null,
     ];
     const nameRules: Rule[] = [

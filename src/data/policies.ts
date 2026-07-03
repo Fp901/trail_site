@@ -25,11 +25,11 @@ export const refundPolicy = {
   contactEmail: site.notifyEmail,
 
   intro:
-    'The Rooiberg Wander is booked as exclusive use of the whole trail for a single private group. Bookings made 30 or more days before arrival are secured with a 50% deposit, with the balance due 45 days before arrival; bookings made inside 30 days are paid in full. Because each booking reserves the entire trail, its guides and camp staff for your group alone, cancellations are subject to the schedule below — though as you will see, we always try to find a fair outcome first. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
+    'The Rooiberg Wander is booked as exclusive use of the whole trail for a single private group. Bookings made 30 or more days before arrival are secured with a 50% deposit, with the balance due 45 days before arrival; bookings made inside 30 days are paid in full. Because each booking reserves the entire trail, its guides and camp staff for your group alone, cancellations are subject to the schedule below, though we always try to find a fair outcome first. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
 
   // Tiered refund of the total amount paid to date, by notice given before arrival (Day 1).
   tiers: [
-    { window: '60 or more days before arrival', refund: 'Full refund, less a 5% administration fee — or a free transfer to any available date' },
+    { window: '60 or more days before arrival', refund: 'Full refund, less a 5% administration fee, or a free transfer to any available date' },
     { window: '30 to 59 days before arrival', refund: '50% refund of the amount paid' },
     { window: '15 to 29 days before arrival', refund: '25% refund of the amount paid' },
     { window: 'Fewer than 15 days before arrival, or no-show', refund: 'No refund' },
@@ -38,7 +38,7 @@ export const refundPolicy = {
   clauses: [
     {
       heading: 'If we can re-book your dates, you get more back',
-      body: 'Whatever the schedule above says: if you cancel and we succeed in re-booking your dates to another group, we will refund everything you have paid less a 10% administration fee. We actively try to re-sell cancelled dates — the tiered schedule only applies when the dates go unused.',
+      body: 'Whatever the schedule above says: if you cancel and we succeed in re-booking your dates to another group, we will refund everything you have paid less a 10% administration fee. We actively try to re-sell cancelled dates; the tiered schedule only applies when the dates go unused.',
     },
     {
       heading: 'How refunds are paid',
@@ -46,7 +46,7 @@ export const refundPolicy = {
     },
     {
       heading: 'Changing your dates',
-      body: 'Plans change — one date transfer to another available start date is free of charge if you request it 30 or more days before arrival, subject to availability. Further changes, or changes requested inside 30 days, are treated as a cancellation under the schedule above. Names within your group may be substituted at no charge at any time before arrival.',
+      body: 'Plans change: one date transfer to another available start date is free of charge if you request it 30 or more days before arrival, subject to availability. Further changes, or changes requested inside 30 days, are treated as a cancellation under the schedule above. Names within your group may be substituted at no charge at any time before arrival.',
     },
     {
       heading: 'If we cancel or reschedule',

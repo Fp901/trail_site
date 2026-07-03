@@ -194,9 +194,9 @@ export async function sendBookingConfirmation(opts: {
   let paymentBlock = '';
   if (isDeposit) {
     const balanceLine = opts.balanceLinkImminent
-      ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due now — a separate email with a secure payment link is on its way.`
+      ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due now. A separate email with a secure payment link is on its way.`
       : opts.balanceDueDate
-        ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due by <strong>${humanDate(opts.balanceDueDate)}</strong>. We'll email you a secure payment link about 45 days before your trip — nothing to do right now.`
+        ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due by <strong>${humanDate(opts.balanceDueDate)}</strong>. We'll email you a secure payment link about 45 days before your trip, so there is nothing to do right now.`
         : `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> will be collected via a secure payment link we'll email you about 45 days before your trip.`;
 
     paymentBlock =
@@ -221,7 +221,7 @@ export async function sendBookingConfirmation(opts: {
     paymentBlock +
     hr +
     `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Next: complete your pre-trip details</p>` +
-    p('We need a few details from your group before the trail. The short form takes about five minutes — please complete it <strong>within 7 days</strong> of this email.') +
+    p('We need a few details from your group before the trail. The short form takes about five minutes. Please complete it <strong>within 7 days</strong> of this email.') +
     btn(url, 'Complete pre-trip details') +
     hr +
     `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Your trip-info page</p>` +
@@ -232,7 +232,7 @@ export async function sendBookingConfirmation(opts: {
   await sendEmail({
     to: opts.to,
     subject: 'Your Rooiberg Wander booking is confirmed',
-    html: layout('guest', `Booking confirmed — arrival ${humanDate(opts.startDate)}`, body),
+    html: layout('guest', `Booking confirmed: arrival ${humanDate(opts.startDate)}`, body),
   });
 }
 
@@ -285,11 +285,11 @@ export async function sendBalanceLinkEmail(opts: {
       ...(opts.dueDate ? ([['Pay by', humanDate(opts.dueDate)]] as Array<[string, string]>) : []),
     ]) +
     btn(opts.url, 'Pay your balance securely') +
-    small('Your deposit is already paid — this covers the outstanding 50%. A tax invoice accompanies your receipt.');
+    small('Your deposit is already paid; this covers the outstanding 50%. A tax invoice accompanies your receipt.');
 
   await sendEmail({
     to: opts.to,
-    subject: 'Your Rooiberg Wander balance is due — secure payment link',
+    subject: 'Your Rooiberg Wander balance is due: secure payment link',
     html: layout('guest', `Balance of ${randFromCents(opts.amountCents)} due for your trip arriving ${humanDate(opts.startDate)}`, body),
   });
 }
@@ -304,7 +304,7 @@ export async function sendBalancePaidConfirmation(opts: {
   const body =
     eyebrow('Payment complete') +
     h1(`You're paid in full, ${name}.`) +
-    p(`We've received your balance payment. Your Rooiberg Wander trip is now <strong>fully paid</strong> — there is nothing further to take care of on the payment side.`) +
+    p(`We've received your balance payment. Your Rooiberg Wander trip is now <strong>fully paid</strong>. There is nothing further to take care of on the payment side.`) +
     infoTable([['Arrival (Day 1)', humanDate(opts.startDate)]]) +
     p('We look forward to welcoming your group to the Rooiberg.') +
     small('A tax invoice accompanies your receipt from Paystack.');
@@ -312,7 +312,7 @@ export async function sendBalancePaidConfirmation(opts: {
   await sendEmail({
     to: opts.to,
     subject: 'Your Rooiberg Wander trip is paid in full',
-    html: layout('guest', `Trip paid in full — see you in the Rooiberg!`, body),
+    html: layout('guest', `Trip paid in full. See you in the Rooiberg!`, body),
   });
 }
 
@@ -342,14 +342,14 @@ export async function sendBookingOperatorNotification(opts: {
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ['Group size', String(opts.groupSize)],
       ['Residency', opts.residency],
-      ['Payment', isDeposit ? `Deposit paid — ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full — ${randFromCents(opts.totalCents)}`],
+      ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
       ['Plan', opts.paymentPlan],
       ['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`],
     ]);
 
   await sendEmail({
     to: opts.to,
-    subject: `Booking confirmed — ${opts.leadName}`,
+    subject: `Booking confirmed: ${opts.leadName}`,
     html: layout('operator', `New booking from ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
   });
 }
@@ -383,7 +383,7 @@ export async function sendInquiryNotification(opts: {
   await sendEmail({
     to: opts.to,
     replyTo: opts.replyTo,
-    subject: `New enquiry — ${opts.name}`,
+    subject: `New enquiry: ${opts.name}`,
     html: layout('operator', `Enquiry from ${opts.name}`, body),
   });
 }
@@ -413,7 +413,7 @@ export async function sendPretripOverdueAlert(opts: {
   await sendEmail({
     to: opts.to,
     subject: 'ACTION REQUIRED: pre-trip details overdue',
-    html: layout('alert', `Pre-trip details overdue — ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
+    html: layout('alert', `Pre-trip details overdue for ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
   });
 }
 
@@ -442,7 +442,7 @@ export async function sendBalanceOverdueAlert(opts: {
   await sendEmail({
     to: opts.to,
     subject: 'ACTION REQUIRED: balance payment overdue',
-    html: layout('alert', `Balance overdue — ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
+    html: layout('alert', `Balance overdue for ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
   });
 }
 
@@ -477,10 +477,10 @@ export async function sendTaxInvoice(opts: {
   const guestsLabel = `${opts.groupSize} ${opts.groupSize === 1 ? 'guest' : 'guests'}`;
   const descriptionLine =
     opts.invoiceType === 'deposit'
-      ? `The Rooiberg Wander — 50% deposit. 3-night guided walking trail, exclusive group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
+      ? `The Rooiberg Wander: 50% deposit. 3-night guided walking trail, private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
       : opts.invoiceType === 'balance'
-        ? `The Rooiberg Wander — balance payment (50%). Exclusive group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
-        : `The Rooiberg Wander — 3-night guided walking trail, exclusive group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`;
+        ? `The Rooiberg Wander: balance payment (50%). Private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
+        : `The Rooiberg Wander: 3-night guided walking trail, private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`;
 
   const fmt = (c: number) => 'R ' + (c / 100).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -562,7 +562,7 @@ export async function sendTaxInvoice(opts: {
 
   await sendEmail({
     to: opts.to,
-    subject: `Tax Invoice ${invoiceNo} — The Rooiberg Wander`,
+    subject: `Tax Invoice ${invoiceNo} from The Rooiberg Wander`,
     html: layout('guest', `Tax invoice ${invoiceNo} for your Rooiberg Wander booking`, body),
   });
 }
