@@ -4,7 +4,10 @@
 export const site = {
   name: 'The Rooiberg Wander',
   headerTagline: 'A Luxury Slackpack Self-Catering Walking Safari',
-  operator: 'RoiSan Reserve NPC',
+  operator: 'Franili Investments (Pty) Ltd',
+  operatorTradingAs: 'The Rooiberg Wander',
+  companyReg: '2021/392915/07',
+  vatNo: '4440301614',
   location: 'Rooiberg, Limpopo, South Africa',
   region: 'Waterberg, Limpopo',
   terrainHa: 15000,

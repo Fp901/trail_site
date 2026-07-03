@@ -95,7 +95,7 @@ function layout(variant: Variant, preheader: string, body: string): string {
   <tr>
     <td style="background-color:#2e2016;border-radius:0 0 14px 14px;padding:24px 40px;text-align:center;">
       <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C19A6B;">${siteUrl.replace(/^https?:\/\//, '')}</p>
-      <p style="margin:10px 0 0;font-size:11px;color:rgba(245,240,230,0.45);line-height:1.6;">RoiSan Reserve NPC &middot; Limpopo Waterberg, South Africa</p>
+      <p style="margin:10px 0 0;font-size:11px;color:rgba(245,240,230,0.45);line-height:1.6;">Franili Investments (Pty) Ltd &middot; Reg. 2021/392915/07 &middot; Limpopo Waterberg, South Africa</p>
     </td>
   </tr>
 
@@ -496,9 +496,10 @@ export async function sendTaxInvoice(opts: {
     <td style="width:50%;padding-right:20px;">
       <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#8a7868;">Supplier</p>
       <p style="margin:0;font-size:13px;line-height:1.7;color:#2C2C2C;">
-        <strong>RoiSan Reserve NPC</strong><br>
-        RoiSan Reserve, Waterberg<br>
-        Limpopo, South Africa<br>
+        <strong>The Rooiberg Wander</strong><br>
+        A division of Franili Investments (Pty) Ltd<br>
+        Reg.&nbsp;No.:&nbsp;2021/392915/07<br>
+        Rooiberg, Waterberg, Limpopo, South Africa<br>
         <span style="color:#8a7868;">VAT Reg.&nbsp;No.&nbsp;<strong>4440301614</strong></span>
       </p>
     </td>
