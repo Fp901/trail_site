@@ -9,6 +9,7 @@ import {
   sendBalancePaidConfirmation,
   sendBookingOperatorNotification,
   sendManualReviewAlert,
+  sendTaxInvoice,
 } from '../../../lib/email';
 import { sendBalancePaymentLink } from '../../../lib/balance';
 import { recordPaymentEvent } from '../../../lib/audit';
@@ -197,6 +198,21 @@ export const POST: APIRoute = async ({ request }) => {
       console.error('[webhook] balance paid confirmation email failed', err);
     }
 
+    try {
+      await sendTaxInvoice({
+        to: booking.lead_email,
+        leadName: booking.lead_name,
+        bookingId: booking.id,
+        startDate: booking.start_date,
+        issuedAt: new Date().toISOString(),
+        amountCents: verify.amountCents,
+        invoiceType: 'balance',
+        groupSize: booking.group_size,
+      });
+    } catch (err) {
+      console.error('[webhook] balance tax invoice email failed', err);
+    }
+
     return new Response('ok', { status: 200 });
   }
 
@@ -299,6 +315,24 @@ export const POST: APIRoute = async ({ request }) => {
       });
     } catch (err) {
       console.error('[webhook] operator notification email failed', err);
+    }
+
+    // Tax invoice — sent after the confirmation so the guest receives confirmation first.
+    // For a deposit booking the invoice covers the deposit amount; for a full-pay booking
+    // it covers the total. The balance tax invoice is sent when the balance is paid.
+    try {
+      await sendTaxInvoice({
+        to: booking.lead_email,
+        leadName: booking.lead_name,
+        bookingId: booking.id,
+        startDate: booking.start_date,
+        issuedAt: new Date().toISOString(),
+        amountCents: verify.amountCents,
+        invoiceType: isDepositBooking ? 'deposit' : 'full',
+        groupSize: booking.group_size,
+      });
+    } catch (err) {
+      console.error('[webhook] tax invoice email failed', err);
     }
 
     return new Response('ok', { status: 200 });

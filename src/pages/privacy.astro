@@ -1,38 +1,284 @@
 ---
-// Privacy (/privacy) — STUB. Required by Part 11.7 and linked from the footer, but the
-// operator's verbatim POPIA/GDPR policy text has not been supplied yet. noindex until the
-// real policy lands (then remove noindex). Do NOT fabricate policy content.
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 
 const title = 'Privacy Policy | The Rooiberg Wander';
 const description =
-  'How The Rooiberg Wander collects, uses and protects your personal information.';
+  'How The Rooiberg Wander (RoiSan Reserve NPC) collects, uses and protects your personal information under POPIA.';
 ---
 
-<Layout title={title} description={description} path="/privacy" noindex={true}>
+<Layout title={title} description={description} path="/privacy">
   <Section bg="cream" labelledby="privacy-heading">
-    <div class="max-w-3xl">
+    <div class="max-w-3xl privacy-body">
+      <p class="eyebrow">Legal</p>
       <h1 id="privacy-heading" class="font-display text-4xl text-earth sm:text-5xl">
         Privacy Policy
       </h1>
+      <p class="meta">RoiSan Reserve NPC &middot; Last updated: July 2026</p>
 
-      <p
-        class="mt-6 rounded-2xl border border-ochre/40 bg-ochre/10 p-4 font-body text-sm text-earth"
-      >
-        <strong>Placeholder: content pending.</strong> The operator's verbatim POPIA / GDPR
-        privacy policy will be inserted here before launch. This page is intentionally hidden
-        from search engines until then.
+      <h2>1. Who we are</h2>
+      <p>
+        The Rooiberg Wander is operated by <strong>RoiSan Reserve NPC</strong>, a non-profit company
+        registered in South Africa (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;). We are
+        the <strong>Responsible Party</strong> as defined in the Protection of Personal Information
+        Act, 4 of 2013 (<strong>POPIA</strong>).
+      </p>
+      <p>
+        Contact us at <a href="mailto:hanlie@rooibergwander.co.za">hanlie@rooibergwander.co.za</a>
+        for any privacy-related query.
       </p>
 
-      <div class="mt-8 space-y-4 font-body leading-relaxed text-charcoal/85">
-        <p>
-          When complete, this policy will cover what personal information we collect to take and
-          fulfil a booking, the lawful basis for processing it, how long we keep it, the
-          processors we use (including our database, payment and email providers), any
-          cross-border transfer of data, and how to contact us with a data request.
-        </p>
+      <h2>2. What personal information we collect</h2>
+      <p>We collect only what is necessary to take and fulfil your booking.</p>
+      <p><strong>At booking:</strong></p>
+      <ul>
+        <li>Full name, email address and mobile phone number of the lead guest</li>
+        <li>Group size and residency status (local or international &mdash; affects pricing)</li>
+        <li>Preferred trail start date</li>
+      </ul>
+      <p><strong>After booking (pre-trip form):</strong></p>
+      <ul>
+        <li>Full names of all guests in your group</li>
+        <li>Mobile number for guides on trail</li>
+        <li>Vehicle make, model and registration (for secure parking at Rotavi Lodge)</li>
+        <li>Estimated arrival time on Day 1</li>
+        <li>Any relevant medical conditions, injuries, allergies or fitness limitations</li>
+        <li>Special requests</li>
+      </ul>
+      <p><strong>Payments:</strong></p>
+      <p>
+        We do not collect or store your card details. Payments are processed securely by
+        <strong>Paystack</strong> (Paystack Commerce Limited, a Stripe company). Paystack handles
+        all card data under their own PCI DSS compliance programme. We receive only a transaction
+        reference and confirmation of payment.
+      </p>
+      <p><strong>Enquiries:</strong></p>
+      <p>
+        If you submit an enquiry through our website, we collect your name, email address and the
+        content of your message.
+      </p>
+
+      <h2>3. Why we collect it (purpose and lawful basis)</h2>
+      <p>We collect and use your personal information to:</p>
+      <ul>
+        <li>Process, confirm and administer your trail booking</li>
+        <li>
+          Communicate with you about your booking &mdash; confirmation, pre-trip reminders, payment
+          links, and tax invoices
+        </li>
+        <li>
+          Prepare for your trail experience: guest manifest, medical considerations, vehicle parking,
+          and guide briefings
+        </li>
+        <li>Comply with our legal and regulatory obligations as a reserve access provider</li>
+        <li>Respond to enquiries</li>
+      </ul>
+      <p>
+        The primary lawful basis for processing is <strong>performance of a contract</strong>
+        &mdash; we need this information to fulfil your booking. Where applicable, we also rely on
+        our <strong>legitimate interests</strong> (e.g. fraud prevention, record-keeping) and
+        <strong>legal obligation</strong>.
+      </p>
+
+      <h2>4. How long we keep it</h2>
+      <p>
+        We retain booking and pre-trip information for <strong>five years</strong> from your trail
+        date, in line with our financial and VAT record-keeping obligations under South African
+        law. Enquiries that do not result in a booking are retained for <strong>12 months</strong>.
+      </p>
+      <p>After these periods, personal information is securely deleted or anonymised.</p>
+
+      <h2>5. Who we share it with</h2>
+      <p>
+        We share your information only with trusted service providers (operators/processors)
+        necessary to fulfil your booking. We do not sell your personal information or share it with
+        any third party for marketing purposes.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Service provider</th>
+              <th>Purpose</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Supabase Inc.</strong></td>
+              <td>Database &mdash; booking and pre-trip records</td>
+              <td>USA (AWS)</td>
+            </tr>
+            <tr>
+              <td><strong>Paystack</strong> (Stripe)</td>
+              <td>Payment processing</td>
+              <td>Nigeria / USA</td>
+            </tr>
+            <tr>
+              <td><strong>Resend Inc.</strong></td>
+              <td>Transactional email delivery</td>
+              <td>USA</td>
+            </tr>
+            <tr>
+              <td><strong>Vercel Inc.</strong></td>
+              <td>Website hosting and server functions</td>
+              <td>USA</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <p>
+        These providers are bound by their own privacy policies and, where applicable, data
+        processing agreements.
+      </p>
+
+      <h2>6. Cross-border transfers</h2>
+      <p>
+        Some of our service providers store and process personal data outside South Africa. Where
+        this occurs, we use providers that maintain appropriate safeguards &mdash; including
+        standard contractual clauses or comparable frameworks &mdash; as contemplated by section&nbsp;72
+        of POPIA. By using our website and making a booking, you acknowledge that your information
+        may be transferred to these countries.
+      </p>
+
+      <h2>7. Security</h2>
+      <p>
+        We implement appropriate technical and organisational measures to protect your personal
+        information, including:
+      </p>
+      <ul>
+        <li>Encrypted connections (HTTPS) on all pages</li>
+        <li>Access controls limiting who can view personal data</li>
+        <li>Row-level security on our database (records are not publicly readable)</li>
+        <li>No storage of card details on our servers</li>
+      </ul>
+      <p>
+        No method of internet transmission is completely secure. If you believe your information has
+        been compromised, please contact us immediately.
+      </p>
+
+      <h2>8. Your rights</h2>
+      <p>Under POPIA, you have the right to:</p>
+      <ul>
+        <li><strong>Access</strong> &mdash; request a copy of the personal information we hold about you</li>
+        <li><strong>Correction</strong> &mdash; request that inaccurate information be corrected</li>
+        <li>
+          <strong>Deletion</strong> &mdash; request that your information be deleted, subject to our
+          legal retention obligations
+        </li>
+        <li><strong>Objection</strong> &mdash; object to specific processing of your information</li>
+      </ul>
+      <p>
+        To exercise any of these rights, email us at
+        <a href="mailto:hanlie@rooibergwander.co.za">hanlie@rooibergwander.co.za</a>. We will
+        respond within 30 days.
+      </p>
+
+      <h2>9. Cookies and analytics</h2>
+      <p>
+        Our website uses no advertising cookies and no cross-site tracking. If we use analytics,
+        it is privacy-friendly, consent-aware and does not share your personal data with third
+        parties for advertising purposes.
+      </p>
+
+      <h2>10. Complaints</h2>
+      <p>
+        If you are not satisfied with how we handle your personal information, you may lodge a
+        complaint with the <strong>Information Regulator (South Africa)</strong>:
+      </p>
+      <ul>
+        <li>Website: <a href="https://www.inforegulator.org.za" target="_blank" rel="noopener noreferrer">www.inforegulator.org.za</a></li>
+        <li>Email: <a href="mailto:POPIAComplaints@inforegulator.org.za">POPIAComplaints@inforegulator.org.za</a></li>
+      </ul>
+      <p>We would, however, appreciate the opportunity to address your concern directly first.</p>
+
+      <h2>11. Changes to this policy</h2>
+      <p>
+        We may update this policy from time to time. The date at the top of this page indicates
+        when it was last revised. Continued use of our website following a material change
+        constitutes acceptance of the updated policy.
+      </p>
     </div>
   </Section>
 </Layout>
+
+<style>
+  .privacy-body {
+    font-family: var(--font-body, system-ui, sans-serif);
+    color: var(--color-charcoal, #2c2c2c);
+  }
+  .eyebrow {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-ochre, #c19a6b);
+  }
+  .meta {
+    margin: 0.75rem 0 2.5rem;
+    font-size: 0.85rem;
+    color: color-mix(in srgb, var(--color-charcoal, #2c2c2c) 55%, transparent);
+  }
+  .privacy-body h2 {
+    margin: 2.5rem 0 0.75rem;
+    font-family: var(--font-display, Georgia, serif);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-earth, #3d2b1f);
+    line-height: 1.25;
+  }
+  .privacy-body p {
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+    line-height: 1.75;
+  }
+  .privacy-body ul {
+    margin: 0 0 1rem 1.25rem;
+    padding: 0;
+    font-size: 0.95rem;
+    line-height: 1.75;
+  }
+  .privacy-body li {
+    margin-bottom: 0.35rem;
+  }
+  .privacy-body a {
+    color: var(--color-green, #4a5d23);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .privacy-body a:hover {
+    color: var(--color-earth, #3d2b1f);
+  }
+  .table-wrap {
+    overflow-x: auto;
+    margin: 1rem 0 1.25rem;
+    border: 1px solid var(--color-hairline, rgba(61,43,31,.10));
+    border-radius: 0.75rem;
+  }
+  .table-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+  .table-wrap th {
+    padding: 0.6rem 1rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-charcoal, #2c2c2c) 55%, transparent);
+    text-align: left;
+    background: color-mix(in srgb, var(--color-earth, #3d2b1f) 4%, transparent);
+    border-bottom: 1px solid var(--color-hairline, rgba(61,43,31,.10));
+  }
+  .table-wrap td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--color-hairline, rgba(61,43,31,.10));
+    color: var(--color-charcoal, #2c2c2c);
+  }
+  .table-wrap tr:last-child td {
+    border-bottom: none;
+  }
+</style>

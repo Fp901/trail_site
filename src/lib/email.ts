@@ -446,6 +446,126 @@ export async function sendBalanceOverdueAlert(opts: {
   });
 }
 
+// ---- Tax invoice (SARS-compliant, VAT Act s20) ------------------------------
+// Sent as a separate email after every confirmed payment (deposit, balance, or full).
+// Invoice number: RW-YYYYMM-{first8charsOfBookingId}.
+// VAT is back-calculated from the VAT-inclusive amount: ex-VAT = round(total * 100/115).
+
+export async function sendTaxInvoice(opts: {
+  to: string;
+  leadName: string;
+  bookingId: string;
+  startDate: string;
+  issuedAt: string;          // ISO timestamp of payment confirmation
+  amountCents: number;       // the charge being invoiced (deposit or balance or full total)
+  invoiceType: 'full' | 'deposit' | 'balance';
+  groupSize: number;
+}): Promise<void> {
+  const issued = new Date(opts.issuedAt);
+  const ym = issued.toISOString().slice(0, 7).replace('-', '');
+  const shortId = opts.bookingId.replace(/-/g, '').slice(0, 8).toUpperCase();
+  const invoiceNo = `RW-${ym}-${shortId}${opts.invoiceType === 'balance' ? '-B' : ''}`;
+
+  const exVatCents = Math.round(opts.amountCents * 100 / 115);
+  const vatCents   = opts.amountCents - exVatCents;
+
+  const issuedStr = issued.toLocaleDateString('en-ZA', {
+    timeZone: 'Africa/Johannesburg',
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  const guestsLabel = `${opts.groupSize} ${opts.groupSize === 1 ? 'guest' : 'guests'}`;
+  const descriptionLine =
+    opts.invoiceType === 'deposit'
+      ? `The Rooiberg Wander — 50% deposit. 3-night guided walking trail, exclusive group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
+      : opts.invoiceType === 'balance'
+        ? `The Rooiberg Wander — balance payment (50%). Exclusive group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
+        : `The Rooiberg Wander — 3-night guided walking trail, exclusive group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`;
+
+  const fmt = (c: number) => 'R ' + (c / 100).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const name = escapeHtml(opts.leadName);
+
+  const body = `
+<p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#C19A6B;">Tax Invoice</p>
+<h1 style="margin:0 0 28px;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:bold;color:#3D2B1F;line-height:1.2;">Invoice ${escapeHtml(invoiceNo)}</h1>
+
+<!-- Invoice meta + parties -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0 0 24px;">
+  <tr valign="top">
+    <td style="width:50%;padding-right:20px;">
+      <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#8a7868;">Supplier</p>
+      <p style="margin:0;font-size:13px;line-height:1.7;color:#2C2C2C;">
+        <strong>RoiSan Reserve NPC</strong><br>
+        RoiSan Reserve, Waterberg<br>
+        Limpopo, South Africa<br>
+        <span style="color:#8a7868;">VAT Reg.&nbsp;No.&nbsp;<strong>4440301614</strong></span>
+      </p>
+    </td>
+    <td style="width:50%;padding-left:20px;">
+      <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#8a7868;">Bill To</p>
+      <p style="margin:0;font-size:13px;line-height:1.7;color:#2C2C2C;">
+        <strong>${name}</strong><br>
+        ${escapeHtml(opts.to)}
+      </p>
+    </td>
+  </tr>
+</table>
+
+<!-- Invoice details -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border:1px solid rgba(61,43,31,0.13);border-radius:10px 10px 0 0;overflow:hidden;margin:0 0 0;">
+  <tr>
+    <td style="padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;border-bottom:1px solid rgba(61,43,31,0.09);white-space:nowrap;width:38%;">Invoice number</td>
+    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;border-bottom:1px solid rgba(61,43,31,0.09);font-family:monospace;">${escapeHtml(invoiceNo)}</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;border-bottom:1px solid rgba(61,43,31,0.09);white-space:nowrap;">Date of issue</td>
+    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;border-bottom:1px solid rgba(61,43,31,0.09);">${escapeHtml(issuedStr)}</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;white-space:nowrap;">Date of supply</td>
+    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;">${escapeHtml(issuedStr)}</td>
+  </tr>
+</table>
+
+<!-- Line items -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border:1px solid rgba(61,43,31,0.13);border-top:none;border-radius:0;overflow:hidden;margin:0 0 0;">
+  <tr style="background-color:rgba(61,43,31,0.05);">
+    <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:left;border-bottom:1px solid rgba(61,43,31,0.13);">Description</th>
+    <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.13);white-space:nowrap;">Excl. VAT</th>
+    <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.13);white-space:nowrap;">VAT (15%)</th>
+    <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.13);white-space:nowrap;">Incl. VAT</th>
+  </tr>
+  <tr>
+    <td style="padding:14px 16px;font-size:13px;color:#2C2C2C;line-height:1.5;border-bottom:1px solid rgba(61,43,31,0.09);">${escapeHtml(descriptionLine)}</td>
+    <td style="padding:14px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(exVatCents)}</td>
+    <td style="padding:14px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(vatCents)}</td>
+    <td style="padding:14px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(opts.amountCents)}</td>
+  </tr>
+  <tr style="background-color:rgba(61,43,31,0.03);">
+    <td colspan="3" style="padding:10px 16px;font-size:12px;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.09);">Subtotal (excl. VAT)</td>
+    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(exVatCents)}</td>
+  </tr>
+  <tr style="background-color:rgba(61,43,31,0.03);">
+    <td colspan="3" style="padding:10px 16px;font-size:12px;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.09);">VAT (15%)</td>
+    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(vatCents)}</td>
+  </tr>
+  <tr style="background-color:#3D2B1F;">
+    <td colspan="3" style="padding:12px 16px;font-size:13px;font-weight:700;color:#F5F0E6;text-align:right;border-radius:0 0 0 10px;">Total (incl. VAT)</td>
+    <td style="padding:12px 16px;font-size:15px;font-weight:700;color:#C19A6B;text-align:right;white-space:nowrap;border-radius:0 0 10px 0;">${fmt(opts.amountCents)}</td>
+  </tr>
+</table>
+
+<p style="margin:20px 0 0;font-size:11px;line-height:1.6;color:#9a8e83;">This is a valid tax invoice issued in terms of section&nbsp;20 of the Value-Added Tax Act, 89 of 1991. Payment has been received via Paystack. Please retain this document for your records.</p>
+`;
+
+  await sendEmail({
+    to: opts.to,
+    subject: `Tax Invoice ${invoiceNo} — The Rooiberg Wander`,
+    html: layout('guest', `Tax invoice ${invoiceNo} for your Rooiberg Wander booking`, body),
+  });
+}
+
 export async function sendManualReviewAlert(opts: {
   to: string;
   reference: string;
