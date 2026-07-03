@@ -31,6 +31,7 @@ export const server = {
       residency: z.enum(['local', 'international']),
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
+      leadPhone: z.string().trim().min(7, 'Please enter a mobile number.').max(40),
       company: z.string().max(0).optional(), // honeypot — must be empty
     }),
     handler: async (input, ctx) => {
@@ -98,8 +99,9 @@ export const server = {
       // Normalise contact fields: collapse whitespace in the name, lowercase the email so
       // lookups, duplicate checks, and Paystack receipts are consistent regardless of how
       // the customer typed them.
-      const leadName = input.leadName.trim().replace(/\s+/g, ' ');
+      const leadName  = input.leadName.trim().replace(/\s+/g, ' ');
       const leadEmail = input.leadEmail.trim().toLowerCase();
+      const leadPhone = input.leadPhone.trim();
 
       const holdMinutes = Number(import.meta.env.HOLD_MINUTES ?? 30);
       const reference = `rw_${crypto.randomUUID()}`;
@@ -121,6 +123,7 @@ export const server = {
           residency: input.residency,
           lead_name: leadName,
           lead_email: leadEmail,
+          lead_phone: leadPhone,
           status: 'pending',
           total_cents: quote.totalCents,
           amount_due_cents: quote.amountDueCents,
@@ -254,9 +257,6 @@ export const server = {
         .array(
           z.object({
             name: z.string().trim().max(120),
-            idNumber: z.string().trim().max(60).optional().default(''),
-            emergencyName: z.string().trim().max(120).optional().default(''),
-            emergencyPhone: z.string().trim().max(40).optional().default(''),
           }),
         )
         .min(1)
@@ -285,19 +285,6 @@ export const server = {
           message: 'Please enter the lead guest\'s full name.',
         });
       }
-      // Emergency contact is required for the lead guest on a Big 5 trail.
-      if (!input.guests[0].emergencyName?.trim() || input.guests[0].emergencyName.trim().length < 2) {
-        throw new ActionError({
-          code: 'BAD_REQUEST',
-          message: 'Please provide an emergency contact name for the lead guest.',
-        });
-      }
-      if (!input.guests[0].emergencyPhone?.trim() || input.guests[0].emergencyPhone.trim().length < 7) {
-        throw new ActionError({
-          code: 'BAD_REQUEST',
-          message: 'Please provide an emergency contact number for the lead guest.',
-        });
-      }
 
       const supabase = getSupabaseAdmin();
       const { data: booking } = await supabase
@@ -309,9 +296,9 @@ export const server = {
         throw new ActionError({ code: 'NOT_FOUND', message: 'We could not find that booking.' });
       }
 
-      // Cap the manifest to the booked group size; drop fully-empty rows.
+      // Cap the manifest to the booked group size; drop rows with no name.
       const guests = input.guests
-        .filter((g) => g.name || g.idNumber || g.emergencyName || g.emergencyPhone)
+        .filter((g) => g.name)
         .slice(0, booking.group_size);
 
       // The trail indemnity is signed in person on arrival (solicitor's requirement), so no waiver

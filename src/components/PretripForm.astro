@@ -28,68 +28,21 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
     </p>
     {
       guests.map((n) => (
-        <div class="pretrip-guest" data-guest data-lead={n === 1 ? '' : undefined}>
+        <div class="pretrip-guest" data-guest>
           <p class="pretrip-guest__num">Guest {n}{n === 1 ? ' · lead' : ''}</p>
-          <div class="bform__grid">
-            <div class="form-field">
-              <label for={`g-name-${n}`}>
-                Full name{n === 1 ? ' *' : ''}
-              </label>
-              <span class="form-hint">As it appears on ID or passport</span>
-              <input
-                id={`g-name-${n}`}
-                data-g-name
-                type="text"
-                maxlength="120"
-                value={n === 1 ? leadName : ''}
-                autocomplete="off"
-                aria-describedby={`g-name-err-${n}`}
-              />
-              <span class="form-error" id={`g-name-err-${n}`} aria-live="polite"></span>
-            </div>
-            <div class="form-field">
-              <label for={`g-id-${n}`}>ID / passport number</label>
-              <span class="form-hint">Required for reserve access. Leave blank if unavailable before the trail.</span>
-              <input
-                id={`g-id-${n}`}
-                data-g-id
-                type="text"
-                maxlength="60"
-                autocomplete="off"
-              />
-            </div>
-          </div>
-          <div class="bform__grid">
-            <div class="form-field">
-              <label for={`g-ec-name-${n}`}>
-                Emergency contact name{n === 1 ? ' *' : ''}
-              </label>
-              {n === 1 && <span class="form-hint">Someone we can reach if needed on trail</span>}
-              <input
-                id={`g-ec-name-${n}`}
-                data-g-ec-name
-                type="text"
-                maxlength="120"
-                autocomplete="off"
-                aria-describedby={n === 1 ? `g-ec-name-err-${n}` : undefined}
-              />
-              {n === 1 && <span class="form-error" id={`g-ec-name-err-${n}`} aria-live="polite"></span>}
-            </div>
-            <div class="form-field">
-              <label for={`g-ec-phone-${n}`}>
-                Emergency contact phone{n === 1 ? ' *' : ''}
-              </label>
-              {n === 1 && <span class="form-hint">e.g. +27 11 555 0000</span>}
-              <input
-                id={`g-ec-phone-${n}`}
-                data-g-ec-phone
-                type="tel"
-                maxlength="40"
-                autocomplete="off"
-                aria-describedby={n === 1 ? `g-ec-phone-err-${n}` : undefined}
-              />
-              {n === 1 && <span class="form-error" id={`g-ec-phone-err-${n}`} aria-live="polite"></span>}
-            </div>
+          <div class="form-field">
+            <label for={`g-name-${n}`}>Full name{n === 1 ? ' *' : ''}</label>
+            {n === 1 && <span class="form-hint">As it appears on your ID or passport</span>}
+            <input
+              id={`g-name-${n}`}
+              data-g-name
+              type="text"
+              maxlength="120"
+              value={n === 1 ? leadName : ''}
+              autocomplete="off"
+              aria-describedby={n === 1 ? `g-name-err-${n}` : undefined}
+            />
+            {n === 1 && <span class="form-error" id={`g-name-err-${n}`} aria-live="polite"></span>}
           </div>
         </div>
       ))
@@ -216,38 +169,24 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
       });
     }
 
-    const phoneEl   = form.querySelector<HTMLInputElement>('#pt-phone')!;
-    const caterEl   = form.querySelector<HTMLInputElement>('#pt-selfcater')!;
+    const phoneEl  = form.querySelector<HTMLInputElement>('#pt-phone')!;
+    const caterEl  = form.querySelector<HTMLInputElement>('#pt-selfcater')!;
 
-    // Lead guest row (first [data-lead] row)
-    const leadRow   = form.querySelector<HTMLElement>('[data-lead]');
-    const leadNameEl   = leadRow?.querySelector<HTMLInputElement>('[data-g-name]') ?? null;
-    const leadEcNameEl = leadRow?.querySelector<HTMLInputElement>('[data-g-ec-name]') ?? null;
-    const leadEcPhoneEl = leadRow?.querySelector<HTMLInputElement>('[data-g-ec-phone]') ?? null;
+    // Lead guest row (first [data-guest] row)
+    const leadRow    = form.querySelector<HTMLElement>('[data-guest]');
+    const leadNameEl = leadRow?.querySelector<HTMLInputElement>('[data-g-name]') ?? null;
 
     const phoneRules: Rule[] = [
-      v => !v.trim()           ? 'Please provide a contact number — guides need this on trail.' : null,
-      v => v.trim().replace(/\s/g, '').length < 7
-                               ? 'Please enter a valid phone number.'                           : null,
+      v => !v.trim()                                  ? 'Please provide a contact number — guides need this on trail.' : null,
+      v => v.trim().replace(/\s/g, '').length < 7     ? 'Please enter a valid phone number.'                          : null,
     ];
     const nameRules: Rule[] = [
-      v => !v.trim()           ? 'Please enter the lead guest\'s full name.'  : null,
-      v => v.trim().length < 2 ? 'Name must be at least 2 characters.'        : null,
-    ];
-    const ecNameRules: Rule[] = [
-      v => !v.trim()           ? 'Please provide an emergency contact name.'   : null,
-      v => v.trim().length < 2 ? 'Emergency contact name must be at least 2 characters.' : null,
-    ];
-    const ecPhoneRules: Rule[] = [
-      v => !v.trim()                                    ? 'Please provide an emergency contact number.'    : null,
-      v => v.trim().replace(/\s/g, '').length < 7       ? 'Please enter a valid phone number.'            : null,
+      v => !v.trim()           ? 'Please enter the lead guest\'s full name.' : null,
+      v => v.trim().length < 2 ? 'Name must be at least 2 characters.'       : null,
     ];
 
     bindField(phoneEl, phoneRules);
-
-    if (leadNameEl)   bindField(leadNameEl,   nameRules);
-    if (leadEcNameEl)  bindField(leadEcNameEl,  ecNameRules);
-    if (leadEcPhoneEl) bindField(leadEcPhoneEl, ecPhoneRules);
+    if (leadNameEl) bindField(leadNameEl, nameRules);
 
     // Checkbox: validate on change
     caterEl.addEventListener('change', () => {
@@ -262,9 +201,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
       // Validate required fields; focus first error.
       type FieldCheck = [HTMLInputElement | HTMLTextAreaElement, Rule[]];
       const checks: FieldCheck[] = [
-        ...(leadNameEl    ? [[leadNameEl,    nameRules]   as FieldCheck] : []),
-        ...(leadEcNameEl  ? [[leadEcNameEl,  ecNameRules] as FieldCheck] : []),
-        ...(leadEcPhoneEl ? [[leadEcPhoneEl, ecPhoneRules] as FieldCheck] : []),
+        ...(leadNameEl ? [[leadNameEl, nameRules] as FieldCheck] : []),
         [phoneEl, phoneRules],
       ];
 
@@ -288,10 +225,7 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
 
       // Lead guest name fallback guard (should have been caught above)
       const guests = Array.from(form.querySelectorAll<HTMLElement>('[data-guest]')).map((row) => ({
-        name:          (row.querySelector<HTMLInputElement>('[data-g-name]')?.value    ?? '').trim(),
-        idNumber:      (row.querySelector<HTMLInputElement>('[data-g-id]')?.value      ?? '').trim(),
-        emergencyName: (row.querySelector<HTMLInputElement>('[data-g-ec-name]')?.value ?? '').trim(),
-        emergencyPhone:(row.querySelector<HTMLInputElement>('[data-g-ec-phone]')?.value ?? '').trim(),
+        name: (row.querySelector<HTMLInputElement>('[data-g-name]')?.value ?? '').trim(),
       }));
 
       if (!guests[0]?.name) {

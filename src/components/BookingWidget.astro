@@ -112,6 +112,20 @@ const fmt = (cents: number) => formatRand(cents / 100);
       />
       <span class="form-error" id="bf-email-err" aria-live="polite"></span>
     </div>
+    <div class="form-field">
+      <label for="bf-phone">Mobile number</label>
+      <span class="form-hint">e.g. +27 82 123 4567 — so we can reach you if needed</span>
+      <input
+        id="bf-phone"
+        name="leadPhone"
+        type="tel"
+        autocomplete="tel"
+        maxlength="40"
+        required
+        aria-describedby="bf-phone-err"
+      />
+      <span class="form-error" id="bf-phone-err" aria-live="polite"></span>
+    </div>
   </div>
 
   {/* Honeypot — must stay empty */}
@@ -345,6 +359,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
     const submit      = form.querySelector<HTMLButtonElement>('[data-submit]');
     const nameInput   = form.querySelector<HTMLInputElement>('#bf-name')!;
     const emailInput  = form.querySelector<HTMLInputElement>('#bf-email')!;
+    const phoneInput  = form.querySelector<HTMLInputElement>('#bf-phone')!;
 
     // ---- Inline validation helpers ----------------------------------------
     type Rule = (v: string) => string | null;
@@ -383,9 +398,15 @@ const fmt = (cents: number) => formatRand(cents / 100);
       v => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
                                ? "That doesn't look like a valid email address."  : null,
     ];
+    const phoneRules: Rule[] = [
+      v => !v.trim()                              ? 'Please enter a mobile number.' : null,
+      v => v.trim().replace(/[\s\-()]/g, '').length < 7
+                                                  ? 'Please enter a valid phone number.' : null,
+    ];
 
     bindField(nameInput,  nameRules);
     bindField(emailInput, emailRules);
+    bindField(phoneInput, phoneRules);
 
     const SPLIT_DAYS = Number(form.dataset.splitDays ?? 30);
     const todayIso = new Date().toISOString().slice(0, 10); // UTC — display only, server re-validates
@@ -460,6 +481,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
       const fieldChecks: Array<[HTMLInputElement | HTMLTextAreaElement, Rule[]]> = [
         [nameInput,  nameRules],
         [emailInput, emailRules],
+        [phoneInput, phoneRules],
       ];
       let firstBad: HTMLElement | null = null;
       for (const [el, rules] of fieldChecks) {
@@ -475,6 +497,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
         residency: String(fd.get('residency') ?? 'local') as 'local' | 'international',
         leadName: String(fd.get('leadName') ?? ''),
         leadEmail: String(fd.get('leadEmail') ?? ''),
+        leadPhone: String(fd.get('leadPhone') ?? ''),
         company: (fd.get('company') as string) || undefined,
       };
 
