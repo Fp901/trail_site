@@ -25,7 +25,7 @@ export const itinerary: ItineraryDay[] = [
     title: 'Arrival & Briefing',
     distanceKm: null,
     description:
-      'Arrive and register at Rotavi Lodge, the valley basecamp. Park in the shaded, secure on-site parking; your vehicles stay here for the whole trail. Your two armed trail guides run a full safety and route briefing, then the afternoon is yours at the pool, with the evening around the fire.',
+      'Arrive and register at Rotavi Lodge, the valley basecamp, from 13h00 onwards. Park in the shaded, secure on-site parking; your vehicles stay here for the whole trail. Your two armed trail guides run a full safety and route briefing, then the afternoon is yours at the pool, with the evening around the fire.',
   },
   {
     day: 2,
@@ -48,7 +48,7 @@ export const itinerary: ItineraryDay[] = [
     from: 'Oukraal',
     to: 'ViervanAcht',
     description:
-      'Climb the high ridges through the deeply-ravined Elandsberg L-Kloof to the lookout point with stunning views over the Marakele range. Drop into the Welgedacht Donga, cut into the rock by thousands of years of rainstorms, and reach ViervanAcht, the mountain lodge. The view, the pool and the fire are waiting.',
+      'Climb the high ridges through the deeply-ravined Elandsberg L-Kloof to the lookout point with stunning views over the Marakele range. Drop into the Welgedacht Ravine, cut into the rock by thousands of years of rainstorms, and reach ViervanAcht, the mountain lodge. The view, the pool and the fire are waiting.',
     colorVar: '--color-day3',
     elevation: elevationDay3,
     elevationAlt:
@@ -57,7 +57,7 @@ export const itinerary: ItineraryDay[] = [
   },
   {
     day: 4,
-    title: 'The Plains, Donga & Departure',
+    title: 'The Plains & Departure',
     distanceKm: 18,
     from: 'ViervanAcht',
     to: 'Rotavi Lodge',

@@ -5,7 +5,7 @@
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import SanctuaryCard from '../components/SanctuaryCard.astro';
-import { sanctuaries, sanctuaryAmenities } from '../data/sanctuaries';
+import { sanctuaries } from '../data/sanctuaries';
 import { webPageSchema, breadcrumbSchema, touristAttractionSchema } from '../data/schema';
 
 const title = 'The Safari Lodges | Three private trail lodges';
@@ -57,16 +57,14 @@ const context: Record<string, string> = {
   <Section bg="cream" labelledby="amenities-heading" space="md" containerClass="!pt-0">
     <div class="max-w-3xl">
       <h2 id="amenities-heading" class="font-display text-2xl text-earth sm:text-3xl">
-        Every lodge has
+        Every lodge, one standard
       </h2>
       <p class="mt-3 font-body leading-relaxed text-charcoal/85">
-        Each of the three lodges is fully equipped to the same standard, so you carry only a daypack
-        and everything you need is waiting when you arrive.
+        Each of the three private lodges is fully equipped to the same premium standard — pool,
+        equipped kitchen, braai, safe drinking water, free ice, wood and WiFi — so you carry only a
+        daypack and everything you need is waiting when you arrive.
       </p>
     </div>
-    <ul class="amenity-grid max-w-3xl">
-      {sanctuaryAmenities.map((a) => <li class="amenity-item">{a}</li>)}
-    </ul>
   </Section>
 
   <Section bg="cream" space="md" containerClass="!pt-0">
@@ -80,6 +78,7 @@ const context: Record<string, string> = {
           accentVar={s.accentVar}
           image={s.image}
           context={context[s.id]}
+          amenities={s.amenities}
           reverse={i % 2 === 1}
         />
       ))

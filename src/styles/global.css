@@ -1579,6 +1579,39 @@
     line-height: 1.7;
     color: color-mix(in srgb, var(--color-charcoal) 90%, transparent);
   }
+  .sanctuary__amenities {
+    margin-top: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem 1.25rem;
+    max-width: 46ch;
+  }
+  .sanctuary__amenity {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: color-mix(in srgb, var(--color-charcoal) 80%, transparent);
+  }
+  .sanctuary__amenity-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.6rem;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent);
+  }
+  @media (max-width: 420px) {
+    .sanctuary__amenities {
+      grid-template-columns: 1fr;
+    }
+  }
 
   /* --- Accommodation page: exclusivity note + amenities grid --------------- */
   .lodge-note {

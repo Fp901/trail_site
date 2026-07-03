@@ -21,28 +21,32 @@ export interface PolicyClause {
 
 export const refundPolicy = {
   // Operator should set/confirm the effective date before launch.
-  effectiveDate: '2026-06-18',
+  effectiveDate: '2026-07-03',
   contactEmail: site.notifyEmail,
 
   intro:
-    'The Rooiberg Wander is booked as exclusive use of the whole trail for a single private group, with payment made in full at the time of booking. Because each booking reserves the entire trail, its guides and camp staff for your group alone, cancellations are subject to the schedule below. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
+    'The Rooiberg Wander is booked as exclusive use of the whole trail for a single private group. Bookings made 30 or more days before arrival are secured with a 50% deposit, with the balance due 45 days before arrival; bookings made inside 30 days are paid in full. Because each booking reserves the entire trail, its guides and camp staff for your group alone, cancellations are subject to the schedule below — though as you will see, we always try to find a fair outcome first. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
 
-  // Tiered refund of the total amount paid, by notice given before arrival (Day 1).
+  // Tiered refund of the total amount paid to date, by notice given before arrival (Day 1).
   tiers: [
-    { window: '60 or more days before arrival', refund: '90% refund (10% administration fee retained)' },
-    { window: '45 to 59 days before arrival', refund: '50% refund' },
-    { window: '30 to 44 days before arrival', refund: '25% refund' },
-    { window: 'Fewer than 30 days before arrival, or no-show', refund: 'No refund' },
+    { window: '60 or more days before arrival', refund: 'Full refund, less a 5% administration fee — or a free transfer to any available date' },
+    { window: '30 to 59 days before arrival', refund: '50% refund of the amount paid' },
+    { window: '15 to 29 days before arrival', refund: '25% refund of the amount paid' },
+    { window: 'Fewer than 15 days before arrival, or no-show', refund: 'No refund' },
   ] as RefundTier[],
 
   clauses: [
+    {
+      heading: 'If we can re-book your dates, you get more back',
+      body: 'Whatever the schedule above says: if you cancel and we succeed in re-booking your dates to another group, we will refund everything you have paid less a 10% administration fee. We actively try to re-sell cancelled dates — the tiered schedule only applies when the dates go unused.',
+    },
     {
       heading: 'How refunds are paid',
       body: 'Approved refunds are returned to the original payment method via our payment provider, normally within 10 business days of confirmation. Payment-processing or bank charges, and any difference arising from foreign-exchange or international card fees, are not recoverable.',
     },
     {
       heading: 'Changing your dates',
-      body: 'You may transfer your booking to another available start date at no administration fee if you request the change 60 or more days before arrival, subject to availability. Requests made later are treated as a cancellation under the schedule above. Names within your group may be substituted at no charge up to 14 days before arrival.',
+      body: 'Plans change — one date transfer to another available start date is free of charge if you request it 30 or more days before arrival, subject to availability. Further changes, or changes requested inside 30 days, are treated as a cancellation under the schedule above. Names within your group may be substituted at no charge at any time before arrival.',
     },
     {
       heading: 'If we cancel or reschedule',

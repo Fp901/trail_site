@@ -51,10 +51,11 @@ export function formatRand(amount: number): string {
 // What the group rate includes / excludes. Single source of truth shared by the Rates page and the
 // homepage "What's included" section so the two can never drift.
 export const inclusions = [
-  'Exclusive use of the reserve and all three safari lodges (up to 10 guests; optional two extra by special arrangement)',
+  'Exclusive use of the trail and all three safari lodges (up to 10 guests; optional two extra by special arrangement)',
   'Two qualified, armed trail guides throughout',
   'Daily transport of your baggage and provisions between camps',
   'Camp assistants for cleaning, kitchen prep and the barbeque',
+  'Free ice, wood and WiFi at every lodge',
   'All reserve conservation levies',
   'VAT at 15%',
 ];

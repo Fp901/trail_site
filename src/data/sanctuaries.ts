@@ -5,6 +5,23 @@ import rotaviImg from '../assets/images/rotavi-valley-plains.jpg';
 import oukraalImg from '../assets/images/oukraal-kudu-bushveld.jpg';
 import viervanachtImg from '../assets/images/viervanacht-giraffe-sunset.jpg';
 
+export type AmenityIconName =
+  | 'parking'
+  | 'pool'
+  | 'suite'
+  | 'kitchen'
+  | 'braai'
+  | 'water'
+  | 'ice'
+  | 'wood'
+  | 'wifi'
+  | 'view';
+
+export interface LodgeAmenity {
+  icon: AmenityIconName;
+  label: string;
+}
+
 export interface Sanctuary {
   id: string;
   name: string;
@@ -13,6 +30,7 @@ export interface Sanctuary {
   alt: string;
   accentVar: string;
   image?: ImageMetadata;
+  amenities: LodgeAmenity[];
 }
 
 // Shared across all three sanctuaries (2026 brief).
@@ -33,29 +51,53 @@ export const sanctuaries: Sanctuary[] = [
     name: 'Rotavi Lodge',
     role: 'The Valley Basecamp · Start & End Point',
     description:
-      'Your start and end point. A comfortable, established lodge low in the valley. You arrive on Day 1 to register and get your briefing, leave the car in secure shaded parking, and come back on Day 4 to shower, eat and head home.',
+      'Your start and end point. A comfortable, established safari lodge low in the Waterberg valley. Arrive on Day 1 to register and get your safety briefing, leave the car in secure shaded parking, and return on Day 4 to shower, share a final meal and head home.',
     alt: 'The valley around Rotavi Lodge, the basecamp at the foot of the Rooiberg where the trail begins and ends.',
     accentVar: '--color-ochre',
     image: rotaviImg,
+    amenities: [
+      { icon: 'parking', label: 'Secure shaded parking' },
+      { icon: 'pool', label: 'Swimming pool' },
+      { icon: 'suite', label: '2-person suites, bedding included' },
+      { icon: 'kitchen', label: 'Equipped kitchen & fridge' },
+      { icon: 'braai', label: 'Braai & evening fire' },
+      { icon: 'wifi', label: 'Free WiFi' },
+    ],
   },
   {
     id: 'oukraal',
     name: 'Oukraal',
     role: 'The Bush Lodge · Night 2',
     description:
-      'Deep in the thick bushveld, where the evening sounds of the wild are close. You reach it on Day 2 after the crossing over Groenkop, with your luggage and food already there.',
+      'Deep in the thick Limpopo bushveld, where the evening sounds of the wild are close. You reach this private bush lodge on Day 2 after the mountain crossing over Groenkop — your luggage and dinner supplies already waiting, kept cool and dry.',
     alt: 'Kudu in the thick green bushveld around Oukraal, the bush lodge reached on the second day.',
     accentVar: '--color-green',
     image: oukraalImg,
+    amenities: [
+      { icon: 'pool', label: 'Swimming pool' },
+      { icon: 'suite', label: '2-person suites, bedding included' },
+      { icon: 'kitchen', label: 'Equipped kitchen, fridge & ice' },
+      { icon: 'braai', label: 'Braai under the stars' },
+      { icon: 'water', label: 'Safe drinking water' },
+      { icon: 'wood', label: 'Firewood supplied' },
+    ],
   },
   {
     id: 'viervanacht',
     name: 'ViervanAcht',
     role: 'The Mountain Lodge · Night 3',
     description:
-      'Higher up the ridges, with distant views. This is where you watch the sun drop behind the mountains. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range.',
+      'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range — then watch the sun drop behind the mountains from the pool.',
     alt: 'Giraffes at sunset on the ridges near ViervanAcht, the mountain lodge and the third night of the trail.',
     accentVar: '--color-day4',
     image: viervanachtImg,
+    amenities: [
+      { icon: 'view', label: 'Sunset mountain views' },
+      { icon: 'pool', label: 'Swimming pool' },
+      { icon: 'suite', label: '2-person suites, bedding included' },
+      { icon: 'kitchen', label: 'Equipped kitchen, fridge & ice' },
+      { icon: 'braai', label: 'Braai & fire' },
+      { icon: 'wifi', label: 'Free WiFi' },
+    ],
   },
 ];

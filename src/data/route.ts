@@ -45,7 +45,7 @@ export const routeSegments: RouteSegment[] = [
       'Entrance to L-Kloof',
       'Kareedam',
       'Welgedacht lookout',
-      'Scenic donga',
+      'Scenic ravine',
       'Vista picnic',
     ],
   },

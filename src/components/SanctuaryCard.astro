@@ -4,6 +4,8 @@
 // a labelled accent-tinted placeholder (4:3). Per-card accent via accentVar.
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
+import AmenityIcon from './AmenityIcon.astro';
+import type { LodgeAmenity } from '../data/sanctuaries';
 
 interface Props {
   name: string;
@@ -14,8 +16,19 @@ interface Props {
   image?: ImageMetadata;
   reverse?: boolean;
   context?: string; // optional trail-context line (e.g. "Day 2 · Rotavi → Oukraal, over Groenkop")
+  amenities?: LodgeAmenity[]; // optional per-lodge amenity list rendered with icons
 }
-const { name, role, description, alt, accentVar, image, reverse = false, context } = Astro.props;
+const {
+  name,
+  role,
+  description,
+  alt,
+  accentVar,
+  image,
+  reverse = false,
+  context,
+  amenities,
+} = Astro.props;
 ---
 
 <article
@@ -44,5 +57,19 @@ const { name, role, description, alt, accentVar, image, reverse = false, context
     <h2 class="sanctuary__name">{name}</h2>
     {context && <p class="sanctuary__context">{context}</p>}
     <p class="sanctuary__desc">{description}</p>
+    {
+      amenities && amenities.length > 0 && (
+        <ul class="sanctuary__amenities">
+          {amenities.map((a) => (
+            <li class="sanctuary__amenity">
+              <span class="sanctuary__amenity-icon">
+                <AmenityIcon name={a.icon} />
+              </span>
+              {a.label}
+            </li>
+          ))}
+        </ul>
+      )
+    }
   </div>
 </article>

@@ -27,7 +27,7 @@ export const logisticsBlocks: LogBlock[] = [
     id: 'grading',
     kicker: 'Grading & fitness',
     title: 'Moderate to challenging',
-    body: 'You cover about 15 to 20 km a day, roughly 55 km in total, over mountain ascents, rocky kloofs and donga terrain. You need a good level of hiking fitness.',
+    body: 'You cover about 15 to 20 km a day, roughly 55 km in total, over mountain ascents, rocky kloofs and rugged ravine terrain. You need a good level of hiking fitness.',
   },
 ];
 
@@ -51,7 +51,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How fit do I need to be?',
-    a: 'The trail is graded moderate to challenging: mountain ascents, rocky kloofs and donga terrain over about 15 to 20 km a day. You need a good level of hiking fitness.',
+    a: 'The trail is graded moderate to challenging: mountain ascents, rocky kloofs and rugged ravine terrain over about 15 to 20 km a day. You need a good level of hiking fitness.',
   },
   {
     q: 'How far do you walk each day?',
@@ -83,7 +83,7 @@ export const provisions = {
   intro:
     'You are welcome to pre-order groceries and supplies before you arrive. The closest fully-stocked supermarket is Checkers Bela Bela, at the Bela Mall off the N1, about 80 km from us.',
   linkText: 'Checkers Bela Bela store details, hours & location',
-  linkUrl: '#', // PLACEHOLDER — add the Checkers Bela Bela store-info URL
+  linkUrl: 'https://www.checkers.co.za/Bela-Bela/stores',
   howTo:
     'We recommend the Checkers Sixty60 app. Order in advance and collect at the store on your drive up, or have it delivered through the app.',
   disclaimer:
@@ -95,8 +95,8 @@ export const transfers = {
   title: 'Getting here',
   intro:
     'If you are flying in or would rather be driven, we recommend EZ Shuttle, a local operator that knows the routes and access points to reach us.',
-  linkText: 'EZ Shuttle',
-  linkUrl: '#', // PLACEHOLDER — add the EZ Shuttle booking URL
+  linkText: 'EZ Shuttle — book a transfer',
+  linkUrl: 'https://www.ezshuttle.co.za/',
   booking:
     'Arrange your pick-up times, vehicle and rates with them directly, before your trip.',
   disclaimer:
