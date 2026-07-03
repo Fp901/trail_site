@@ -426,6 +426,17 @@ const fmt = (cents: number) => formatRand(cents / 100);
       status.dataset.kind = kind;
     };
 
+    // If the user returned from an abandoned Paystack checkout (browser back OR full reload),
+    // show a calm info message. The key is set just before the Paystack redirect and consumed here.
+    const PENDING_KEY = 'rw_checkout_pending';
+    if (sessionStorage.getItem(PENDING_KEY)) {
+      sessionStorage.removeItem(PENDING_KEY);
+      setStatus(
+        'No payment was made. Your hold is active for up to 30 minutes — try again or choose a different start date.',
+        'info',
+      );
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       setStatus('', 'info');
@@ -483,28 +494,18 @@ const fmt = (cents: number) => formatRand(cents / 100);
 
   document.addEventListener('astro:page-load', initBooking);
 
-  // bfcache restore: user pressed the browser back button from the Paystack page without paying.
-  // The browser restores the old DOM (button disabled, "Taking you to checkout…") without firing
-  // astro:page-load. We reset the widget and show a calm info message.
+  // bfcache restore: user pressed the browser back button from the Paystack page.
+  // The browser thaws the frozen DOM (button still disabled) without firing astro:page-load.
+  // Re-enable the button and re-run initBooking (which also checks sessionStorage for the message).
+  // For full-reload back-navigation (no bfcache), astro:page-load fires instead and initBooking
+  // already handles the sessionStorage check — so no message logic lives here.
   window.addEventListener('pageshow', (e) => {
     if (!(e as PageTransitionEvent).persisted) return;
     const form = document.getElementById('booking-form') as HTMLFormElement | null;
     if (!form) return;
-    // Re-enable the submit button (it was disabled before the redirect).
     const sub = form.querySelector<HTMLButtonElement>('[data-submit]');
     if (sub) sub.disabled = false;
-    // Allow initBooking to re-attach handlers (the date/residency callbacks were lost).
     form.removeAttribute('data-bound');
-    initBooking();
-    // If we set the flag before leaving, the user came back without paying.
-    if (sessionStorage.getItem('rw_checkout_pending')) {
-      sessionStorage.removeItem('rw_checkout_pending');
-      const statusEl = form.querySelector<HTMLElement>('[data-status]');
-      if (statusEl) {
-        statusEl.textContent =
-          'No payment was made. Your hold is active for up to 30 minutes — try again or choose a different start date.';
-        statusEl.dataset.kind = 'info';
-      }
-    }
+    initBooking(); // includes the sessionStorage check + message
   });
 </script>
