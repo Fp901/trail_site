@@ -152,7 +152,30 @@ export const server = {
         metadata: { booking_id: data.id },
       });
 
-      return { authorizationUrl: init.authorizationUrl };
+      return { authorizationUrl: init.authorizationUrl, reference };
+    },
+  }),
+
+  // Cancel a pending (not-yet-paid) booking by its processor reference — called client-side when
+  // the user returns from an abandoned Paystack checkout. Only cancels pending rows; confirmed
+  // bookings are unaffected. Rate-limited to prevent abuse.
+  cancelPendingCheckout: defineAction({
+    accept: 'json',
+    input: z.object({
+      reference: z.string().max(100),
+    }),
+    handler: async (input, ctx) => {
+      const ip = clientIp(ctx.request);
+      if (!(await rateLimit(`cancel:min:${ip}`, 10, 60))) {
+        throw new ActionError({ code: 'TOO_MANY_REQUESTS', message: 'Too many requests.' });
+      }
+      const supabase = getSupabaseAdmin();
+      await supabase
+        .from('bookings')
+        .update({ status: 'cancelled', hold_expires_at: null })
+        .eq('processor_reference', input.reference)
+        .eq('status', 'pending');
+      return { ok: true };
     },
   }),
 

@@ -196,9 +196,10 @@ const fmt = (cents: number) => formatRand(cents / 100);
     form: HTMLFormElement,
     startInput: HTMLInputElement,
     onDateSelected: (iso: string) => void,
-  ) {
+  ): () => void {
+    const noop = () => {};
     const cal = form.querySelector<HTMLElement>('[data-calendar]');
-    if (!cal) return;
+    if (!cal) return noop;
     const grid = cal.querySelector<HTMLElement>('[data-cal-grid]');
     const monthLabel = cal.querySelector<HTMLElement>('[data-cal-month]');
     const prevBtn = cal.querySelector<HTMLButtonElement>('[data-cal-prev]');
@@ -206,7 +207,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
     const field = cal.closest<HTMLElement>('.bform__datefield');
     const nextAvailEl = field?.querySelector<HTMLElement>('[data-nextavail]') ?? null;
     const selectedEl = field?.querySelector<HTMLElement>('[data-cal-selected]') ?? null;
-    if (!grid || !monthLabel || !prevBtn || !nextBtn) return;
+    if (!grid || !monthLabel || !prevBtn || !nextBtn) return noop;
 
     const todayIso = new Date().toISOString().slice(0, 10);
     const earliest = addDaysIso(todayIso, 7); // 7-day minimum lead time (mirrors the server)
@@ -312,14 +313,20 @@ const fmt = (cents: number) => formatRand(cents / 100);
       render();
     });
 
+    const refetch = () => {
+      fetchBlockedStarts().then((b) => {
+        blocked = b;
+        updateNextAvail();
+        const na = nextAvailable();
+        if (na && !selected) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 };
+        render();
+      });
+    };
+
     render(); // immediate paint (no taken dates yet)
-    fetchBlockedStarts().then((b) => {
-      blocked = b;
-      updateNextAvail();
-      const na = nextAvailable();
-      if (na) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 }; // land on the first bookable month
-      render();
-    });
+    refetch(); // load blocked dates and jump to first available month
+
+    return refetch;
   }
 
   function initBooking() {
@@ -414,7 +421,9 @@ const fmt = (cents: number) => formatRand(cents / 100);
       }
     };
 
-    if (startInput) setupCalendar(form, startInput, () => updateEstimate());
+    const refetchCalendar = startInput
+      ? setupCalendar(form, startInput, () => updateEstimate())
+      : () => {};
 
     form
       .querySelectorAll<HTMLInputElement>('input[name="residency"]')
@@ -428,14 +437,21 @@ const fmt = (cents: number) => formatRand(cents / 100);
     };
 
     // If the user returned from an abandoned Paystack checkout (browser back OR full reload),
-    // show a calm info message. The key is set just before the Paystack redirect and consumed here.
+    // immediately cancel the pending booking so the date is freed and the calendar resets.
     const PENDING_KEY = 'rw_checkout_pending';
-    if (sessionStorage.getItem(PENDING_KEY)) {
+    const pendingRef = sessionStorage.getItem(PENDING_KEY);
+    if (pendingRef) {
       sessionStorage.removeItem(PENDING_KEY);
-      setStatus(
-        'No payment was made. Your hold is active for up to 30 minutes — try again or choose a different start date.',
-        'info',
-      );
+      setStatus('Releasing your reserved dates…', 'info');
+      actions.cancelPendingCheckout({ reference: pendingRef })
+        .then(() => {
+          refetchCalendar();
+          setStatus('No payment was made. The dates have been released — choose a date to try again.', 'info');
+        })
+        .catch(() => {
+          refetchCalendar();
+          setStatus('No payment was made. The dates will be released within 30 minutes.', 'info');
+        });
     }
 
     form.addEventListener('submit', async (e) => {
@@ -486,8 +502,8 @@ const fmt = (cents: number) => formatRand(cents / 100);
         return;
       }
       if (data?.authorizationUrl) {
-        // Mark that we're leaving for Paystack so the pageshow handler can detect a back-navigation.
-        sessionStorage.setItem('rw_checkout_pending', '1');
+        // Store the reference so on back-navigation we can cancel the pending booking immediately.
+        sessionStorage.setItem('rw_checkout_pending', data.reference ?? '');
         window.location.href = data.authorizationUrl;
       }
     });
