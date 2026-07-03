@@ -421,9 +421,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
       }
     };
 
-    const refetchCalendar = startInput
-      ? setupCalendar(form, startInput, () => updateEstimate())
-      : () => {};
+    if (startInput) setupCalendar(form, startInput, () => updateEstimate());
 
     form
       .querySelectorAll<HTMLInputElement>('input[name="residency"]')
@@ -437,21 +435,15 @@ const fmt = (cents: number) => formatRand(cents / 100);
     };
 
     // If the user returned from an abandoned Paystack checkout (browser back OR full reload),
-    // immediately cancel the pending booking so the date is freed and the calendar resets.
+    // redirect to /booking/cancel which cancels the pending booking server-side and shows a
+    // clear "no payment taken" message with a link back to try again.
     const PENDING_KEY = 'rw_checkout_pending';
     const pendingRef = sessionStorage.getItem(PENDING_KEY);
     if (pendingRef) {
       sessionStorage.removeItem(PENDING_KEY);
-      setStatus('Releasing your reserved dates…', 'info');
-      actions.cancelPendingCheckout({ reference: pendingRef })
-        .then(() => {
-          refetchCalendar();
-          setStatus('No payment was made. The dates have been released — choose a date to try again.', 'info');
-        })
-        .catch(() => {
-          refetchCalendar();
-          setStatus('No payment was made. The dates will be released within 30 minutes.', 'info');
-        });
+      window.location.replace(
+        `/booking/cancel?reference=${encodeURIComponent(pendingRef)}`,
+      );
     }
 
     form.addEventListener('submit', async (e) => {
