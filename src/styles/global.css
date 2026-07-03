@@ -166,6 +166,41 @@
     right: 0;
   }
 
+  /* Header booking CTA — compact ochre button; legible over BOTH header states
+     (transparent-over-hero and scrolled cream). */
+  .nav-cta {
+    display: inline-block;
+    padding: 0.5rem 1.1rem;
+    border-radius: 0.65rem;
+    background-color: var(--color-ochre);
+    color: var(--color-earth);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition:
+      background-color 200ms ease,
+      transform 200ms ease;
+  }
+  .nav-cta:hover {
+    background-color: color-mix(in srgb, var(--color-ochre) 88%, var(--color-earth));
+    transform: translateY(-1px);
+  }
+  .nav-cta:focus-visible {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 3px;
+  }
+
+  /* Mobile-menu booking CTA (sits between the links and the contact block). */
+  .mobile-menu__cta {
+    margin-top: 2rem;
+  }
+  .mobile-menu__cta .btn {
+    width: 100%;
+    text-align: center;
+  }
+
   /* --- Brand wordmark + tagline (Part 5.6) --------------------------------- */
   .site-brand {
     display: inline-flex;
@@ -512,6 +547,19 @@
   }
   .daycard__body {
     padding-top: 0.15rem;
+  }
+  /* Scroll-reveal (Part 5.7). `reveal-pending` is only ever added by JS after checking
+     prefers-reduced-motion, so content is never hidden without it. */
+  .daycard.reveal-pending {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 600ms ease,
+      transform 600ms ease;
+  }
+  .daycard.reveal-pending.is-revealed {
+    opacity: 1;
+    transform: none;
   }
   .daycard__head {
     display: flex;
@@ -1177,6 +1225,94 @@
     font-family: var(--font-body);
     font-size: 0.75rem;
     color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+  }
+  .ratecard__cta {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-hairline);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+  }
+  .ratecard__cta a {
+    font-weight: 600;
+    color: var(--color-green);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: color-mix(in srgb, var(--color-green) 40%, transparent);
+    transition: text-decoration-color 200ms ease;
+  }
+  .ratecard__cta a:hover {
+    text-decoration-color: var(--color-green);
+  }
+
+  /* --- Booking-confidence strip + payment trust row (Rates page) ----------- */
+  .booking-assure {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    border: 1px solid color-mix(in srgb, var(--color-green) 30%, transparent);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--color-green) 6%, var(--color-cream));
+    padding: 1.1rem 1.35rem;
+  }
+  .booking-assure li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+  }
+  .booking-assure__icon {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+    color: var(--color-green);
+  }
+  .payment-trust {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+  }
+  .payment-trust__lock {
+    display: inline-flex;
+    color: var(--color-green);
+  }
+  .payment-trust__brands {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: 0.35rem;
+    padding-left: 0.85rem;
+    border-left: 1px solid var(--color-hairline);
+  }
+  .payment-trust__visa {
+    font-style: italic;
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    color: #1a1f71;
+  }
+  .payment-trust__mc {
+    display: inline-flex;
+  }
+  .payment-trust__mc i {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #eb001b;
+  }
+  .payment-trust__mc i + i {
+    margin-left: -6px;
+    background: #f79e1b;
+    mix-blend-mode: multiply;
   }
 
   /* Full-width atmospheric image band (Part 5.8) */

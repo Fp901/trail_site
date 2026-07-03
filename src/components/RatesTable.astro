@@ -2,6 +2,7 @@
 // RatesTable — Part 7 / 8.5. SA residents vs foreign nationals; strong VAT-inclusive total
 // with the "incl. VAT (15%) & conservation levies" note. Per group, never per person (Part 12).
 import { rates, formatRand, vatPortion, LAUNCH_OFFER, launchPrice } from '../data/rates';
+import { withBase } from '../data/site';
 ---
 
 <div class="rates">
@@ -24,6 +25,11 @@ import { rates, formatRand, vatPortion, LAUNCH_OFFER, launchPrice } from '../dat
           <p class="ratecard__incl">incl. VAT (15%) &amp; conservation levies · up to 10 guests</p>
           <p class="ratecard__note">{r.note}</p>
           <p class="ratecard__vat">Includes {formatRand(vatPortion(shown))} VAT.</p>
+          <p class="ratecard__cta">
+            <a href={withBase('/rates#book')}>
+              Check available dates <span aria-hidden="true">&darr;</span>
+            </a>
+          </p>
         </div>
       );
     })

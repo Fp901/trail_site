@@ -128,19 +128,11 @@ const faqHighlights = faqHighlightQuestions
       </p>
       <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
         Over three days you cross the Groenkop and Elandsberg mountains on foot, through deep
-        kloofs, riverbeds and open plains, with two armed trail guides the whole way. You
-        bring your own food and drinks. Your bags and provisions move between camps each day,
-        kept cool and dry, and staff at each lodge help with cleaning, cooking, the barbeque and
-        the washing-up. The trail is yours alone: we cater for groups of up to ten, with an
-        optional two extra by special arrangement.
+        kloofs, riverbeds and open plains. You bring your own food and drinks. Your bags and
+        provisions move between camps each day, kept cool and dry, and staff at each lodge help
+        with cleaning, cooking, the barbeque and the washing-up. The trail is yours alone: we
+        cater for groups of up to ten, with an optional two extra by special arrangement.
       </p>
-
-      <ul class="mt-8 flex flex-wrap gap-x-8 gap-y-3 font-body text-sm font-medium text-earth">
-        <li class="border-l-2 border-ochre pl-3">100% malaria-free</li>
-        <li class="border-l-2 border-ochre pl-3">Two armed trail guides</li>
-        <li class="border-l-2 border-ochre pl-3">Luggage moved daily</li>
-        <li class="border-l-2 border-ochre pl-3">Exclusive use · up to 10</li>
-      </ul>
 
       <p class="mt-10">
         <a href={withBase('/rates')} class="btn btn-primary">View rates and book the trail</a>
@@ -158,6 +150,32 @@ const faqHighlights = faqHighlightQuestions
     />
   </figure>
 
+  {/* Safety — full-bleed earth band (Part 5.4: dominant earth, ochre accents; breaks the cream run). */}
+  <Section bg="earth" labelledby="safety-heading" space="md">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-ochre">
+        Safety, first and always
+      </p>
+      <h2 id="safety-heading" class="mt-4 font-display text-3xl sm:text-4xl md:text-5xl">
+        Two armed guides, the whole way
+      </h2>
+      <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-cream/90">
+        Two qualified, armed trail guides walk with your group at all times — the Two-Man Rule,
+        the standard for tracking on foot in a Big 5 reserve. One reads the ground ahead; one
+        watches the group. It is how a walk through lion, elephant and buffalo country becomes
+        calm, quiet and completely absorbing.
+      </p>
+      <p class="mt-4 max-w-2xl font-body leading-relaxed text-cream/70">
+        The reserve is 100% malaria-free, and every day begins with a route and safety briefing.
+      </p>
+      <p class="mt-8">
+        <a href={withBase('/logistics')} class="btn btn-ghost">
+          Read the safety protocols
+        </a>
+      </p>
+    </div>
+  </Section>
+
   <Section bg="cream" labelledby="why-heading" space="md">
     <h2 id="why-heading" class="max-w-3xl font-display text-2xl text-earth sm:text-3xl">
       You sleep somewhere new every night
@@ -170,8 +188,8 @@ const faqHighlights = faqHighlightQuestions
       <div class="border-t-2 border-ochre pt-4">
         <h3 class="font-display text-xl text-earth">Big 5 on foot</h3>
         <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
-          A malaria-free Big 5 reserve, walked at ground level with two armed trail guides the
-          whole way.
+          Mountain summits, deep kloofs, riverbeds and open plains — wild country you cross at
+          ground level, reading tracks instead of watching from a vehicle.
         </p>
       </div>
       <div class="border-t-2 border-ochre pt-4">

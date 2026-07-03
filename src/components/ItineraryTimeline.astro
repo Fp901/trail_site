@@ -8,3 +8,35 @@ import DayCard from './DayCard.astro';
 <ol class="timeline">
   {itinerary.map((d) => <DayCard {...d} />)}
 </ol>
+
+<script>
+  // Subtle scroll-reveal on the day cards (Part 5.7 — grounded, confident motion). The hidden
+  // state is only ever applied by JS (`reveal-pending`), so no-JS users and reduced-motion users
+  // always see the full timeline immediately.
+  function initTimelineReveal() {
+    const cards = document.querySelectorAll<HTMLElement>('.daycard');
+    if (!cards.length) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!('IntersectionObserver' in window)) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-revealed');
+            io.unobserve(e.target);
+          }
+        }
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' },
+    );
+
+    cards.forEach((c) => {
+      if (c.dataset.revealBound === 'true') return;
+      c.dataset.revealBound = 'true';
+      c.classList.add('reveal-pending');
+      io.observe(c);
+    });
+  }
+  document.addEventListener('astro:page-load', initTimelineReveal);
+</script>
