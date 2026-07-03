@@ -474,10 +474,37 @@ const fmt = (cents: number) => formatRand(cents / 100);
         return;
       }
       if (data?.authorizationUrl) {
+        // Mark that we're leaving for Paystack so the pageshow handler can detect a back-navigation.
+        sessionStorage.setItem('rw_checkout_pending', '1');
         window.location.href = data.authorizationUrl;
       }
     });
   }
 
   document.addEventListener('astro:page-load', initBooking);
+
+  // bfcache restore: user pressed the browser back button from the Paystack page without paying.
+  // The browser restores the old DOM (button disabled, "Taking you to checkout…") without firing
+  // astro:page-load. We reset the widget and show a calm info message.
+  window.addEventListener('pageshow', (e) => {
+    if (!(e as PageTransitionEvent).persisted) return;
+    const form = document.getElementById('booking-form') as HTMLFormElement | null;
+    if (!form) return;
+    // Re-enable the submit button (it was disabled before the redirect).
+    const sub = form.querySelector<HTMLButtonElement>('[data-submit]');
+    if (sub) sub.disabled = false;
+    // Allow initBooking to re-attach handlers (the date/residency callbacks were lost).
+    form.removeAttribute('data-bound');
+    initBooking();
+    // If we set the flag before leaving, the user came back without paying.
+    if (sessionStorage.getItem('rw_checkout_pending')) {
+      sessionStorage.removeItem('rw_checkout_pending');
+      const statusEl = form.querySelector<HTMLElement>('[data-status]');
+      if (statusEl) {
+        statusEl.textContent =
+          'No payment was made. Your hold is active for up to 30 minutes — try again or choose a different start date.';
+        statusEl.dataset.kind = 'info';
+      }
+    }
+  });
 </script>

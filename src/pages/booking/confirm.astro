@@ -17,7 +17,13 @@ let pretripToken: string | null = null;
 if (reference) {
   try {
     const result = await payments.verifyTransaction(reference);
-    state = result.status === 'success' ? 'success' : 'pending';
+    if (result.status === 'success') {
+      state = 'success';
+    } else {
+      // Payment was cancelled or abandoned inside Paystack — redirect to the cancel page which
+      // releases the hold immediately and shows a clear "no payment taken" message.
+      return Astro.redirect(`/booking/cancel?reference=${encodeURIComponent(reference)}`);
+    }
   } catch {
     state = 'error';
   }
