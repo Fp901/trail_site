@@ -48,12 +48,15 @@ export function clearSessionCookies(cookies: AstroCookies): void {
   cookies.delete(REFRESH, { path: '/' });
 }
 
-// Returns true only if ADMIN_EMAIL is unset (single-account install, any auth user allowed) or the
-// signed-in email matches it (case-insensitive).
+// Returns true only if no ADMIN_EMAIL(S) is set (any auth user allowed) or the signed-in email is
+// in the comma-separated allow-list (case-insensitive). Supports both ADMIN_EMAILS (preferred) and
+// the legacy ADMIN_EMAIL single-value variable.
 function isAllowedAdmin(email: string | undefined): boolean {
-  const allow = import.meta.env.ADMIN_EMAIL?.trim().toLowerCase();
-  if (!allow) return true;
-  return !!email && email.trim().toLowerCase() === allow;
+  const raw = (import.meta.env.ADMIN_EMAILS ?? import.meta.env.ADMIN_EMAIL ?? '').trim();
+  if (!raw) return true;
+  const allowed = raw.split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean);
+  if (allowed.length === 0) return true;
+  return !!email && allowed.includes(email.trim().toLowerCase());
 }
 
 // Sign in with email+password. On success sets the session cookies and returns the user; on bad
