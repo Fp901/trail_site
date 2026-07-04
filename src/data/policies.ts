@@ -21,7 +21,7 @@ export interface PolicyClause {
 
 export const refundPolicy = {
   // Operator should set/confirm the effective date before launch.
-  effectiveDate: '2026-07-03',
+  effectiveDate: '2026-07-04',
   contactEmail: site.notifyEmail,
 
   intro:
@@ -29,7 +29,7 @@ export const refundPolicy = {
 
   // Tiered refund of the total amount paid to date, by notice given before arrival (Day 1).
   tiers: [
-    { window: '60 or more days before arrival', refund: 'Full refund, less a 5% administration fee, or a free transfer to any available date' },
+    { window: '60 or more days before arrival', refund: 'Full refund, less a 5% administration fee' },
     { window: '30 to 59 days before arrival', refund: '50% refund of the amount paid' },
     { window: '15 to 29 days before arrival', refund: '25% refund of the amount paid' },
     { window: 'Fewer than 15 days before arrival, or no-show', refund: 'No refund' },
@@ -46,7 +46,7 @@ export const refundPolicy = {
     },
     {
       heading: 'Changing your dates',
-      body: 'Plans change: one date transfer to another available start date is free of charge if you request it 30 or more days before arrival, subject to availability. Further changes, or changes requested inside 30 days, are treated as a cancellation under the schedule above. Names within your group may be substituted at no charge at any time before arrival.',
+      body: 'If you need to move your dates, contact us as early as possible. We may, at our discretion and subject to availability, offer a transfer to another start date instead of a cancellation. Where a transfer is not possible, the cancellation schedule above applies. Names within your group may be substituted at no charge at any time before arrival.',
     },
     {
       heading: 'If we cancel or reschedule',
