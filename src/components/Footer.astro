@@ -2,8 +2,12 @@
 // Footer — Part 5.6. Clean, minimal; necessary identity + a Privacy link, no clutter.
 import { nav, site, withBase } from '../data/site';
 import WhatsAppIcon from './WhatsAppIcon.astro';
+import InstagramIcon from './InstagramIcon.astro';
+import FacebookIcon from './FacebookIcon.astro';
 const year = new Date().getFullYear();
 const telHref = `tel:${site.contact.phone.replace(/\s/g, '')}`;
+// Social icons render only when a URL is configured (no dead links).
+const hasSocial = Boolean(site.social.instagram || site.social.facebook);
 ---
 
 <footer class="bg-earth text-cream">
@@ -59,6 +63,35 @@ const telHref = `tel:${site.contact.phone.replace(/\s/g, '')}`;
         <p class="mt-3">
           <a href={withBase('/privacy')} class="footer-link font-body text-sm text-cream/85">Privacy</a>
         </p>
+
+        {
+          hasSocial && (
+            <div class="footer-social">
+              {site.social.instagram && (
+                <a
+                  href={site.social.instagram}
+                  target="_blank"
+                  rel="noopener"
+                  class="footer-social__link"
+                  aria-label="The Rooiberg Wander on Instagram"
+                >
+                  <InstagramIcon size={20} />
+                </a>
+              )}
+              {site.social.facebook && (
+                <a
+                  href={site.social.facebook}
+                  target="_blank"
+                  rel="noopener"
+                  class="footer-social__link"
+                  aria-label="The Rooiberg Wander on Facebook"
+                >
+                  <FacebookIcon size={20} />
+                </a>
+              )}
+            </div>
+          )
+        }
       </div>
     </div>
 

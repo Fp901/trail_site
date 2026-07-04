@@ -1,0 +1,33 @@
+---
+// Google review band — renders ONLY when site.googleReviewUrl is set (i.e. the Google Business
+// Profile is live). Until then it outputs nothing, so no dead button is shown. Restrained copy.
+import Section from './Section.astro';
+import { site } from '../data/site';
+
+const url = site.googleReviewUrl;
+---
+
+{
+  url && (
+    <Section bg="cream" space="md" labelledby="greview-heading" class="border-t border-hairline">
+      <div class="greview">
+        <div class="greview__stars" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map(() => (
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+              <path d="M12 2.5l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.4l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.5z" />
+            </svg>
+          ))}
+        </div>
+        <h2 id="greview-heading" class="greview__title">Walked the trail?</h2>
+        <p class="greview__body">
+          A short Google review helps other walkers find the trail. It takes about a minute.
+        </p>
+        <p class="greview__cta">
+          <a href={url} target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+            Leave a Google review
+          </a>
+        </p>
+      </div>
+    </Section>
+  )
+}

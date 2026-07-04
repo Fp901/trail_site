@@ -1,13 +1,17 @@
 ---
-// Home (/) — Part 8.1. Hero → StatsBar → Promise → teasers.
+// Home (/) — Part 8.1. Restructured to tease and sell; detail lives on the dedicated pages
+// (safety + FAQ on /logistics, pricing + inclusions on /rates). Flow: hero → intro → statement
+// band → why → how it works → lodges → testimonials → review → book.
 import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import Hero from '../components/Hero.astro';
 import StatsBar from '../components/StatsBar.astro';
+import Testimonials from '../components/Testimonials.astro';
+import GoogleReview from '../components/GoogleReview.astro';
 import { withBase } from '../data/site';
-import { LAUNCH_OFFER, LAUNCH_DATE, inclusions, exclusions } from '../data/rates';
-import { faqs } from '../data/logistics';
+import { LAUNCH_OFFER, LAUNCH_DATE } from '../data/rates';
+import { sanctuaries } from '../data/sanctuaries';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
 import panorama from '../assets/images/rooiberg-dusk-panorama.jpg';
 import {
@@ -28,48 +32,45 @@ const jsonLd = [
   touristTripSchema,
 ];
 
-// Teasers into the deeper pages (copy mirrors §8.8; Rates shows the VAT-inclusive total).
-const teasers = [
-  {
-    index: '01',
-    title: 'The Trail',
-    href: '/the-trail',
-    text: 'No walking on arrival day; then three mountain days of 15 to 20 km, lodge to lodge. After the final walk on Day 4 you shower, share a meal and head home.',
-  },
-  {
-    index: '02',
-    title: 'The Safari Lodges',
-    href: '/accommodation',
-    text: 'Rotavi Lodge, Oukraal and ViervanAcht. Three private safari lodges, each with its own character.',
-  },
-  {
-    index: '03',
-    title: 'Rates & Booking',
-    href: '/rates',
-    text: 'Launching 1 October 2026 with a 50% Launch Phase discount. R60,000 per exclusive group of up to ten, incl. VAT and all conservation levies.',
-  },
-];
-
-// Homepage trust-signal band (below the hero).
+// Trust-signal band (below the hero).
 const trustSignals = [
   'Private Big 5 Reserve',
   'Malaria-Free',
   'Armed Professional Guides',
   'Exclusive Group Use',
-  'Self-Catered & Ported', // NB: changed from "Fully Catered" — the trail is self-catered (see summary)
+  'Self-Catered & Ported',
 ];
 
-// FAQ highlights — 4 common questions pulled verbatim from the full /logistics FAQ (no duplication
-// of content; the answers live in data/logistics.ts). A "Read more" links to the full list.
-const faqHighlightQuestions = [
-  'What is slackpacking?',
-  'Is the area malaria-free?',
-  'How fit do I need to be?',
-  'How big is the group?',
+// How the trail works — four plain steps.
+const steps = [
+  {
+    n: '1',
+    title: 'Choose your dates and book',
+    text: 'Pick a start date and pay securely online. A 50% deposit holds dates booked 30 or more days ahead.',
+  },
+  {
+    n: '2',
+    title: 'Arrive at Rotavi Lodge',
+    text: 'Park securely, meet your two armed guides and settle in. There is no walking on the arrival day.',
+  },
+  {
+    n: '3',
+    title: 'Walk from lodge to lodge',
+    text: 'Three walking days of 15 to 20 km, sleeping at a different lodge each night. Your bags travel ahead.',
+  },
+  {
+    n: '4',
+    title: 'Finish and head home',
+    text: 'After the final morning walk you return to Rotavi Lodge, freshen up, collect your car and drive home.',
+  },
 ];
-const faqHighlights = faqHighlightQuestions
-  .map((q) => faqs.find((f) => f.q === q))
-  .filter((f): f is (typeof faqs)[number] => Boolean(f));
+
+// Lodge teasers (image-led) from the shared sanctuaries data.
+const lodgeContext: Record<string, string> = {
+  rotavi: 'Nights 1 and 4',
+  oukraal: 'Night 2',
+  viervanacht: 'Night 3',
+};
 ---
 
 <Layout
@@ -98,8 +99,8 @@ const faqHighlights = faqHighlightQuestions
         <div class="launch-banner">
           <p class="launch-banner__eyebrow">Launch offer</p>
           <p class="launch-banner__lead">
-            The trail launches on {LAUNCH_DATE}. Book a Launch Phase departure and save 50% on every
-            rate.
+            The trail launches on {LAUNCH_DATE}. Book a Launch Phase departure and save 50% on the
+            standard group rate.
           </p>
           <p class="mt-4">
             <a href={withBase('/rates')} class="btn btn-primary">See launch rates</a>
@@ -109,7 +110,7 @@ const faqHighlights = faqHighlightQuestions
     )
   }
 
-  {/* Promise — the unpack-and-walk model. GEO H2 answered in the first sentence (Part 10.5). */}
+  {/* Intro — short and factual. Detail lives on /the-trail. */}
   <Section bg="cream" labelledby="promise-heading">
     <div class="max-w-3xl">
       <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
@@ -119,180 +120,160 @@ const faqHighlights = faqHighlightQuestions
         id="promise-heading"
         class="mt-4 font-display text-3xl text-earth sm:text-4xl md:text-5xl"
       >
-        A walk through 15,000 hectares of Big 5 reserve
+        A three-day walking safari in the Waterberg
       </h2>
       <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        The Rooiberg Wander is a 3-night, 3-day self-catered slackpacking trail. You cross 15,000
-        hectares of malaria-free Big 5 reserve near Rooiberg in Limpopo, 2.5 hours drive from
-        Johannesburg. You walk; we move everything else.
+        The Rooiberg Wander is a 3-night, 3-day self-catered walking trail through 15,000 hectares
+        of malaria-free Big 5 reserve near Rooiberg in Limpopo, 2.5 hours by road from Johannesburg.
       </p>
       <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
-        Over three days you cross the Groenkop and Elandsberg mountains on foot, through deep
-        kloofs, riverbeds and open plains. You bring your own food and drinks. Your bags and
-        provisions move between camps each day, kept cool and dry, and staff at each lodge help
-        with cleaning, cooking, the barbeque and the washing-up. You walk as one private group
-        of up to ten, with an optional two extra by special arrangement.
+        You walk from one private lodge to the next while your luggage and provisions are moved
+        ahead each day. You carry only a daypack.
       </p>
-
       <p class="mt-10">
         <a href={withBase('/rates')} class="btn btn-primary">View rates and book the trail</a>
       </p>
     </div>
   </Section>
 
-  <figure class="media-band">
+  {/* Statement band — dark visual break; one factual line over an atmospheric image. */}
+  <section class="statement-band" aria-label="About the trail">
     <Image
+      class="statement-band__img"
       src={panorama}
-      alt="Dusk over the Rooiberg mountains, with a bush dinner set beside a lily-covered waterhole."
-      widths={[768, 1280]}
+      alt="Dusk over the Rooiberg mountains in the Waterberg, Limpopo."
+      widths={[768, 1280, 1920]}
       sizes="100vw"
       loading="lazy"
     />
-  </figure>
-
-  {/* Safety — full-bleed earth band (Part 5.4: dominant earth, ochre accents; breaks the cream run). */}
-  <Section bg="earth" labelledby="safety-heading" space="md">
-    <div class="max-w-3xl">
-      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-ochre">
-        Safety, first and always
-      </p>
-      <h2 id="safety-heading" class="mt-4 font-display text-3xl text-cream sm:text-4xl md:text-5xl">
-        Two armed guides, the whole way
-      </h2>
-      <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-cream/90">
-        Two qualified, armed trail guides walk with your group at all times: the Two-Man Rule,
-        the standard for tracking on foot in a Big 5 reserve. One reads the ground ahead; one
-        watches the group. It is how a walk through lion, elephant and buffalo country becomes
-        calm, quiet and completely absorbing.
-      </p>
-      <p class="mt-4 max-w-2xl font-body leading-relaxed text-cream/70">
-        The reserve is 100% malaria-free, and every day begins with a route and safety briefing.
-      </p>
-      <p class="mt-8">
-        <a href={withBase('/logistics')} class="btn btn-ghost">
-          Read the safety protocols
-        </a>
+    <div class="statement-band__scrim"></div>
+    <div class="statement-band__inner">
+      <p class="statement-band__text">
+        A guided walking trail on foot through a private Big 5 reserve, with no game-drive vehicles
+        and no through-traffic.
       </p>
     </div>
-  </Section>
+  </section>
 
+  {/* Why walk the trail — three grounded benefits. */}
   <Section bg="cream" labelledby="why-heading" space="md">
     <h2 id="why-heading" class="max-w-3xl font-display text-2xl text-earth sm:text-3xl">
-      You sleep somewhere new every night
+      Why walk the Rooiberg Wander
     </h2>
     <p class="mt-5 max-w-2xl font-body leading-relaxed text-charcoal/85">
-      This is a point-to-point trail. You walk from one private safari lodge to the next and sleep
-      somewhere new each night, with a pool, a camp fire and a real bed at the end of every day.
+      A point-to-point trail: you walk from one private lodge to the next and sleep somewhere new
+      each night, with a pool, a fire and a bed at the end of every day.
     </p>
     <div class="mt-10 grid gap-8 sm:grid-cols-3">
       <div class="border-t-2 border-ochre pt-4">
         <h3 class="font-display text-xl text-earth">Big 5 on foot</h3>
         <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
-          Mountain summits, deep kloofs, riverbeds and open plains: wild country you cross at
-          ground level, reading tracks instead of watching from a vehicle.
+          Mountain summits, deep valleys, riverbeds and open plains, crossed at ground level with
+          two armed guides rather than viewed from a vehicle.
         </p>
       </div>
       <div class="border-t-2 border-ochre pt-4">
         <h3 class="font-display text-xl text-earth">Unpack and walk</h3>
         <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
           Self-catered, but you carry only a daypack. Your food, drinks and bags travel ahead to
-          the next camp each day, kept cool and dry.
+          the next lodge each day, kept cool and dry.
         </p>
       </div>
       <div class="border-t-2 border-ochre pt-4">
-        <h3 class="font-display text-xl text-earth">Private by design</h3>
+        <h3 class="font-display text-xl text-earth">Private group</h3>
         <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
-          Your group walks alone with its own two guides, and each lodge is exclusively yours on
-          the night you stay. A group of ten, with an optional two by special arrangement.
+          You walk with your own group and two guides, and each lodge is reserved for your group on
+          the night you stay. Up to ten guests, with an optional two by arrangement.
         </p>
       </div>
     </div>
   </Section>
 
-  {/* What's included / what's not — pulled from the same source as the Rates page (data/rates.ts). */}
-  <Section bg="cream" space="md" labelledby="included-home-heading" class="border-t border-hairline">
+  {/* How it works — four steps. */}
+  <Section bg="cream" space="md" labelledby="how-heading" class="border-t border-hairline">
     <div class="max-w-3xl">
       <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
-        One flat rate, per group
+        Step by step
       </p>
-      <h2
-        id="included-home-heading"
-        class="mt-4 font-display text-2xl text-earth sm:text-3xl md:text-4xl"
-      >
-        What the price includes
-      </h2>
-      <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-        VAT and all conservation levies are included. Here is exactly what your group rate covers,
-        and the few things to arrange yourself.
-      </p>
-    </div>
-    <div class="mt-10 grid gap-10 md:grid-cols-2">
-      <div>
-        <h3 class="font-display text-xl text-earth">Included</h3>
-        <ul class="incl-list incl-list--in">
-          {inclusions.map((i) => <li>{i}</li>)}
-        </ul>
-      </div>
-      <div>
-        <h3 class="font-display text-xl text-earth">Not included</h3>
-        <ul class="incl-list incl-list--out">
-          {exclusions.map((i) => <li>{i}</li>)}
-        </ul>
-      </div>
-    </div>
-    <p class="mt-8">
-      <a href={withBase('/rates')} class="btn btn-secondary">See full rates &amp; book</a>
-    </p>
-  </Section>
-
-  {/* FAQ highlights — 4 common questions; the full list lives on /logistics (not duplicated). */}
-  <Section bg="cream" space="md" labelledby="faq-home-heading" class="border-t border-hairline">
-    <div class="max-w-3xl">
-      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
-        Good to know
-      </p>
-      <h2 id="faq-home-heading" class="mt-4 font-display text-2xl text-earth sm:text-3xl md:text-4xl">
-        Common questions
+      <h2 id="how-heading" class="mt-4 font-display text-2xl text-earth sm:text-3xl md:text-4xl">
+        How the trail works
       </h2>
     </div>
-    <dl class="mt-10 grid max-w-4xl gap-8 sm:grid-cols-2">
+    <ol class="howit">
       {
-        faqHighlights.map((f) => (
-          <div class="border-t-2 border-ochre pt-4">
-            <dt class="font-display text-lg text-earth">{f.q}</dt>
-            <dd class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">{f.a}</dd>
-          </div>
+        steps.map((s) => (
+          <li class="howit__step">
+            <span class="howit__num" aria-hidden="true">{s.n}</span>
+            <h3 class="howit__title">{s.title}</h3>
+            <p class="howit__text">{s.text}</p>
+          </li>
         ))
       }
-    </dl>
-    <p class="mt-8">
-      <a
-        href={withBase('/logistics')}
-        class="font-body text-sm font-semibold text-green underline underline-offset-4"
-      >
-        Read the full FAQ <span aria-hidden="true">&rarr;</span>
-      </a>
+    </ol>
+    <p class="mt-10">
+      <a href={withBase('/the-trail')} class="btn btn-secondary">See the full day-by-day trail</a>
     </p>
   </Section>
 
-  {/* Teasers — paths into the deeper pages. */}
-  <Section bg="cream" space="md" labelledby="explore-heading" class="border-t border-hairline">
-    <h2 id="explore-heading" class="sr-only">Explore the wander</h2>
-    <ul class="grid gap-8 sm:gap-10 md:grid-cols-3">
+  {/* The lodges — image-led teasers into /accommodation. */}
+  <Section bg="cream" space="md" labelledby="lodges-heading" class="border-t border-hairline">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Where you sleep
+      </p>
+      <h2 id="lodges-heading" class="mt-4 font-display text-2xl text-earth sm:text-3xl md:text-4xl">
+        Three private safari lodges
+      </h2>
+    </div>
+    <ul class="home-lodges">
       {
-        teasers.map((t) => (
+        sanctuaries.map((s) => (
           <li>
-            <a href={withBase(t.href)} class="teaser group">
-              <span class="teaser__index">{t.index}</span>
-              <h3 class="teaser__title">{t.title}</h3>
-              <p class="teaser__text">{t.text}</p>
-              <span class="teaser__more">
-                Read more <span aria-hidden="true">&rarr;</span>
-              </span>
+            <a href={withBase('/accommodation')} class="home-lodge group">
+              <div class="home-lodge__media">
+                {s.image && (
+                  <Image
+                    src={s.image}
+                    alt={s.alt}
+                    class="home-lodge__img"
+                    widths={[400, 600]}
+                    sizes="(min-width: 768px) 33vw, 100vw"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+              <p class="home-lodge__context">{lodgeContext[s.id]}</p>
+              <h3 class="home-lodge__name">{s.name}</h3>
+              <p class="home-lodge__role">{s.role}</p>
             </a>
           </li>
         ))
       }
     </ul>
+    <p class="mt-10">
+      <a href={withBase('/accommodation')} class="btn btn-secondary">See the lodges</a>
+    </p>
+  </Section>
+
+  {/* Testimonials — renders only when real reviews exist. */}
+  <Testimonials />
+
+  {/* Google review — renders only when the Google Business Profile link is set. */}
+  <GoogleReview />
+
+  {/* Final CTA. */}
+  <Section bg="earth" space="md" labelledby="cta-heading">
+    <div class="max-w-3xl">
+      <h2 id="cta-heading" class="font-display text-3xl text-cream sm:text-4xl">
+        Ready to walk the Rooiberg?
+      </h2>
+      <p class="mt-5 max-w-2xl font-body leading-relaxed text-cream/85">
+        Check available dates and book online, or read the full day-by-day trail first.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-4">
+        <a href={withBase('/rates')} class="btn btn-primary">Check dates and book</a>
+        <a href={withBase('/the-trail')} class="btn btn-ghost">See the trail</a>
+      </div>
+    </div>
   </Section>
 </Layout>

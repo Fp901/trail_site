@@ -1,0 +1,21 @@
+---
+// Facebook glyph (self-hosted inline SVG, no third-party script). currentColor-filled.
+interface Props {
+  class?: string;
+  size?: number;
+}
+const { class: cls = '', size = 20 } = Astro.props;
+---
+
+<svg
+  class={cls}
+  viewBox="0 0 24 24"
+  fill="currentColor"
+  aria-hidden="true"
+  width={size}
+  height={size}
+>
+  <path
+    d="M14 8.5V7c0-.83.67-1 1.5-1H17V3h-2.5A3.5 3.5 0 0 0 11 6.5V8.5H9v3h2V21h3v-9.5h2.4l.6-3H14z"
+  ></path>
+</svg>

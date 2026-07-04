@@ -29,6 +29,17 @@ export const site = {
     officeHours: '08h00 to 17h00',
   },
 
+  // Google review link. Empty until the Google Business Profile is live. When set (paste the
+  // "write a review" URL, e.g. https://g.page/r/XXXX/review), the homepage review band appears.
+  googleReviewUrl: '',
+
+  // Social profiles. Empty until the pages exist. Each footer icon renders only when its URL is
+  // set, so no dead links are ever shown. Paste the full profile URL to switch each one on.
+  social: {
+    instagram: '',
+    facebook: '',
+  },
+
   locale: 'en-ZA',
 
   // Backend URL fallback (server-side URL construction reads PUBLIC_SITE_URL ?? site.url). Left as-is.

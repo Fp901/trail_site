@@ -1,0 +1,35 @@
+---
+// Testimonials — renders ONLY when real guest reviews exist in data/testimonials.ts.
+// While the array is empty, this component outputs nothing (no fabricated quotes).
+import Section from './Section.astro';
+import { testimonials } from '../data/testimonials';
+---
+
+{
+  testimonials.length > 0 && (
+    <Section bg="cream" space="md" labelledby="testimonials-heading" class="border-t border-hairline">
+      <div class="max-w-3xl">
+        <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+          From our guests
+        </p>
+        <h2
+          id="testimonials-heading"
+          class="mt-4 font-display text-2xl text-earth sm:text-3xl md:text-4xl"
+        >
+          What walkers say
+        </h2>
+      </div>
+      <ul class="testimonials">
+        {testimonials.map((t) => (
+          <li class="testimonial">
+            <blockquote class="testimonial__quote">{t.quote}</blockquote>
+            <p class="testimonial__by">
+              {t.name}
+              {t.location && <span class="testimonial__loc">, {t.location}</span>}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  )
+}
