@@ -10,7 +10,7 @@ export type Residency = 'local' | 'international';
 // LAUNCH_DISCOUNT (from data/rates.ts) to the standard rate. This is the REAL amount charged via
 // Paystack, not a display trick. The full-rate constants (TOTAL_LOCAL/TOTAL_INTERNATIONAL) are
 // left untouched, so the engine reverts to full price automatically once this window closes.
-// PLACEHOLDER end date — confirm the real Launch Phase end date before go-live.
+// PLACEHOLDER end date — confirm the real soft-launch end date before go-live.
 export const LAUNCH_DISCOUNT_END = '2026-12-31';
 
 const toCents = (rand: number) => Math.round(rand * 100);

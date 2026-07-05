@@ -8,13 +8,15 @@ export const TOTAL_LOCAL = 60000; // per group, VAT-inclusive
 export const INTERNATIONAL_PREMIUM = 0.2; // +20% for foreign nationals
 export const TOTAL_INTERNATIONAL = TOTAL_LOCAL * (1 + INTERNATIONAL_PREMIUM); // 72,000
 
-// Launch offer — the trail launches on this date, with a 50% discount during the Launch Phase.
+// Soft launch — the trail opens on this date with a family-and-friends soft launch at 75% off.
 // LAUNCH_DISCOUNT is the single source of truth for the discount rate: it drives BOTH the display
 // here AND the real amount charged server-side (lib/pricing.ts applies it in computeQuote, gated by
-// LAUNCH_DISCOUNT_END). Keep the two in sync via this constant.
+// LAUNCH_DISCOUNT_END). Keep the two in sync via this constant. NOTE: there is no promo-code gate;
+// the discount applies to any booking made while the window is open (family/friends is enforced by
+// who the link is shared with, not by code).
 export const LAUNCH_DATE = '1 October 2026';
 export const LAUNCH_OFFER = true;
-export const LAUNCH_DISCOUNT = 0.5; // 50% off
+export const LAUNCH_DISCOUNT = 0.75; // 75% off (soft launch, family and friends)
 export const launchPrice = (total: number) => Math.round(total * (1 - LAUNCH_DISCOUNT));
 
 // VAT portion contained within a VAT-inclusive amount.

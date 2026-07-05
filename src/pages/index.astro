@@ -10,7 +10,7 @@ import StatsBar from '../components/StatsBar.astro';
 import Testimonials from '../components/Testimonials.astro';
 import GoogleReview from '../components/GoogleReview.astro';
 import { withBase } from '../data/site';
-import { LAUNCH_OFFER, LAUNCH_DATE } from '../data/rates';
+import { LAUNCH_OFFER, LAUNCH_DATE, LAUNCH_DISCOUNT } from '../data/rates';
 import { sanctuaries } from '../data/sanctuaries';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
 import panorama from '../assets/images/rooiberg-dusk-panorama.jpg';
@@ -91,13 +91,13 @@ const lodgeContext: Record<string, string> = {
     LAUNCH_OFFER && (
       <Section bg="cream" space="md">
         <div class="launch-banner">
-          <p class="launch-banner__eyebrow">Launch offer</p>
+          <p class="launch-banner__eyebrow">Soft launch</p>
           <p class="launch-banner__lead">
-            The trail launches on {LAUNCH_DATE}. Book a Launch Phase departure and save 50% on the
-            standard group rate.
+            The trail opens on {LAUNCH_DATE}. During the soft-launch period, family and friends
+            book at {Math.round(LAUNCH_DISCOUNT * 100)}% off the standard group rate.
           </p>
           <p class="mt-4">
-            <a href={withBase('/rates')} class="btn btn-primary">See launch rates</a>
+            <a href={withBase('/rates')} class="btn btn-primary">See soft-launch rates</a>
           </p>
         </div>
       </Section>

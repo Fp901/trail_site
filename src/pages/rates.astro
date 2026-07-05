@@ -6,7 +6,7 @@ import Section from '../components/Section.astro';
 import RatesTable from '../components/RatesTable.astro';
 import BookingWidget from '../components/BookingWidget.astro';
 import InquiryForm from '../components/InquiryForm.astro';
-import { rates, LAUNCH_OFFER, LAUNCH_DATE, inclusions, exclusions } from '../data/rates';
+import { rates, LAUNCH_OFFER, LAUNCH_DATE, LAUNCH_DISCOUNT, inclusions, exclusions } from '../data/rates';
 import { refundPolicy } from '../data/policies';
 import { site } from '../data/site';
 import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
@@ -64,10 +64,11 @@ const jsonLd = [
     LAUNCH_OFFER && (
       <Section bg="cream" space="md" containerClass="!pt-0">
         <div class="launch-banner">
-          <p class="launch-banner__eyebrow">Launch offer</p>
+          <p class="launch-banner__eyebrow">Soft launch</p>
           <p class="launch-banner__lead">
-            The Rooiberg Wander launches on {LAUNCH_DATE}. Book a Launch Phase departure and save
-            <strong> 50%</strong> on the standard group rate.
+            The Rooiberg Wander opens on {LAUNCH_DATE}. During the soft-launch period, family and
+            friends book at <strong>{Math.round(LAUNCH_DISCOUNT * 100)}% off</strong> the standard
+            group rate.
           </p>
         </div>
       </Section>
