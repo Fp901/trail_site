@@ -12,6 +12,7 @@ import {
   sendPretripReminder,
   sendBalancePaidConfirmation,
   sendTaxInvoice,
+  sendLoginAttackAlert,
 } from '../lib/email';
 import { sendBalancePaymentLink } from '../lib/balance';
 import { rateLimit, clientIp } from '../lib/ratelimit';
@@ -348,10 +349,27 @@ export const server = {
     }),
     handler: async (input, ctx) => {
       const ip = clientIp(ctx.request);
-      if (
-        !(await rateLimit(`adminlogin:min:${ip}`, 5, 60)) ||
-        !(await rateLimit(`adminlogin:hr:${ip}`, 20, 3600))
-      ) {
+      const emailKey = input.email.trim().toLowerCase();
+
+      // Per-IP AND per-email limits. Per-IP alone cannot stop a distributed attack that spreads
+      // attempts against ONE account across many IPs, so the account itself is also throttled.
+      const ipOk =
+        (await rateLimit(`adminlogin:min:${ip}`, 5, 60)) &&
+        (await rateLimit(`adminlogin:hr:${ip}`, 20, 3600));
+      const emailOk = await rateLimit(`adminlogin:email:hr:${emailKey}`, 10, 3600);
+
+      if (!ipOk || !emailOk) {
+        if (!emailOk) {
+          // Alert at most once per account per hour (a second rateLimit key gates the send),
+          // so a sustained attack cannot flood the operator's inbox with one email per attempt.
+          const shouldAlert = await rateLimit(`adminlogin:emailalert:${emailKey}`, 1, 3600);
+          if (shouldAlert) {
+            const notify = import.meta.env.BOOKINGS_NOTIFY_TO ?? site.notifyEmail;
+            sendLoginAttackAlert({ to: notify, attemptedEmail: emailKey, ip, at: new Date().toISOString() }).catch(
+              (err) => console.error('[adminLogin] attack alert email failed', (err as Error).message),
+            );
+          }
+        }
         throw new ActionError({
           code: 'TOO_MANY_REQUESTS',
           message: 'Too many sign-in attempts. Please wait a moment and try again.',

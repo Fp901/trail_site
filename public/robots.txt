@@ -5,6 +5,7 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /booking/
+Disallow: /admin/
 
 # Explicitly welcome major search + AI crawlers.
 User-agent: Googlebot

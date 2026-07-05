@@ -596,3 +596,32 @@ export async function sendManualReviewAlert(opts: {
     html: layout('alert', opts.subject, body),
   });
 }
+
+// Fired once per attacked account per hour (guarded by the caller via rateLimit) when the
+// per-email admin-login limiter trips — i.e. sustained failed sign-in attempts against one
+// specific admin account, which per-IP limiting alone cannot catch (many IPs, one target).
+export async function sendLoginAttackAlert(opts: {
+  to: string;
+  attemptedEmail: string;
+  ip: string;
+  at: string;
+}): Promise<void> {
+  const body =
+    alertBadge +
+    h1('Repeated failed sign-ins.') +
+    p(
+      `There have been repeated failed sign-in attempts against the admin account <strong>${escapeHtml(opts.attemptedEmail)}</strong>. The account has not been compromised (the password was not accepted), but this may indicate an attack in progress.`,
+    ) +
+    infoTable([
+      ['Account targeted', escapeHtml(opts.attemptedEmail)],
+      ['Most recent attempt from', escapeHtml(opts.ip)],
+      ['Time', opts.at],
+    ]) +
+    p('No action is required unless attempts continue. If you did not attempt to sign in yourself, consider changing this account’s password.');
+
+  await sendEmail({
+    to: opts.to,
+    subject: 'ACTION REQUIRED: repeated failed admin sign-ins',
+    html: layout('alert', `Repeated failed sign-ins for ${opts.attemptedEmail}`, body),
+  });
+}
