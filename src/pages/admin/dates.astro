@@ -1,0 +1,234 @@
+---
+// Admin blocked dates (admin overhaul v1). prerender=false; gated server-side. Manage the
+// operator-blocked windows that feed the public availability calendar. "Remove" is a soft
+// remove (removed_at set; the row is kept) — nothing is ever deleted. Audit-logged.
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import AdminNav from '../../components/AdminNav.astro';
+import { getAdminUser } from '../../lib/auth';
+import { getSupabaseAdmin } from '../../lib/supabase';
+import { withBase } from '../../data/site';
+
+export const prerender = false;
+
+const user = await getAdminUser(Astro.cookies);
+if (!user) {
+  return Astro.redirect(withBase('/admin/login'));
+}
+
+interface Block {
+  id: string;
+  created_at: string;
+  start_date: string;
+  end_date: string;
+  reason: string | null;
+  created_by: string | null;
+  removed_at: string | null;
+}
+
+let blocks: Block[] = [];
+let loadError = false;
+
+try {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('blocked_dates')
+    .select('id, created_at, start_date, end_date, reason, created_by, removed_at')
+    .order('start_date', { ascending: true });
+  if (error) throw error;
+  blocks = (data as Block[]) ?? [];
+} catch {
+  loadError = true;
+}
+
+const active = blocks.filter((b) => !b.removed_at);
+const removed = blocks.filter((b) => b.removed_at);
+const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+const fmtDateTime = (v: string | null) =>
+  v ? new Date(v).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' }) : '—';
+---
+
+<Layout
+  title="Blocked dates | Operator dashboard"
+  description="Operator dashboard."
+  path="/admin/dates"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="dates-heading" space="lg">
+    <AdminNav email={user.email ?? ''} active="dates" />
+
+    <div class="mt-8">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Operator dashboard
+      </p>
+      <h1 id="dates-heading" class="mt-3 font-display text-4xl text-earth sm:text-5xl">
+        Blocked dates
+      </h1>
+      <p class="mt-3 max-w-2xl font-body text-charcoal/75">
+        Days inside a blocked window cannot be chosen as a start date in the public booking
+        calendar. Blocking a window does not affect bookings that already exist on those dates.
+      </p>
+    </div>
+
+    {/* Add a block */}
+    <div class="admin-card mt-8 max-w-xl">
+      <h2 class="admin-card__title">Block a window</h2>
+      <form id="block-form" novalidate>
+        <div class="bform__grid">
+          <div class="form-field">
+            <label for="bd-start">First blocked day</label>
+            <input id="bd-start" type="date" min={todaySast} required />
+          </div>
+          <div class="form-field">
+            <label for="bd-end">Last blocked day</label>
+            <input id="bd-end" type="date" min={todaySast} required />
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="bd-reason">Reason</label>
+          <input id="bd-reason" type="text" maxlength="200" placeholder="e.g. lodge maintenance" required />
+        </div>
+        <button type="submit" class="btn btn-primary admin-card__btn">Block these dates</button>
+        <p class="bform__status" data-status role="status" aria-live="polite"></p>
+      </form>
+    </div>
+
+    {
+      loadError ? (
+        <p class="mt-10 font-body text-charcoal">Could not load blocked dates. Please try again.</p>
+      ) : (
+        <Fragment>
+          <h2 class="mt-12 font-display text-2xl text-earth">Active blocks ({active.length})</h2>
+          {active.length === 0 ? (
+            <p class="mt-4 font-body text-charcoal/75">No blocked windows.</p>
+          ) : (
+            <div class="admin-tablewrap mt-5">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th scope="col">From</th>
+                    <th scope="col">To</th>
+                    <th scope="col">Reason</th>
+                    <th scope="col">Added by</th>
+                    <th scope="col">
+                      <span class="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {active.map((b) => (
+                    <tr data-block-id={b.id}>
+                      <td data-label="From">{b.start_date}</td>
+                      <td data-label="To">{b.end_date}</td>
+                      <td data-label="Reason">{b.reason ?? '—'}</td>
+                      <td data-label="Added by">
+                        <span class="admin-sub">{b.created_by ?? '—'}</span>
+                      </td>
+                      <td data-label="">
+                        <button type="button" class="btn btn-secondary admin-unblock">
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p class="bform__status" id="blocks-status" data-status role="status" aria-live="polite" />
+
+          {removed.length > 0 && (
+            <details class="mt-10">
+              <summary class="font-body text-sm font-semibold text-charcoal/70">
+                Removed blocks ({removed.length})
+              </summary>
+              <div class="admin-tablewrap mt-4">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">From</th>
+                      <th scope="col">To</th>
+                      <th scope="col">Reason</th>
+                      <th scope="col">Removed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {removed.map((b) => (
+                      <tr>
+                        <td data-label="From">{b.start_date}</td>
+                        <td data-label="To">{b.end_date}</td>
+                        <td data-label="Reason">{b.reason ?? '—'}</td>
+                        <td data-label="Removed">
+                          <span class="admin-sub">{fmtDateTime(b.removed_at)}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
+        </Fragment>
+      )
+    }
+  </Section>
+</Layout>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initBlockedDates() {
+    const form = document.getElementById('block-form') as HTMLFormElement | null;
+    if (form && form.dataset.bound !== 'true') {
+      form.dataset.bound = 'true';
+      const statusEl = form.querySelector<HTMLElement>('[data-status]');
+      const setStatus = (msg: string, kind: 'error' | 'success') => {
+        if (statusEl) {
+          statusEl.textContent = msg;
+          statusEl.dataset.kind = kind;
+        }
+      };
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const v = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value.trim() ?? '';
+        const startDate = v('bd-start');
+        const endDate = v('bd-end');
+        const reason = v('bd-reason');
+        if (!startDate || !endDate) return setStatus('Choose both dates.', 'error');
+        if (reason.length < 3) return setStatus('Please give a short reason.', 'error');
+        const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        const { error } = await actions.adminBlockDates({ startDate, endDate, reason });
+        if (error) {
+          setStatus(error.message || 'Something went wrong.', 'error');
+          if (btn) btn.disabled = false;
+          return;
+        }
+        window.location.reload();
+      });
+    }
+
+    document.querySelectorAll<HTMLElement>('[data-block-id]').forEach((row) => {
+      if (row.dataset.bound === 'true') return;
+      row.dataset.bound = 'true';
+      row.querySelector<HTMLButtonElement>('.admin-unblock')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        if (!window.confirm('Remove this blocked window? The dates become bookable again.')) return;
+        btn.disabled = true;
+        const { error } = await actions.adminUnblockDates({ blockId: row.dataset.blockId! });
+        const statusEl = document.getElementById('blocks-status');
+        if (error) {
+          if (statusEl) {
+            statusEl.textContent = error.message || 'Something went wrong.';
+            statusEl.dataset.kind = 'error';
+          }
+          btn.disabled = false;
+          return;
+        }
+        window.location.reload();
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', initBlockedDates);
+</script>

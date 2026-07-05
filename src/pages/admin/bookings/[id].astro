@@ -1,9 +1,12 @@
 ---
-// Admin booking detail (Part 3). prerender=false; gated server-side. View-only. Shows the full
-// booking record plus the submitted pre-trip details (guest manifest, medical notes, emergency
-// contacts, indemnity acceptance). Reads via the service-role client (server only).
+// Admin booking detail — the operator workbench (admin overhaul v1). prerender=false; gated
+// server-side. Shows the full record + pre-trip details, an actions panel (edit contact, move
+// dates, cancel, resend emails, mark balance paid, add note) and a merged activity timeline
+// (payment_events + admin_audit). All mutations go through zod-validated admin actions that
+// re-verify the session and write the append-only audit log. Nothing here can delete a record.
 import Layout from '../../../layouts/Layout.astro';
 import Section from '../../../components/Section.astro';
+import AdminNav from '../../../components/AdminNav.astro';
 import { getAdminUser } from '../../../lib/auth';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { withBase } from '../../../data/site';
@@ -37,6 +40,8 @@ interface PretripDetails {
 
 let booking: Record<string, any> | null = null;
 let pretrip: { submitted_at: string | null; details: PretripDetails | null } | null = null;
+let paymentEvents: Array<Record<string, any>> = [];
+let auditEvents: Array<Record<string, any>> = [];
 
 if (isUuid) {
   try {
@@ -44,12 +49,24 @@ if (isUuid) {
     const { data } = await supabase.from('bookings').select('*').eq('id', id).maybeSingle();
     booking = data ?? null;
     if (booking) {
-      const { data: pt } = await supabase
-        .from('pretrip_details')
-        .select('submitted_at, details')
-        .eq('booking_id', booking.id)
-        .maybeSingle();
-      pretrip = pt ?? null;
+      const [pt, pe, ae] = await Promise.all([
+        supabase
+          .from('pretrip_details')
+          .select('submitted_at, details')
+          .eq('booking_id', booking.id)
+          .maybeSingle(),
+        supabase
+          .from('payment_events')
+          .select('created_at, event_type, amount_cents, detail')
+          .eq('booking_id', booking.id),
+        supabase
+          .from('admin_audit')
+          .select('created_at, admin_email, action, before, after, note')
+          .eq('booking_id', booking.id),
+      ]);
+      pretrip = pt.data ?? null;
+      paymentEvents = pe.data ?? [];
+      auditEvents = ae.data ?? [];
     }
   } catch {
     booking = null;
@@ -71,13 +88,20 @@ const bookingRows: [string, string][] = booking
       ['Residency', booking.residency],
       ['Lead guest', booking.lead_name],
       ['Lead email', booking.lead_email],
+      ['Lead phone', booking.lead_phone ?? '—'],
       ['Total (incl. VAT)', fmtMoney(booking.total_cents)],
-      ['Amount due', fmtMoney(booking.amount_due_cents)],
+      ['Payment plan', booking.payment_plan === 'deposit_balance' ? 'Deposit + balance' : 'Full payment'],
+      ...(booking.payment_plan === 'deposit_balance'
+        ? ([
+            ['Deposit', fmtMoney(booking.deposit_paid_cents)],
+            ['Balance due', fmtMoney(booking.balance_due_cents)],
+            ['Balance due by', fmtDateTime(booking.balance_due_date)],
+            ['Balance paid', booking.balance_paid_at ? fmtDateTime(booking.balance_paid_at) : 'Outstanding'],
+          ] as [string, string][])
+        : []),
       ['Amount paid', fmtMoney(booking.amount_paid_cents)],
-      ['Currency', booking.currency],
       ['Processor', booking.processor],
       ['Processor reference', booking.processor_reference],
-      ['Processor txn id', booking.processor_txn_id ?? '—'],
       ['Created', fmtDateTime(booking.created_at)],
       ['Confirmed', fmtDateTime(booking.confirmed_at)],
       ['Hold expires', fmtDateTime(booking.hold_expires_at)],
@@ -88,6 +112,80 @@ const details = pretrip?.details ?? null;
 const guests = (details?.guests ?? []).filter(
   (g) => g.name || g.idNumber || g.emergencyName || g.emergencyPhone,
 );
+
+// ---- Action availability (server-computed; actions re-guard everything anyway) ---------------
+const canEdit = !!booking && booking.status !== 'cancelled';
+const canCancel = !!booking && (booking.status === 'pending' || booking.status === 'confirmed');
+const canMove = canCancel;
+const isConfirmed = !!booking && booking.status === 'confirmed';
+const hasOpenBalance =
+  isConfirmed &&
+  booking!.payment_plan === 'deposit_balance' &&
+  !booking!.balance_paid_at &&
+  (booking!.balance_due_cents ?? 0) > 0;
+const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+
+// ---- Activity timeline: merge payment events (system) + admin audit, newest first ------------
+interface TimelineItem {
+  at: string;
+  who: string;
+  what: string;
+  note?: string;
+  kind: 'system' | 'admin' | 'note';
+}
+
+const paymentLabels: Record<string, string> = {
+  confirmed: 'Payment confirmed (webhook verified)',
+  amount_mismatch: 'Payment amount mismatch flagged',
+  paid_but_cancelled: 'Payment received on a cancelled hold (manual review)',
+  reference_not_found: 'Payment reference not found (manual review)',
+  duplicate_ignored: 'Duplicate webhook delivery ignored',
+  balance_confirmed: 'Balance payment confirmed (webhook verified)',
+  balance_amount_mismatch: 'Balance amount mismatch flagged',
+  balance_inconsistent: 'Balance payment inconsistency flagged',
+  manual_balance_paid: 'Balance recorded as paid manually',
+};
+
+function auditLabel(e: Record<string, any>): string {
+  switch (e.action) {
+    case 'note':
+      return 'Note added';
+    case 'update_contact': {
+      const changed = Object.keys(e.after ?? {})
+        .filter((k) => (e.before ?? {})[k] !== (e.after ?? {})[k])
+        .map((k) => `${k.replace('lead_', '')}: ${(e.before ?? {})[k] ?? '—'} → ${(e.after ?? {})[k]}`);
+      return `Contact details updated${changed.length ? ` (${changed.join(' · ')})` : ''}`;
+    }
+    case 'move_dates':
+      return `Dates moved: ${e.before?.start_date ?? '?'} → ${e.after?.start_date ?? '?'}`;
+    case 'cancel_booking':
+      return 'Booking cancelled';
+    case 'resend_email':
+      return `Email re-sent: ${e.note ?? ''}`;
+    case 'mark_balance_paid':
+      return 'Balance marked paid (manual)';
+    default:
+      return e.action;
+  }
+}
+
+const timeline: TimelineItem[] = [
+  ...paymentEvents.map((e) => ({
+    at: e.created_at as string,
+    who: 'System',
+    what:
+      (paymentLabels[e.event_type] ?? e.event_type) +
+      (e.amount_cents != null ? ` · ${fmtMoney(e.amount_cents)}` : ''),
+    kind: 'system' as const,
+  })),
+  ...auditEvents.map((e) => ({
+    at: e.created_at as string,
+    who: e.admin_email as string,
+    what: auditLabel(e),
+    note: e.action === 'note' ? (e.note as string) : e.action === 'resend_email' ? undefined : (e.note ?? undefined),
+    kind: e.action === 'note' ? ('note' as const) : ('admin' as const),
+  })),
+].sort((a, b) => (a.at < b.at ? 1 : -1));
 ---
 
 <Layout
@@ -97,7 +195,9 @@ const guests = (details?.guests ?? []).filter(
   noindex={true}
 >
   <Section bg="cream" labelledby="detail-heading" space="lg">
-    <p class="font-body text-sm">
+    <AdminNav email={user.email ?? ''} active="bookings" />
+
+    <p class="mt-6 font-body text-sm">
       <a href={withBase('/admin')} class="admin-link">&larr; All bookings</a>
     </p>
 
@@ -139,9 +239,7 @@ const guests = (details?.guests ?? []).filter(
             <div>
               <h2 class="font-display text-2xl text-earth">Pre-trip details</h2>
               {!pretrip || !pretrip.submitted_at ? (
-                <p class="mt-5 font-body leading-relaxed text-charcoal/80">
-                  Not yet submitted.
-                </p>
+                <p class="mt-5 font-body leading-relaxed text-charcoal/80">Not yet submitted.</p>
               ) : (
                 <Fragment>
                   <dl class="admin-dl mt-5">
@@ -200,8 +298,293 @@ const guests = (details?.guests ?? []).filter(
               )}
             </div>
           </div>
+
+          {/* ---- Admin actions --------------------------------------------------- */}
+          <div class="mt-14" data-booking-id={booking.id}>
+            <h2 class="font-display text-2xl text-earth">Admin actions</h2>
+            <p class="mt-2 font-body text-sm text-charcoal/70">
+              Every change is logged with your name. Amounts cannot be edited here; refunds are
+              handled in the Paystack dashboard.
+            </p>
+
+            <div class="admin-actions mt-8">
+              {/* Edit contact */}
+              <div class="admin-card">
+                <h3 class="admin-card__title">Contact details</h3>
+                {canEdit ? (
+                  <form data-act="contact" novalidate>
+                    <div class="form-field">
+                      <label for="ac-name">Lead guest name</label>
+                      <input id="ac-name" type="text" maxlength="120" value={booking.lead_name} required />
+                    </div>
+                    <div class="form-field">
+                      <label for="ac-email">Lead email</label>
+                      <input id="ac-email" type="email" maxlength="180" value={booking.lead_email} required />
+                    </div>
+                    <div class="form-field">
+                      <label for="ac-phone">Lead phone</label>
+                      <input id="ac-phone" type="tel" maxlength="40" value={booking.lead_phone ?? ''} required />
+                    </div>
+                    <button type="submit" class="btn btn-primary admin-card__btn">Save contact details</button>
+                    <p class="bform__status" data-status role="status" aria-live="polite" />
+                  </form>
+                ) : (
+                  <p class="admin-card__off">Unavailable for a cancelled booking.</p>
+                )}
+              </div>
+
+              {/* Move dates */}
+              <div class="admin-card">
+                <h3 class="admin-card__title">Move dates</h3>
+                {canMove ? (
+                  <form data-act="move" novalidate>
+                    <p class="admin-card__hint">
+                      The end date follows automatically (start + 3 nights). If the balance is
+                      unpaid, its due date re-anchors to the new trip.
+                    </p>
+                    <div class="form-field">
+                      <label for="am-date">New start date (Day 1)</label>
+                      <input id="am-date" type="date" min={todaySast} value={booking.start_date} required />
+                    </div>
+                    <button type="submit" class="btn btn-primary admin-card__btn">Move booking</button>
+                    <p class="bform__status" data-status role="status" aria-live="polite" />
+                  </form>
+                ) : (
+                  <p class="admin-card__off">Unavailable for a cancelled booking.</p>
+                )}
+              </div>
+
+              {/* Resend emails */}
+              <div class="admin-card">
+                <h3 class="admin-card__title">Re-send guest emails</h3>
+                {isConfirmed ? (
+                  <div data-act="resend">
+                    <div class="admin-card__row">
+                      <button type="button" class="btn btn-secondary" data-kind="confirmation">Confirmation</button>
+                      <button type="button" class="btn btn-secondary" data-kind="pretrip_reminder">Pre-trip reminder</button>
+                      <button type="button" class="btn btn-secondary" data-kind="tax_invoice">Tax invoice</button>
+                      {hasOpenBalance && (
+                        <button type="button" class="btn btn-secondary" data-kind="balance_link">Balance payment link</button>
+                      )}
+                    </div>
+                    {hasOpenBalance && (
+                      <p class="admin-card__hint">
+                        Re-sending the balance link replaces the previous payment link.
+                      </p>
+                    )}
+                    <p class="bform__status" data-status role="status" aria-live="polite" />
+                  </div>
+                ) : (
+                  <p class="admin-card__off">Available once the booking is confirmed.</p>
+                )}
+              </div>
+
+              {/* Mark balance paid */}
+              <div class="admin-card">
+                <h3 class="admin-card__title">Mark balance paid</h3>
+                {hasOpenBalance ? (
+                  <form data-act="markpaid" novalidate>
+                    <p class="admin-card__hint">
+                      Only for a balance settled outside Paystack (e.g. EFT received). Records the
+                      outstanding {fmtMoney(booking.balance_due_cents)} as paid, in your name.
+                    </p>
+                    <div class="form-field">
+                      <label for="ap-reason">How was it paid? (required)</label>
+                      <input id="ap-reason" type="text" maxlength="500" placeholder="e.g. EFT received 5 July, ref 12345" required />
+                    </div>
+                    <label class="admin-card__check">
+                      <input id="ap-emails" type="checkbox" checked />
+                      <span>Email the guest a paid-in-full confirmation + tax invoice</span>
+                    </label>
+                    <button type="submit" class="btn btn-primary admin-card__btn">Record balance as paid</button>
+                    <p class="bform__status" data-status role="status" aria-live="polite" />
+                  </form>
+                ) : (
+                  <p class="admin-card__off">
+                    {isConfirmed ? 'No outstanding balance on this booking.' : 'Available once the booking is confirmed.'}
+                  </p>
+                )}
+              </div>
+
+              {/* Add note */}
+              <div class="admin-card">
+                <h3 class="admin-card__title">Add an internal note</h3>
+                <form data-act="note" novalidate>
+                  <div class="form-field">
+                    <label for="an-note">Note (visible to admins only)</label>
+                    <textarea id="an-note" rows="3" maxlength="2000" required />
+                  </div>
+                  <button type="submit" class="btn btn-primary admin-card__btn">Add note</button>
+                  <p class="bform__status" data-status role="status" aria-live="polite" />
+                </form>
+              </div>
+
+              {/* Cancel */}
+              <div class="admin-card admin-card--danger">
+                <h3 class="admin-card__title">Cancel this booking</h3>
+                {canCancel ? (
+                  <form data-act="cancel" novalidate>
+                    <p class="admin-card__hint">
+                      Status change only: the record is kept, the date frees for new bookings, and
+                      any refund is processed separately in Paystack per the refund policy.
+                    </p>
+                    <div class="form-field">
+                      <label for="ax-reason">Reason (required)</label>
+                      <input id="ax-reason" type="text" maxlength="500" placeholder="e.g. guest requested cancellation by email" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary admin-card__btn">Cancel booking</button>
+                    <p class="bform__status" data-status role="status" aria-live="polite" />
+                  </form>
+                ) : (
+                  <p class="admin-card__off">This booking is already cancelled.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ---- Activity timeline ----------------------------------------------- */}
+          <div class="mt-14">
+            <h2 class="font-display text-2xl text-earth">Activity</h2>
+            {timeline.length === 0 ? (
+              <p class="mt-4 font-body text-charcoal/70">No recorded activity yet.</p>
+            ) : (
+              <ol class="admin-timeline mt-6">
+                {timeline.map((t) => (
+                  <li class:list={['admin-timeline__item', `admin-timeline__item--${t.kind}`]}>
+                    <p class="admin-timeline__meta">
+                      {fmtDateTime(t.at)} · {t.who}
+                    </p>
+                    <p class="admin-timeline__what">{t.what}</p>
+                    {t.note && <p class="admin-timeline__note">{t.note}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </Fragment>
       )
     }
   </Section>
 </Layout>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initBookingActions() {
+    const wrap = document.querySelector<HTMLElement>('[data-booking-id]');
+    if (!wrap || wrap.dataset.bound === 'true') return;
+    wrap.dataset.bound = 'true';
+    const bookingId = wrap.dataset.bookingId!;
+
+    const val = (sel: string) =>
+      (wrap.querySelector<HTMLInputElement | HTMLTextAreaElement>(sel)?.value ?? '').trim();
+
+    function status(el: Element | null, msg: string, kind: 'error' | 'success') {
+      const s = el?.querySelector<HTMLElement>('[data-status]');
+      if (s) {
+        s.textContent = msg;
+        s.dataset.kind = kind;
+      }
+    }
+
+    async function run(
+      container: Element,
+      fn: () => Promise<{ error?: { message?: string } | null; data?: any }>,
+      okMsg: string,
+      reload = true,
+    ) {
+      const buttons = container.querySelectorAll<HTMLButtonElement>('button');
+      buttons.forEach((b) => (b.disabled = true));
+      status(container, 'Working…', 'success');
+      const { error, data } = await fn();
+      if (error) {
+        status(container, error.message || 'Something went wrong.', 'error');
+        buttons.forEach((b) => (b.disabled = false));
+        return;
+      }
+      if (data?.emailWarning) {
+        status(container, data.emailWarning, 'error');
+        buttons.forEach((b) => (b.disabled = false));
+        return;
+      }
+      status(container, okMsg, 'success');
+      if (reload) window.setTimeout(() => window.location.reload(), 600);
+      else buttons.forEach((b) => (b.disabled = false));
+    }
+
+    // Contact
+    wrap.querySelector('form[data-act="contact"]')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLElement;
+      run(
+        form,
+        () =>
+          actions.adminUpdateContact({
+            bookingId,
+            leadName: val('#ac-name'),
+            leadEmail: val('#ac-email'),
+            leadPhone: val('#ac-phone'),
+          }),
+        'Saved.',
+      );
+    });
+
+    // Move dates
+    wrap.querySelector('form[data-act="move"]')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLElement;
+      const startDate = val('#am-date');
+      if (!startDate) return status(form, 'Choose a date.', 'error');
+      if (!window.confirm(`Move this booking to start on ${startDate}?`)) return;
+      run(form, () => actions.adminMoveDates({ bookingId, startDate }), 'Booking moved.');
+    });
+
+    // Resends
+    const resend = wrap.querySelector('[data-act="resend"]');
+    resend?.querySelectorAll<HTMLButtonElement>('button[data-kind]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const kind = btn.dataset.kind as
+          | 'confirmation'
+          | 'pretrip_reminder'
+          | 'balance_link'
+          | 'tax_invoice';
+        if (kind === 'balance_link' && !window.confirm('This replaces the previous payment link. Continue?'))
+          return;
+        run(resend, () => actions.adminResendEmail({ bookingId, kind }), 'Email sent.', false);
+      });
+    });
+
+    // Mark balance paid
+    wrap.querySelector('form[data-act="markpaid"]')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLElement;
+      const reason = val('#ap-reason');
+      if (reason.length < 10) return status(form, 'Please describe the payment (at least 10 characters).', 'error');
+      if (!window.confirm('Record the outstanding balance as paid? This cannot be undone from the portal.'))
+        return;
+      const sendEmails = (form.querySelector<HTMLInputElement>('#ap-emails')?.checked ?? true);
+      run(form, () => actions.adminMarkBalancePaid({ bookingId, reason, sendEmails }), 'Recorded.');
+    });
+
+    // Note
+    wrap.querySelector('form[data-act="note"]')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLElement;
+      const note = val('#an-note');
+      if (note.length < 5) return status(form, 'Note must be at least 5 characters.', 'error');
+      run(form, () => actions.adminAddNote({ bookingId, note }), 'Note added.');
+    });
+
+    // Cancel
+    wrap.querySelector('form[data-act="cancel"]')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLElement;
+      const reason = val('#ax-reason');
+      if (reason.length < 10) return status(form, 'Please give a reason (at least 10 characters).', 'error');
+      if (!window.confirm('Cancel this booking? The date will be released for new bookings.')) return;
+      run(form, () => actions.adminCancelBooking({ bookingId, reason }), 'Booking cancelled.');
+    });
+  }
+
+  document.addEventListener('astro:page-load', initBookingActions);
+</script>

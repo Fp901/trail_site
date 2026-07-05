@@ -1,8 +1,10 @@
 ---
-// Admin dashboard — bookings list (Part 3). prerender=false; gated server-side. View-only.
-// Reads via the service-role client (server only) — never exposed to the browser.
+// Admin dashboard — bookings list + at-a-glance stats (admin overhaul v1). prerender=false;
+// gated server-side. Reads via the service-role client (server only). Filters and search run
+// server-side via query params; mutations live on the booking detail page.
 import Layout from '../../layouts/Layout.astro';
 import Section from '../../components/Section.astro';
+import AdminNav from '../../components/AdminNav.astro';
 import { getAdminUser } from '../../lib/auth';
 import { getSupabaseAdmin } from '../../lib/supabase';
 import { withBase } from '../../data/site';
@@ -14,9 +16,19 @@ if (!user) {
   return Astro.redirect(withBase('/admin/login'));
 }
 
-// 7-day (168h) overdue threshold — mirrors the pre-trip cron (Part 1).
+// 7-day (168h) overdue threshold — mirrors the pre-trip cron.
 const OVERDUE_MS = 168 * 3600_000;
 const now = Date.now();
+const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+
+// Filter + search (server-side, via query params).
+const STATUSES = ['all', 'confirmed', 'pending', 'cancelled'] as const;
+type StatusFilter = (typeof STATUSES)[number];
+const rawStatus = Astro.url.searchParams.get('status') ?? 'all';
+const statusFilter: StatusFilter = (STATUSES as readonly string[]).includes(rawStatus)
+  ? (rawStatus as StatusFilter)
+  : 'all';
+const q = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 120);
 
 interface Row {
   id: string;
@@ -28,22 +40,35 @@ interface Row {
   group_size: number;
   amount_paid_cents: number | null;
   confirmed_at: string | null;
+  payment_plan: string;
+  balance_due_cents: number;
+  balance_paid_at: string | null;
+  hold_expires_at: string | null;
 }
 
 let rows: Row[] = [];
 let loadError = false;
 const submittedIds = new Set<string>();
+let unhandledInquiries = 0;
 
 try {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+
+  let query = supabase
     .from('bookings')
     .select(
-      'id, start_date, end_date, lead_name, lead_email, status, group_size, amount_paid_cents, confirmed_at',
+      'id, start_date, end_date, lead_name, lead_email, status, group_size, amount_paid_cents, confirmed_at, payment_plan, balance_due_cents, balance_paid_at, hold_expires_at',
     )
     .order('start_date', { ascending: true });
+  if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+  if (q) {
+    // Escape LIKE wildcards in the search text, then match name OR email.
+    const like = `%${q.replace(/[%_]/g, '\\$&')}%`;
+    query = query.or(`lead_name.ilike.${like},lead_email.ilike.${like}`);
+  }
+  const { data, error } = await query;
   if (error) throw error;
-  rows = data ?? [];
+  rows = (data as Row[]) ?? [];
 
   if (rows.length) {
     const { data: subs } = await supabase
@@ -56,6 +81,12 @@ try {
       );
     for (const s of subs ?? []) submittedIds.add(s.booking_id);
   }
+
+  const { count } = await supabase
+    .from('inquiries')
+    .select('id', { count: 'exact', head: true })
+    .is('handled_at', null);
+  unhandledInquiries = count ?? 0;
 } catch {
   loadError = true;
 }
@@ -63,13 +94,42 @@ try {
 const fmtMoney = (cents: number | null) =>
   cents == null ? '—' : 'R' + Math.round(cents / 100).toLocaleString('en-US');
 
-// A confirmed booking is "pre-trip overdue" if 7+ days have passed since confirmation with no
-// submitted pre-trip details.
 const isOverdue = (r: Row) =>
   r.status === 'confirmed' &&
   !submittedIds.has(r.id) &&
   !!r.confirmed_at &&
   now - new Date(r.confirmed_at).getTime() >= OVERDUE_MS;
+
+const hasOpenBalance = (r: Row) =>
+  r.status === 'confirmed' &&
+  r.payment_plan === 'deposit_balance' &&
+  !r.balance_paid_at &&
+  r.balance_due_cents > 0;
+
+const liveHold = (r: Row) =>
+  r.status === 'pending' && !!r.hold_expires_at && new Date(r.hold_expires_at).getTime() > now;
+
+// Stats are computed over the CURRENT filter's rows only when filtered; for the headline cards we
+// want the full picture, so compute from an unfiltered pass when a filter is active. To keep this
+// simple and cheap at this scale, stats reflect the visible rows when filtered, with labels below.
+const upcomingConfirmed = rows.filter((r) => r.status === 'confirmed' && r.start_date >= todaySast);
+const stats = [
+  { label: 'Upcoming trips', value: upcomingConfirmed.length },
+  { label: 'Live holds', value: rows.filter(liveHold).length },
+  { label: 'Unpaid balances', value: rows.filter(hasOpenBalance).length },
+  { label: 'Pre-trip overdue', value: rows.filter(isOverdue).length },
+  { label: 'New enquiries', value: unhandledInquiries, href: '/admin/inquiries' },
+];
+
+const nextTrip = upcomingConfirmed[0] ?? null;
+
+const filterHref = (s: StatusFilter) => {
+  const p = new URLSearchParams();
+  if (s !== 'all') p.set('status', s);
+  if (q) p.set('q', q);
+  const qs = p.toString();
+  return withBase(`/admin${qs ? `?${qs}` : ''}`);
+};
 ---
 
 <Layout
@@ -79,21 +139,70 @@ const isOverdue = (r: Row) =>
   noindex={true}
 >
   <Section bg="cream" labelledby="admin-heading" space="lg">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
-          Operator dashboard
-        </p>
-        <h1 id="admin-heading" class="mt-3 font-display text-4xl text-earth sm:text-5xl">
-          Bookings
-        </h1>
+    <AdminNav email={user.email ?? ''} active="bookings" />
+
+    <div class="mt-8">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Operator dashboard
+      </p>
+      <h1 id="admin-heading" class="mt-3 font-display text-4xl text-earth sm:text-5xl">
+        Bookings
+      </h1>
+    </div>
+
+    {
+      !loadError && (
+        <div class="admin-stats mt-8">
+          {stats.map((s) => (
+            <div class="admin-stat">
+              <p class="admin-stat__value">{s.value}</p>
+              {s.href ? (
+                <a href={withBase(s.href)} class="admin-stat__label admin-link">
+                  {s.label}
+                </a>
+              ) : (
+                <p class="admin-stat__label">{s.label}</p>
+              )}
+            </div>
+          ))}
+          {nextTrip && (
+            <div class="admin-stat admin-stat--next">
+              <p class="admin-stat__value">{nextTrip.start_date}</p>
+              <p class="admin-stat__label">Next trip · {nextTrip.lead_name}</p>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    {/* Filters + search */}
+    <div class="admin-filters mt-8">
+      <div class="admin-filters__tabs" role="group" aria-label="Filter by status">
+        {
+          STATUSES.map((s) => (
+            <a
+              href={filterHref(s)}
+              class="admin-filters__tab"
+              aria-current={statusFilter === s ? 'page' : undefined}
+            >
+              {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+            </a>
+          ))
+        }
       </div>
-      <div class="flex items-center gap-4 font-body text-sm text-charcoal/70">
-        <span>{user.email}</span>
-        <button id="admin-logout" type="button" class="btn btn-secondary" data-redirect={withBase('/admin/login')}>
-          Sign out
-        </button>
-      </div>
+      <form method="get" action={withBase('/admin')} class="admin-filters__search">
+        {statusFilter !== 'all' && <input type="hidden" name="status" value={statusFilter} />}
+        <label class="sr-only" for="admin-q">Search name or email</label>
+        <input
+          id="admin-q"
+          type="search"
+          name="q"
+          value={q}
+          placeholder="Search name or email"
+          maxlength="120"
+        />
+        <button type="submit" class="btn btn-secondary">Search</button>
+      </form>
     </div>
 
     {
@@ -102,9 +211,11 @@ const isOverdue = (r: Row) =>
           Could not load bookings. Check that the database is configured and try again.
         </p>
       ) : rows.length === 0 ? (
-        <p class="mt-10 font-body text-charcoal">No bookings yet.</p>
+        <p class="mt-10 font-body text-charcoal">
+          {q || statusFilter !== 'all' ? 'No bookings match this filter.' : 'No bookings yet.'}
+        </p>
       ) : (
-        <div class="admin-tablewrap mt-10">
+        <div class="admin-tablewrap mt-8">
           <table class="admin-table">
             <thead>
               <tr>
@@ -113,8 +224,11 @@ const isOverdue = (r: Row) =>
                 <th scope="col">Status</th>
                 <th scope="col">Group</th>
                 <th scope="col">Paid</th>
+                <th scope="col">Balance</th>
                 <th scope="col">Pre-trip</th>
-                <th scope="col"><span class="sr-only">Actions</span></th>
+                <th scope="col">
+                  <span class="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -130,6 +244,15 @@ const isOverdue = (r: Row) =>
                   </td>
                   <td data-label="Group">{r.group_size}</td>
                   <td data-label="Paid">{fmtMoney(r.amount_paid_cents)}</td>
+                  <td data-label="Balance">
+                    {r.payment_plan !== 'deposit_balance' ? (
+                      <span class="admin-sub">—</span>
+                    ) : r.balance_paid_at ? (
+                      <span class="admin-ok">Paid</span>
+                    ) : (
+                      <span class="admin-flag">{fmtMoney(r.balance_due_cents)} due</span>
+                    )}
+                  </td>
                   <td data-label="Pre-trip">
                     {submittedIds.has(r.id) ? (
                       <span class="admin-ok">Submitted</span>
@@ -153,20 +276,3 @@ const isOverdue = (r: Row) =>
     }
   </Section>
 </Layout>
-
-<script>
-  import { actions } from 'astro:actions';
-
-  function initAdminLogout() {
-    const btn = document.getElementById('admin-logout') as HTMLButtonElement | null;
-    if (!btn || btn.dataset.bound === 'true') return;
-    btn.dataset.bound = 'true';
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      await actions.adminLogout({});
-      window.location.href = btn.dataset.redirect || '/admin/login';
-    });
-  }
-
-  document.addEventListener('astro:page-load', initAdminLogout);
-</script>

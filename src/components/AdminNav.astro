@@ -1,0 +1,53 @@
+---
+// Admin shell nav — shared across all admin pages. Shows the section links, the signed-in
+// admin, and sign-out. Pages remain individually gated by getAdminUser (this is chrome only).
+import { withBase } from '../data/site';
+
+interface Props {
+  email: string;
+  active: 'bookings' | 'inquiries' | 'dates';
+}
+const { email, active } = Astro.props;
+
+const links = [
+  { id: 'bookings', label: 'Bookings', href: '/admin' },
+  { id: 'inquiries', label: 'Enquiries', href: '/admin/inquiries' },
+  { id: 'dates', label: 'Blocked dates', href: '/admin/dates' },
+] as const;
+---
+
+<nav class="admin-nav" aria-label="Admin">
+  <ul class="admin-nav__links">
+    {
+      links.map((l) => (
+        <li>
+          <a
+            href={withBase(l.href)}
+            class="admin-nav__link"
+            aria-current={active === l.id ? 'page' : undefined}
+          >
+            {l.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+  <div class="admin-nav__session">
+    <span class="admin-nav__email">{email}</span>
+    <button type="button" id="admin-logout" class="btn btn-secondary admin-nav__out">Sign out</button>
+  </div>
+</nav>
+
+<script>
+  import { actions } from 'astro:actions';
+  function bindLogout() {
+    const btn = document.getElementById('admin-logout');
+    if (!btn || btn.dataset.bound === 'true') return;
+    btn.dataset.bound = 'true';
+    btn.addEventListener('click', async () => {
+      await actions.adminLogout({});
+      window.location.href = '/admin/login';
+    });
+  }
+  document.addEventListener('astro:page-load', bindLogout);
+</script>

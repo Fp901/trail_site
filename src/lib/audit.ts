@@ -12,7 +12,9 @@ export type PaymentEventType =
   // Split payment (balance / second transaction)
   | 'balance_confirmed'
   | 'balance_amount_mismatch'
-  | 'balance_inconsistent';
+  | 'balance_inconsistent'
+  // Admin-recorded payment fact (e.g. balance settled by EFT outside Paystack)
+  | 'manual_balance_paid';
 
 export async function recordPaymentEvent(e: {
   eventType: PaymentEventType;

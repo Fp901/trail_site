@@ -1,0 +1,157 @@
+---
+// Admin enquiries (admin overhaul v1). prerender=false; gated server-side. Lists website
+// enquiries newest-first with handled tracking (adminMarkInquiryHandled action; audit-logged).
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import AdminNav from '../../components/AdminNav.astro';
+import { getAdminUser } from '../../lib/auth';
+import { getSupabaseAdmin } from '../../lib/supabase';
+import { withBase } from '../../data/site';
+
+export const prerender = false;
+
+const user = await getAdminUser(Astro.cookies);
+if (!user) {
+  return Astro.redirect(withBase('/admin/login'));
+}
+
+interface Inquiry {
+  id: string;
+  created_at: string;
+  name: string;
+  email: string;
+  group_size: string | null;
+  target_dates: string | null;
+  message: string | null;
+  handled_at: string | null;
+  handled_by: string | null;
+}
+
+let inquiries: Inquiry[] = [];
+let loadError = false;
+
+try {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('inquiries')
+    .select('id, created_at, name, email, group_size, target_dates, message, handled_at, handled_by')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  inquiries = (data as Inquiry[]) ?? [];
+} catch {
+  loadError = true;
+}
+
+const fmtDateTime = (v: string | null) =>
+  v ? new Date(v).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' }) : '—';
+
+const openCount = inquiries.filter((i) => !i.handled_at).length;
+---
+
+<Layout
+  title="Enquiries | Operator dashboard"
+  description="Operator dashboard."
+  path="/admin/inquiries"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="inq-heading" space="lg">
+    <AdminNav email={user.email ?? ''} active="inquiries" />
+
+    <div class="mt-8">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Operator dashboard
+      </p>
+      <h1 id="inq-heading" class="mt-3 font-display text-4xl text-earth sm:text-5xl">
+        Enquiries
+      </h1>
+      <p class="mt-3 font-body text-charcoal/75">
+        {openCount === 0 ? 'No open enquiries.' : `${openCount} open ${openCount === 1 ? 'enquiry' : 'enquiries'}.`}
+        Reply by email, then mark the enquiry handled.
+      </p>
+    </div>
+
+    {
+      loadError ? (
+        <p class="mt-10 font-body text-charcoal">Could not load enquiries. Please try again.</p>
+      ) : inquiries.length === 0 ? (
+        <p class="mt-10 font-body text-charcoal">No enquiries yet.</p>
+      ) : (
+        <ol class="admin-inqs mt-8">
+          {inquiries.map((i) => (
+            <li
+              class:list={['admin-inq', i.handled_at && 'admin-inq--handled']}
+              data-inquiry-id={i.id}
+            >
+              <div class="admin-inq__head">
+                <div>
+                  <p class="admin-name">{i.name}</p>
+                  <p class="admin-sub">
+                    <a href={`mailto:${i.email}`} class="admin-link">
+                      {i.email}
+                    </a>
+                    {' · '}
+                    {fmtDateTime(i.created_at)}
+                  </p>
+                </div>
+                <div class="admin-inq__state">
+                  {i.handled_at ? (
+                    <span class="admin-ok">Handled · {i.handled_by}</span>
+                  ) : (
+                    <span class="admin-flag">Open</span>
+                  )}
+                  <button
+                    type="button"
+                    class="btn btn-secondary admin-inq__toggle"
+                    data-handled={String(!i.handled_at)}
+                  >
+                    {i.handled_at ? 'Reopen' : 'Mark handled'}
+                  </button>
+                </div>
+              </div>
+              {(i.group_size || i.target_dates) && (
+                <p class="admin-sub admin-inq__meta">
+                  {i.group_size && `Group: ${i.group_size}`}
+                  {i.group_size && i.target_dates && ' · '}
+                  {i.target_dates && `Dates: ${i.target_dates}`}
+                </p>
+              )}
+              {i.message && <p class="admin-inq__msg">{i.message}</p>}
+              <p class="bform__status" data-status role="status" aria-live="polite" />
+            </li>
+          ))}
+        </ol>
+      )
+    }
+  </Section>
+</Layout>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initInquiries() {
+    document.querySelectorAll<HTMLElement>('[data-inquiry-id]').forEach((row) => {
+      if (row.dataset.bound === 'true') return;
+      row.dataset.bound = 'true';
+      const btn = row.querySelector<HTMLButtonElement>('.admin-inq__toggle');
+      const statusEl = row.querySelector<HTMLElement>('[data-status]');
+      btn?.addEventListener('click', async () => {
+        btn.disabled = true;
+        const { error } = await actions.adminMarkInquiryHandled({
+          inquiryId: row.dataset.inquiryId!,
+          handled: btn.dataset.handled === 'true',
+        });
+        if (error) {
+          if (statusEl) {
+            statusEl.textContent = error.message || 'Something went wrong.';
+            statusEl.dataset.kind = 'error';
+          }
+          btn.disabled = false;
+          return;
+        }
+        window.location.reload();
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', initInquiries);
+</script>

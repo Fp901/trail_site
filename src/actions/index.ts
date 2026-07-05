@@ -3,12 +3,21 @@
 import { defineAction, ActionError } from 'astro:actions';
 import { z } from 'astro:schema';
 import crypto from 'node:crypto';
-import { computeQuote } from '../lib/pricing';
+import { computeQuote, BALANCE_LEAD_DAYS } from '../lib/pricing';
 import { getSupabaseAdmin } from '../lib/supabase';
 import { payments } from '../lib/payments';
-import { sendInquiryNotification } from '../lib/email';
+import {
+  sendInquiryNotification,
+  sendBookingConfirmation,
+  sendPretripReminder,
+  sendBalancePaidConfirmation,
+  sendTaxInvoice,
+} from '../lib/email';
+import { sendBalancePaymentLink } from '../lib/balance';
 import { rateLimit, clientIp } from '../lib/ratelimit';
 import { signInAdmin, signOutAdmin } from '../lib/auth';
+import { requireAdmin, recordAdminEvent } from '../lib/admin';
+import { recordPaymentEvent } from '../lib/audit';
 import { site } from '../data/site';
 
 // 4-day window: Day 1 arrival → Day 4 departure. end = start + 3 days.
@@ -367,4 +376,510 @@ export const server = {
       return { ok: true };
     },
   }),
+
+  // ---- Admin mutations (admin overhaul v1) ----------------------------------
+  // Every action: requireAdmin (session re-verified server-side) → zod → load row → guard →
+  // mutate → recordAdminEvent (awaited; identity from the session, never the client).
+  // Money amounts are NEVER inputs. No action deletes anything.
+
+  // Fix the lead guest's contact details (typos etc.). Money and dates untouched.
+  adminUpdateContact: defineAction({
+    accept: 'json',
+    input: z.object({
+      bookingId: z.string().uuid(),
+      leadName: z.string().trim().min(2, 'Please enter the full name.').max(120),
+      leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
+      leadPhone: z.string().trim().min(7, 'Please enter a valid phone number.').max(40),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const supabase = getSupabaseAdmin();
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('id, status, lead_name, lead_email, lead_phone')
+        .eq('id', input.bookingId)
+        .maybeSingle();
+      if (!booking) throw new ActionError({ code: 'NOT_FOUND', message: 'Booking not found.' });
+      if (booking.status === 'cancelled') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'This booking is cancelled; contact details cannot be edited.' });
+      }
+
+      const leadName = input.leadName.trim().replace(/\s+/g, ' ');
+      const leadEmail = input.leadEmail.trim().toLowerCase();
+      const leadPhone = input.leadPhone.trim();
+
+      const { error } = await supabase
+        .from('bookings')
+        .update({ lead_name: leadName, lead_email: leadEmail, lead_phone: leadPhone })
+        .eq('id', booking.id);
+      if (error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not save the contact details.' });
+      }
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'update_contact',
+        bookingId: booking.id,
+        before: { lead_name: booking.lead_name, lead_email: booking.lead_email, lead_phone: booking.lead_phone },
+        after: { lead_name: leadName, lead_email: leadEmail, lead_phone: leadPhone },
+      });
+      return { ok: true };
+    },
+  }),
+
+  // Append an internal staff note. Notes ARE audit rows: append-only, attributed, timestamped.
+  adminAddNote: defineAction({
+    accept: 'json',
+    input: z.object({
+      bookingId: z.string().uuid(),
+      note: z.string().trim().min(5, 'Note must be at least 5 characters.').max(2000),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const supabase = getSupabaseAdmin();
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('id', input.bookingId)
+        .maybeSingle();
+      if (!booking) throw new ActionError({ code: 'NOT_FOUND', message: 'Booking not found.' });
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'note',
+        bookingId: booking.id,
+        note: input.note.trim(),
+      });
+      return { ok: true };
+    },
+  }),
+
+  // Cancel a booking (pending or confirmed). Status transition only — the row is never deleted,
+  // refunds happen in the Paystack dashboard, and staff contact the guest directly.
+  adminCancelBooking: defineAction({
+    accept: 'json',
+    input: z.object({
+      bookingId: z.string().uuid(),
+      reason: z.string().trim().min(10, 'Please give a reason (at least 10 characters).').max(500),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const supabase = getSupabaseAdmin();
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('id, status, start_date')
+        .eq('id', input.bookingId)
+        .maybeSingle();
+      if (!booking) throw new ActionError({ code: 'NOT_FOUND', message: 'Booking not found.' });
+      if (booking.status === 'cancelled') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'This booking is already cancelled.' });
+      }
+
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled', hold_expires_at: null })
+        .eq('id', booking.id)
+        .in('status', ['pending', 'confirmed']);
+      if (error) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not cancel the booking.' });
+      }
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'cancel_booking',
+        bookingId: booking.id,
+        before: { status: booking.status },
+        after: { status: 'cancelled' },
+        note: input.reason.trim(),
+      });
+      return { ok: true };
+    },
+  }),
+
+  // Re-send a guest email. Reuses the exact same senders as the automated flows.
+  adminResendEmail: defineAction({
+    accept: 'json',
+    input: z.object({
+      bookingId: z.string().uuid(),
+      kind: z.enum(['confirmation', 'pretrip_reminder', 'balance_link', 'tax_invoice']),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const supabase = getSupabaseAdmin();
+      const { data: b } = await supabase
+        .from('bookings')
+        .select(
+          'id, status, lead_email, lead_name, start_date, pretrip_token, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at, total_cents, amount_paid_cents, group_size, confirmed_at',
+        )
+        .eq('id', input.bookingId)
+        .maybeSingle();
+      if (!b) throw new ActionError({ code: 'NOT_FOUND', message: 'Booking not found.' });
+      if (b.status !== 'confirmed') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Emails can only be re-sent for confirmed bookings.' });
+      }
+
+      try {
+        if (input.kind === 'confirmation') {
+          await sendBookingConfirmation({
+            to: b.lead_email,
+            leadName: b.lead_name,
+            startDate: b.start_date,
+            pretripToken: b.pretrip_token,
+            paymentPlan: b.payment_plan,
+            depositCents: b.deposit_paid_cents ?? undefined,
+            balanceCents: b.balance_due_cents ?? undefined,
+            balanceDueDate: b.balance_due_date,
+          });
+        } else if (input.kind === 'pretrip_reminder') {
+          await sendPretripReminder({
+            to: b.lead_email,
+            leadName: b.lead_name,
+            startDate: b.start_date,
+            pretripToken: b.pretrip_token,
+            stage: 'day3',
+          });
+        } else if (input.kind === 'balance_link') {
+          if (b.payment_plan !== 'deposit_balance' || !b.balance_due_cents) {
+            throw new ActionError({ code: 'BAD_REQUEST', message: 'This booking has no outstanding balance plan.' });
+          }
+          if (b.balance_paid_at) {
+            throw new ActionError({ code: 'BAD_REQUEST', message: 'The balance is already paid.' });
+          }
+          // A true re-send: release the one-time send guard so sendBalancePaymentLink can create a
+          // fresh Paystack session. The previous link's reference is replaced; if the guest were to
+          // pay the OLD link, the webhook flags it for manual review (existing safe behaviour).
+          await supabase
+            .from('bookings')
+            .update({ balance_link_sent_at: null, balance_processor_reference: null })
+            .eq('id', b.id)
+            .is('balance_paid_at', null);
+          const sent = await sendBalancePaymentLink({
+            id: b.id,
+            lead_email: b.lead_email,
+            lead_name: b.lead_name,
+            start_date: b.start_date,
+            balance_due_cents: b.balance_due_cents,
+            balance_due_date: b.balance_due_date,
+          });
+          if (!sent) {
+            throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'The balance link could not be re-sent. Please try again.' });
+          }
+        } else {
+          // tax_invoice — re-issue with the ORIGINAL issue timestamps so invoice numbers reproduce.
+          const paidPlanIsDeposit = b.payment_plan === 'deposit_balance';
+          await sendTaxInvoice({
+            to: b.lead_email,
+            leadName: b.lead_name,
+            bookingId: b.id,
+            startDate: b.start_date,
+            issuedAt: b.confirmed_at ?? new Date().toISOString(),
+            amountCents: paidPlanIsDeposit ? (b.deposit_paid_cents ?? 0) : (b.amount_paid_cents ?? b.total_cents),
+            invoiceType: paidPlanIsDeposit ? 'deposit' : 'full',
+            groupSize: b.group_size,
+          });
+          if (paidPlanIsDeposit && b.balance_paid_at) {
+            await sendTaxInvoice({
+              to: b.lead_email,
+              leadName: b.lead_name,
+              bookingId: b.id,
+              startDate: b.start_date,
+              issuedAt: b.balance_paid_at,
+              amountCents: b.balance_due_cents,
+              invoiceType: 'balance',
+              groupSize: b.group_size,
+            });
+          }
+        }
+      } catch (err) {
+        if (err instanceof ActionError) throw err;
+        console.error('[admin] resend email failed', input.kind, (err as Error).message);
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'The email could not be sent. Please try again.' });
+      }
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'resend_email',
+        bookingId: b.id,
+        note: input.kind,
+      });
+      return { ok: true };
+    },
+  }),
+
+  // Move a booking to a new start date. The DB unique-start-date index is the final guard.
+  adminMoveDates: defineAction({
+    accept: 'json',
+    input: z.object({
+      bookingId: z.string().uuid(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid date.'),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const supabase = getSupabaseAdmin();
+      const { data: b } = await supabase
+        .from('bookings')
+        .select('id, status, start_date, end_date, payment_plan, balance_paid_at, balance_link_sent_at')
+        .eq('id', input.bookingId)
+        .maybeSingle();
+      if (!b) throw new ActionError({ code: 'NOT_FOUND', message: 'Booking not found.' });
+      if (b.status === 'cancelled') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'A cancelled booking cannot be moved.' });
+      }
+      if (input.startDate === b.start_date) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'That is already the booking start date.' });
+      }
+
+      // Admins may move inside the public 7-day lead window (deliberate override, logged), but
+      // never into the past.
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+      if (input.startDate < today) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'The new start date cannot be in the past.' });
+      }
+
+      // Blocked windows (active only).
+      const { data: blocked } = await supabase
+        .from('blocked_dates')
+        .select('id')
+        .is('removed_at', null)
+        .lte('start_date', input.startDate)
+        .gte('end_date', input.startDate)
+        .limit(1);
+      if (blocked && blocked.length > 0) {
+        throw new ActionError({ code: 'CONFLICT', message: 'That date falls in a blocked window. Unblock it first or pick another date.' });
+      }
+
+      const newEnd = addDays(input.startDate, 3);
+      // Deposit plan with an unpaid balance: re-anchor the balance due date to the new trip.
+      const patch: Record<string, unknown> = { start_date: input.startDate, end_date: newEnd };
+      if (b.payment_plan === 'deposit_balance' && !b.balance_paid_at) {
+        const scheduledMs = Date.parse(`${input.startDate}T00:00:00Z`) - BALANCE_LEAD_DAYS * 86_400_000;
+        patch.balance_due_date = new Date(Math.max(scheduledMs, Date.now())).toISOString();
+      }
+
+      const { error } = await supabase.from('bookings').update(patch).eq('id', b.id);
+      if (error) {
+        // 23505 = unique violation on bookings_unique_start_date: another active booking starts then.
+        if ((error as { code?: string }).code === '23505') {
+          throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
+        }
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not move the booking.' });
+      }
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'move_dates',
+        bookingId: b.id,
+        before: { start_date: b.start_date, end_date: b.end_date },
+        after: { start_date: input.startDate, end_date: newEnd },
+      });
+      return { ok: true, endDate: newEnd };
+    },
+  }),
+
+  // Record that an outstanding balance was settled OUTSIDE Paystack (e.g. EFT). Records a fact
+  // with the admin's identity; no amounts are input, no status changes.
+  adminMarkBalancePaid: defineAction({
+    accept: 'json',
+    input: z.object({
+      bookingId: z.string().uuid(),
+      reason: z.string().trim().min(10, 'Please describe the payment (at least 10 characters).').max(500),
+      sendEmails: z.boolean().default(true),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const supabase = getSupabaseAdmin();
+      const { data: b } = await supabase
+        .from('bookings')
+        .select('id, status, payment_plan, balance_paid_at, balance_due_cents, total_cents, lead_email, lead_name, start_date, group_size')
+        .eq('id', input.bookingId)
+        .maybeSingle();
+      if (!b) throw new ActionError({ code: 'NOT_FOUND', message: 'Booking not found.' });
+      if (b.payment_plan !== 'deposit_balance' || !b.balance_due_cents) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'This booking has no outstanding balance plan.' });
+      }
+      if (b.status !== 'confirmed') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Only confirmed bookings can have their balance marked paid.' });
+      }
+      if (b.balance_paid_at) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'The balance is already marked paid.' });
+      }
+
+      const paidAt = new Date().toISOString();
+      // Compare-and-set on balance_paid_at so a double-click can never double-record.
+      const { data: updated, error } = await supabase
+        .from('bookings')
+        .update({
+          balance_paid_at: paidAt,
+          balance_processor_txn_id: `manual:${admin.email}`,
+          amount_paid_cents: b.total_cents,
+        })
+        .eq('id', b.id)
+        .is('balance_paid_at', null)
+        .select('id');
+      if (error || !updated || updated.length === 0) {
+        throw new ActionError({ code: 'CONFLICT', message: 'The balance could not be marked paid (it may already be recorded).' });
+      }
+
+      // Keep the payment history complete alongside webhook events (best-effort, PII-free).
+      await recordPaymentEvent({
+        eventType: 'manual_balance_paid',
+        bookingId: b.id,
+        amountCents: b.balance_due_cents,
+        detail: { recordedBy: admin.email },
+      });
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'mark_balance_paid',
+        bookingId: b.id,
+        before: { balance_paid_at: null },
+        after: { balance_paid_at: paidAt, amount_paid_cents: b.total_cents },
+        note: input.reason.trim(),
+      });
+
+      if (input.sendEmails) {
+        try {
+          await sendBalancePaidConfirmation({ to: b.lead_email, leadName: b.lead_name, startDate: b.start_date });
+          await sendTaxInvoice({
+            to: b.lead_email,
+            leadName: b.lead_name,
+            bookingId: b.id,
+            startDate: b.start_date,
+            issuedAt: paidAt,
+            amountCents: b.balance_due_cents,
+            invoiceType: 'balance',
+            groupSize: b.group_size,
+          });
+        } catch (err) {
+          console.error('[admin] mark-paid emails failed', (err as Error).message);
+          return { ok: true, emailWarning: 'Recorded, but the guest emails failed to send. Use re-send from the booking page.' };
+        }
+      }
+      return { ok: true };
+    },
+  }),
+
+  // Block a window of start dates (maintenance / private use). Does NOT affect existing bookings.
+  adminBlockDates: defineAction({
+    accept: 'json',
+    input: z.object({
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid end date.'),
+      reason: z.string().trim().min(3, 'Please give a short reason.').max(200),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      if (input.endDate < input.startDate) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'The end date must be on or after the start date.' });
+      }
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+      if (input.endDate < today) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'That window is entirely in the past.' });
+      }
+
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase
+        .from('blocked_dates')
+        .insert({
+          start_date: input.startDate,
+          end_date: input.endDate,
+          reason: input.reason.trim(),
+          created_by: admin.email,
+        })
+        .select('id')
+        .single();
+      if (error || !data) {
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not block those dates.' });
+      }
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'block_dates',
+        note: `${input.startDate} to ${input.endDate}: ${input.reason.trim()}`,
+      });
+      return { ok: true, id: data.id };
+    },
+  }),
+
+  // Soft-remove a blocked window (the row is kept; removed_at is set).
+  adminUnblockDates: defineAction({
+    accept: 'json',
+    input: z.object({ blockId: z.string().uuid() }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase
+        .from('blocked_dates')
+        .update({ removed_at: new Date().toISOString() })
+        .eq('id', input.blockId)
+        .is('removed_at', null)
+        .select('start_date, end_date');
+      if (error || !data || data.length === 0) {
+        throw new ActionError({ code: 'NOT_FOUND', message: 'Blocked window not found (it may already be removed).' });
+      }
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'unblock_dates',
+        note: `${data[0].start_date} to ${data[0].end_date}`,
+      });
+      return { ok: true };
+    },
+  }),
+
+  // Toggle an enquiry's handled state.
+  adminMarkInquiryHandled: defineAction({
+    accept: 'json',
+    input: z.object({
+      inquiryId: z.string().uuid(),
+      handled: z.boolean(),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase
+        .from('inquiries')
+        .update({
+          handled_at: input.handled ? new Date().toISOString() : null,
+          handled_by: input.handled ? admin.email : null,
+        })
+        .eq('id', input.inquiryId)
+        .select('id');
+      if (error || !data || data.length === 0) {
+        throw new ActionError({ code: 'NOT_FOUND', message: 'Enquiry not found.' });
+      }
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'inquiry_handled',
+        note: `${input.inquiryId}: ${input.handled ? 'handled' : 'reopened'}`,
+      });
+      return { ok: true };
+    },
+  }),
 };
+
+// Shared per-admin rate limit (defence-in-depth on all admin mutations).
+async function adminActionRate(email: string): Promise<void> {
+  if (!(await rateLimit(`adminact:min:${email}`, 30, 60))) {
+    throw new ActionError({ code: 'TOO_MANY_REQUESTS', message: 'Too many changes in a short time. Please wait a moment.' });
+  }
+}
