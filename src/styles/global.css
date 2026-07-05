@@ -1118,8 +1118,15 @@
   }
   .bcal__month {
     font-family: var(--font-display);
-    font-size: 1.05rem;
+    font-size: 1.35rem;
+    font-weight: 600;
     color: var(--color-earth);
+    white-space: nowrap;
+  }
+  @media (min-width: 480px) {
+    .bcal__month {
+      font-size: 1.5rem;
+    }
   }
   .bcal__nav {
     display: inline-flex;

@@ -82,8 +82,10 @@ export const provisions = {
   title: 'Stocking up before you arrive',
   intro:
     'You are welcome to pre-order groceries and supplies before you arrive. The closest fully-stocked supermarket is Checkers Bela Bela, at the Bela Mall off the N1, about 80 km from us.',
+  // Checkers' own store-locator pages are JS-rendered and 404 on direct/deep links, so this
+  // points to a Google Maps search for the store instead (reliable, shows hours & reviews too).
   linkText: 'Checkers Bela Bela store details, hours & location',
-  linkUrl: 'https://www.checkers.co.za/Bela-Bela/stores',
+  linkUrl: 'https://www.google.com/maps/search/?api=1&query=Checkers+Bela+Mall+Bela-Bela',
   howTo:
     'We recommend the Checkers Sixty60 app. Order in advance and collect at the store on your drive up, or have it delivered through the app.',
   disclaimer:
