@@ -216,38 +216,29 @@
     gap: 0.1rem;
   }
 
-  /* Circular logo badge (nav + footer). The client logo is a dark-on-white JPG; the white disc
-     turns that background into a deliberate badge that works over cream, hero imagery and the
-     dark footer alike. The inner image is zoomed slightly (the source has generous margins) so
-     the wordmark fills the disc without clipping. */
-  .brand-badge {
+  /* Brand mark — the logo's transparent PNG used as a CSS mask over currentColor, so the art
+     inherits the text colour of its context with zero per-state rules: cream over the hero,
+     earth on the scrolled/interior header, cream in the footer. The nav uses the ridge-only
+     crop (a full lockup is illegible at nav height); the footer shows the full lockup. */
+  .brand-mark {
     flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 50%;
-    overflow: hidden;
-    background: #fff;
-    border: 1px solid rgba(61, 43, 31, 0.15);
+    display: inline-block;
+    width: 104px;
+    height: 34px;
+    background-color: currentColor;
+    -webkit-mask: var(--logo-mark) center / contain no-repeat;
+    mask: var(--logo-mark) center / contain no-repeat;
   }
   @media (min-width: 640px) {
-    .brand-badge {
-      width: 2.75rem;
-      height: 2.75rem;
+    .brand-mark {
+      width: 128px;
+      height: 38px;
     }
   }
-  .brand-badge img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    transform: scale(1.18);
-  }
-  /* Footer variant — declared after the base media rule so it wins at every width. */
-  .brand-badge--lg {
-    width: 3.5rem;
-    height: 3.5rem;
+  /* Footer full-lockup variant (declared after the media rule so it wins at every width). */
+  .brand-mark--full {
+    width: 160px;
+    height: 83px;
   }
   .site-brand__name {
     font-family: var(--font-display);

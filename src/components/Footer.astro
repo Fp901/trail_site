@@ -1,11 +1,11 @@
 ---
 // Footer — Part 5.6. Clean, minimal; necessary identity + a Privacy link, no clutter.
-import { Image } from 'astro:assets';
 import { nav, site, withBase } from '../data/site';
 import WhatsAppIcon from './WhatsAppIcon.astro';
 import InstagramIcon from './InstagramIcon.astro';
 import FacebookIcon from './FacebookIcon.astro';
-import logo from '../assets/images/logo.jpg';
+// Full logo lockup (transparent PNG as a CSS mask — renders in the footer's cream).
+import logoFull from '../assets/images/logo-full.png';
 const year = new Date().getFullYear();
 const telHref = `tel:${site.contact.phone.replace(/\s/g, '')}`;
 // Social icons render only when a URL is configured (no dead links).
@@ -16,13 +16,13 @@ const hasSocial = Boolean(site.social.instagram || site.social.facebook);
   <div class="mx-auto max-w-screen-2xl px-6 py-16">
     <div class="grid gap-10 md:grid-cols-3">
       <div>
-        <div class="flex items-center gap-3">
-          <span class="brand-badge brand-badge--lg" aria-hidden="true">
-            <Image src={logo} alt="" width={128} height={89} loading="lazy" />
-          </span>
-          <p class="font-display text-xl font-bold">{site.brandName}</p>
-        </div>
-        <p class="mt-3 max-w-xs font-body text-sm leading-relaxed text-cream/70">
+        <span
+          class="brand-mark brand-mark--full"
+          role="img"
+          aria-label={site.brandName}
+          style={`--logo-mark: url(${logoFull.src})`}
+        ></span>
+        <p class="mt-4 max-w-xs font-body text-sm leading-relaxed text-cream/70">
           {site.hook}
         </p>
         <p class="mt-4 font-body text-sm text-cream/60">{site.location}</p>
