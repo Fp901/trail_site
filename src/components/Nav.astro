@@ -3,11 +3,13 @@
 // `overHero`: when true (Home), the bar is transparent with light text over the hero
 // and switches to cream/blur + dark text on scroll. When false (interior pages), it is
 // solid cream from the top. The MobileMenu overlay (md:hidden) handles small screens.
+import { Image } from 'astro:assets';
 import { nav, site, withBase } from '../data/site';
 import MobileMenu from './MobileMenu.astro';
-// Ridge-only brand mark (transparent PNG used as a CSS mask, so it inherits the header's
-// current text colour: cream over the hero, earth once scrolled).
-import logoMark from '../assets/images/logo-mark.png';
+// Ridge brand mark, pre-coloured (no CSS mask): the cream version shows over the dark hero, the
+// earth version on the cream/scrolled/interior header. CSS swaps them via the header state attrs.
+import ridgeCream from '../assets/images/logo-mark-cream.png';
+import ridgeEarth from '../assets/images/logo-mark-earth.png';
 
 interface Props {
   overHero?: boolean;
@@ -27,8 +29,10 @@ const isActive = (href: string) => {
     class="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4"
   >
     <a href={withBase('/')} class="site-brand">
-      <span class="brand-mark" aria-hidden="true" style={`--logo-mark: url(${logoMark.src})`}
-      ></span>
+      <span class="brand-mark" aria-hidden="true">
+        <Image class="brand-mark__light" src={ridgeCream} alt="" widths={[160, 320]} sizes="160px" loading="eager" />
+        <Image class="brand-mark__dark" src={ridgeEarth} alt="" widths={[160, 320]} sizes="160px" loading="eager" />
+      </span>
       <span class="site-brand__text">
         <span class="site-brand__name">{site.brandName}</span>
         <span class="site-brand__tagline">{site.headerTagline}</span>

@@ -216,45 +216,40 @@
     gap: 0.1rem;
   }
 
-  /* Brand mark — the logo's transparent PNG used as a CSS mask over currentColor, so the art
-     inherits the text colour of its context with zero per-state rules: cream over the hero,
-     earth on the scrolled/interior header, cream in the footer. The nav uses the ridge-only
-     crop (a full lockup is illegible at nav height); the footer shows the full lockup. */
+  /* Brand mark — pre-coloured PNGs (cream + earth), NOT a CSS mask. The nav shows the cream ridge
+     over the dark hero and the earth ridge on the cream/scrolled/interior header; the swap reuses
+     the same header-state attributes as the nav text colour, so mark and text always agree. */
   .brand-mark {
     flex-shrink: 0;
-    display: inline-block;
-    width: 104px;
-    height: 34px;
-    background-color: currentColor;
-    /* Longhand properties, not the `mask`/`-webkit-mask` shorthand: substituting a var() inside
-       that shorthand is a known cross-engine parsing pitfall — if it fails, the spec's fallback
-       is NO mask at all, i.e. a solid currentColor box (exactly the bug this fixes). */
-    -webkit-mask-image: var(--logo-mark);
-    mask-image: var(--logo-mark);
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
-    -webkit-mask-size: contain;
-    mask-size: contain;
+    display: inline-flex;
+    align-items: center;
   }
-  /* Defensive: if a browser supports neither mask API at all, hide the mark rather than show a
-     solid box — the adjacent text wordmark already carries the brand name. */
-  @supports not (mask-image: none) and not (-webkit-mask-image: none) {
-    .brand-mark {
-      display: none;
-    }
+  .brand-mark img {
+    display: block;
+    width: 132px;
+    height: auto;
   }
   @media (min-width: 640px) {
-    .brand-mark {
-      width: 128px;
-      height: 38px;
+    .brand-mark img {
+      width: 158px;
     }
   }
-  /* Footer full-lockup variant (declared after the media rule so it wins at every width). */
-  .brand-mark--full {
+  /* Default (interior pages + scrolled home = cream header) → dark (earth) ridge. */
+  .brand-mark__light {
+    display: none;
+  }
+  /* Home hero, before scroll = transparent header → light (cream) ridge. Mirrors the text-colour
+     rule on .site-header[data-over-hero='true'] (pre-JS there is no data-scrolled attribute). */
+  .site-header[data-over-hero='true']:not([data-scrolled='true']) .brand-mark__light {
+    display: block;
+  }
+  .site-header[data-over-hero='true']:not([data-scrolled='true']) .brand-mark__dark {
+    display: none;
+  }
+  /* Footer full lockup. */
+  .footer-logo {
     width: 160px;
-    height: 83px;
+    height: auto;
   }
   .site-brand__name {
     font-family: var(--font-display);

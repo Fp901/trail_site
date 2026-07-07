@@ -1,11 +1,12 @@
 ---
 // Footer — Part 5.6. Clean, minimal; necessary identity + a Privacy link, no clutter.
+import { Image } from 'astro:assets';
 import { nav, site, withBase } from '../data/site';
 import WhatsAppIcon from './WhatsAppIcon.astro';
 import InstagramIcon from './InstagramIcon.astro';
 import FacebookIcon from './FacebookIcon.astro';
-// Full logo lockup (transparent PNG as a CSS mask — renders in the footer's cream).
-import logoFull from '../assets/images/logo-full.png';
+// Full logo lockup, pre-coloured cream for the dark earth footer (no CSS mask).
+import logoFullCream from '../assets/images/logo-full-cream.png';
 const year = new Date().getFullYear();
 const telHref = `tel:${site.contact.phone.replace(/\s/g, '')}`;
 // Social icons render only when a URL is configured (no dead links).
@@ -16,12 +17,14 @@ const hasSocial = Boolean(site.social.instagram || site.social.facebook);
   <div class="mx-auto max-w-screen-2xl px-6 py-16">
     <div class="grid gap-10 md:grid-cols-3">
       <div>
-        <span
-          class="brand-mark brand-mark--full"
-          role="img"
-          aria-label={site.brandName}
-          style={`--logo-mark: url(${logoFull.src})`}
-        ></span>
+        <Image
+          class="footer-logo"
+          src={logoFullCream}
+          alt={site.brandName}
+          widths={[160, 320]}
+          sizes="160px"
+          loading="lazy"
+        />
         <p class="mt-4 max-w-xs font-body text-sm leading-relaxed text-cream/70">
           {site.hook}
         </p>
