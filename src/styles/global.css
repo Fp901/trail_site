@@ -226,8 +226,24 @@
     width: 104px;
     height: 34px;
     background-color: currentColor;
-    -webkit-mask: var(--logo-mark) center / contain no-repeat;
-    mask: var(--logo-mark) center / contain no-repeat;
+    /* Longhand properties, not the `mask`/`-webkit-mask` shorthand: substituting a var() inside
+       that shorthand is a known cross-engine parsing pitfall — if it fails, the spec's fallback
+       is NO mask at all, i.e. a solid currentColor box (exactly the bug this fixes). */
+    -webkit-mask-image: var(--logo-mark);
+    mask-image: var(--logo-mark);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+  /* Defensive: if a browser supports neither mask API at all, hide the mark rather than show a
+     solid box — the adjacent text wordmark already carries the brand name. */
+  @supports not (mask-image: none) and not (-webkit-mask-image: none) {
+    .brand-mark {
+      display: none;
+    }
   }
   @media (min-width: 640px) {
     .brand-mark {
