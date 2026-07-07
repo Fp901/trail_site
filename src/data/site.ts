@@ -3,6 +3,9 @@
 
 export const site = {
   name: 'The Rooiberg Wander',
+  // Chrome-only display form (navbar + footer wordmark next to the logo badge). `name` stays the
+  // formal/SEO form used in titles, schema, emails and body copy.
+  brandName: 'Rooiberg Wander',
   headerTagline: 'A Luxury Slackpack Self-Catering Walking Safari',
   operator: 'Franili Investments (Pty) Ltd',
   operatorTradingAs: 'The Rooiberg Wander',

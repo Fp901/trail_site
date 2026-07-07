@@ -3,8 +3,10 @@
 // `overHero`: when true (Home), the bar is transparent with light text over the hero
 // and switches to cream/blur + dark text on scroll. When false (interior pages), it is
 // solid cream from the top. The MobileMenu overlay (md:hidden) handles small screens.
+import { Image } from 'astro:assets';
 import { nav, site, withBase } from '../data/site';
 import MobileMenu from './MobileMenu.astro';
+import logo from '../assets/images/logo.jpg';
 
 interface Props {
   overHero?: boolean;
@@ -24,8 +26,13 @@ const isActive = (href: string) => {
     class="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4"
   >
     <a href={withBase('/')} class="site-brand">
-      <span class="site-brand__name">{site.name}</span>
-      <span class="site-brand__tagline">{site.headerTagline}</span>
+      <span class="brand-badge" aria-hidden="true">
+        <Image src={logo} alt="" width={96} height={67} loading="eager" />
+      </span>
+      <span class="site-brand__text">
+        <span class="site-brand__name">{site.brandName}</span>
+        <span class="site-brand__tagline">{site.headerTagline}</span>
+      </span>
     </a>
 
     <div class="hidden items-center gap-6 lg:flex xl:gap-8">

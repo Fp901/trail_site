@@ -204,11 +204,50 @@
   /* --- Brand wordmark + tagline (Part 5.6) --------------------------------- */
   .site-brand {
     display: inline-flex;
-    flex-direction: column;
-    gap: 0.1rem;
+    align-items: center;
+    gap: 0.7rem;
     color: inherit;
     text-decoration: none;
     line-height: 1.05;
+  }
+  .site-brand__text {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  /* Circular logo badge (nav + footer). The client logo is a dark-on-white JPG; the white disc
+     turns that background into a deliberate badge that works over cream, hero imagery and the
+     dark footer alike. The inner image is zoomed slightly (the source has generous margins) so
+     the wordmark fills the disc without clipping. */
+  .brand-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid rgba(61, 43, 31, 0.15);
+  }
+  @media (min-width: 640px) {
+    .brand-badge {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
+  .brand-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transform: scale(1.18);
+  }
+  /* Footer variant — declared after the base media rule so it wins at every width. */
+  .brand-badge--lg {
+    width: 3.5rem;
+    height: 3.5rem;
   }
   .site-brand__name {
     font-family: var(--font-display);
