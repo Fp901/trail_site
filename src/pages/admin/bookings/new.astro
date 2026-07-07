@@ -1,0 +1,200 @@
+---
+// Admin: create a COMPLIMENTARY (gift) booking (marketing: influencers/journalists).
+// prerender=false; gated server-side. Bypasses payment deliberately: the reason is required,
+// the action is audit-logged in the admin's name, and every admin receives an alert email.
+import Layout from '../../../layouts/Layout.astro';
+import Section from '../../../components/Section.astro';
+import AdminNav from '../../../components/AdminNav.astro';
+import { getAdminUser } from '../../../lib/auth';
+import { withBase } from '../../../data/site';
+
+export const prerender = false;
+
+const user = await getAdminUser(Astro.cookies);
+if (!user) {
+  return Astro.redirect(withBase('/admin/login'));
+}
+
+const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+---
+
+<Layout
+  title="New comp booking | Operator dashboard"
+  description="Operator dashboard."
+  path="/admin/bookings/new"
+  noindex={true}
+>
+  <Section bg="cream" labelledby="comp-heading" space="lg">
+    <AdminNav email={user.email ?? ''} active="bookings" />
+
+    <p class="mt-6 font-body text-sm">
+      <a href={withBase('/admin')} class="admin-link">&larr; All bookings</a>
+    </p>
+
+    <div class="mt-4 max-w-xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Operator dashboard
+      </p>
+      <h1 id="comp-heading" class="mt-3 font-display text-4xl text-earth sm:text-5xl">
+        New complimentary booking
+      </h1>
+
+      <div class="admin-card admin-card--danger mt-6">
+        <p class="font-body text-sm leading-relaxed text-charcoal/85">
+          This creates a <strong>confirmed booking with no payment</strong>, for gifted trips
+          (influencers, journalists, marketing). The reason below is logged in your name with a
+          timestamp and emailed to all admins.
+        </p>
+      </div>
+
+      <form id="comp-form" class="bform mt-8" novalidate>
+        <div class="bform__grid">
+          <div class="form-field">
+            <label for="cb-date">Start date (Day 1)</label>
+            <input id="cb-date" type="date" min={todaySast} required />
+          </div>
+          <div class="form-field">
+            <label for="cb-group">Group size</label>
+            <select id="cb-group" required>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                <option value={n} selected={n === 2}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="bform__radios">
+          <legend>Residency</legend>
+          <label class="bform__radio">
+            <input type="radio" name="cb-residency" value="local" checked />
+            <span>SA resident</span>
+          </label>
+          <label class="bform__radio">
+            <input type="radio" name="cb-residency" value="international" />
+            <span>International visitor</span>
+          </label>
+        </fieldset>
+
+        <div class="form-field">
+          <label for="cb-name">Guest full name</label>
+          <input id="cb-name" type="text" maxlength="120" required />
+        </div>
+        <div class="form-field">
+          <label for="cb-email">Guest email</label>
+          <input id="cb-email" type="email" maxlength="180" required />
+        </div>
+        <div class="form-field">
+          <label for="cb-phone">Guest phone (optional)</label>
+          <input id="cb-phone" type="tel" maxlength="40" />
+        </div>
+
+        <div class="form-field">
+          <label for="cb-reason">Reason for bypassing payment (required)</label>
+          <span class="form-hint">e.g. gifted media trip: travel journalist, Getaway magazine</span>
+          <input id="cb-reason" type="text" maxlength="500" required />
+        </div>
+
+        <label class="admin-card__check">
+          <input id="cb-guestemail" type="checkbox" checked />
+          <span>
+            Email the guest their confirmation now (marked "Complimentary", with the pre-trip form
+            and trip-info links; no tax invoice)
+          </span>
+        </label>
+
+        <button type="submit" class="btn btn-primary bform__submit">Create comp booking</button>
+        <p class="bform__status" data-status role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </Section>
+</Layout>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initCompForm() {
+    const form = document.getElementById('comp-form') as HTMLFormElement | null;
+    if (!form || form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+
+    const statusEl = form.querySelector<HTMLElement>('[data-status]');
+    const submit = form.querySelector<HTMLButtonElement>('.bform__submit');
+    const setStatus = (msg: string, kind: 'error' | 'success') => {
+      if (statusEl) {
+        statusEl.textContent = msg;
+        statusEl.dataset.kind = kind;
+      }
+    };
+    const val = (id: string) =>
+      (document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null)?.value.trim() ?? '';
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('', 'success');
+
+      const startDate = val('cb-date');
+      const leadName = val('cb-name');
+      const leadEmail = val('cb-email');
+      const leadPhone = val('cb-phone');
+      const reason = val('cb-reason');
+
+      if (!startDate) return setStatus('Choose a start date.', 'error');
+      if (leadName.length < 2) return setStatus('Please enter the guest\'s full name.', 'error');
+      if (!leadEmail) return setStatus('Please enter the guest\'s email address.', 'error');
+      if (reason.length < 10)
+        return setStatus('Please give a reason for bypassing payment (at least 10 characters).', 'error');
+      if (
+        !window.confirm(
+          'Create a CONFIRMED booking with no payment? The reason is logged in your name and emailed to all admins.',
+        )
+      )
+        return;
+
+      if (submit) {
+        submit.disabled = true;
+        submit.textContent = 'Creating…';
+      }
+
+      const residency =
+        (form.querySelector<HTMLInputElement>('input[name="cb-residency"]:checked')?.value as
+          | 'local'
+          | 'international') ?? 'local';
+
+      const { data, error } = await actions.adminCreateCompBooking({
+        startDate,
+        groupSize: Number(val('cb-group') || '2'),
+        residency,
+        leadName,
+        leadEmail,
+        leadPhone: leadPhone || undefined,
+        reason,
+        sendGuestEmail:
+          (document.getElementById('cb-guestemail') as HTMLInputElement | null)?.checked ?? true,
+      });
+
+      if (error) {
+        setStatus(error.message || 'Something went wrong.', 'error');
+        if (submit) {
+          submit.disabled = false;
+          submit.textContent = 'Create comp booking';
+        }
+        return;
+      }
+
+      if (data?.emailWarning) {
+        setStatus(data.emailWarning + ' Redirecting to the booking…', 'error');
+        window.setTimeout(() => {
+          window.location.href = `/admin/bookings/${data.bookingId}`;
+        }, 2500);
+        return;
+      }
+
+      setStatus('Booking created.', 'success');
+      window.location.href = `/admin/bookings/${data!.bookingId}`;
+    });
+  }
+
+  document.addEventListener('astro:page-load', initCompForm);
+</script>

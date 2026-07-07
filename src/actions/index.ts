@@ -13,6 +13,9 @@ import {
   sendBalancePaidConfirmation,
   sendTaxInvoice,
   sendLoginAttackAlert,
+  sendCompBookingAdminAlert,
+  sendBlockedDatesAdminAlert,
+  adminEmailList,
 } from '../lib/email';
 import { sendBalancePaymentLink } from '../lib/balance';
 import { rateLimit, clientIp } from '../lib/ratelimit';
@@ -535,13 +538,17 @@ export const server = {
       const { data: b } = await supabase
         .from('bookings')
         .select(
-          'id, status, lead_email, lead_name, start_date, pretrip_token, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at, total_cents, amount_paid_cents, group_size, confirmed_at',
+          'id, status, lead_email, lead_name, start_date, pretrip_token, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at, total_cents, amount_paid_cents, group_size, confirmed_at, processor',
         )
         .eq('id', input.bookingId)
         .maybeSingle();
       if (!b) throw new ActionError({ code: 'NOT_FOUND', message: 'Booking not found.' });
       if (b.status !== 'confirmed') {
         throw new ActionError({ code: 'BAD_REQUEST', message: 'Emails can only be re-sent for confirmed bookings.' });
+      }
+      const isComp = b.processor === 'comp';
+      if (isComp && input.kind === 'tax_invoice') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Complimentary bookings have no tax invoice (no payment was made).' });
       }
 
       try {
@@ -555,6 +562,7 @@ export const server = {
             depositCents: b.deposit_paid_cents ?? undefined,
             balanceCents: b.balance_due_cents ?? undefined,
             balanceDueDate: b.balance_due_date,
+            complimentary: isComp,
           });
         } else if (input.kind === 'pretrip_reminder') {
           await sendPretripReminder({
@@ -829,14 +837,29 @@ export const server = {
         action: 'block_dates',
         note: `${input.startDate} to ${input.endDate}: ${input.reason.trim()}`,
       });
+
+      // Governance: every admin is told about calendar changes (best-effort; audit is the record).
+      await sendBlockedDatesAdminAlert({
+        tos: adminEmailList(),
+        actedBy: admin.email,
+        action: 'blocked',
+        startDate: input.startDate,
+        endDate: input.endDate,
+        reason: input.reason.trim(),
+      });
+
       return { ok: true, id: data.id };
     },
   }),
 
-  // Soft-remove a blocked window (the row is kept; removed_at is set).
+  // Soft-remove a blocked window (the row is kept; removed_at is set). Reason required —
+  // silently reopening dates is as notify-worthy as blocking them.
   adminUnblockDates: defineAction({
     accept: 'json',
-    input: z.object({ blockId: z.string().uuid() }),
+    input: z.object({
+      blockId: z.string().uuid(),
+      reason: z.string().trim().min(10, 'Please give a reason (at least 10 characters).').max(500),
+    }),
     handler: async (input, ctx) => {
       const admin = await requireAdmin(ctx);
       await adminActionRate(admin.email);
@@ -855,8 +878,18 @@ export const server = {
       await recordAdminEvent({
         adminEmail: admin.email,
         action: 'unblock_dates',
-        note: `${data[0].start_date} to ${data[0].end_date}`,
+        note: `${data[0].start_date} to ${data[0].end_date}: ${input.reason.trim()}`,
       });
+
+      await sendBlockedDatesAdminAlert({
+        tos: adminEmailList(),
+        actedBy: admin.email,
+        action: 'unblocked',
+        startDate: data[0].start_date,
+        endDate: data[0].end_date,
+        reason: input.reason.trim(),
+      });
+
       return { ok: true };
     },
   }),
@@ -891,6 +924,126 @@ export const server = {
         note: `${input.inquiryId}: ${input.handled ? 'handled' : 'reopened'}`,
       });
       return { ok: true };
+    },
+  }),
+
+  // Create a COMPLIMENTARY (gift) booking that bypasses payment — for marketing (influencers,
+  // journalists). The one sanctioned non-webhook path to a confirmed booking: money fields are
+  // all zero (nothing owed, nothing paid), processor='comp' makes it unmistakable everywhere,
+  // the reason is required, the action is audit-logged, and EVERY admin is emailed.
+  adminCreateCompBooking: defineAction({
+    accept: 'json',
+    input: z.object({
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
+      groupSize: z.number().int().min(1).max(12),
+      residency: z.enum(['local', 'international']),
+      leadName: z.string().trim().min(2, 'Please enter the guest\'s full name.').max(120),
+      leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
+      leadPhone: z.string().trim().min(7, 'Please enter a valid phone number.').max(40).optional(),
+      reason: z.string().trim().min(10, 'Please give a reason (at least 10 characters).').max(500),
+      sendGuestEmail: z.boolean().default(true),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+      if (input.startDate < today) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'The start date cannot be in the past.' });
+      }
+
+      const supabase = getSupabaseAdmin();
+
+      // Blocked windows (active only) — same guard as adminMoveDates.
+      const { data: blocked } = await supabase
+        .from('blocked_dates')
+        .select('id')
+        .is('removed_at', null)
+        .lte('start_date', input.startDate)
+        .gte('end_date', input.startDate)
+        .limit(1);
+      if (blocked && blocked.length > 0) {
+        throw new ActionError({ code: 'CONFLICT', message: 'That date falls in a blocked window. Unblock it first or pick another date.' });
+      }
+
+      const leadName = input.leadName.trim().replace(/\s+/g, ' ');
+      const leadEmail = input.leadEmail.trim().toLowerCase();
+      const reason = input.reason.trim();
+      const nowIso = new Date().toISOString();
+      const endDate = addDays(input.startDate, 3);
+
+      const { data: created, error } = await supabase
+        .from('bookings')
+        .insert({
+          start_date: input.startDate,
+          end_date: endDate,
+          group_size: input.groupSize,
+          residency: input.residency,
+          lead_name: leadName,
+          lead_email: leadEmail,
+          lead_phone: input.leadPhone?.trim() || null,
+          status: 'confirmed',
+          confirmed_at: nowIso,
+          total_cents: 0,
+          amount_due_cents: 0,
+          amount_paid_cents: 0,
+          balance_due_cents: 0,
+          payment_plan: 'full',
+          currency: 'ZAR',
+          processor: 'comp',
+          processor_reference: `comp_${crypto.randomUUID()}`,
+          hold_expires_at: null,
+        })
+        .select('id, pretrip_token')
+        .single();
+      if (error || !created) {
+        if ((error as { code?: string } | null)?.code === '23505') {
+          throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
+        }
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not create the booking.' });
+      }
+
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'create_comp_booking',
+        bookingId: created.id,
+        after: { start_date: input.startDate, lead_email: leadEmail, group_size: input.groupSize },
+        note: reason,
+      });
+
+      // Governance: every admin hears about a payment bypass (best-effort; audit is the record).
+      await sendCompBookingAdminAlert({
+        tos: adminEmailList(),
+        createdBy: admin.email,
+        leadName,
+        leadEmail,
+        startDate: input.startDate,
+        groupSize: input.groupSize,
+        reason,
+        bookingId: created.id,
+      });
+
+      if (input.sendGuestEmail) {
+        try {
+          await sendBookingConfirmation({
+            to: leadEmail,
+            leadName,
+            startDate: input.startDate,
+            pretripToken: created.pretrip_token,
+            paymentPlan: 'full',
+            complimentary: true,
+          });
+        } catch (err) {
+          console.error('[admin] comp guest confirmation failed', (err as Error).message);
+          return {
+            ok: true,
+            bookingId: created.id,
+            emailWarning: 'Booking created, but the guest email failed to send. Use re-send from the booking page.',
+          };
+        }
+      }
+
+      return { ok: true, bookingId: created.id };
     },
   }),
 };

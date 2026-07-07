@@ -41,6 +41,22 @@ export const escapeHtml = (s: string) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
 
+// All configured admin addresses (ADMIN_EMAILS comma-separated, legacy ADMIN_EMAIL, else the
+// operator notify address). Used for governance alerts that must reach EVERY admin.
+export function adminEmailList(): string[] {
+  const raw: string = String(
+    import.meta.env.ADMIN_EMAILS ??
+      import.meta.env.ADMIN_EMAIL ??
+      import.meta.env.BOOKINGS_NOTIFY_TO ??
+      site.notifyEmail,
+  ).trim();
+  const list = raw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter((e): e is string => e.length > 0);
+  return [...new Set(list)];
+}
+
 export function pretripUrl(token: string): string {
   const base = (import.meta.env.PUBLIC_SITE_URL ?? site.url).replace(/\/$/, '');
   return `${base}/pretrip/${token}`;
@@ -185,6 +201,9 @@ export async function sendBookingConfirmation(opts: {
   balanceCents?: number;
   balanceDueDate?: string | null;
   balanceLinkImminent?: boolean;
+  // Complimentary (gift) booking: no payment occurred, so the payment row reads
+  // "Complimentary" and no tax-invoice line is shown.
+  complimentary?: boolean;
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
   const tripInfo = tripInfoUrl(opts.pretripToken);
@@ -216,7 +235,7 @@ export async function sendBookingConfirmation(opts: {
     infoTable([
       ['Trail', 'The Rooiberg Wander'],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
-      ['Payment', isDeposit ? '50% deposit paid' : 'Paid in full'],
+      ['Payment', opts.complimentary ? 'Complimentary' : isDeposit ? '50% deposit paid' : 'Paid in full'],
     ]) +
     paymentBlock +
     hr +
@@ -227,7 +246,7 @@ export async function sendBookingConfirmation(opts: {
     `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Your trip-info page</p>` +
     p('Your itinerary, packing list, and private gate coordinates are all on your personal trip-info page. Bookmark it for your drive up.') +
     `<p style="margin:0 0 24px;font-size:14px;"><a href="${tripInfo}" style="color:#4A5D23;word-break:break-all;">${tripInfo}</a></p>` +
-    small('A tax invoice accompanies your payment receipt from Paystack.');
+    (opts.complimentary ? '' : small('A tax invoice accompanies your payment receipt from Paystack.'));
 
   await sendEmail({
     to: opts.to,
@@ -624,4 +643,89 @@ export async function sendLoginAttackAlert(opts: {
     subject: 'ACTION REQUIRED: repeated failed admin sign-ins',
     html: layout('alert', `Repeated failed sign-ins for ${opts.attemptedEmail}`, body),
   });
+}
+
+// ---- All-admin governance alerts ------------------------------------------------------
+// Sent to EVERY configured admin (adminEmailList) so payment-bypassing and calendar-changing
+// actions are visible to the whole team, not just the actor. Best-effort per recipient.
+
+async function sendToAll(tos: string[], build: (to: string) => EmailMessage): Promise<void> {
+  const results = await Promise.allSettled(tos.map((to) => sendEmail(build(to))));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error('[email] all-admin alert failed for', tos[i], (r.reason as Error)?.message);
+    }
+  });
+}
+
+export async function sendCompBookingAdminAlert(opts: {
+  tos: string[];
+  createdBy: string;
+  leadName: string;
+  leadEmail: string;
+  startDate: string;
+  groupSize: number;
+  reason: string;
+  bookingId: string;
+}): Promise<void> {
+  const body =
+    eyebrow('Complimentary booking') +
+    h1('Comp booking created (payment bypassed).') +
+    p(
+      `${escapeHtml(opts.createdBy)} created a complimentary booking from the admin dashboard. No payment was taken. The action is logged in the audit trail.`,
+    ) +
+    infoTable([
+      ['Created by', escapeHtml(opts.createdBy)],
+      ['Guest', escapeHtml(opts.leadName)],
+      ['Guest email', escapeHtml(opts.leadEmail)],
+      ['Arrival (Day 1)', humanDate(opts.startDate)],
+      ['Group size', String(opts.groupSize)],
+      ['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`],
+    ]) +
+    `<div style="margin:20px 0;padding:16px 20px;background-color:rgba(61,43,31,0.05);border-left:3px solid #C19A6B;border-radius:0 8px 8px 0;">
+      <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#8a7868;">Reason</p>
+      <p style="margin:0;font-size:14px;line-height:1.7;color:#2C2C2C;">${escapeHtml(opts.reason)}</p>
+    </div>`;
+
+  await sendToAll(opts.tos, (to) => ({
+    to,
+    subject: `Comp booking created: ${opts.leadName} (payment bypassed)`,
+    html: layout('operator', `Comp booking by ${opts.createdBy} for ${opts.leadName}, arriving ${humanDate(opts.startDate)}`, body),
+  }));
+}
+
+export async function sendBlockedDatesAdminAlert(opts: {
+  tos: string[];
+  actedBy: string;
+  action: 'blocked' | 'unblocked';
+  startDate: string;
+  endDate: string;
+  reason: string;
+}): Promise<void> {
+  const blocked = opts.action === 'blocked';
+  const body =
+    eyebrow('Calendar change') +
+    h1(blocked ? 'Dates blocked.' : 'Blocked dates removed.') +
+    p(
+      blocked
+        ? `${escapeHtml(opts.actedBy)} blocked a window in the booking calendar. Days inside it cannot be chosen as a start date until the block is removed.`
+        : `${escapeHtml(opts.actedBy)} removed a blocked window. Those days are bookable again.`,
+    ) +
+    infoTable([
+      [blocked ? 'Blocked by' : 'Removed by', escapeHtml(opts.actedBy)],
+      ['From', humanDate(opts.startDate)],
+      ['To', humanDate(opts.endDate)],
+    ]) +
+    `<div style="margin:20px 0;padding:16px 20px;background-color:rgba(61,43,31,0.05);border-left:3px solid #C19A6B;border-radius:0 8px 8px 0;">
+      <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#8a7868;">Reason</p>
+      <p style="margin:0;font-size:14px;line-height:1.7;color:#2C2C2C;">${escapeHtml(opts.reason)}</p>
+    </div>`;
+
+  await sendToAll(opts.tos, (to) => ({
+    to,
+    subject: blocked
+      ? `Dates blocked: ${opts.startDate} to ${opts.endDate}`
+      : `Blocked dates removed: ${opts.startDate} to ${opts.endDate}`,
+    html: layout('operator', `Calendar ${opts.action} by ${opts.actedBy}`, body),
+  }));
 }

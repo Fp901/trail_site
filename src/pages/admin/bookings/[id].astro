@@ -90,7 +90,14 @@ const bookingRows: [string, string][] = booking
       ['Lead email', booking.lead_email],
       ['Lead phone', booking.lead_phone ?? '—'],
       ['Total (incl. VAT)', fmtMoney(booking.total_cents)],
-      ['Payment plan', booking.payment_plan === 'deposit_balance' ? 'Deposit + balance' : 'Full payment'],
+      [
+        'Payment plan',
+        booking.processor === 'comp'
+          ? 'Complimentary (no payment)'
+          : booking.payment_plan === 'deposit_balance'
+            ? 'Deposit + balance'
+            : 'Full payment',
+      ],
       ...(booking.payment_plan === 'deposit_balance'
         ? ([
             ['Deposit', fmtMoney(booking.deposit_paid_cents)],
@@ -118,6 +125,7 @@ const canEdit = !!booking && booking.status !== 'cancelled';
 const canCancel = !!booking && (booking.status === 'pending' || booking.status === 'confirmed');
 const canMove = canCancel;
 const isConfirmed = !!booking && booking.status === 'confirmed';
+const isComp = !!booking && booking.processor === 'comp';
 const hasOpenBalance =
   isConfirmed &&
   booking!.payment_plan === 'deposit_balance' &&
@@ -164,6 +172,8 @@ function auditLabel(e: Record<string, any>): string {
       return `Email re-sent: ${e.note ?? ''}`;
     case 'mark_balance_paid':
       return 'Balance marked paid (manual)';
+    case 'create_comp_booking':
+      return 'Complimentary booking created (payment bypassed)';
     default:
       return e.action;
   }
@@ -362,7 +372,9 @@ const timeline: TimelineItem[] = [
                     <div class="admin-card__row">
                       <button type="button" class="btn btn-secondary" data-kind="confirmation">Confirmation</button>
                       <button type="button" class="btn btn-secondary" data-kind="pretrip_reminder">Pre-trip reminder</button>
-                      <button type="button" class="btn btn-secondary" data-kind="tax_invoice">Tax invoice</button>
+                      {!isComp && (
+                        <button type="button" class="btn btn-secondary" data-kind="tax_invoice">Tax invoice</button>
+                      )}
                       {hasOpenBalance && (
                         <button type="button" class="btn btn-secondary" data-kind="balance_link">Balance payment link</button>
                       )}

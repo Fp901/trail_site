@@ -18,7 +18,8 @@ export type AdminAction =
   | 'mark_balance_paid'
   | 'block_dates'
   | 'unblock_dates'
-  | 'inquiry_handled';
+  | 'inquiry_handled'
+  | 'create_comp_booking';
 
 // Verify the calling request carries a valid admin session; return the admin's identity.
 export async function requireAdmin(ctx: ActionAPIContext): Promise<{ email: string }> {

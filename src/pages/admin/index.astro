@@ -44,6 +44,7 @@ interface Row {
   balance_due_cents: number;
   balance_paid_at: string | null;
   hold_expires_at: string | null;
+  processor: string;
 }
 
 let rows: Row[] = [];
@@ -57,7 +58,7 @@ try {
   let query = supabase
     .from('bookings')
     .select(
-      'id, start_date, end_date, lead_name, lead_email, status, group_size, amount_paid_cents, confirmed_at, payment_plan, balance_due_cents, balance_paid_at, hold_expires_at',
+      'id, start_date, end_date, lead_name, lead_email, status, group_size, amount_paid_cents, confirmed_at, payment_plan, balance_due_cents, balance_paid_at, hold_expires_at, processor',
     )
     .order('start_date', { ascending: true });
   if (statusFilter !== 'all') query = query.eq('status', statusFilter);
@@ -203,6 +204,7 @@ const filterHref = (s: StatusFilter) => {
         />
         <button type="submit" class="btn btn-secondary">Search</button>
       </form>
+      <a href={withBase('/admin/bookings/new')} class="btn btn-secondary">+ Comp booking</a>
     </div>
 
     {
@@ -241,6 +243,7 @@ const filterHref = (s: StatusFilter) => {
                   </td>
                   <td data-label="Status">
                     <span class:list={['admin-badge', `admin-badge--${r.status}`]}>{r.status}</span>
+                    {r.processor === 'comp' && <span class="admin-badge admin-badge--comp">comp</span>}
                   </td>
                   <td data-label="Group">{r.group_size}</td>
                   <td data-label="Paid">{fmtMoney(r.amount_paid_cents)}</td>
