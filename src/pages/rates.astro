@@ -8,7 +8,7 @@ import BookingWidget from '../components/BookingWidget.astro';
 import InquiryForm from '../components/InquiryForm.astro';
 import {
   GROUP_RATE_UNCATERED,
-  CATERING_PP_NIGHT,
+  GROUP_RATE_CATERED,
   SHARED_PP_NIGHT,
   NIGHTS,
   BOOKING_OPEN_DISPLAY,
@@ -124,8 +124,8 @@ const jsonLd = [
             </p>
             <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
               Choose <strong>Monday</strong> for a shared, per-person departure, or any other day
-              for a private group at the flat group rate. Add catering to a private booking for{' '}
-              {formatRand(CATERING_PP_NIGHT)} per person per night.
+              for a private group at a flat group rate ({formatRand(GROUP_RATE_UNCATERED)} self-catered,
+              or {formatRand(GROUP_RATE_CATERED)} catered, regardless of group size).
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}

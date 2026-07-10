@@ -3,13 +3,14 @@
 // the display layer so they can never drift). All prices are VAT-inclusive.
 //
 // Two products:
-//   exclusive — private group; flat group rate; optional catering per person per night.
-//   shared    — Monday-only shared departure; catered only; priced per person per night.
+//   exclusive — private group; FIXED flat group rate (self-catered or catered) — group size
+//               does not change the price.
+//   shared    — Monday-only shared departure; catered only; priced PER PERSON per night.
 import {
   VAT_RATE,
   NIGHTS,
   GROUP_RATE_UNCATERED,
-  CATERING_PP_NIGHT,
+  GROUP_RATE_CATERED,
   SHARED_PP_NIGHT,
   BOOKING_OPEN_DATE,
 } from '../data/rates';
@@ -86,8 +87,9 @@ export interface Quote {
 }
 
 // SERVER price authority.
-//   exclusive: flat group rate + (catered ? groupSize * NIGHTS * CATERING_PP_NIGHT : 0)
-//   shared:    groupSize * NIGHTS * SHARED_PP_NIGHT (catering is always 'catered')
+//   exclusive: FIXED flat group rate — catered ? GROUP_RATE_CATERED : GROUP_RATE_UNCATERED.
+//              Group size does NOT change the price.
+//   shared:    groupSize * NIGHTS * SHARED_PP_NIGHT (catering is always 'catered', per person)
 // Pass `startDate` to apply the split-payment rule (gap >= SPLIT_THRESHOLD_DAYS → 50% deposit
 // now, 50% balance later; inside the window → pay in full).
 export function computeQuote(input: {
@@ -108,9 +110,7 @@ export function computeQuote(input: {
     ppTotalCents = ppNightCents * NIGHTS;
     totalCents = ppTotalCents * input.groupSize;
   } else {
-    const cateringCents =
-      catering === 'catered' ? input.groupSize * NIGHTS * toCents(CATERING_PP_NIGHT) : 0;
-    totalCents = toCents(GROUP_RATE_UNCATERED) + cateringCents;
+    totalCents = toCents(catering === 'catered' ? GROUP_RATE_CATERED : GROUP_RATE_UNCATERED);
   }
 
   const vatCents = totalCents - Math.round(totalCents / (1 + VAT_RATE));

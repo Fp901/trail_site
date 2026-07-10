@@ -1,10 +1,10 @@
 // Public rates (display) — Booking v2. Prices are quoted VAT-INCLUSIVE.
 // Pricing axis is CATERED vs UNCATERED (the old local/foreign residency split is removed).
 // Two products:
-//   1. Private (exclusive) trail: flat group rate, self-catered; optional catering added
-//      per person per night.
-//   2. Shared Monday departures: one shared, catered-only slot every Monday; priced per
-//      person per night; each booking 2 to 8 people; 8 places total across bookings.
+//   1. Private (exclusive) trail: FIXED per-group rate, either self-catered or catered —
+//      NOT per person. Group size does not change the price.
+//   2. Shared Monday departures: one shared, catered-only slot every Monday; priced PER
+//      PERSON per night; each booking 2 to 8 people; 8 places total across bookings.
 // The server-side price authority (lib/pricing.ts) reuses these constants — display and the
 // real charged amount can never drift. Never expose owner splits (Part 12).
 
@@ -12,10 +12,16 @@ export const VAT_RATE = 0.15;
 export const NIGHTS = 3; // Day 1 arrival to Day 4 departure
 
 // --- Private (exclusive) trail -----------------------------------------------------------
-// Flat per-group rate, VAT-inclusive, self-catered (operator-confirmed).
-export const GROUP_RATE_UNCATERED = 60000;
-// Catered option: added PER PERSON PER NIGHT on top of the group rate (operator-confirmed).
-export const CATERING_PP_NIGHT = 2300;
+// Both rates are FLAT per-group, VAT-inclusive — group size does not change the price.
+export const GROUP_RATE_UNCATERED = 60000; // self-catered (operator-confirmed)
+// The catered rate is fixed, derived once from a 10-person basis at the operator-confirmed
+// per-person-per-night catering cost (R2,300), then locked in as a flat group price — it does
+// NOT scale with the actual group size. CATERING_PP_NIGHT_BASIS exists only to document and
+// compute that derivation; it is never applied per-person at checkout.
+const CATERING_PP_NIGHT_BASIS = 2300;
+const CATERING_BASIS_PEOPLE = 10;
+export const GROUP_RATE_CATERED =
+  GROUP_RATE_UNCATERED + CATERING_BASIS_PEOPLE * NIGHTS * CATERING_PP_NIGHT_BASIS; // 129,000
 
 // --- Shared Monday departures ------------------------------------------------------------
 // PLACEHOLDER rate pending operator confirmation — set from industry norms for fully catered
@@ -58,8 +64,8 @@ export const rates: RateCard[] = [
     headline: formatRand(GROUP_RATE_UNCATERED),
     headlineNote: 'per group, self-catered, incl. VAT',
     notes: [
-      `Flat rate for your private group of up to 10 guests (optional two extra by special arrangement). Includes all conservation levies.`,
-      `Catered option: add ${formatRand(CATERING_PP_NIGHT)} per person per night (${NIGHTS} nights). Example: a catered group of 4 pays ${formatRand(GROUP_RATE_UNCATERED + 4 * NIGHTS * CATERING_PP_NIGHT)} in total.`,
+      `Flat rate for your private group of up to 10 guests (optional two extra by special arrangement), regardless of group size. Includes all conservation levies.`,
+      `Catered option: a fixed ${formatRand(GROUP_RATE_CATERED)} per group instead, also regardless of group size.`,
       'Departs any day except Monday.',
     ],
   },
