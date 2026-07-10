@@ -17,7 +17,7 @@ import {
   sendBookingConfirmation,
   sendPretripReminder,
   sendBalancePaidConfirmation,
-  sendTaxInvoice,
+  sendPaymentReceipt,
   sendLoginAttackAlert,
   sendCompBookingAdminAlert,
   sendBlockedDatesAdminAlert,
@@ -565,7 +565,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       bookingId: z.string().uuid(),
-      kind: z.enum(['confirmation', 'pretrip_reminder', 'balance_link', 'tax_invoice']),
+      kind: z.enum(['confirmation', 'pretrip_reminder', 'balance_link', 'receipt']),
     }),
     handler: async (input, ctx) => {
       const admin = await requireAdmin(ctx);
@@ -584,8 +584,8 @@ export const server = {
         throw new ActionError({ code: 'BAD_REQUEST', message: 'Emails can only be re-sent for confirmed bookings.' });
       }
       const isComp = b.processor === 'comp';
-      if (isComp && input.kind === 'tax_invoice') {
-        throw new ActionError({ code: 'BAD_REQUEST', message: 'Complimentary bookings have no tax invoice (no payment was made).' });
+      if (isComp && input.kind === 'receipt') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Complimentary bookings have no payment receipt (no payment was made).' });
       }
 
       try {
@@ -638,29 +638,29 @@ export const server = {
             throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'The balance link could not be re-sent. Please try again.' });
           }
         } else {
-          // tax_invoice — re-issue with the ORIGINAL issue timestamps so invoice numbers reproduce.
+          // receipt — re-issue with the ORIGINAL issue timestamps so receipt numbers reproduce.
           const paidPlanIsDeposit = b.payment_plan === 'deposit_balance';
-          await sendTaxInvoice({
+          await sendPaymentReceipt({
             to: b.lead_email,
             leadName: b.lead_name,
             bookingId: b.id,
             startDate: b.start_date,
             issuedAt: b.confirmed_at ?? new Date().toISOString(),
             amountCents: paidPlanIsDeposit ? (b.deposit_paid_cents ?? 0) : (b.amount_paid_cents ?? b.total_cents),
-            invoiceType: paidPlanIsDeposit ? 'deposit' : 'full',
+            receiptType: paidPlanIsDeposit ? 'deposit' : 'full',
             groupSize: b.group_size,
             bookingType: b.booking_type,
             catering: b.catering,
           });
           if (paidPlanIsDeposit && b.balance_paid_at) {
-            await sendTaxInvoice({
+            await sendPaymentReceipt({
               to: b.lead_email,
               leadName: b.lead_name,
               bookingId: b.id,
               startDate: b.start_date,
               issuedAt: b.balance_paid_at,
               amountCents: b.balance_due_cents,
-              invoiceType: 'balance',
+              receiptType: 'balance',
               groupSize: b.group_size,
               bookingType: b.booking_type,
               catering: b.catering,
@@ -841,14 +841,14 @@ export const server = {
       if (input.sendEmails) {
         try {
           await sendBalancePaidConfirmation({ to: b.lead_email, leadName: b.lead_name, startDate: b.start_date });
-          await sendTaxInvoice({
+          await sendPaymentReceipt({
             to: b.lead_email,
             leadName: b.lead_name,
             bookingId: b.id,
             startDate: b.start_date,
             issuedAt: paidAt,
             amountCents: b.balance_due_cents,
-            invoiceType: 'balance',
+            receiptType: 'balance',
             groupSize: b.group_size,
             bookingType: b.booking_type,
             catering: b.catering,

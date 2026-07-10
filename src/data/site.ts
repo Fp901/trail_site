@@ -9,10 +9,13 @@ export const site = {
   // Catering is now optional (Booking v2), so "Self-Catering" no longer describes every
   // booking. Changed to a neutral tagline — OPERATOR: please confirm before go-live.
   headerTagline: 'A Luxury Slackpack Walking Safari',
-  operator: 'Franili Investments (Pty) Ltd',
+  // The prior registered entity (Franili Investments) is being wound down; a new company will
+  // be formed to operate the trail and its name is not yet known. Using the trading name here
+  // until the new entity is registered — OPERATOR: update with the formal company name + reg
+  // number once available (site.ts, and re-check email.ts / privacy.astro for the same).
+  operator: 'The Rooiberg Wander',
   operatorTradingAs: 'The Rooiberg Wander',
-  companyReg: '2021/392915/07',
-  vatNo: '4440301614',
+  // The operator is not VAT-registered — no VAT number, no VAT charged or shown anywhere.
   location: 'Rooiberg, Limpopo, South Africa',
   region: 'Waterberg, Limpopo',
   terrainHa: 15000,

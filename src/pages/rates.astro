@@ -1,5 +1,5 @@
 ---
-// Rates & Booking (/rates) — Part 8.5. VAT-inclusive rates matrix, what's included, the booking
+// Rates & Booking (/rates) — Part 8.5. Rates matrix (no VAT charged), what's included, the booking
 // area (BookingWidget mounts here at step 12), and the refund/cancellation policy.
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
@@ -30,7 +30,7 @@ const bookingEnabled = Boolean(
 );
 
 const title = 'Rates & Booking | The Rooiberg Wander';
-const description = `R${GROUP_RATE_UNCATERED.toLocaleString('en-US')} per private group, self-catered, incl. VAT. Catering and shared Monday departures also available. See what is included and book.`;
+const description = `R${GROUP_RATE_UNCATERED.toLocaleString('en-US')} per private group, self-catered. Catering and shared Monday departures also available. See what is included and book.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -44,12 +44,12 @@ const jsonLd = [
   offerSchema({
     price: GROUP_RATE_UNCATERED,
     name: 'The Rooiberg Wander: private trail (exclusive use)',
-    description: 'Private group of up to 10, self-catered, incl. VAT and conservation levies.',
+    description: 'Private group of up to 10, self-catered, incl. conservation levies.',
   }),
   offerSchema({
     price: SHARED_PP_NIGHT * NIGHTS,
     name: 'The Rooiberg Wander: shared Monday departure (per person)',
-    description: 'Shared, fully catered departure, 2 to 8 people, incl. VAT and conservation levies.',
+    description: 'Shared, fully catered departure, 2 to 8 people, incl. conservation levies.',
   }),
 ];
 ---
@@ -66,7 +66,7 @@ const jsonLd = [
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         The Rooiberg Wander is priced <strong>per group, not per person</strong>. One flat rate
         buys exclusive use of the whole trail for up to ten guests (optional two extra by special
-        arrangement), with VAT and all conservation levies included.
+        arrangement), with all conservation levies included.
       </p>
     </div>
   </Section>
@@ -85,7 +85,7 @@ const jsonLd = [
     <h2 id="matrix-heading" class="sr-only">Rates</h2>
     <RatesTable />
     <p class="mt-6 max-w-3xl font-body text-sm text-charcoal/70">
-      Prices are in South African Rand and include VAT at 15%. A valid tax invoice is issued on
+      Prices are in South African Rand. No VAT is charged. A payment receipt is issued on
       confirmation of payment.
     </p>
   </Section>
@@ -120,7 +120,7 @@ const jsonLd = [
           <Fragment>
             <p class="mt-4 font-body leading-relaxed text-charcoal/85">
               Choose your start date and group size and pay securely by card. Your booking is
-              confirmed once payment is received, and a tax invoice is issued with your receipt.
+              confirmed once payment is received, and a receipt is issued by email.
             </p>
             <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
               Choose <strong>Monday</strong> for a shared, per-person departure, or any other day
@@ -140,7 +140,7 @@ const jsonLd = [
                 <span class="booking-assure__icon" aria-hidden="true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.4 3 8.4 7 9.5 4-1.1 7-5.1 7-9.5V6l-7-3Zm-2.5 9 2 2 3.5-4"/></svg>
                 </span>
-                Instant confirmation and a tax invoice with every payment
+                Instant confirmation and a receipt with every payment
               </li>
             </ul>
 

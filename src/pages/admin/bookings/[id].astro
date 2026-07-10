@@ -92,7 +92,7 @@ const bookingRows: [string, string][] = booking
       ['Lead guest', booking.lead_name],
       ['Lead email', booking.lead_email],
       ['Lead phone', booking.lead_phone ?? '—'],
-      ['Total (incl. VAT)', fmtMoney(booking.total_cents)],
+      ['Total', fmtMoney(booking.total_cents)],
       [
         'Payment plan',
         booking.processor === 'comp'
@@ -376,7 +376,7 @@ const timeline: TimelineItem[] = [
                       <button type="button" class="btn btn-secondary" data-kind="confirmation">Confirmation</button>
                       <button type="button" class="btn btn-secondary" data-kind="pretrip_reminder">Pre-trip reminder</button>
                       {!isComp && (
-                        <button type="button" class="btn btn-secondary" data-kind="tax_invoice">Tax invoice</button>
+                        <button type="button" class="btn btn-secondary" data-kind="receipt">Receipt</button>
                       )}
                       {hasOpenBalance && (
                         <button type="button" class="btn btn-secondary" data-kind="balance_link">Balance payment link</button>
@@ -409,7 +409,7 @@ const timeline: TimelineItem[] = [
                     </div>
                     <label class="admin-card__check">
                       <input id="ap-emails" type="checkbox" checked />
-                      <span>Email the guest a paid-in-full confirmation + tax invoice</span>
+                      <span>Email the guest a paid-in-full confirmation + receipt</span>
                     </label>
                     <button type="submit" class="btn btn-primary admin-card__btn">Record balance as paid</button>
                     <p class="bform__status" data-status role="status" aria-live="polite" />
@@ -562,7 +562,7 @@ const timeline: TimelineItem[] = [
           | 'confirmation'
           | 'pretrip_reminder'
           | 'balance_link'
-          | 'tax_invoice';
+          | 'receipt';
         if (kind === 'balance_link' && !window.confirm('This replaces the previous payment link. Continue?'))
           return;
         run(resend, () => actions.adminResendEmail({ bookingId, kind }), 'Email sent.', false);

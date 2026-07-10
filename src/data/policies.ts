@@ -69,8 +69,8 @@ export const refundPolicy = {
       body: 'No refund is given for a no-show, late arrival, early departure, or any portion of the trail not used.',
     },
     {
-      heading: 'Prices and VAT',
-      body: 'All prices and refunds are in South African Rand and are inclusive of VAT at 15%. A valid tax invoice is issued on confirmation of payment.',
+      heading: 'Prices',
+      body: 'All prices and refunds are in South African Rand. No VAT is charged. A payment receipt is issued on confirmation of payment.',
     },
     {
       heading: 'Your statutory rights',

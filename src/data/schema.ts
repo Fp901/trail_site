@@ -9,7 +9,8 @@ export const organizationSchema = {
   '@type': 'Organization',
   '@id': ORG_ID,
   name: site.name,
-  legalName: site.operator,
+  // legalName intentionally omitted — the registered company is being formed and its formal
+  // name is not yet known (no invented facts; add legalName once confirmed).
   url: site.url,
   description: site.defaultDescription,
   areaServed: 'Waterberg, Limpopo, South Africa',
@@ -47,7 +48,7 @@ export function breadcrumbSchema(items: { name: string; path: string }[]) {
   };
 }
 
-// Offer — Part 8.8. Public VAT-inclusive rate in ZAR. price is the headline (incl. VAT) figure.
+// Offer — Part 8.8. Public rate in ZAR. No VAT is charged; price is the full amount.
 export function offerSchema(opts: { price: number; name: string; description?: string }) {
   return {
     '@context': 'https://schema.org',

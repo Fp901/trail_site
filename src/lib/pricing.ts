@@ -1,13 +1,13 @@
 // Server-side price authority (Part 9.1 / 11.4) — Booking v2. Works in CENTS. The browser never
 // sends a price; the server always recomputes from the constants in data/rates.ts (shared with
-// the display layer so they can never drift). All prices are VAT-inclusive.
+// the display layer so they can never drift). The operator is NOT VAT-registered, so no VAT is
+// charged or shown anywhere; totalCents is the full amount the customer pays.
 //
 // Two products:
 //   exclusive — private group; FIXED flat group rate (self-catered or catered) — group size
 //               does not change the price.
 //   shared    — Monday-only shared departure; catered only; priced PER PERSON per night.
 import {
-  VAT_RATE,
   NIGHTS,
   GROUP_RATE_UNCATERED,
   GROUP_RATE_CATERED,
@@ -71,9 +71,7 @@ export interface Quote {
   bookingType: BookingType;
   catering: Catering;
   groupSize: number;
-  netCents: number;
-  vatCents: number;
-  totalCents: number; // VAT-inclusive — the amount the customer owes
+  totalCents: number; // the full amount the customer owes — no VAT is charged
   depositPercent: number;
   amountDueCents: number; // the FIRST charge: deposit (deposit_balance) or full total (full)
   currency: string;
@@ -113,9 +111,6 @@ export function computeQuote(input: {
     totalCents = toCents(catering === 'catered' ? GROUP_RATE_CATERED : GROUP_RATE_UNCATERED);
   }
 
-  const vatCents = totalCents - Math.round(totalCents / (1 + VAT_RATE));
-  const netCents = totalCents - vatCents;
-
   // Split decision. Deposit is rounded; balance is the remainder so the two always reconcile
   // to totalCents exactly.
   const gapDays = input.startDate ? daysUntil(input.startDate, now) : 0;
@@ -128,8 +123,6 @@ export function computeQuote(input: {
     bookingType: input.bookingType,
     catering,
     groupSize: input.groupSize,
-    netCents,
-    vatCents,
     totalCents,
     depositPercent: Math.round((depositCents / totalCents) * 100),
     amountDueCents: depositCents,
