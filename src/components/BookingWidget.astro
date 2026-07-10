@@ -1,34 +1,38 @@
 ---
-// BookingWidget (Part 9.2) — vanilla-JS island. Collects dates/group/residency/lead details,
-// shows a clearly-labelled estimate (server confirms the real total), and calls the typed
-// createCheckout Action, then redirects to Paystack's hosted checkout. No price is ever sent.
-import { formatRand } from '../data/rates';
-import { computeQuote, SPLIT_THRESHOLD_DAYS, DEPOSIT_FRACTION } from '../lib/pricing';
+// BookingWidget (Booking v2) — vanilla-JS island. Two products in one form, chosen by the
+// selected date: any day except Monday is a PRIVATE (exclusive) group booking (flat rate,
+// optional catering); every Monday is a SHARED, catered-only departure (2-8 people, priced
+// per person per night). Shows a clearly-labelled estimate; the server confirms the real
+// total. Calls the typed createCheckout Action, then redirects to Paystack's hosted checkout.
+// No price is ever sent.
+import {
+  formatRand,
+  CATERING_PP_NIGHT,
+  SHARED_PP_NIGHT,
+  SHARED_MIN_PEOPLE,
+  SHARED_MAX_CAPACITY,
+  NIGHTS,
+} from '../data/rates';
+import { computeQuote, SPLIT_THRESHOLD_DAYS, earliestBookableDate } from '../lib/pricing';
 
-// computeQuote (no startDate) returns the effective per-group total for the current pricing phase
-// (launch discount applied when active). groupSize doesn't affect the group total — 1 is a placeholder.
-const localQ = computeQuote({ residency: 'local', groupSize: 1 });
-const intlQ  = computeQuote({ residency: 'international', groupSize: 1 });
-
-// Deposit amounts (50/50 split, same math the server uses for deposit_balance plans).
-const localDepositCents  = Math.round(localQ.totalCents * DEPOSIT_FRACTION);
-const intlDepositCents   = Math.round(intlQ.totalCents  * DEPOSIT_FRACTION);
-const localBalanceCents  = localQ.totalCents - localDepositCents;
-const intlBalanceCents   = intlQ.totalCents  - intlDepositCents;
+// Display-only quote for the current pricing phase (no startDate → always 'full' plan).
+const uncateredQ = computeQuote({ bookingType: 'exclusive', catering: 'uncatered', groupSize: 1 });
 
 const fmt = (cents: number) => formatRand(cents / 100);
+const earliest = earliestBookableDate();
 ---
 
 <form
   id="booking-form"
   class="bform"
-  data-total-local={fmt(localQ.totalCents)}
-  data-total-international={fmt(intlQ.totalCents)}
-  data-deposit-local={fmt(localDepositCents)}
-  data-deposit-international={fmt(intlDepositCents)}
-  data-balance-local={fmt(localBalanceCents)}
-  data-balance-international={fmt(intlBalanceCents)}
+  data-group-rate={uncateredQ.totalCents}
+  data-catering-pp-night={CATERING_PP_NIGHT * 100}
+  data-shared-pp-night={SHARED_PP_NIGHT * 100}
+  data-nights={NIGHTS}
   data-split-days={SPLIT_THRESHOLD_DAYS}
+  data-earliest={earliest}
+  data-shared-min={SHARED_MIN_PEOPLE}
+  data-shared-max={SHARED_MAX_CAPACITY}
   novalidate
 >
   <div class="form-field bform__datefield">
@@ -50,6 +54,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
       <div class="bcal__grid" data-cal-grid></div>
       <div class="bcal__legend" aria-hidden="true">
         <span class="bcal__key bcal__key--avail">Available</span>
+        <span class="bcal__key bcal__key--shared">Shared Monday</span>
         <span class="bcal__key bcal__key--taken">Taken</span>
         <span class="bcal__key bcal__key--out">Unavailable</span>
       </div>
@@ -58,27 +63,21 @@ const fmt = (cents: number) => formatRand(cents / 100);
     <p class="bcal__selected" data-cal-selected aria-live="polite"></p>
   </div>
 
+  <p class="bform__mode-note" data-mode-note hidden></p>
+
   <div class="form-field">
-    <label for="bf-group">Group size</label>
-    <select id="bf-group" name="groupSize" required>
-      {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-        <option value={n}>
-          {n}
-          {n === 10 ? ' (recommended)' : ''}
-          {n > 10 ? ' (by special arrangement)' : ''}
-        </option>
-      ))}
-    </select>
+    <label for="bf-group" data-group-label>Group size</label>
+    <select id="bf-group" name="groupSize" required></select>
   </div>
 
-  <fieldset class="form-field">
-    <legend>Residency</legend>
+  <fieldset class="form-field" data-catering-field>
+    <legend>Catering</legend>
     <div class="bform__radios">
       <label class="bform__radio">
-        <input type="radio" name="residency" value="local" checked /> Local resident
+        <input type="radio" name="catering" value="uncatered" checked /> Self-catered
       </label>
       <label class="bform__radio">
-        <input type="radio" name="residency" value="international" /> International visitor
+        <input type="radio" name="catering" value="catered" /> Catered (+{fmt(CATERING_PP_NIGHT * 100)} pp/night)
       </label>
     </div>
   </fieldset>
@@ -134,9 +133,11 @@ const fmt = (cents: number) => formatRand(cents / 100);
   </div>
 
   <div class="bform__pricing">
+    <p class="bform__pp-breakdown" data-pp-breakdown hidden></p>
     <p class="bform__estimate">
       <span data-payment-label>Estimated total:</span>
-      <strong data-estimate>{fmt(localQ.totalCents)}</strong> per group
+      <strong data-estimate>{fmt(uncateredQ.totalCents)}</strong>
+      <span data-estimate-unit>per group</span>
       <span class="bform__estnote" data-est-note>Final amount confirmed at checkout.</span>
     </p>
     <p class="bform__balance-note" data-balance-note hidden>
@@ -147,8 +148,8 @@ const fmt = (cents: number) => formatRand(cents / 100);
     </p>
   </div>
 
-  <p class="bform__flat">
-    Exclusive use. One group at a time. Priced per trip regardless of group size.
+  <p class="bform__flat" data-flat-note>
+    Private, exclusive use. One group at a time. Priced per trip regardless of group size.
   </p>
 
   <button type="submit" class="btn btn-primary bform__submit" data-submit>Continue to secure payment</button>
@@ -164,9 +165,8 @@ const fmt = (cents: number) => formatRand(cents / 100);
 <script>
   import { actions } from 'astro:actions';
 
-  // Anon, PUBLIC creds only (never the service-role key). The unavailable_windows view is
-  // RLS-granted to anon and exposes ONLY blocked START dates (single dates, no ranges, no PII) —
-  // the exact days a new booking may not start on (staggered-groups model).
+  // Anon, PUBLIC creds only (never the service-role key). unavailable_windows and
+  // shared_slot_availability are RLS-granted to anon and expose ONLY dates/seat counts — no PII.
   const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
   const SUPABASE_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
@@ -182,9 +182,10 @@ const fmt = (cents: number) => formatRand(cents / 100);
     new Date(iso + 'T00:00:00Z').toLocaleDateString('en-ZA', { timeZone: 'UTC', ...opts });
   const daysBetween = (fromIso: string, toIso: string) =>
     Math.round((Date.parse(toIso + 'T00:00:00Z') - Date.parse(fromIso + 'T00:00:00Z')) / 86_400_000);
+  const isMondayIso = (iso: string) => new Date(iso + 'T00:00:00Z').getUTCDay() === 1;
 
-  // Blocked start dates: the exact days a new booking cannot start on. A date that falls inside an
-  // existing trip's range but is not itself a start date stays bookable (lodges run staggered groups).
+  // Blocked start dates: exclusive actives + operator-blocked days + FULL (or near-full) shared
+  // Mondays. A date inside another trip's range but not itself a start date stays bookable.
   async function fetchBlockedStarts(): Promise<Set<string>> {
     const blocked = new Set<string>();
     if (!SUPABASE_URL || !SUPABASE_ANON) return blocked;
@@ -206,10 +207,35 @@ const fmt = (cents: number) => formatRand(cents / 100);
     }
   }
 
+  // Seats remaining per shared Monday. A Monday absent from this map has all seats free.
+  async function fetchSharedSeats(): Promise<Map<string, number>> {
+    const seats = new Map<string, number>();
+    if (!SUPABASE_URL || !SUPABASE_ANON) return seats;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/shared_slot_availability?select=start_date,seats_left`,
+        {
+          headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
+          cache: 'no-store',
+        },
+      );
+      if (!res.ok) return seats;
+      const rows = await res.json();
+      if (Array.isArray(rows)) {
+        for (const r of rows as { start_date: string; seats_left: number }[]) {
+          if (r?.start_date) seats.set(r.start_date, r.seats_left);
+        }
+      }
+      return seats;
+    } catch {
+      return seats;
+    }
+  }
+
   function setupCalendar(
     form: HTMLFormElement,
     startInput: HTMLInputElement,
-    onDateSelected: (iso: string) => void,
+    onDateSelected: (iso: string, mode: 'exclusive' | 'shared', seatsLeft: number) => void,
   ): () => void {
     const noop = () => {};
     const cal = form.querySelector<HTMLElement>('[data-calendar]');
@@ -223,30 +249,33 @@ const fmt = (cents: number) => formatRand(cents / 100);
     const selectedEl = field?.querySelector<HTMLElement>('[data-cal-selected]') ?? null;
     if (!grid || !monthLabel || !prevBtn || !nextBtn) return noop;
 
+    // The earliest bookable date is the later of the 7-day lead time and the go-live opening
+    // date (server-computed, passed via data-earliest) — every date before it is 'out'.
     const todayIso = new Date().toISOString().slice(0, 10);
-    const earliest = addDaysIso(todayIso, 7); // 7-day minimum lead time (mirrors the server)
+    const earliest = form.dataset.earliest || addDaysIso(todayIso, 7);
     const latest = addDaysIso(todayIso, 365); // 365-day ceiling (mirrors the server)
 
     let blocked = new Set<string>();
+    let sharedSeats = new Map<string, number>();
     let selected = '';
     const viewIdx = (y: number, m: number) => y * 12 + m;
-    const minIdx = viewIdx(+todayIso.slice(0, 4), +todayIso.slice(5, 7) - 1);
+    const minIdx = viewIdx(+earliest.slice(0, 4), +earliest.slice(5, 7) - 1);
     const maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
     let view = { y: +earliest.slice(0, 4), m: +earliest.slice(5, 7) - 1 };
 
-    // Staggered groups: a day is "taken" ONLY if it exactly matches an existing booking's start date
-    // (two groups cannot start on the same day → both at Lodge 1, night 1). A day inside another
-    // trip's range but not itself a start date stays selectable. Mirrors the DB unique-start-date
-    // index, so a selectable date can never 409 at submit.
-    const stateOf = (d: string): 'out' | 'taken' | 'avail' => {
+    // Mondays are shared departures (a distinct, still-bookable state) unless the availability
+    // view lists them as blocked (full, or too few seats left for a new 2-person minimum booking).
+    const stateOf = (d: string): 'out' | 'taken' | 'avail' | 'shared' => {
       if (d < earliest || d > latest) return 'out';
-      return blocked.has(d) ? 'taken' : 'avail';
+      if (blocked.has(d)) return 'taken';
+      return isMondayIso(d) ? 'shared' : 'avail';
     };
 
     const nextAvailable = (): string | null => {
       let d = earliest;
       while (d <= latest) {
-        if (stateOf(d) === 'avail') return d;
+        const st = stateOf(d);
+        if (st === 'avail' || st === 'shared') return d;
         d = addDaysIso(d, 1);
       }
       return null;
@@ -255,12 +284,17 @@ const fmt = (cents: number) => formatRand(cents / 100);
     const selectDate = (iso: string) => {
       selected = iso;
       startInput.value = iso;
-      if (selectedEl)
+      const mode: 'exclusive' | 'shared' = isMondayIso(iso) ? 'shared' : 'exclusive';
+      const seatsLeft = mode === 'shared' ? (sharedSeats.get(iso) ?? 8) : 0;
+      if (selectedEl) {
+        const dateStr = humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         selectedEl.textContent =
-          'Selected start: ' +
-          humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+          mode === 'shared'
+            ? `Selected start: ${dateStr}. Shared Monday departure, ${seatsLeft} place(s) left.`
+            : `Selected start: ${dateStr}`;
+      }
       render();
-      onDateSelected(iso);
+      onDateSelected(iso, mode, seatsLeft);
     };
 
     const render = () => {
@@ -292,8 +326,9 @@ const fmt = (cents: number) => formatRand(cents / 100);
           month: 'long',
           year: 'numeric',
         });
-        if (st === 'avail') {
-          cell.setAttribute('aria-label', human);
+        if (st === 'avail' || st === 'shared') {
+          const seatsLabel = st === 'shared' ? `, shared departure, ${sharedSeats.get(iso) ?? 8} place(s) left` : '';
+          cell.setAttribute('aria-label', human + seatsLabel);
           cell.setAttribute('aria-pressed', iso === selected ? 'true' : 'false');
           if (iso === selected) cell.classList.add('is-selected');
           cell.addEventListener('click', () => selectDate(iso));
@@ -328,8 +363,9 @@ const fmt = (cents: number) => formatRand(cents / 100);
     });
 
     const refetch = () => {
-      fetchBlockedStarts().then((b) => {
+      Promise.all([fetchBlockedStarts(), fetchSharedSeats()]).then(([b, s]) => {
         blocked = b;
+        sharedSeats = s;
         updateNextAvail();
         const na = nextAvailable();
         if (na && !selected) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 };
@@ -338,7 +374,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
     };
 
     render(); // immediate paint (no taken dates yet)
-    refetch(); // load blocked dates and jump to first available month
+    refetch(); // load blocked dates + shared seats, jump to first available month
 
     return refetch;
   }
@@ -348,18 +384,39 @@ const fmt = (cents: number) => formatRand(cents / 100);
     if (!form || form.dataset.bound === 'true') return;
     form.dataset.bound = 'true';
 
-    const estimate    = form.querySelector<HTMLElement>('[data-estimate]');
+    const estimate = form.querySelector<HTMLElement>('[data-estimate]');
+    const estimateUnit = form.querySelector<HTMLElement>('[data-estimate-unit]');
     const paymentLabel = form.querySelector<HTMLElement>('[data-payment-label]');
-    const estNote     = form.querySelector<HTMLElement>('[data-est-note]');
+    const estNote = form.querySelector<HTMLElement>('[data-est-note]');
     const balanceNote = form.querySelector<HTMLElement>('[data-balance-note]');
-    const balanceAmt  = form.querySelector<HTMLElement>('[data-balance-amount]');
+    const balanceAmt = form.querySelector<HTMLElement>('[data-balance-amount]');
     const depositHint = form.querySelector<HTMLElement>('[data-deposit-hint]');
-    const status      = form.querySelector<HTMLElement>('[data-status]');
-    const startInput  = form.querySelector<HTMLInputElement>('#bf-start');
-    const submit      = form.querySelector<HTMLButtonElement>('[data-submit]');
-    const nameInput   = form.querySelector<HTMLInputElement>('#bf-name')!;
-    const emailInput  = form.querySelector<HTMLInputElement>('#bf-email')!;
-    const phoneInput  = form.querySelector<HTMLInputElement>('#bf-phone')!;
+    const ppBreakdown = form.querySelector<HTMLElement>('[data-pp-breakdown]');
+    const modeNote = form.querySelector<HTMLElement>('[data-mode-note]');
+    const flatNote = form.querySelector<HTMLElement>('[data-flat-note]');
+    const cateringField = form.querySelector<HTMLElement>('[data-catering-field]');
+    const groupLabel = form.querySelector<HTMLElement>('[data-group-label]');
+    const groupSelect = form.querySelector<HTMLSelectElement>('#bf-group')!;
+    const status = form.querySelector<HTMLElement>('[data-status]');
+    const startInput = form.querySelector<HTMLInputElement>('#bf-start');
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]');
+    const nameInput = form.querySelector<HTMLInputElement>('#bf-name')!;
+    const emailInput = form.querySelector<HTMLInputElement>('#bf-email')!;
+    const phoneInput = form.querySelector<HTMLInputElement>('#bf-phone')!;
+
+    // ---- Pricing constants (cents) from the server, mirrored client-side for the ESTIMATE only.
+    const GROUP_RATE = Number(form.dataset.groupRate ?? 0);
+    const CATERING_PP_NIGHT = Number(form.dataset.cateringPpNight ?? 0);
+    const SHARED_PP_NIGHT = Number(form.dataset.sharedPpNight ?? 0);
+    const NIGHTS = Number(form.dataset.nights ?? 3);
+    const SPLIT_DAYS = Number(form.dataset.splitDays ?? 30);
+    const SHARED_MIN = Number(form.dataset.sharedMin ?? 2);
+    const SHARED_MAX = Number(form.dataset.sharedMax ?? 8);
+    const fmtR = (cents: number) => 'R' + Math.round(cents / 100).toLocaleString('en-US');
+    const todayIso = new Date().toISOString().slice(0, 10); // UTC — display only, server re-validates
+
+    let mode: 'exclusive' | 'shared' = 'exclusive';
+    let seatsLeftForDate = SHARED_MAX;
 
     // ---- Inline validation helpers ----------------------------------------
     type Rule = (v: string) => string | null;
@@ -408,45 +465,113 @@ const fmt = (cents: number) => formatRand(cents / 100);
     bindField(emailInput, emailRules);
     bindField(phoneInput, phoneRules);
 
-    const SPLIT_DAYS = Number(form.dataset.splitDays ?? 30);
-    const todayIso = new Date().toISOString().slice(0, 10); // UTC — display only, server re-validates
+    // Rebuild the group-size <select> for the current mode. Keeps the previous value when it's
+    // still valid, otherwise clamps to the nearest valid option.
+    function rebuildGroupOptions() {
+      const prev = Number(groupSelect.value) || (mode === 'shared' ? SHARED_MIN : 1);
+      const lo = mode === 'shared' ? SHARED_MIN : 1;
+      const hi = mode === 'shared' ? Math.min(SHARED_MAX, seatsLeftForDate) : 12;
+      groupSelect.innerHTML = '';
+      for (let n = lo; n <= hi; n++) {
+        const opt = document.createElement('option');
+        opt.value = String(n);
+        let label = String(n);
+        if (mode === 'exclusive') {
+          if (n === 10) label += ' (recommended)';
+          if (n > 10) label += ' (by special arrangement)';
+        }
+        opt.textContent = label;
+        groupSelect.appendChild(opt);
+      }
+      const clamped = Math.min(Math.max(prev, lo), hi);
+      groupSelect.value = String(clamped);
+    }
 
-    const totals    = { local: form.dataset.totalLocal ?? '',    international: form.dataset.totalInternational ?? '' };
-    const deposits  = { local: form.dataset.depositLocal ?? '',  international: form.dataset.depositInternational ?? '' };
-    const balances  = { local: form.dataset.balanceLocal ?? '',  international: form.dataset.balanceInternational ?? '' };
+    function applyMode() {
+      rebuildGroupOptions();
+      if (mode === 'shared') {
+        if (groupLabel) groupLabel.textContent = 'Group size (2 to 8 people)';
+        if (cateringField) cateringField.hidden = true;
+        if (flatNote) flatNote.hidden = true;
+        if (modeNote) {
+          modeNote.hidden = false;
+          modeNote.textContent = `Shared Monday departure: fully catered, ${seatsLeftForDate} place(s) left. Your group joins other small groups on the trail, up to ${SHARED_MAX} walkers in total.`;
+        }
+      } else {
+        if (groupLabel) groupLabel.textContent = 'Group size';
+        if (cateringField) cateringField.hidden = false;
+        if (flatNote) flatNote.hidden = false;
+        if (modeNote) modeNote.hidden = true;
+      }
+    }
 
-    const residency = () =>
-      form.querySelector<HTMLInputElement>('input[name="residency"]:checked')?.value ?? 'local';
+    const catering = () =>
+      (form.querySelector<HTMLInputElement>('input[name="catering"]:checked')?.value as
+        | 'catered'
+        | 'uncatered') ?? 'uncatered';
 
     const updateEstimate = () => {
-      const res = residency() as 'local' | 'international';
       const startIso = startInput?.value ?? '';
-      const isDeposit =
-        startIso.length === 10 && daysBetween(todayIso, startIso) >= SPLIT_DAYS;
+      const groupSize = Number(groupSelect.value || (mode === 'shared' ? SHARED_MIN : 1));
+      const isDeposit = startIso.length === 10 && daysBetween(todayIso, startIso) >= SPLIT_DAYS;
+
+      let totalCents: number;
+      if (mode === 'shared') {
+        const ppNight = SHARED_PP_NIGHT;
+        const ppTotal = ppNight * NIGHTS;
+        totalCents = ppTotal * groupSize;
+        if (ppBreakdown) {
+          ppBreakdown.hidden = false;
+          ppBreakdown.textContent = `${fmtR(ppNight)} pp/night · ${fmtR(ppTotal)} pp for the ${NIGHTS}-night trail`;
+        }
+        if (estimateUnit) estimateUnit.textContent = `total for ${groupSize} ${groupSize === 1 ? 'person' : 'people'}`;
+      } else {
+        const cateringCents = catering() === 'catered' ? groupSize * NIGHTS * CATERING_PP_NIGHT : 0;
+        totalCents = GROUP_RATE + cateringCents;
+        if (ppBreakdown) {
+          ppBreakdown.hidden = cateringCents === 0;
+          if (cateringCents > 0) {
+            ppBreakdown.textContent = `Includes ${fmtR(cateringCents)} catering (${groupSize} ${groupSize === 1 ? 'person' : 'people'} × ${NIGHTS} nights × ${fmtR(CATERING_PP_NIGHT)} pp/night)`;
+          }
+        }
+        if (estimateUnit) estimateUnit.textContent = 'per group';
+      }
+
+      const depositCents = isDeposit ? Math.round(totalCents / 2) : totalCents;
+      const balanceCents = isDeposit ? totalCents - depositCents : 0;
 
       if (isDeposit) {
         if (paymentLabel) paymentLabel.textContent = '50% deposit due today:';
-        if (estimate)     estimate.textContent = deposits[res] ?? '';
-        if (estNote)      estNote.textContent = 'Full amount confirmed at checkout.';
-        if (balanceNote)  balanceNote.hidden = false;
-        if (balanceAmt)   balanceAmt.textContent = balances[res] ?? '';
-        if (depositHint)  depositHint.hidden = true; // redundant once we show the live split
-        if (submit)       submit.textContent = 'Pay deposit & continue to checkout';
+        if (estimate) estimate.textContent = fmtR(depositCents);
+        if (estNote) estNote.textContent = 'Full amount confirmed at checkout.';
+        if (balanceNote) balanceNote.hidden = false;
+        if (balanceAmt) balanceAmt.textContent = fmtR(balanceCents);
+        if (depositHint) depositHint.hidden = true; // redundant once we show the live split
+        if (submit) submit.textContent = 'Pay deposit & continue to checkout';
       } else {
         if (paymentLabel) paymentLabel.textContent = startIso ? 'Total due today:' : 'Estimated total:';
-        if (estimate)     estimate.textContent = totals[res] ?? '';
-        if (estNote)      estNote.textContent = 'Final amount confirmed at checkout.';
-        if (balanceNote)  balanceNote.hidden = true;
-        if (depositHint)  depositHint.hidden = false;
-        if (submit)       submit.textContent = 'Continue to secure payment';
+        if (estimate) estimate.textContent = fmtR(totalCents);
+        if (estNote) estNote.textContent = 'Final amount confirmed at checkout.';
+        if (balanceNote) balanceNote.hidden = true;
+        if (depositHint) depositHint.hidden = false;
+        if (submit) submit.textContent = 'Continue to secure payment';
       }
     };
 
-    if (startInput) setupCalendar(form, startInput, () => updateEstimate());
+    if (startInput) {
+      setupCalendar(form, startInput, (_iso, newMode, seatsLeft) => {
+        mode = newMode;
+        seatsLeftForDate = newMode === 'shared' ? seatsLeft : SHARED_MAX;
+        applyMode();
+        updateEstimate();
+      });
+    }
 
     form
-      .querySelectorAll<HTMLInputElement>('input[name="residency"]')
+      .querySelectorAll<HTMLInputElement>('input[name="catering"]')
       .forEach((el) => el.addEventListener('change', updateEstimate));
+    groupSelect.addEventListener('change', updateEstimate);
+    applyMode();
     updateEstimate();
 
     const setStatus = (msg: string, kind: 'error' | 'info' = 'error') => {
@@ -494,7 +619,7 @@ const fmt = (cents: number) => formatRand(cents / 100);
       const payload = {
         startDate: startVal,
         groupSize: Number(fd.get('groupSize') ?? 0),
-        residency: String(fd.get('residency') ?? 'local') as 'local' | 'international',
+        catering: mode === 'shared' ? ('catered' as const) : catering(),
         leadName: String(fd.get('leadName') ?? ''),
         leadEmail: String(fd.get('leadEmail') ?? ''),
         leadPhone: String(fd.get('leadPhone') ?? ''),

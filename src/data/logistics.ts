@@ -13,8 +13,8 @@ export const logisticsBlocks: LogBlock[] = [
   {
     id: 'catering',
     kicker: 'Catering',
-    title: 'Self-catered, with help at every camp',
-    body: 'The Rooiberg Wander is fully self-catered. You bring your own food and drinks; we move them. Your provisions and bags travel between camps each day, kept cool and dry, and every lodge has staff to help with kitchen prep, cooking, the barbeque and washing-up.',
+    title: 'Self-catered as standard, or fully catered',
+    body: 'By default you bring your own food and drinks; we move them. Your provisions and bags travel between camps each day, kept cool and dry, and every lodge has staff to help with kitchen prep, cooking, the barbeque and washing-up. Prefer not to plan meals? Choose the catered option at checkout for a per-person, per-night supplement and your food is taken care of throughout. Shared Monday departures are fully catered only.',
   },
   {
     id: 'safety',

@@ -10,6 +10,80 @@ marked done. Dates are the working dates.
 
 ---
 
+## Booking v2: catered/uncatered pricing, shared Monday departures, 2027 go-live gating — 2026-07-08  (branch `feature/booking-v2`, NOT merged to main)
+
+Four operator user stories, built and pushed to a dedicated branch for review before merging.
+`npm run verify` clean; pricing spot-check passed against the live TypeScript source
+(exclusive uncatered any size = R60,000; exclusive catered 4 = R87,600; exclusive catered 10 =
+R129,000; shared 2 people = R23,700; shared 8 people = R94,800; deposit splits reconcile exactly).
+
+1. **Pricing axis: local/foreign → catered/uncatered.** The international +20% premium is
+   removed entirely; the widget no longer asks residency. Private (exclusive) trail: flat
+   **R60,000/group incl. VAT**, self-catered as standard; catered option adds **R2,300 pp/night**
+   (operator-confirmed). `src/data/rates.ts` + `src/lib/pricing.ts` rewritten around this;
+   `computeQuote` now takes `{ bookingType, catering, groupSize, startDate? }`.
+2. **New shared Monday departures.** Every Monday is one shared, catered-only slot taking
+   MULTIPLE bookings: each booking 2 to 8 people, 8 places total across bookings, priced
+   **R3,950 pp/night (PLACEHOLDER — operator to confirm; one constant to edit:
+   `SHARED_PP_NIGHT` in `src/data/rates.ts`)**. Enforced server-side (booking type is derived
+   from the date, never trusted from the client) AND at the database layer via a new
+   `bookings_slot_guard` trigger (migration `0013_booking_v2.sql`) that serializes concurrent
+   seat-grabs with an advisory lock and rejects over-capacity inserts/updates — the DB remains
+   the last line of defence even if the app-level check races.
+3. **Calendar UX.** Mondays render in a new distinct colour (terracotta, `--color-day4`, matching
+   the existing route-map day-colour language) with their own legend key "Shared Monday".
+   Clicking a Monday switches the booking widget into shared mode: group size caps to the
+   seats actually remaining, catering is forced on with a note, and the estimate shows
+   `Rx pp/night · Ry pp for the 3-night trail · total for N people`. Any other day stays
+   exclusive mode (group rate + optional catering line).
+4. **Go-live gating.** Online bookings are accepted for start dates from **15 January 2027**
+   only (`BOOKING_OPEN_DATE`, the sole gating date — enforced in the calendar, the
+   `createCheckout` action, AND indirectly by the `unavailable_windows` view's date range); every
+   earlier date renders unavailable and is rejected server-side with a message pointing to the
+   enquiry form / WhatsApp. A new dismissible **beta popup** (`BetaBanner.astro`, mounted in
+   `Layout.astro`, once per browser session via `sessionStorage`) explains: booking opens
+   15 January 2027; the trail is in beta until **15 July 2027** (`BETA_END_DATE` — this date
+   gates nothing, it is copy-only); earlier dates are family-and-friends by enquiry or WhatsApp
+   only, at a significant discount. The previous automatic online 75% soft-launch discount
+   (`LAUNCH_DISCOUNT`/`LAUNCH_OFFER`) is **removed** — discounts for early dates now happen
+   entirely offline, matching the beta banner's own copy.
+
+**Database** (migration `0013_booking_v2.sql`, NOT yet applied to any Supabase project —
+apply before testing/merging): `bookings.booking_type` (`exclusive`/`shared`, default
+`exclusive`), `bookings.catering` (`catered`/`uncatered`, default `uncatered` — correctly maps
+legacy self-catered rows), `residency` made nullable (legacy data preserved, no longer written
+by new bookings); `bookings_unique_start_date` now scoped to `booking_type = 'exclusive'`;
+`unavailable_windows` redefined to also list Mondays with 7+ of 8 seats taken (fewer than the
+2-person minimum remaining) as unavailable; new `shared_slot_availability` view (PII-free:
+`start_date, seats_left`) for the calendar's per-Monday seat count.
+
+**Server** (`src/actions/index.ts`): `createCheckout` derives `bookingType` from the date
+server-side (Monday → shared) and enforces the 2-8 shared group-size bound + catered-only rule;
+catches the trigger's `RW_SHARED_FULL`/`RW_MONDAY_SHARED_ONLY` errors into friendly messages.
+`adminCreateCompBooking` swapped residency for catering (comp bookings stay exclusive; Mondays
+rejected with a clear message). `adminMoveDates` catches the same trigger errors. Webhook and all
+transactional emails (`src/lib/email.ts`) updated to show Type/Catering instead of Residency;
+tax invoices describe the product correctly (private self/fully-catered vs shared catered).
+Admin dashboard/detail pages show booking type + catering, with a `shared` badge and a
+legacy-only "Residency (legacy)" row for pre-v2 bookings.
+
+**Copy sweep** (no em-dashes; plain international English; classy, informative tone):
+`site.ts` quickFacts + meta description updated; **`headerTagline` changed from "A Luxury
+Slackpack Self-Catering Walking Safari" to "A Luxury Slackpack Walking Safari"** because
+catering is now optional — **flagged for explicit operator sign-off before go-live**, it is
+the one visible brand-copy change in this batch. `logistics.ts` catering block rewritten;
+`inclusions`/`exclusions` in `rates.ts` updated; `public/llms.txt` rates/pricing/launch section
+rewritten (also fixed pre-existing stale content: wrong operator name "RoiSan Reserve NPC" →
+Franili Investments (Pty) Ltd, and a stale "50% Launch Phase discount" claim); `schema.ts`
+`TouristTrip` description updated.
+
+**Open items for the operator** (also in `GO_LIVE_CHECKLIST.md`): confirm `SHARED_PP_NIGHT`
+(R3,950 is an industry-standard placeholder, not a quoted rate); confirm the catered pp/night
+rate (R2,300) is final; sign off the tagline change; confirm the beta-banner wording and CTAs;
+apply migration `0013` before any further testing.
+
+---
+
 ## Online indemnity/waiver removed — signed in person on arrival — 2026-07-01  (NOT committed)
 
 Per the solicitor, guests sign the trail indemnity **in person on arrival**, so all online indemnity

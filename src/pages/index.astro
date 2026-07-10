@@ -10,7 +10,7 @@ import StatsBar from '../components/StatsBar.astro';
 import Testimonials from '../components/Testimonials.astro';
 import GoogleReview from '../components/GoogleReview.astro';
 import { withBase } from '../data/site';
-import { LAUNCH_OFFER, LAUNCH_DATE, LAUNCH_DISCOUNT } from '../data/rates';
+import { BOOKING_OPEN_DISPLAY } from '../data/rates';
 import { sanctuaries } from '../data/sanctuaries';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
 import panorama from '../assets/images/rooiberg-dusk-panorama.jpg';
@@ -23,7 +23,7 @@ import {
 
 const title = 'The Rooiberg Wander | Malaria-free Big 5 slackpacking trail';
 const description =
-  'A self-catering walking safari in the Waterberg. 3 nights and 3 days through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from Johannesburg.';
+  'A walking safari in the Waterberg, self-catered or catered. 3 nights and 3 days through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from Johannesburg.';
 
 const jsonLd = [
   organizationSchema,
@@ -87,22 +87,18 @@ const lodgeContext: Record<string, string> = {
     </ul>
   </div>
 
-  {
-    LAUNCH_OFFER && (
-      <Section bg="cream" space="md">
-        <div class="launch-banner">
-          <p class="launch-banner__eyebrow">Soft launch</p>
-          <p class="launch-banner__lead">
-            The trail opens on {LAUNCH_DATE}. During the soft-launch period, family and friends
-            book at {Math.round(LAUNCH_DISCOUNT * 100)}% off the standard group rate.
-          </p>
-          <p class="mt-4">
-            <a href={withBase('/rates')} class="btn btn-primary">See soft-launch rates</a>
-          </p>
-        </div>
-      </Section>
-    )
-  }
+  <Section bg="cream" space="md">
+    <div class="launch-banner">
+      <p class="launch-banner__eyebrow">Booking opens {BOOKING_OPEN_DISPLAY}</p>
+      <p class="launch-banner__lead">
+        Online booking is accepted for start dates from {BOOKING_OPEN_DISPLAY} onwards. For
+        earlier dates, please send an enquiry or contact us on WhatsApp.
+      </p>
+      <p class="mt-4">
+        <a href={withBase('/rates')} class="btn btn-primary">See rates and book</a>
+      </p>
+    </div>
+  </Section>
 
   {/* Intro — short and factual. Detail lives on /the-trail. */}
   <Section bg="cream" labelledby="promise-heading">
@@ -117,8 +113,9 @@ const lodgeContext: Record<string, string> = {
         A three-day walking safari in the Waterberg
       </h2>
       <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        The Rooiberg Wander is a 3-night, 3-day self-catered walking trail through 15,000 hectares
-        of malaria-free Big 5 reserve near Rooiberg in Limpopo, 2.5 hours by road from Johannesburg.
+        The Rooiberg Wander is a 3-night, 3-day walking trail through 15,000 hectares of
+        malaria-free Big 5 reserve near Rooiberg in Limpopo, 2.5 hours by road from Johannesburg.
+        Self-catered as standard, or fully catered.
       </p>
       <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
         You walk from one private lodge to the next while your luggage and provisions are moved

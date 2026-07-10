@@ -3,7 +3,13 @@
 import { defineAction, ActionError } from 'astro:actions';
 import { z } from 'astro:schema';
 import crypto from 'node:crypto';
-import { computeQuote, BALANCE_LEAD_DAYS } from '../lib/pricing';
+import {
+  computeQuote,
+  BALANCE_LEAD_DAYS,
+  earliestBookableDate,
+  isMonday,
+} from '../lib/pricing';
+import { BOOKING_OPEN_DISPLAY, SHARED_MIN_PEOPLE, SHARED_MAX_CAPACITY } from '../data/rates';
 import { getSupabaseAdmin } from '../lib/supabase';
 import { payments } from '../lib/payments';
 import {
@@ -41,7 +47,7 @@ export const server = {
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
       groupSize: z.number().int().min(1).max(12),
-      residency: z.enum(['local', 'international']),
+      catering: z.enum(['catered', 'uncatered']),
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
       leadPhone: z.string().trim().min(7, 'Please enter a mobile number.').max(40),
@@ -62,15 +68,16 @@ export const server = {
 
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
 
-      // Booking window (server-authoritative): minimum 7 days lead time, maximum 365 days ahead,
-      // both inclusive. ISO YYYY-MM-DD strings compare lexicographically, so string comparison is safe.
+      // Booking window (server-authoritative): the later of the 7-day lead time and the go-live
+      // opening date (earliestBookableDate), maximum 365 days ahead. ISO YYYY-MM-DD strings
+      // compare lexicographically, so string comparison is safe.
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
-      const earliest = addDays(today, 7); // at least 7 days notice
+      const earliest = earliestBookableDate();
       const latest = addDays(today, 365); // no more than 12 months ahead
       if (input.startDate < earliest) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `Bookings require at least 7 days notice. The earliest available start date is ${earliest}.`,
+          message: `Online bookings open for start dates from ${BOOKING_OPEN_DISPLAY} (with at least 7 days notice). For earlier dates, please send an enquiry or contact us on WhatsApp.`,
         });
       }
       if (input.startDate > latest) {
@@ -80,10 +87,30 @@ export const server = {
         });
       }
 
+      // Booking type is derived from the DATE, never trusted from the client: Mondays are
+      // shared, catered-only departures (2..8 people per booking, 8 places total); all other
+      // days are private exclusive bookings.
+      const bookingType = isMonday(input.startDate) ? 'shared' : 'exclusive';
+      if (bookingType === 'shared') {
+        if (input.groupSize < SHARED_MIN_PEOPLE || input.groupSize > SHARED_MAX_CAPACITY) {
+          throw new ActionError({
+            code: 'BAD_REQUEST',
+            message: `Shared Monday departures take ${SHARED_MIN_PEOPLE} to ${SHARED_MAX_CAPACITY} people per booking.`,
+          });
+        }
+        if (input.catering !== 'catered') {
+          throw new ActionError({
+            code: 'BAD_REQUEST',
+            message: 'Shared Monday departures are fully catered.',
+          });
+        }
+      }
+
       // SERVER is the price authority (Part 11.4). startDate drives the split-payment rule: a trip
       // 30+ days out pays a 50% deposit now + 50% balance later; inside 30 days pays in full.
       const quote = computeQuote({
-        residency: input.residency,
+        bookingType,
+        catering: input.catering,
         groupSize: input.groupSize,
         startDate: input.startDate,
       });
@@ -121,19 +148,19 @@ export const server = {
       const startDate = input.startDate;
       const endDate = addDays(startDate, 3);
 
-      // Insert pending booking. Staggered groups (Option A): the DB unique-start-date index (active
-      // rows only) + the hold prevent two groups starting on the same day; overlapping trip ranges
-      // are allowed. The server is the authority — a duplicate start_date fails the insert here.
-      // amount_due_cents is the FIRST charge (deposit for deposit_balance, full total otherwise);
-      // balance_due_date is computed at confirmation in the webhook (it anchors to confirmed_at for
-      // the edge case), so it is left null here.
+      // Insert pending booking. Exclusive: the DB unique-start-date index (active exclusive rows)
+      // + the hold prevent two private groups starting the same day. Shared: the DB slot-guard
+      // trigger serializes concurrent seat-grabs and caps the Monday at 8 seats. The server is
+      // the authority; a violation fails the insert here. amount_due_cents is the FIRST charge;
+      // balance_due_date is computed at confirmation in the webhook, so it is left null here.
       const { data, error } = await supabase
         .from('bookings')
         .insert({
           start_date: startDate,
           end_date: endDate,
           group_size: input.groupSize,
-          residency: input.residency,
+          booking_type: bookingType,
+          catering: quote.catering,
           lead_name: leadName,
           lead_email: leadEmail,
           lead_phone: leadPhone,
@@ -152,7 +179,17 @@ export const server = {
         .single();
 
       if (error || !data) {
-        // Unique-start-date violation => that start date was just taken by another group.
+        // Friendly messages for the two inventory guards; generic conflict otherwise.
+        const msg = (error?.message ?? '') as string;
+        if (msg.includes('RW_SHARED_FULL')) {
+          const left = msg.match(/only (\d+)/)?.[1];
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: left
+              ? `Not enough places left on that Monday. ${left} place(s) remain.`
+              : 'Not enough places left on that Monday. Please pick another Monday or reduce your group.',
+          });
+        }
         throw new ActionError({
           code: 'CONFLICT',
           message: 'Those dates have just been taken. Please choose another start date.',
@@ -538,7 +575,7 @@ export const server = {
       const { data: b } = await supabase
         .from('bookings')
         .select(
-          'id, status, lead_email, lead_name, start_date, pretrip_token, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at, total_cents, amount_paid_cents, group_size, confirmed_at, processor',
+          'id, status, lead_email, lead_name, start_date, pretrip_token, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at, total_cents, amount_paid_cents, group_size, confirmed_at, processor, booking_type, catering',
         )
         .eq('id', input.bookingId)
         .maybeSingle();
@@ -563,6 +600,8 @@ export const server = {
             balanceCents: b.balance_due_cents ?? undefined,
             balanceDueDate: b.balance_due_date,
             complimentary: isComp,
+            bookingType: b.booking_type,
+            catering: b.catering,
           });
         } else if (input.kind === 'pretrip_reminder') {
           await sendPretripReminder({
@@ -610,6 +649,8 @@ export const server = {
             amountCents: paidPlanIsDeposit ? (b.deposit_paid_cents ?? 0) : (b.amount_paid_cents ?? b.total_cents),
             invoiceType: paidPlanIsDeposit ? 'deposit' : 'full',
             groupSize: b.group_size,
+            bookingType: b.booking_type,
+            catering: b.catering,
           });
           if (paidPlanIsDeposit && b.balance_paid_at) {
             await sendTaxInvoice({
@@ -621,6 +662,8 @@ export const server = {
               amountCents: b.balance_due_cents,
               invoiceType: 'balance',
               groupSize: b.group_size,
+              bookingType: b.booking_type,
+              catering: b.catering,
             });
           }
         }
@@ -698,6 +741,26 @@ export const server = {
         if ((error as { code?: string }).code === '23505') {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
         }
+        // Slot-guard trigger: Mondays are shared-only (and vice versa), shared capacity is 8.
+        const msg = error.message ?? '';
+        if (msg.includes('RW_MONDAY_SHARED_ONLY')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'Mondays are reserved for shared departures; a private booking cannot move onto a Monday.',
+          });
+        }
+        if (msg.includes('RW_SHARED_MONDAY_ONLY')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'Shared departures start on Mondays only; pick another Monday.',
+          });
+        }
+        if (msg.includes('RW_SHARED_FULL')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'Not enough places left on that Monday for this group.',
+          });
+        }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not move the booking.' });
       }
 
@@ -728,7 +791,7 @@ export const server = {
       const supabase = getSupabaseAdmin();
       const { data: b } = await supabase
         .from('bookings')
-        .select('id, status, payment_plan, balance_paid_at, balance_due_cents, total_cents, lead_email, lead_name, start_date, group_size')
+        .select('id, status, payment_plan, balance_paid_at, balance_due_cents, total_cents, lead_email, lead_name, start_date, group_size, booking_type, catering')
         .eq('id', input.bookingId)
         .maybeSingle();
       if (!b) throw new ActionError({ code: 'NOT_FOUND', message: 'Booking not found.' });
@@ -787,6 +850,8 @@ export const server = {
             amountCents: b.balance_due_cents,
             invoiceType: 'balance',
             groupSize: b.group_size,
+            bookingType: b.booking_type,
+            catering: b.catering,
           });
         } catch (err) {
           console.error('[admin] mark-paid emails failed', (err as Error).message);
@@ -936,7 +1001,7 @@ export const server = {
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
       groupSize: z.number().int().min(1).max(12),
-      residency: z.enum(['local', 'international']),
+      catering: z.enum(['catered', 'uncatered']),
       leadName: z.string().trim().min(2, 'Please enter the guest\'s full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
       leadPhone: z.string().trim().min(7, 'Please enter a valid phone number.').max(40).optional(),
@@ -978,7 +1043,8 @@ export const server = {
           start_date: input.startDate,
           end_date: endDate,
           group_size: input.groupSize,
-          residency: input.residency,
+          booking_type: 'exclusive',
+          catering: input.catering,
           lead_name: leadName,
           lead_email: leadEmail,
           lead_phone: input.leadPhone?.trim() || null,
@@ -999,6 +1065,12 @@ export const server = {
       if (error || !created) {
         if ((error as { code?: string } | null)?.code === '23505') {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
+        }
+        if ((error?.message ?? '').includes('RW_MONDAY_SHARED_ONLY')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'Mondays are reserved for shared departures; comp bookings are private (exclusive). Pick another day.',
+          });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not create the booking.' });
       }

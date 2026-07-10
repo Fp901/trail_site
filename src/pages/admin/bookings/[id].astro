@@ -85,7 +85,10 @@ const bookingRows: [string, string][] = booking
       ['Start date (Day 1)', booking.start_date],
       ['End date (Day 4)', booking.end_date],
       ['Group size', String(booking.group_size)],
-      ['Residency', booking.residency],
+      ['Type', booking.booking_type === 'shared' ? 'Shared Monday departure' : 'Private (exclusive)'],
+      ['Catering', booking.catering === 'catered' ? 'Fully catered' : 'Self-catered'],
+      // Legacy bookings (pre catering model) recorded residency; show it only when present.
+      ...(booking.residency ? ([['Residency (legacy)', booking.residency]] as [string, string][]) : []),
       ['Lead guest', booking.lead_name],
       ['Lead email', booking.lead_email],
       ['Lead phone', booking.lead_phone ?? '—'],

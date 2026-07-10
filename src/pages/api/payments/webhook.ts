@@ -22,7 +22,7 @@ const MS_PER_DAY = 86_400_000;
 // Columns needed for both the deposit (first payment) and balance (second payment) branches.
 const BOOKING_COLS =
   'id, status, amount_due_cents, total_cents, lead_email, lead_name, start_date, pretrip_token, ' +
-  'group_size, residency, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at';
+  'group_size, booking_type, catering, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at';
 
 export const prerender = false;
 
@@ -208,6 +208,8 @@ export const POST: APIRoute = async ({ request }) => {
         amountCents: verify.amountCents,
         invoiceType: 'balance',
         groupSize: booking.group_size,
+        bookingType: booking.booking_type,
+        catering: booking.catering,
       });
     } catch (err) {
       console.error('[webhook] balance tax invoice email failed', err);
@@ -296,6 +298,8 @@ export const POST: APIRoute = async ({ request }) => {
         balanceCents: booking.balance_due_cents,
         balanceDueDate,
         balanceLinkImminent: balanceDueNow,
+        bookingType: booking.booking_type,
+        catering: booking.catering,
       });
     } catch (err) {
       console.error('[webhook] guest confirmation email failed', err);
@@ -307,7 +311,8 @@ export const POST: APIRoute = async ({ request }) => {
         leadEmail: booking.lead_email,
         startDate: booking.start_date,
         groupSize: booking.group_size,
-        residency: booking.residency,
+        bookingType: booking.booking_type,
+        catering: booking.catering,
         bookingId: booking.id,
         paymentPlan: booking.payment_plan,
         totalCents: booking.total_cents,
@@ -330,6 +335,8 @@ export const POST: APIRoute = async ({ request }) => {
         amountCents: verify.amountCents,
         invoiceType: isDepositBooking ? 'deposit' : 'full',
         groupSize: booking.group_size,
+        bookingType: booking.booking_type,
+        catering: booking.catering,
       });
     } catch (err) {
       console.error('[webhook] tax invoice email failed', err);

@@ -6,7 +6,16 @@ import Section from '../components/Section.astro';
 import RatesTable from '../components/RatesTable.astro';
 import BookingWidget from '../components/BookingWidget.astro';
 import InquiryForm from '../components/InquiryForm.astro';
-import { rates, LAUNCH_OFFER, LAUNCH_DATE, LAUNCH_DISCOUNT, inclusions, exclusions } from '../data/rates';
+import {
+  GROUP_RATE_UNCATERED,
+  CATERING_PP_NIGHT,
+  SHARED_PP_NIGHT,
+  NIGHTS,
+  BOOKING_OPEN_DISPLAY,
+  formatRand,
+  inclusions,
+  exclusions,
+} from '../data/rates';
 import { refundPolicy } from '../data/policies';
 import { site } from '../data/site';
 import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
@@ -21,8 +30,7 @@ const bookingEnabled = Boolean(
 );
 
 const title = 'Rates & Booking | The Rooiberg Wander';
-const description =
-  'R60,000 per exclusive group of up to 10 (SA residents, incl. VAT & conservation levies); +20% for foreign nationals. See what is included and book.';
+const description = `R${GROUP_RATE_UNCATERED.toLocaleString('en-US')} per private group, self-catered, incl. VAT. Catering and shared Monday departures also available. See what is included and book.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -33,13 +41,16 @@ const jsonLd = [
     { name: 'Home', path: '/' },
     { name: 'Rates & Booking', path: '/rates' },
   ]),
-  ...rates.map((r) =>
-    offerSchema({
-      price: r.total,
-      name: `The Rooiberg Wander: ${r.label}`,
-      description: 'Exclusive group of up to 10, incl. VAT and conservation levies.',
-    }),
-  ),
+  offerSchema({
+    price: GROUP_RATE_UNCATERED,
+    name: 'The Rooiberg Wander: private trail (exclusive use)',
+    description: 'Private group of up to 10, self-catered, incl. VAT and conservation levies.',
+  }),
+  offerSchema({
+    price: SHARED_PP_NIGHT * NIGHTS,
+    name: 'The Rooiberg Wander: shared Monday departure (per person)',
+    description: 'Shared, fully catered departure, 2 to 8 people, incl. VAT and conservation levies.',
+  }),
 ];
 ---
 
@@ -60,20 +71,15 @@ const jsonLd = [
     </div>
   </Section>
 
-  {
-    LAUNCH_OFFER && (
-      <Section bg="cream" space="md" containerClass="!pt-0">
-        <div class="launch-banner">
-          <p class="launch-banner__eyebrow">Soft launch</p>
-          <p class="launch-banner__lead">
-            The Rooiberg Wander opens on {LAUNCH_DATE}. During the soft-launch period, family and
-            friends book at <strong>{Math.round(LAUNCH_DISCOUNT * 100)}% off</strong> the standard
-            group rate.
-          </p>
-        </div>
-      </Section>
-    )
-  }
+  <Section bg="cream" space="md" containerClass="!pt-0">
+    <div class="launch-banner">
+      <p class="launch-banner__eyebrow">Booking opens {BOOKING_OPEN_DISPLAY}</p>
+      <p class="launch-banner__lead">
+        Online booking is accepted for start dates from {BOOKING_OPEN_DISPLAY} onwards. For
+        earlier dates, please send an enquiry or contact us on WhatsApp.
+      </p>
+    </div>
+  </Section>
 
   <Section bg="cream" labelledby="matrix-heading" space="md" containerClass="!pt-0">
     <h2 id="matrix-heading" class="sr-only">Rates</h2>
@@ -117,8 +123,9 @@ const jsonLd = [
               confirmed once payment is received, and a tax invoice is issued with your receipt.
             </p>
             <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
-              Under <strong>Residency</strong>, choose “International visitor” if you are not a South
-              African resident, as a 20% conservation levy applies to that rate.
+              Choose <strong>Monday</strong> for a shared, per-person departure, or any other day
+              for a private group at the flat group rate. Add catering to a private booking for{' '}
+              {formatRand(CATERING_PP_NIGHT)} per person per night.
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}

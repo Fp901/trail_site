@@ -204,6 +204,9 @@ export async function sendBookingConfirmation(opts: {
   // Complimentary (gift) booking: no payment occurred, so the payment row reads
   // "Complimentary" and no tax-invoice line is shown.
   complimentary?: boolean;
+  // Booking v2: shown as extra rows when provided.
+  bookingType?: string; // 'exclusive' | 'shared'
+  catering?: string; // 'catered' | 'uncatered'
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
   const tripInfo = tripInfoUrl(opts.pretripToken);
@@ -235,6 +238,12 @@ export async function sendBookingConfirmation(opts: {
     infoTable([
       ['Trail', 'The Rooiberg Wander'],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
+      ...(opts.bookingType === 'shared'
+        ? ([['Departure', 'Shared Monday departure']] as Array<[string, string]>)
+        : []),
+      ...(opts.catering
+        ? ([['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered']] as Array<[string, string]>)
+        : []),
       ['Payment', opts.complimentary ? 'Complimentary' : isDeposit ? '50% deposit paid' : 'Paid in full'],
     ]) +
     paymentBlock +
@@ -343,7 +352,8 @@ export async function sendBookingOperatorNotification(opts: {
   leadEmail: string;
   startDate: string;
   groupSize: number;
-  residency: string;
+  bookingType: string; // 'exclusive' | 'shared'
+  catering: string; // 'catered' | 'uncatered'
   bookingId: string;
   paymentPlan: string;
   totalCents: number;
@@ -360,7 +370,8 @@ export async function sendBookingOperatorNotification(opts: {
       ['Email', escapeHtml(opts.leadEmail)],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ['Group size', String(opts.groupSize)],
-      ['Residency', opts.residency],
+      ['Type', opts.bookingType === 'shared' ? 'Shared Monday departure' : 'Private (exclusive)'],
+      ['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered'],
       ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
       ['Plan', opts.paymentPlan],
       ['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`],
@@ -479,6 +490,8 @@ export async function sendTaxInvoice(opts: {
   amountCents: number;       // the charge being invoiced (deposit or balance or full total)
   invoiceType: 'full' | 'deposit' | 'balance';
   groupSize: number;
+  bookingType?: string; // 'exclusive' (default) | 'shared'
+  catering?: string; // 'catered' | 'uncatered'
 }): Promise<void> {
   const issued = new Date(opts.issuedAt);
   const ym = issued.toISOString().slice(0, 7).replace('-', '');
@@ -494,12 +507,18 @@ export async function sendTaxInvoice(opts: {
   });
 
   const guestsLabel = `${opts.groupSize} ${opts.groupSize === 1 ? 'guest' : 'guests'}`;
+  // Product wording per booking type + catering (Booking v2). Defaults preserve the
+  // pre-v2 phrasing for legacy re-issues.
+  const productLabel =
+    opts.bookingType === 'shared'
+      ? `shared Monday departure, fully catered (${guestsLabel})`
+      : `private group (up to ${guestsLabel})${opts.catering === 'catered' ? ', fully catered' : opts.catering === 'uncatered' ? ', self-catered' : ''}`;
   const descriptionLine =
     opts.invoiceType === 'deposit'
-      ? `The Rooiberg Wander: 50% deposit. 3-night guided walking trail, private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
+      ? `The Rooiberg Wander: 50% deposit. 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`
       : opts.invoiceType === 'balance'
-        ? `The Rooiberg Wander: balance payment (50%). Private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
-        : `The Rooiberg Wander: 3-night guided walking trail, private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`;
+        ? `The Rooiberg Wander: balance payment (50%). ${productLabel.charAt(0).toUpperCase() + productLabel.slice(1)}. Arrival: ${humanDate(opts.startDate)}.`
+        : `The Rooiberg Wander: 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`;
 
   const fmt = (c: number) => 'R ' + (c / 100).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
