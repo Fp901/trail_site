@@ -158,7 +158,9 @@ auth user created, **Vercel** project live with SSR adapter. **Next:** fill rema
 ---
 
 ## Part C — Business inputs / decisions needed
-- [ ] Real **`LAUNCH_DISCOUNT_END`** date.
+- [x] ~~Real `LAUNCH_DISCOUNT_END` date.~~ **Superseded by Part D** — the soft-launch discount
+      (`LAUNCH_DISCOUNT`/`LAUNCH_OFFER`) was removed entirely on branch `feature/booking-v2`;
+      early-date discounts now happen offline only (enquiry/WhatsApp), per the beta banner.
 - [ ] **VAT registration number** (for tax invoices — deposit **and** balance receipts).
 - [ ] Final **refund/cancellation percentages** (confirm the draft in `policies.ts`).
 - [ ] **Split-payment policy — RECONFIRM before go-live** (all money rules, currently hard-coded):
@@ -178,6 +180,40 @@ auth user created, **Vercel** project live with SSR adapter. **Next:** fill rema
 - [ ] **Privacy** contact + data-retention period (POPIA).
 - [ ] Confirm **age/suitability policy**, and the **mailbox** for `hanlie@`.
 - [ ] Hosting decision (Part A, Phase 1) and Vercel **plan** (2 daily crons = Hobby limit).
+
+---
+
+## Part D — Booking v2 (branch `feature/booking-v2`, NOT merged to main)
+
+Catered/uncatered pricing, shared Monday departures, and 2027 go-live gating. See the CHANGELOG
+entry "Booking v2" (2026-07-08) for the full design. Before merging to `main` or testing further:
+
+- [ ] **Apply migration `0013_booking_v2.sql`** in Supabase (adds `booking_type`/`catering`
+      columns, the `bookings_slot_guard` trigger, redefines `unavailable_windows`, adds
+      `shared_slot_availability`). Not yet applied anywhere.
+- [ ] **Confirm `SHARED_PP_NIGHT`** (currently R3,950, a PLACEHOLDER based on industry norms for
+      fully catered guided walking safaris — not a quoted rate). Single edit point:
+      `SHARED_PP_NIGHT` in `src/data/rates.ts`.
+- [ ] **Confirm `CATERING_PP_NIGHT`** (R2,300, operator-provided during planning — please
+      double-check before go-live).
+- [ ] **Sign off the tagline change**: "A Luxury Slackpack Self-Catering Walking Safari" →
+      "A Luxury Slackpack Walking Safari" (`site.ts headerTagline`) — catering is now optional,
+      so the old tagline overclaims. This is the only visible brand-copy change in this batch.
+- [ ] **Confirm the beta banner wording** (`BetaBanner.astro`): booking opens 15 January 2027;
+      beta phase to 15 July 2027; family-and-friends discount via enquiry/WhatsApp only, no
+      promo-code gate (same "enforced by who you share the link with" model as the prior
+      soft-launch discount).
+- [ ] **Confirm `BOOKING_OPEN_DATE` (15 Jan 2027) and `BETA_END_DATE` (15 Jul 2027)** are still
+      correct closer to go-live — both are single constants in `src/data/rates.ts`.
+- [ ] **Test the shared-Monday trigger** in Supabase SQL editor before relying on it: exclusive
+      insert on a Monday rejected; shared insert on a non-Monday rejected; shared 6+4 on one
+      Monday rejected (exceeds 8), 6+2 accepted; a Monday with 7 seats taken (1 remaining) shows
+      as unavailable in `unavailable_windows` (protects the 2-person minimum).
+- [ ] **Paystack test-mode E2E** for BOTH products once the migration is applied: a shared
+      Monday booking (2 people, confirm R23,700), and a private catered booking (confirm the
+      per-person-per-night maths matches the widget's live estimate).
+- [ ] Decide whether to **merge to `main`** once the above are confirmed, or keep iterating on
+      the branch.
 
 ---
 

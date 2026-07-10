@@ -9,7 +9,8 @@ export const organizationSchema = {
   '@type': 'Organization',
   '@id': ORG_ID,
   name: site.name,
-  legalName: site.operator,
+  // legalName intentionally omitted — the registered company is being formed and its formal
+  // name is not yet known (no invented facts; add legalName once confirmed).
   url: site.url,
   description: site.defaultDescription,
   areaServed: 'Waterberg, Limpopo, South Africa',
@@ -47,7 +48,7 @@ export function breadcrumbSchema(items: { name: string; path: string }[]) {
   };
 }
 
-// Offer — Part 8.8. Public VAT-inclusive rate in ZAR. price is the headline (incl. VAT) figure.
+// Offer — Part 8.8. Public rate in ZAR. No VAT is charged; price is the full amount.
 export function offerSchema(opts: { price: number; name: string; description?: string }) {
   return {
     '@context': 'https://schema.org',
@@ -98,7 +99,7 @@ export const touristTripSchema = {
   '@type': 'TouristTrip',
   name: site.name,
   description:
-    'A 3-night, 3-day self-catered slackpacking trail on foot through 15,000 ha of malaria-free Big 5 mountain wilderness near Rooiberg, Limpopo (the Waterberg), about 2.5 hours from Johannesburg. Roughly 15 to 20 km a day with daily luggage porterage; exclusive use for up to 10 guests, with two armed trail guides at all times.',
+    'A 3-night, 3-day slackpacking trail on foot through 15,000 ha of malaria-free Big 5 mountain wilderness near Rooiberg, Limpopo (the Waterberg), about 2.5 hours from Johannesburg. Roughly 15 to 20 km a day with daily luggage porterage; a private exclusive trail for up to 10 guests, self-catered or catered, with two armed trail guides at all times.',
   touristType: ['Slackpacking', 'Walking safari', 'Multi-day hiking trail'],
   provider: { '@id': ORG_ID },
 };

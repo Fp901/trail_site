@@ -66,16 +66,20 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
         </div>
 
         <fieldset class="bform__radios">
-          <legend>Residency</legend>
+          <legend>Catering</legend>
           <label class="bform__radio">
-            <input type="radio" name="cb-residency" value="local" checked />
-            <span>SA resident</span>
+            <input type="radio" name="cb-catering" value="uncatered" checked />
+            <span>Self-catered</span>
           </label>
           <label class="bform__radio">
-            <input type="radio" name="cb-residency" value="international" />
-            <span>International visitor</span>
+            <input type="radio" name="cb-catering" value="catered" />
+            <span>Fully catered</span>
           </label>
         </fieldset>
+        <p class="admin-card__hint">
+          Comp bookings are private (exclusive) trips. Mondays are reserved for shared departures
+          and cannot be comped.
+        </p>
 
         <div class="form-field">
           <label for="cb-name">Guest full name</label>
@@ -100,7 +104,7 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
           <input id="cb-guestemail" type="checkbox" checked />
           <span>
             Email the guest their confirmation now (marked "Complimentary", with the pre-trip form
-            and trip-info links; no tax invoice)
+            and trip-info links; no receipt)
           </span>
         </label>
 
@@ -157,15 +161,15 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
         submit.textContent = 'Creating…';
       }
 
-      const residency =
-        (form.querySelector<HTMLInputElement>('input[name="cb-residency"]:checked')?.value as
-          | 'local'
-          | 'international') ?? 'local';
+      const catering =
+        (form.querySelector<HTMLInputElement>('input[name="cb-catering"]:checked')?.value as
+          | 'catered'
+          | 'uncatered') ?? 'uncatered';
 
       const { data, error } = await actions.adminCreateCompBooking({
         startDate,
         groupSize: Number(val('cb-group') || '2'),
-        residency,
+        catering,
         leadName,
         leadEmail,
         leadPhone: leadPhone || undefined,

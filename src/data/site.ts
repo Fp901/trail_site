@@ -6,11 +6,16 @@ export const site = {
   // Chrome-only display form (navbar + footer wordmark next to the logo badge). `name` stays the
   // formal/SEO form used in titles, schema, emails and body copy.
   brandName: 'Rooiberg Wander',
-  headerTagline: 'A Luxury Slackpack Self-Catering Walking Safari',
-  operator: 'Franili Investments (Pty) Ltd',
+  // Catering is now optional (Booking v2), so "Self-Catering" no longer describes every
+  // booking. Changed to a neutral tagline — OPERATOR: please confirm before go-live.
+  headerTagline: 'A Luxury Slackpack Walking Safari',
+  // The prior registered entity (Franili Investments) is being wound down; a new company will
+  // be formed to operate the trail and its name is not yet known. Using the trading name here
+  // until the new entity is registered — OPERATOR: update with the formal company name + reg
+  // number once available (site.ts, and re-check email.ts / privacy.astro for the same).
+  operator: 'The Rooiberg Wander',
   operatorTradingAs: 'The Rooiberg Wander',
-  companyReg: '2021/392915/07',
-  vatNo: '4440301614',
+  // The operator is not VAT-registered — no VAT number, no VAT charged or shown anywhere.
   location: 'Rooiberg, Limpopo, South Africa',
   region: 'Waterberg, Limpopo',
   terrainHa: 15000,
@@ -55,7 +60,7 @@ export const site = {
 
   // Sitewide SEO fallback description (pages pass their own per Part 8.8).
   defaultDescription:
-    'A self-catering walking safari in the Waterberg. A 3-night, 3-day slackpacking trail through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from Johannesburg.',
+    'A walking safari in the Waterberg, self-catered or catered. A 3-night, 3-day slackpacking trail through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from Johannesburg.',
 
   // Social-card fallback.
   ogImage: '/images/og-default.jpg',
@@ -65,7 +70,7 @@ export const site = {
 export const quickFacts = [
   { label: 'Distance', value: '~15–20 km/day · ~55 km total over 3 walking days' },
   { label: 'Group size', value: 'Exclusive use, up to 10 guests (optional two extra by special arrangement)' },
-  { label: 'Catering', value: 'Self-catered. Bring your own food and drinks; we move them daily' },
+  { label: 'Catering', value: 'Self-catered as standard, or fully catered for an additional per-person charge' },
   { label: 'Guides & safety', value: 'Two qualified, armed trail guides at all times' },
   { label: 'Grading', value: 'Moderate to challenging. You need a good level of hiking fitness' },
   { label: 'Malaria', value: '100% malaria-free' },

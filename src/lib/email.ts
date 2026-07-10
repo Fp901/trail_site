@@ -13,7 +13,7 @@ export interface EmailMessage {
 const stripHeader = (v: string) => v.replace(/[\r\n]+/g, ' ').trim();
 
 const randFromCents = (cents: number) =>
-  'R ' + Math.round(cents / 100).toLocaleString('en-ZA');
+  'R ' + Math.round(cents / 100).toLocaleString('en-ZA');
 
 // Date-only strings (YYYY-MM-DD) are anchored to UTC midnight so they display correctly everywhere.
 const humanDate = (v: string) =>
@@ -111,7 +111,7 @@ function layout(variant: Variant, preheader: string, body: string): string {
   <tr>
     <td style="background-color:#2e2016;border-radius:0 0 14px 14px;padding:24px 40px;text-align:center;">
       <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C19A6B;">${siteUrl.replace(/^https?:\/\//, '')}</p>
-      <p style="margin:10px 0 0;font-size:11px;color:rgba(245,240,230,0.45);line-height:1.6;">Franili Investments (Pty) Ltd &middot; Reg. 2021/392915/07 &middot; Limpopo Waterberg, South Africa</p>
+      <p style="margin:10px 0 0;font-size:11px;color:rgba(245,240,230,0.45);line-height:1.6;">The Rooiberg Wander &middot; Limpopo Waterberg, South Africa</p>
     </td>
   </tr>
 
@@ -202,8 +202,11 @@ export async function sendBookingConfirmation(opts: {
   balanceDueDate?: string | null;
   balanceLinkImminent?: boolean;
   // Complimentary (gift) booking: no payment occurred, so the payment row reads
-  // "Complimentary" and no tax-invoice line is shown.
+  // "Complimentary" and no receipt line is shown.
   complimentary?: boolean;
+  // Booking v2: shown as extra rows when provided.
+  bookingType?: string; // 'exclusive' | 'shared'
+  catering?: string; // 'catered' | 'uncatered'
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
   const tripInfo = tripInfoUrl(opts.pretripToken);
@@ -235,6 +238,12 @@ export async function sendBookingConfirmation(opts: {
     infoTable([
       ['Trail', 'The Rooiberg Wander'],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
+      ...(opts.bookingType === 'shared'
+        ? ([['Departure', 'Shared Monday departure']] as Array<[string, string]>)
+        : []),
+      ...(opts.catering
+        ? ([['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered']] as Array<[string, string]>)
+        : []),
       ['Payment', opts.complimentary ? 'Complimentary' : isDeposit ? '50% deposit paid' : 'Paid in full'],
     ]) +
     paymentBlock +
@@ -246,7 +255,7 @@ export async function sendBookingConfirmation(opts: {
     `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Your trip-info page</p>` +
     p('Your itinerary, packing list, and private gate coordinates are all on your personal trip-info page. Bookmark it for your drive up.') +
     `<p style="margin:0 0 24px;font-size:14px;"><a href="${tripInfo}" style="color:#4A5D23;word-break:break-all;">${tripInfo}</a></p>` +
-    (opts.complimentary ? '' : small('A tax invoice accompanies your payment receipt from Paystack.'));
+    (opts.complimentary ? '' : small('A receipt accompanies your payment confirmation from Paystack.'));
 
   await sendEmail({
     to: opts.to,
@@ -304,7 +313,7 @@ export async function sendBalanceLinkEmail(opts: {
       ...(opts.dueDate ? ([['Pay by', humanDate(opts.dueDate)]] as Array<[string, string]>) : []),
     ]) +
     btn(opts.url, 'Pay your balance securely') +
-    small('Your deposit is already paid; this covers the outstanding 50%. A tax invoice accompanies your receipt.');
+    small('Your deposit is already paid; this covers the outstanding 50%. A receipt accompanies your payment.');
 
   await sendEmail({
     to: opts.to,
@@ -326,7 +335,7 @@ export async function sendBalancePaidConfirmation(opts: {
     p(`We've received your balance payment. Your Rooiberg Wander trip is now <strong>fully paid</strong>. There is nothing further to take care of on the payment side.`) +
     infoTable([['Arrival (Day 1)', humanDate(opts.startDate)]]) +
     p('We look forward to welcoming your group to the Rooiberg.') +
-    small('A tax invoice accompanies your receipt from Paystack.');
+    small('A receipt accompanies your payment confirmation from Paystack.');
 
   await sendEmail({
     to: opts.to,
@@ -343,7 +352,8 @@ export async function sendBookingOperatorNotification(opts: {
   leadEmail: string;
   startDate: string;
   groupSize: number;
-  residency: string;
+  bookingType: string; // 'exclusive' | 'shared'
+  catering: string; // 'catered' | 'uncatered'
   bookingId: string;
   paymentPlan: string;
   totalCents: number;
@@ -360,7 +370,8 @@ export async function sendBookingOperatorNotification(opts: {
       ['Email', escapeHtml(opts.leadEmail)],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ['Group size', String(opts.groupSize)],
-      ['Residency', opts.residency],
+      ['Type', opts.bookingType === 'shared' ? 'Shared Monday departure' : 'Private (exclusive)'],
+      ['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered'],
       ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
       ['Plan', opts.paymentPlan],
       ['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`],
@@ -465,28 +476,27 @@ export async function sendBalanceOverdueAlert(opts: {
   });
 }
 
-// ---- Tax invoice (SARS-compliant, VAT Act s20) ------------------------------
+// ---- Payment receipt (not a tax invoice — the operator is not VAT-registered) --------
 // Sent as a separate email after every confirmed payment (deposit, balance, or full).
-// Invoice number: RW-YYYYMM-{first8charsOfBookingId}.
-// VAT is back-calculated from the VAT-inclusive amount: ex-VAT = round(total * 100/115).
+// Receipt number: RW-YYYYMM-{first8charsOfBookingId}. No VAT is charged or shown; the amount
+// shown is the full payment received.
 
-export async function sendTaxInvoice(opts: {
+export async function sendPaymentReceipt(opts: {
   to: string;
   leadName: string;
   bookingId: string;
   startDate: string;
   issuedAt: string;          // ISO timestamp of payment confirmation
-  amountCents: number;       // the charge being invoiced (deposit or balance or full total)
-  invoiceType: 'full' | 'deposit' | 'balance';
+  amountCents: number;       // the amount received (deposit or balance or full total)
+  receiptType: 'full' | 'deposit' | 'balance';
   groupSize: number;
+  bookingType?: string; // 'exclusive' (default) | 'shared'
+  catering?: string; // 'catered' | 'uncatered'
 }): Promise<void> {
   const issued = new Date(opts.issuedAt);
   const ym = issued.toISOString().slice(0, 7).replace('-', '');
   const shortId = opts.bookingId.replace(/-/g, '').slice(0, 8).toUpperCase();
-  const invoiceNo = `RW-${ym}-${shortId}${opts.invoiceType === 'balance' ? '-B' : ''}`;
-
-  const exVatCents = Math.round(opts.amountCents * 100 / 115);
-  const vatCents   = opts.amountCents - exVatCents;
+  const receiptNo = `RW-${ym}-${shortId}${opts.receiptType === 'balance' ? '-B' : ''}`;
 
   const issuedStr = issued.toLocaleDateString('en-ZA', {
     timeZone: 'Africa/Johannesburg',
@@ -494,36 +504,39 @@ export async function sendTaxInvoice(opts: {
   });
 
   const guestsLabel = `${opts.groupSize} ${opts.groupSize === 1 ? 'guest' : 'guests'}`;
+  // Product wording per booking type + catering (Booking v2). Defaults preserve the
+  // pre-v2 phrasing for legacy re-issues.
+  const productLabel =
+    opts.bookingType === 'shared'
+      ? `shared Monday departure, fully catered (${guestsLabel})`
+      : `private group (up to ${guestsLabel})${opts.catering === 'catered' ? ', fully catered' : opts.catering === 'uncatered' ? ', self-catered' : ''}`;
   const descriptionLine =
-    opts.invoiceType === 'deposit'
-      ? `The Rooiberg Wander: 50% deposit. 3-night guided walking trail, private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
-      : opts.invoiceType === 'balance'
-        ? `The Rooiberg Wander: balance payment (50%). Private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`
-        : `The Rooiberg Wander: 3-night guided walking trail, private group (up to ${guestsLabel}). Arrival: ${humanDate(opts.startDate)}.`;
+    opts.receiptType === 'deposit'
+      ? `The Rooiberg Wander: 50% deposit. 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`
+      : opts.receiptType === 'balance'
+        ? `The Rooiberg Wander: balance payment (50%). ${productLabel.charAt(0).toUpperCase() + productLabel.slice(1)}. Arrival: ${humanDate(opts.startDate)}.`
+        : `The Rooiberg Wander: 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`;
 
-  const fmt = (c: number) => 'R ' + (c / 100).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (c: number) => 'R ' + (c / 100).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const name = escapeHtml(opts.leadName);
 
   const body = `
-<p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#C19A6B;">Tax Invoice</p>
-<h1 style="margin:0 0 28px;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:bold;color:#3D2B1F;line-height:1.2;">Invoice ${escapeHtml(invoiceNo)}</h1>
+<p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#C19A6B;">Payment Receipt</p>
+<h1 style="margin:0 0 28px;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:bold;color:#3D2B1F;line-height:1.2;">Receipt ${escapeHtml(receiptNo)}</h1>
 
-<!-- Invoice meta + parties -->
+<!-- Receipt meta + parties -->
 <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0 0 24px;">
   <tr valign="top">
     <td style="width:50%;padding-right:20px;">
-      <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#8a7868;">Supplier</p>
+      <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#8a7868;">From</p>
       <p style="margin:0;font-size:13px;line-height:1.7;color:#2C2C2C;">
         <strong>The Rooiberg Wander</strong><br>
-        A division of Franili Investments (Pty) Ltd<br>
-        Reg.&nbsp;No.:&nbsp;2021/392915/07<br>
-        Rooiberg, Waterberg, Limpopo, South Africa<br>
-        <span style="color:#8a7868;">VAT Reg.&nbsp;No.&nbsp;<strong>4440301614</strong></span>
+        Rooiberg, Waterberg, Limpopo, South Africa
       </p>
     </td>
     <td style="width:50%;padding-left:20px;">
-      <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#8a7868;">Bill To</p>
+      <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#8a7868;">Paid by</p>
       <p style="margin:0;font-size:13px;line-height:1.7;color:#2C2C2C;">
         <strong>${name}</strong><br>
         ${escapeHtml(opts.to)}
@@ -532,57 +545,41 @@ export async function sendTaxInvoice(opts: {
   </tr>
 </table>
 
-<!-- Invoice details -->
+<!-- Receipt details -->
 <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border:1px solid rgba(61,43,31,0.13);border-radius:10px 10px 0 0;overflow:hidden;margin:0 0 0;">
   <tr>
-    <td style="padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;border-bottom:1px solid rgba(61,43,31,0.09);white-space:nowrap;width:38%;">Invoice number</td>
-    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;border-bottom:1px solid rgba(61,43,31,0.09);font-family:monospace;">${escapeHtml(invoiceNo)}</td>
+    <td style="padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;border-bottom:1px solid rgba(61,43,31,0.09);white-space:nowrap;width:38%;">Receipt number</td>
+    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;border-bottom:1px solid rgba(61,43,31,0.09);font-family:monospace;">${escapeHtml(receiptNo)}</td>
   </tr>
   <tr>
-    <td style="padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;border-bottom:1px solid rgba(61,43,31,0.09);white-space:nowrap;">Date of issue</td>
-    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;border-bottom:1px solid rgba(61,43,31,0.09);">${escapeHtml(issuedStr)}</td>
-  </tr>
-  <tr>
-    <td style="padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;white-space:nowrap;">Date of supply</td>
+    <td style="padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;white-space:nowrap;">Date received</td>
     <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;">${escapeHtml(issuedStr)}</td>
   </tr>
 </table>
 
-<!-- Line items -->
+<!-- Line item -->
 <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border:1px solid rgba(61,43,31,0.13);border-top:none;border-radius:0;overflow:hidden;margin:0 0 0;">
   <tr style="background-color:rgba(61,43,31,0.05);">
     <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:left;border-bottom:1px solid rgba(61,43,31,0.13);">Description</th>
-    <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.13);white-space:nowrap;">Excl. VAT</th>
-    <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.13);white-space:nowrap;">VAT (15%)</th>
-    <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.13);white-space:nowrap;">Incl. VAT</th>
+    <th style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.13);white-space:nowrap;">Amount</th>
   </tr>
   <tr>
     <td style="padding:14px 16px;font-size:13px;color:#2C2C2C;line-height:1.5;border-bottom:1px solid rgba(61,43,31,0.09);">${escapeHtml(descriptionLine)}</td>
-    <td style="padding:14px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(exVatCents)}</td>
-    <td style="padding:14px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(vatCents)}</td>
     <td style="padding:14px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(opts.amountCents)}</td>
   </tr>
-  <tr style="background-color:rgba(61,43,31,0.03);">
-    <td colspan="3" style="padding:10px 16px;font-size:12px;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.09);">Subtotal (excl. VAT)</td>
-    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(exVatCents)}</td>
-  </tr>
-  <tr style="background-color:rgba(61,43,31,0.03);">
-    <td colspan="3" style="padding:10px 16px;font-size:12px;color:#8a7868;text-align:right;border-bottom:1px solid rgba(61,43,31,0.09);">VAT (15%)</td>
-    <td style="padding:10px 16px;font-size:13px;color:#2C2C2C;text-align:right;white-space:nowrap;border-bottom:1px solid rgba(61,43,31,0.09);">${fmt(vatCents)}</td>
-  </tr>
   <tr style="background-color:#3D2B1F;">
-    <td colspan="3" style="padding:12px 16px;font-size:13px;font-weight:700;color:#F5F0E6;text-align:right;border-radius:0 0 0 10px;">Total (incl. VAT)</td>
+    <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#F5F0E6;text-align:right;border-radius:0 0 0 10px;">Total received</td>
     <td style="padding:12px 16px;font-size:15px;font-weight:700;color:#C19A6B;text-align:right;white-space:nowrap;border-radius:0 0 10px 0;">${fmt(opts.amountCents)}</td>
   </tr>
 </table>
 
-<p style="margin:20px 0 0;font-size:11px;line-height:1.6;color:#9a8e83;">This is a valid tax invoice issued in terms of section&nbsp;20 of the Value-Added Tax Act, 89 of 1991. Payment has been received via Paystack. Please retain this document for your records.</p>
+<p style="margin:20px 0 0;font-size:11px;line-height:1.6;color:#9a8e83;">No VAT is charged on this amount. Payment has been received via Paystack. Please retain this document for your records.</p>
 `;
 
   await sendEmail({
     to: opts.to,
-    subject: `Tax Invoice ${invoiceNo} from The Rooiberg Wander`,
-    html: layout('guest', `Tax invoice ${invoiceNo} for your Rooiberg Wander booking`, body),
+    subject: `Receipt ${receiptNo} from The Rooiberg Wander`,
+    html: layout('guest', `Payment receipt ${receiptNo} for your Rooiberg Wander booking`, body),
   });
 }
 
