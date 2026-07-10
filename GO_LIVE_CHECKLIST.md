@@ -183,19 +183,30 @@ auth user created, **Vercel** project live with SSR adapter. **Next:** fill rema
 
 ---
 
-## Part D — Booking v2 (branch `feature/booking-v2`, NOT merged to main)
+## Part D — Booking v2 (merged to `main` 2026-07-08, commit `83f7cdc`)
 
 Catered/uncatered pricing, shared Monday departures, and 2027 go-live gating. See the CHANGELOG
-entry "Booking v2" (2026-07-08) for the full design. Before merging to `main` or testing further:
+entries "Booking v2" and the VAT/Franili removal (both 2026-07-08) for the full design. The code
+is merged; these are the remaining go-live steps:
 
 - [ ] **Apply migration `0013_booking_v2.sql`** in Supabase (adds `booking_type`/`catering`
       columns, the `bookings_slot_guard` trigger, redefines `unavailable_windows`, adds
       `shared_slot_availability`). Not yet applied anywhere.
-- [ ] **Confirm `SHARED_PP_NIGHT`** (currently R3,950, a PLACEHOLDER based on industry norms for
-      fully catered guided walking safaris — not a quoted rate). Single edit point:
-      `SHARED_PP_NIGHT` in `src/data/rates.ts`.
-- [ ] **Confirm `CATERING_PP_NIGHT`** (R2,300, operator-provided during planning — please
-      double-check before go-live).
+- [ ] **Confirm `SHARED_PP_NIGHT`** (currently R3,435 per person per night, a PLACEHOLDER derived
+      from the earlier R3,950-incl.-VAT industry-norm placeholder with VAT mathematically divided
+      out — not a quoted rate). Single edit point: `SHARED_PP_NIGHT` in `src/data/rates.ts`.
+- [ ] **Confirm the fixed catered group rate** — `GROUP_RATE_CATERED` (R112,174 flat per group,
+      any size) is derived in `src/data/rates.ts` from `GROUP_RATE_UNCATERED` (R52,174) plus a
+      10-person basis at R2,000 pp/night (VAT removed from the original R2,300 pp/night figure).
+      It does **not** scale per person at checkout — confirm the 10-person basis is still right.
+- [ ] **No VAT is charged** (operator confirmed not VAT-registered, 2026-07-08) — all the figures
+      above are the full charged amount, not VAT-inclusive totals. Guest documents are payment
+      receipts, not tax invoices. If VAT registration happens later, this needs re-adding
+      (`lib/pricing.ts`, `lib/email.ts`), not just a rate tweak.
+- [ ] **Confirm the new operating company name and registration number** once formed (Franili
+      Investments was removed as the registered entity, 2026-07-08 — a new company is pending).
+      Update `site.ts` `operator`, `schema.ts` `legalName`, `email.ts` receipt "From" block, and
+      `privacy.astro` "who we are" clause together once known.
 - [ ] **Sign off the tagline change**: "A Luxury Slackpack Self-Catering Walking Safari" →
       "A Luxury Slackpack Walking Safari" (`site.ts headerTagline`) — catering is now optional,
       so the old tagline overclaims. This is the only visible brand-copy change in this batch.
@@ -210,8 +221,8 @@ entry "Booking v2" (2026-07-08) for the full design. Before merging to `main` or
       Monday rejected (exceeds 8), 6+2 accepted; a Monday with 7 seats taken (1 remaining) shows
       as unavailable in `unavailable_windows` (protects the 2-person minimum).
 - [ ] **Paystack test-mode E2E** for BOTH products once the migration is applied: a shared
-      Monday booking (2 people, confirm R23,700), and a private catered booking (confirm the
-      per-person-per-night maths matches the widget's live estimate).
+      Monday booking (2 people, confirm the total), and a private catered booking (confirm the
+      flat group total matches the widget's live estimate, not a per-person figure).
 - [ ] Decide whether to **merge to `main`** once the above are confirmed, or keep iterating on
       the branch.
 

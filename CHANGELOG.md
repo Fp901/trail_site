@@ -10,7 +10,45 @@ marked done. Dates are the working dates.
 
 ---
 
-## Booking v2: catered/uncatered pricing, shared Monday departures, 2027 go-live gating — 2026-07-08  (branch `feature/booking-v2`, NOT merged to main)
+## VAT and legal-entity removal — 2026-07-08 (merged to main, commit `83f7cdc`)
+
+Two operator-driven corrections on top of Booking v2, merged and pushed to `main` in the same
+session.
+
+1. **No VAT charged.** The operator confirmed the business is not VAT-registered, so the 15%
+   VAT component was mathematically divided out of every price (new price = old VAT-inclusive
+   price ÷ 1.15, rounded to the nearest Rand — confirmed with the operator before touching any
+   figure, since this is a real pricing decision). `GROUP_RATE_UNCATERED` R60,000 → **R52,174**;
+   the catered basis R2,300 pp/night → **R2,000 pp/night** (feeds the fixed `GROUP_RATE_CATERED`,
+   see below); `SHARED_PP_NIGHT` R3,950 → **R3,435**. `VAT_RATE`/`vatPortion` removed from
+   `rates.ts`; `Quote.netCents`/`vatCents` removed from `pricing.ts`. Every "incl. VAT" label,
+   VAT breakdown, and VAT Act citation removed from `rates.astro`, `RatesTable.astro`,
+   `policies.ts`, `privacy.astro`, `schema.ts` offer descriptions, and `llms.txt`.
+2. **Tax invoice → payment receipt.** Since the operator is not VAT-registered, calling the
+   guest document a "tax invoice" would be legally incorrect. `sendTaxInvoice` renamed to
+   `sendPaymentReceipt` in `src/lib/email.ts` (single "Amount" line, no VAT breakdown table, no
+   VAT Act s20 wording); admin resend `kind` renamed `tax_invoice` → `receipt` across
+   `actions/index.ts`, `webhook.ts`, and `admin/bookings/[id].astro`.
+3. **Franili Investments removed.** The previously-recorded registered entity, Franili
+   Investments (Pty) Ltd, is being wound down; a new company will be formed and its name is not
+   yet known. Per the "never invent facts" rule, no new entity name/registration number was
+   fabricated — `site.ts` now carries only the trading name `'The Rooiberg Wander'` with a
+   comment flagging the pending formal registration; `companyReg`/`vatNo` fields removed;
+   `schema.ts` `legalName` omitted from `Organization` JSON-LD (not guessed); `privacy.astro`
+   states the entity is "being formalised." Update these together once the new company is known.
+4. **Fixed catered pricing (from a prior same-day change, folded in here for the record).** The
+   catered exclusive rate is a **flat per-group price regardless of group size**
+   (`GROUP_RATE_CATERED`, R112,174), not a per-person-per-night addon — derived once from a
+   10-person basis and locked in. Only the shared Monday rate stays per-person.
+
+`npm run verify` clean; pricing spot-check re-run against the live TypeScript source with the new
+figures. `feature/booking-v2` merged into `main` with `--no-ff` and pushed
+(`4306e3b..83f7cdc main`). Migration `0013_booking_v2.sql` still awaits manual application to
+Supabase — see `GO_LIVE_CHECKLIST.md` Part D.
+
+---
+
+## Booking v2: catered/uncatered pricing, shared Monday departures, 2027 go-live gating — 2026-07-08
 
 Four operator user stories, built and pushed to a dedicated branch for review before merging.
 `npm run verify` clean; pricing spot-check passed against the live TypeScript source
