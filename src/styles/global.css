@@ -205,8 +205,12 @@
      The nav uses the SAME full logo lockup as the footer (consistent branding). Pre-coloured
      PNGs (cream + standard), NOT a CSS mask: the cream version over the dark hero, the standard
      version on the cream/scrolled/interior header. The swap reuses the same header-state
-     attributes as the nav text colour, so the logo always matches the bar. Sized by HEIGHT so
-     the fixed --nav-h bar (4.25rem) is never overflowed. */
+     attributes as the nav text colour, so the logo always matches the bar.
+     Both images are stacked exactly on top of each other in a FIXED-size box (aspect-ratio +
+     height, not width:auto on two separately-flowed elements) so the swap can never change the
+     brand mark's box size — that was shifting the rest of the nav during the swap and made the
+     transition read as the logo "moving"/ghosting. Sized by HEIGHT so the fixed --nav-h bar
+     (4.25rem) is never overflowed. */
   .site-brand {
     display: inline-flex;
     align-items: center;
@@ -214,19 +218,24 @@
     text-decoration: none;
   }
   .brand-mark {
+    position: relative;
     flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-  }
-  .brand-mark img {
     display: block;
     height: 2.5rem; /* + nav py-3 (1.5rem) = 4rem bar on mobile, inside --nav-h (4.25rem) */
-    width: auto;
+    aspect-ratio: 700 / 361; /* logo-full.png / logo-full-cream.png source dimensions */
   }
   @media (min-width: 640px) {
-    .brand-mark img {
+    .brand-mark {
       height: 2.75rem; /* + py-3 = exactly --nav-h (4.25rem) */
     }
+  }
+  .brand-mark img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
   /* Default (interior pages + scrolled home = cream header) → standard (dark) lockup. */
   .brand-mark__light {
