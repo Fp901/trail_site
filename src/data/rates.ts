@@ -35,12 +35,10 @@ export const SHARED_MAX_CAPACITY = 8; // total places on a shared Monday, across
 
 // --- Online booking window (go-live policy) ------------------------------------------------
 // BOOKING_OPEN_DATE is the ONLY date that gates the calendar and the server guard: online
-// bookings are accepted for start dates on/after it. BETA_END_DATE gates nothing — it appears
-// only in the beta banner copy. Earlier dates are family-and-friends by enquiry/WhatsApp.
+// bookings are accepted for start dates on/after it. Earlier dates are family-and-friends by
+// enquiry/WhatsApp. (The beta phase has no fixed end date.)
 export const BOOKING_OPEN_DATE = '2027-01-15';
 export const BOOKING_OPEN_DISPLAY = '15 January 2027';
-export const BETA_END_DATE = '2027-07-15';
-export const BETA_END_DISPLAY = '15 July 2027';
 
 // Format ZAR with comma thousands separators ("R60,000").
 export function formatRand(amount: number): string {
@@ -75,7 +73,7 @@ export const rates: RateCard[] = [
     heroUnit: 'per group',
     subline: FLAT_RATE_SUBLINE,
     notes: [
-      'You bring and prepare your own food, with camp assistants for cleaning and the barbeque.',
+      'You bring and prepare your own food, with lodge staff for cleaning and the barbeque.',
       'Departs any day except Monday.',
     ],
   },
@@ -87,7 +85,7 @@ export const rates: RateCard[] = [
     heroUnit: 'per group',
     subline: FLAT_RATE_SUBLINE,
     notes: [
-      'All meals included, prepared by camp staff.',
+      'All meals included, prepared by lodge staff.',
       'Departs any day except Monday.',
     ],
   },
@@ -109,10 +107,10 @@ export const rates: RateCard[] = [
 // What the private group rate includes / excludes. Single source shared by the Rates page and
 // the homepage so the two can never drift.
 export const inclusions = [
-  'Private guided walk for your group only, with exclusive use of each safari lodge overnight (up to 10 guests, with two more by special arrangement)',
+  'Private guided walk for your group only, with exclusive use of each safari lodge overnight, for up to 10 guests, with two more by special arrangement',
   'Two qualified, armed trail guides throughout',
-  'Daily transport of your baggage and provisions between camps',
-  'Camp assistants for cleaning, kitchen prep and the barbeque',
+  'Daily transport of your baggage and provisions between lodges',
+  'Lodge staff for cleaning, kitchen prep and the barbeque',
   'Free ice, wood and WiFi at every lodge',
   'All reserve conservation levies',
 ];

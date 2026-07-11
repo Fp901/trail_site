@@ -12,7 +12,13 @@ export const prerender = false;
 const { token } = Astro.params;
 const isUuid = !!token && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
 
-let booking: { id: string; lead_name: string; start_date: string; group_size: number } | null = null;
+let booking: {
+  id: string;
+  lead_name: string;
+  start_date: string;
+  group_size: number;
+  catering: string | null;
+} | null = null;
 let alreadySubmitted = false;
 
 if (isUuid) {
@@ -20,7 +26,7 @@ if (isUuid) {
     const supabase = getSupabaseAdmin();
     const { data } = await supabase
       .from('bookings')
-      .select('id, lead_name, start_date, group_size')
+      .select('id, lead_name, start_date, group_size, catering')
       .eq('pretrip_token', token)
       .single();
     booking = data ?? null;
@@ -64,6 +70,7 @@ if (isUuid) {
               token={token!}
               groupSize={booking.group_size}
               leadName={booking.lead_name}
+              catering={booking.catering === 'catered' ? 'catered' : 'uncatered'}
               alreadySubmitted={alreadySubmitted}
             />
           </div>

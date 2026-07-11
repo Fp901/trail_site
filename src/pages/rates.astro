@@ -78,7 +78,7 @@ const jsonLd = [
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         The private trail is priced <strong>per group, not per person</strong>: one flat rate
-        buys exclusive use of the whole trail for up to ten guests, with two more by special
+        buys exclusive use of the whole trail for up to 10 guests, with two more by special
         arrangement. Prefer to join others? A shared Monday departure is priced per person.
       </p>
     </div>
@@ -115,35 +115,6 @@ const jsonLd = [
       </div>
     </div>
   </Section>
-
-  {/* Enquiry — prominent, above the widget, while online booking is not yet open (before
-      BOOKING_OPEN_DATE); collapses behind a disclosure once booking opens. BetaBanner's script
-      sets `open` on load using the visitor's real date, so this self-corrects without a deploy. */}
-  {
-    bookingEnabled && (
-      <Section bg="cream" labelledby="enquire-heading" space="md" containerClass="!pt-0">
-        <details class="enquire-disclosure" data-enquire-disclosure data-until={BOOKING_OPEN_DATE} open={isBetaAtBuildTime}>
-          <summary class="enquire-disclosure__summary">Prefer to talk to us first?</summary>
-          <div class="enquire-disclosure__body max-w-3xl">
-            <h2 id="enquire-heading" class="font-display text-2xl text-earth sm:text-3xl">
-              Enquire first
-            </h2>
-            <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-              Send us your details and target dates and we’ll be in touch.
-            </p>
-            <p class="mt-2">
-              <a href={site.contact.whatsappUrl} target="_blank" rel="noopener" class="enquire-disclosure__whatsapp">
-                or WhatsApp {site.contact.name}
-              </a>
-            </p>
-            <div class="mt-8">
-              <InquiryForm />
-            </div>
-          </div>
-        </details>
-      </Section>
-    )
-  }
 
   {/* Booking area — live BookingWidget when configured, else a calm "coming soon" + enquiry. */}
   <Section bg="cream" labelledby="book-heading" space="md" containerClass="!pt-0">
@@ -268,4 +239,34 @@ const jsonLd = [
       </details>
     </div>
   </Section>
+
+  {/* Enquiry — last section of the page. Open (prominent) while online booking is not yet open
+      (before BOOKING_OPEN_DATE); collapses behind a disclosure once booking opens. BetaBanner's
+      script sets `open` on load using the visitor's real date, so this self-corrects without a
+      deploy. The #enquire-heading anchor is linked from the beta banner and other pages. */}
+  {
+    bookingEnabled && (
+      <Section bg="cream" labelledby="enquire-heading" space="md" containerClass="!pt-0">
+        <details class="enquire-disclosure" data-enquire-disclosure data-until={BOOKING_OPEN_DATE} open={isBetaAtBuildTime}>
+          <summary class="enquire-disclosure__summary">Prefer to talk to us first?</summary>
+          <div class="enquire-disclosure__body max-w-3xl">
+            <h2 id="enquire-heading" class="font-display text-2xl text-earth sm:text-3xl">
+              Enquire first
+            </h2>
+            <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+              Send us your details and target dates and we’ll be in touch.
+            </p>
+            <p class="mt-2">
+              <a href={site.contact.whatsappUrl} target="_blank" rel="noopener" class="enquire-disclosure__whatsapp">
+                or WhatsApp {site.contact.name}
+              </a>
+            </p>
+            <div class="mt-8">
+              <InquiryForm />
+            </div>
+          </div>
+        </details>
+      </Section>
+    )
+  }
 </Layout>

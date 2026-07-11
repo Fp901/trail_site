@@ -6,10 +6,12 @@
 import { Image } from 'astro:assets';
 import { nav, site, withBase } from '../data/site';
 import MobileMenu from './MobileMenu.astro';
-// Ridge brand mark, pre-coloured (no CSS mask): the cream version shows over the dark hero, the
-// earth version on the cream/scrolled/interior header. CSS swaps them via the header state attrs.
-import ridgeCream from '../assets/images/logo-mark-cream.png';
-import ridgeEarth from '../assets/images/logo-mark-earth.png';
+// Full logo lockup (same artwork as the footer), pre-coloured (no CSS mask): the cream version
+// shows over the dark hero, the standard version on the cream/scrolled/interior header. CSS
+// swaps them via the header state attrs. One image cannot serve both because the wordmark
+// colour must match the header state.
+import logoFullCream from '../assets/images/logo-full-cream.png';
+import logoFull from '../assets/images/logo-full.png';
 
 interface Props {
   overHero?: boolean;
@@ -26,16 +28,12 @@ const isActive = (href: string) => {
 <header class="site-header fixed inset-x-0 top-0 z-40" data-over-hero={String(overHero)}>
   <nav
     aria-label="Primary"
-    class="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-4"
+    class="mx-auto flex max-w-screen-2xl items-center justify-between px-6 py-3"
   >
     <a href={withBase('/')} class="site-brand">
-      <span class="brand-mark" aria-hidden="true">
-        <Image class="brand-mark__light" src={ridgeCream} alt="" widths={[160, 320]} sizes="160px" loading="eager" />
-        <Image class="brand-mark__dark" src={ridgeEarth} alt="" widths={[160, 320]} sizes="160px" loading="eager" />
-      </span>
-      <span class="site-brand__text">
-        <span class="site-brand__name">{site.brandName}</span>
-        <span class="site-brand__tagline">{site.headerTagline}</span>
+      <span class="brand-mark">
+        <Image class="brand-mark__light" src={logoFullCream} alt={site.brandName} widths={[120, 240]} sizes="120px" loading="eager" />
+        <Image class="brand-mark__dark" src={logoFull} alt={site.brandName} widths={[120, 240]} sizes="120px" loading="eager" />
       </span>
     </a>
 

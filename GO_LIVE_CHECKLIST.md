@@ -207,15 +207,17 @@ is merged; these are the remaining go-live steps:
       Investments was removed as the registered entity, 2026-07-08 — a new company is pending).
       Update `site.ts` `operator`, `schema.ts` `legalName`, `email.ts` receipt "From" block, and
       `privacy.astro` "who we are" clause together once known.
-- [ ] **Sign off the tagline change**: "A Luxury Slackpack Self-Catering Walking Safari" →
-      "A Luxury Slackpack Walking Safari" (`site.ts headerTagline`) — catering is now optional,
-      so the old tagline overclaims. This is the only visible brand-copy change in this batch.
+- [ ] **Sign off the sitewide tagline** (2026-07-11): now "A luxury walking safari in the
+      Waterberg" (`site.ts hook`, footer + hero + llms.txt). The nav no longer shows a text
+      tagline at all — it renders the full logo lockup (same artwork as the footer);
+      `headerTagline` was removed.
 - [ ] **Confirm the beta banner wording** (`BetaBanner.astro`): booking opens 15 January 2027;
-      beta phase to 15 July 2027; family-and-friends discount via enquiry/WhatsApp only, no
-      promo-code gate (same "enforced by who you share the link with" model as the prior
-      soft-launch discount).
-- [ ] **Confirm `BOOKING_OPEN_DATE` (15 Jan 2027) and `BETA_END_DATE` (15 Jul 2027)** are still
-      correct closer to go-live — both are single constants in `src/data/rates.ts`.
+      family-and-friends discount via enquiry/WhatsApp only, no promo-code gate (same "enforced
+      by who you share the link with" model as the prior soft-launch discount). The beta phase
+      has **no fixed end date** (the earlier 15 July 2027 date was incorrect and was removed,
+      2026-07-11).
+- [ ] **Confirm `BOOKING_OPEN_DATE` (15 Jan 2027)** is still correct closer to go-live — a
+      single constant in `src/data/rates.ts`.
 - [ ] **Test the shared-Monday trigger** in Supabase SQL editor before relying on it: exclusive
       insert on a Monday rejected; shared insert on a non-Monday rejected; shared 6+4 on one
       Monday rejected (exceeds 8), 6+2 accepted; a Monday with 7 seats taken (1 remaining) shows

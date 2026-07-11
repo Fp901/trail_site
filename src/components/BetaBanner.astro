@@ -1,11 +1,11 @@
 ---
 // Beta notice (Booking v2.1) — an inline, non-dismissible banner on the Rates & Booking page
 // only (not a sitewide modal). Explains: online booking opens BOOKING_OPEN_DATE; dates before
-// that are family-and-friends by enquiry or WhatsApp, at a discount; the beta phase runs to
-// BETA_END_DATE. The site is static, so "today" is baked in at build time as a best-effort
-// default — a tiny script re-checks the visitor's actual date on load and corrects the banner
-// (and the enquiry disclosure it sits above) without needing a redeploy on launch day.
-import { BOOKING_OPEN_DATE, BOOKING_OPEN_DISPLAY, BETA_END_DISPLAY } from '../data/rates';
+// that are family-and-friends by enquiry or WhatsApp, at a discount. The site is static, so
+// "today" is baked in at build time as a best-effort default — a tiny script re-checks the
+// visitor's actual date on load and corrects the banner (and the enquiry disclosure elsewhere
+// on the page) without needing a redeploy on launch day.
+import { BOOKING_OPEN_DATE, BOOKING_OPEN_DISPLAY } from '../data/rates';
 import { todaySast } from '../lib/pricing';
 
 const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
@@ -15,8 +15,7 @@ const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
   <p class="beta-notice__eyebrow">We're in beta</p>
   <p class="beta-notice__body">
     Online booking is accepted for start dates from {BOOKING_OPEN_DISPLAY}. Dates before then are
-    available to family and friends at a significant discount, by enquiry or WhatsApp only. This
-    beta phase runs until {BETA_END_DISPLAY}.
+    available to family and friends at a significant discount, by enquiry or WhatsApp only.
   </p>
 </div>
 

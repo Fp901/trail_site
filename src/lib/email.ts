@@ -12,8 +12,10 @@ export interface EmailMessage {
 
 const stripHeader = (v: string) => v.replace(/[\r\n]+/g, ' ').trim();
 
+// Matches the site's formatRand style ("R52,174" — no space, comma groups) so guests see one
+// consistent money format on the site and in email.
 const randFromCents = (cents: number) =>
-  'R ' + Math.round(cents / 100).toLocaleString('en-ZA');
+  'R' + Math.round(cents / 100).toLocaleString('en-US');
 
 // Date-only strings (YYYY-MM-DD) are anchored to UTC midnight so they display correctly everywhere.
 const humanDate = (v: string) =>
@@ -517,7 +519,8 @@ export async function sendPaymentReceipt(opts: {
         ? `The Rooiberg Wander: balance payment (50%). ${productLabel.charAt(0).toUpperCase() + productLabel.slice(1)}. Arrival: ${humanDate(opts.startDate)}.`
         : `The Rooiberg Wander: 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`;
 
-  const fmt = (c: number) => 'R ' + (c / 100).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Receipt keeps 2 decimals (money document) but matches the site's no-space "R52,174.00" style.
+  const fmt = (c: number) => 'R' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const name = escapeHtml(opts.leadName);
 

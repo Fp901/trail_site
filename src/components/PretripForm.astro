@@ -1,15 +1,30 @@
 ---
 // PretripForm — post-payment "further information" form. Vanilla-JS island (mirrors BookingWidget).
-// Collects the comprehensive guest manifest + trip details (NO dietary — the trail is self-catered)
-// and submits via the typed submitPretrip Action, which records submitted_at and stops reminders.
+// Collects the comprehensive guest manifest + trip details and submits via the typed
+// submitPretrip Action, which records submitted_at and stops reminders. The catering
+// acknowledgment is conditional on the booking: self-catered bookings confirm they bring their
+// own food; catered bookings confirm meals are provided (dietary needs go in the allergies /
+// special-requests fields, whose hint prompts for them on catered bookings).
 interface Props {
   token: string;
   groupSize: number;
   leadName: string;
+  catering: 'catered' | 'uncatered';
   alreadySubmitted: boolean;
 }
-const { token, groupSize, leadName, alreadySubmitted } = Astro.props;
+const { token, groupSize, leadName, catering, alreadySubmitted } = Astro.props;
 const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
+
+const LODGE_FACILITIES =
+  'Each lodge has a kitchen, fridge, barbeque facilities, safe drinking water, ice and wood.';
+const ackText =
+  catering === 'catered'
+    ? `I understand all meals are included on our booking, prepared by the lodge staff. ${LODGE_FACILITIES}`
+    : `I understand the trail is fully self-catered: each group brings their own food and drinks. ${LODGE_FACILITIES}`;
+const ackError =
+  catering === 'catered'
+    ? 'Please acknowledge the catering arrangement before submitting.'
+    : 'Please acknowledge the self-catering arrangement before submitting.';
 ---
 
 <form id="pretrip-form" class="bform" data-token={token} novalidate>
@@ -82,13 +97,20 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
 
   <div class="form-field">
     <label for="pt-requests">Anything else / special requests</label>
+    {
+      catering === 'catered' && (
+        <span class="form-hint">
+          Please include any dietary requirements for the catered meals.
+        </span>
+      )
+    }
     <textarea id="pt-requests" rows="3" maxlength="3000"></textarea>
   </div>
 
-  <div class="form-field" id="pt-selfcater-field">
+  <div class="form-field" id="pt-selfcater-field" data-ack-error={ackError}>
     <label class="pretrip-check">
       <input type="checkbox" id="pt-selfcater" required aria-describedby="pt-selfcater-err" />
-      <span>I understand the trail is fully self-catered: each group brings their own food and drinks. Each lodge has a kitchen, fridge, barbeque facilities, safe drinking water, ice and wood.</span>
+      <span>{ackText}</span>
     </label>
     <span class="form-error" id="pt-selfcater-err" aria-live="polite"></span>
   </div>
@@ -188,9 +210,12 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
     bindField(phoneEl, phoneRules);
     if (leadNameEl) bindField(leadNameEl, nameRules);
 
-    // Checkbox: validate on change
+    // Checkbox: validate on change. The message matches the booking's catering arrangement
+    // (rendered server-side into data-ack-error).
+    const ackField = document.getElementById('pt-selfcater-field');
+    const ackError = ackField?.dataset.ackError ?? 'Please acknowledge the catering arrangement before submitting.';
     caterEl.addEventListener('change', () => {
-      markField(document.getElementById('pt-selfcater-field'), caterEl.checked ? null : 'Please acknowledge the self-catering arrangement before submitting.');
+      markField(ackField, caterEl.checked ? null : ackError);
     });
 
     // ---- Submit -----------------------------------------------------------
@@ -213,12 +238,11 @@ const guests = Array.from({ length: groupSize }, (_, i) => i + 1);
       }
 
       // Checkbox
-      const caterWrapper = document.getElementById('pt-selfcater-field');
       if (!caterEl.checked) {
-        markField(caterWrapper, 'Please acknowledge the self-catering arrangement before submitting.');
+        markField(ackField, ackError);
         if (!firstBad) firstBad = caterEl;
       } else {
-        markField(caterWrapper, null);
+        markField(ackField, null);
       }
 
       if (firstBad) { firstBad.focus(); return; }

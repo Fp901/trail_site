@@ -201,24 +201,18 @@
     text-align: center;
   }
 
-  /* --- Brand wordmark + tagline (Part 5.6) --------------------------------- */
+  /* --- Brand lockup (Part 5.6) ---------------------------------------------
+     The nav uses the SAME full logo lockup as the footer (consistent branding). Pre-coloured
+     PNGs (cream + standard), NOT a CSS mask: the cream version over the dark hero, the standard
+     version on the cream/scrolled/interior header. The swap reuses the same header-state
+     attributes as the nav text colour, so the logo always matches the bar. Sized by HEIGHT so
+     the fixed --nav-h bar (4.25rem) is never overflowed. */
   .site-brand {
     display: inline-flex;
     align-items: center;
-    gap: 0.7rem;
     color: inherit;
     text-decoration: none;
-    line-height: 1.05;
   }
-  .site-brand__text {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  /* Brand mark — pre-coloured PNGs (cream + earth), NOT a CSS mask. The nav shows the cream ridge
-     over the dark hero and the earth ridge on the cream/scrolled/interior header; the swap reuses
-     the same header-state attributes as the nav text colour, so mark and text always agree. */
   .brand-mark {
     flex-shrink: 0;
     display: inline-flex;
@@ -226,19 +220,19 @@
   }
   .brand-mark img {
     display: block;
-    width: 132px;
-    height: auto;
+    height: 2.5rem; /* + nav py-3 (1.5rem) = 4rem bar on mobile, inside --nav-h (4.25rem) */
+    width: auto;
   }
   @media (min-width: 640px) {
     .brand-mark img {
-      width: 158px;
+      height: 2.75rem; /* + py-3 = exactly --nav-h (4.25rem) */
     }
   }
-  /* Default (interior pages + scrolled home = cream header) → dark (earth) ridge. */
+  /* Default (interior pages + scrolled home = cream header) → standard (dark) lockup. */
   .brand-mark__light {
     display: none;
   }
-  /* Home hero, before scroll = transparent header → light (cream) ridge. Mirrors the text-colour
+  /* Home hero, before scroll = transparent header → light (cream) lockup. Mirrors the text-colour
      rule on .site-header[data-over-hero='true'] (pre-JS there is no data-scrolled attribute). */
   .site-header[data-over-hero='true']:not([data-scrolled='true']) .brand-mark__light {
     display: block;
@@ -250,37 +244,6 @@
   .footer-logo {
     width: 160px;
     height: auto;
-  }
-  .site-brand__name {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 1.35rem;
-    letter-spacing: 0.01em;
-  }
-  @media (min-width: 640px) {
-    .site-brand__name {
-      font-size: 1.7rem;
-    }
-  }
-  .site-brand__tagline {
-    /* Hidden on the smallest screens (mobile-first: brand + hamburger must fit 380px). */
-    display: none;
-    font-family: var(--font-body);
-    font-size: 0.6rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    opacity: 0.78;
-  }
-  @media (min-width: 440px) {
-    .site-brand__tagline {
-      display: block;
-    }
-  }
-  @media (min-width: 640px) {
-    .site-brand__tagline {
-      font-size: 0.68rem;
-    }
   }
 
   /* Floating WhatsApp (mobile-only) now lives in WhatsAppButton.astro via Tailwind utilities;

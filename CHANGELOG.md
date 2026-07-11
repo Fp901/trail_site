@@ -10,6 +10,41 @@ marked done. Dates are the working dates.
 
 ---
 
+## Rates-page layout, beta-date removal, nav logo, sitewide wording pass — 2026-07-11
+
+Presentation and copy only (plus one guest-facing form fix); no pricing/booking-logic changes.
+
+1. **Enquiry section moved to the bottom of /rates** (after Cancellations & refunds). Keeps the
+   beta-aware behaviour: open/prominent before `BOOKING_OPEN_DATE`, collapsed behind "Prefer to
+   talk to us first?" after; `#enquire-heading` anchor unchanged.
+2. **15 July 2027 beta-end date removed everywhere** (operator: the date was incorrect; the beta
+   phase has no fixed end). `BETA_END_DATE`/`BETA_END_DISPLAY` deleted from `rates.ts`; the beta
+   banner and `llms.txt` no longer name an end date. `BOOKING_OPEN_DATE` (15 Jan 2027) still
+   gates the calendar and the server guard, unchanged.
+3. **Navbar branding = footer branding.** The nav now renders the same full logo lockup as the
+   footer (`logo-full-cream.png` over the dark hero, `logo-full.png` on cream headers), replacing
+   the ridge-strip mark + text wordmark + tagline. `site.headerTagline` removed (nav-only);
+   the logo alt text is `site.brandName`. Nav bar height maths kept inside `--nav-h`.
+4. **Sitewide wording pass** (from a full copy audit):
+   - Tagline standardised to **"A luxury walking safari in the Waterberg"** (`site.ts hook` →
+     footer + hero; `llms.txt`) — the old "Self-catering walking safari" overclaimed now that
+     catering is optional. Meta descriptions on The Trail and Logistics likewise now say
+     "self-catered or catered".
+   - **Pre-trip form fix (guest-facing defect):** catered bookings were forced to tick "I
+     understand the trail is fully self-catered". The acknowledgment (and its validation
+     message) is now conditional on the booking's catering, and catered bookings are prompted
+     for dietary requirements in the special-requests field.
+   - Capacity phrasing standardised: **"up to 10 guests, with two more by special arrangement"**
+     (was a mix of "ten"/"optional two extra"/"by arrangement").
+   - Overnight stops standardised as **lodges** in visible copy ("between camps" → "between
+     lodges", "camp assistants/staff" → "lodge staff", "What are the camps like?" → lodges;
+     "basecamp" for Rotavi is kept deliberately).
+   - Email money format aligned with the site: "R52,174" (no space; receipt keeps 2 decimals).
+   - Small fixes: `llms.txt` lodge-page URL `/sanctuaries` → `/accommodation`, em-dash removed
+     from the contact line; "RoiSan reserve" → "RoiSan Reserve" (the-trail H1); dead
+     `quickFacts` export deleted from `site.ts` (unused, and its copy contradicted the flat
+     per-group catered rate).
+
 ## VAT and legal-entity removal — 2026-07-08 (merged to main, commit `83f7cdc`)
 
 Two operator-driven corrections on top of Booking v2, merged and pushed to `main` in the same

@@ -14,7 +14,7 @@ export const logisticsBlocks: LogBlock[] = [
     id: 'catering',
     kicker: 'Catering',
     title: 'Self-catered as standard, or fully catered',
-    body: 'By default you bring your own food and drinks; we move them. Your provisions and bags travel between camps each day, kept cool and dry, and every lodge has staff to help with kitchen prep, cooking, the barbeque and washing-up. Prefer not to plan meals? Choose the catered option at checkout for a flat per-group supplement and your food is taken care of throughout. Shared Monday departures are fully catered only, priced per person.',
+    body: 'By default you bring your own food and drinks; we move them. Your provisions and bags travel between lodges each day, kept cool and dry, and every lodge has staff to help with kitchen prep, cooking, the barbeque and washing-up. Prefer not to plan meals? Choose the catered option at checkout for a flat per-group supplement and your food is taken care of throughout. Shared Monday departures are fully catered only, priced per person.',
   },
   {
     id: 'safety',
@@ -63,15 +63,15 @@ export const faqs: Faq[] = [
   },
   {
     q: 'Who carries the luggage and food?',
-    a: 'You do not. Your food and bags are moved between camps daily and kept cool and dry, and staff at each lodge help with kitchen prep, cooking, the barbeque and the washing-up.',
+    a: 'You do not. Your food and bags are moved between lodges daily and kept cool and dry, and staff at each lodge help with kitchen prep, cooking, the barbeque and the washing-up.',
   },
   {
-    q: 'What are the camps like?',
+    q: 'What are the lodges like?',
     a: 'Each of the three lodges accommodates guests in 2 person suites, includes bedding, has a swimming pool, a fully equipped kitchen with a fridge, ice machine, wood, barbeque facilities, safe drinking water and free WiFi. Each has its own character.',
   },
   {
     q: 'How big is the group?',
-    a: 'The trail is sold per private group of up to 10 guests, with an optional two extra by special arrangement. You walk privately with your own two guides, and each lodge is exclusively yours on the night you stay.',
+    a: 'The trail is sold per private group of up to 10 guests, with two more by special arrangement. You walk privately with your own two guides, and each lodge is exclusively yours on the night you stay.',
   },
 ];
 

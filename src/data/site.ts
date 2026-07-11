@@ -3,12 +3,9 @@
 
 export const site = {
   name: 'The Rooiberg Wander',
-  // Chrome-only display form (navbar + footer wordmark next to the logo badge). `name` stays the
-  // formal/SEO form used in titles, schema, emails and body copy.
+  // Display form used as the logo's alt text (nav + footer render the full logo lockup, no
+  // text wordmark). `name` stays the formal/SEO form used in titles, schema, emails and body copy.
   brandName: 'Rooiberg Wander',
-  // Catering is now optional (Booking v2), so "Self-Catering" no longer describes every
-  // booking. Changed to a neutral tagline — OPERATOR: please confirm before go-live.
-  headerTagline: 'A Luxury Slackpack Walking Safari',
   // The prior registered entity (Franili Investments) is being wound down; a new company will
   // be formed to operate the trail and its name is not yet known. Using the trading name here
   // until the new entity is registered — OPERATOR: update with the formal company name + reg
@@ -20,7 +17,9 @@ export const site = {
   region: 'Waterberg, Limpopo',
   terrainHa: 15000,
   driveFromJoburg: '2.5 hours',
-  hook: 'Self-catering walking safari in the Waterberg',
+  // Sitewide tagline (footer + hero + llms.txt). Catering is optional (Booking v2), so the old
+  // "Self-catering walking safari" tagline no longer describes every booking.
+  hook: 'A luxury walking safari in the Waterberg',
   maxGuests: 12,
 
   // Enquiries / bookings email.
@@ -65,17 +64,6 @@ export const site = {
   // Social-card fallback.
   ogImage: '/images/og-default.jpg',
 } as const;
-
-// Quick facts — Part 8.5 / new brief. Reused on Rates and (some) on the Trail page.
-export const quickFacts = [
-  { label: 'Distance', value: '~15–20 km/day · ~55 km total over 3 walking days' },
-  { label: 'Group size', value: 'Exclusive use, up to 10 guests (optional two extra by special arrangement)' },
-  { label: 'Catering', value: 'Self-catered as standard, or fully catered for an additional per-person charge' },
-  { label: 'Guides & safety', value: 'Two qualified, armed trail guides at all times' },
-  { label: 'Grading', value: 'Moderate to challenging. You need a good level of hiking fitness' },
-  { label: 'Malaria', value: '100% malaria-free' },
-  { label: 'Getting there', value: 'About 2.5 hours by road from Johannesburg' },
-] as const;
 
 // Stats bar — four items.
 export const stats = [
