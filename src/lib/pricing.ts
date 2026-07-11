@@ -82,6 +82,9 @@ export interface Quote {
   paymentPlan: PaymentPlan;
   depositCents: number; // deposit portion of total (== totalCents when plan is 'full')
   balanceCents: number; // balance portion (0 when plan is 'full'); deposit + balance == total
+  // Display-only convenience fields (Booking v2.1) — derived from the fields above, not new
+  // price inputs. balanceDueDate is null unless the split-payment rule applies.
+  balanceDueDate: string | null; // ISO date, BALANCE_LEAD_DAYS before startDate, when split
 }
 
 // SERVER price authority.
@@ -118,6 +121,7 @@ export function computeQuote(input: {
   const depositCents = isSplit ? Math.round(totalCents * DEPOSIT_FRACTION) : totalCents;
   const balanceCents = isSplit ? totalCents - depositCents : 0;
   const paymentPlan: PaymentPlan = isSplit ? 'deposit_balance' : 'full';
+  const balanceDueDate = isSplit && input.startDate ? addDaysIso(input.startDate, -BALANCE_LEAD_DAYS) : null;
 
   return {
     bookingType: input.bookingType,
@@ -132,5 +136,6 @@ export function computeQuote(input: {
     paymentPlan,
     depositCents,
     balanceCents,
+    balanceDueDate,
   };
 }

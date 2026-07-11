@@ -1,10 +1,17 @@
 ---
-// BookingWidget (Booking v2) — vanilla-JS island. Two products in one form, chosen by the
-// selected date: any day except Monday is a PRIVATE (exclusive) group booking (flat rate,
-// optional catering); every Monday is a SHARED, catered-only departure (2-8 people, priced
-// per person per night). Shows a clearly-labelled estimate; the server confirms the real
-// total. Calls the typed createCheckout Action, then redirects to Paystack's hosted checkout.
-// No price is ever sent.
+// BookingWidget (Booking v2.1) — vanilla-JS island. Three visible steps, one screen, no wizard
+// navigation:
+//   1. Group size, then a live group-total comparison of all three options (private
+//      self-catered, private catered, shared Monday) — the user picks one.
+//   2. A calendar filtered to the chosen option: private modes never show Mondays; shared mode
+//      only shows Mondays with enough seats left for the chosen group size.
+//   3. Lead-guest details and a definite total (server-confirmed at checkout; the server is
+//      always the price authority — this is a display mirror of the same constants, never a
+//      value the server trusts).
+// Per-person figures are ONLY ever shown for the shared option. Booking type is derived
+// server-side from the date; the chosen option here is a UI filter only and is never sent to
+// the server as a type/option field — only startDate, groupSize and catering are sent, exactly
+// as the createCheckout action already expects.
 import {
   formatRand,
   SHARED_PP_NIGHT,
@@ -12,10 +19,15 @@ import {
   SHARED_MAX_CAPACITY,
   NIGHTS,
 } from '../data/rates';
-import { computeQuote, SPLIT_THRESHOLD_DAYS, earliestBookableDate } from '../lib/pricing';
+import {
+  computeQuote,
+  SPLIT_THRESHOLD_DAYS,
+  BALANCE_LEAD_DAYS,
+  earliestBookableDate,
+} from '../lib/pricing';
 
-// Display-only quotes for the current pricing phase (no startDate → always 'full' plan). Both
-// exclusive rates are FIXED per group — groupSize is a placeholder, it does not change the price.
+// Display-only quotes for the current pricing phase (no startDate → always 'full' plan, and
+// groupSize is a placeholder for the two flat-rate options — it never changes their price).
 const uncateredQ = computeQuote({ bookingType: 'exclusive', catering: 'uncatered', groupSize: 1 });
 const cateredQ = computeQuote({ bookingType: 'exclusive', catering: 'catered', groupSize: 1 });
 
@@ -31,136 +43,158 @@ const earliest = earliestBookableDate();
   data-shared-pp-night={SHARED_PP_NIGHT * 100}
   data-nights={NIGHTS}
   data-split-days={SPLIT_THRESHOLD_DAYS}
+  data-balance-lead-days={BALANCE_LEAD_DAYS}
   data-earliest={earliest}
   data-shared-min={SHARED_MIN_PEOPLE}
   data-shared-max={SHARED_MAX_CAPACITY}
   novalidate
 >
-  <div class="form-field bform__datefield">
-    <span class="bform__callabel" id="bf-cal-label">Start date (Day 1, arrival)</span>
-    <p class="bform__nextavail" data-nextavail hidden></p>
-    <div class="bcal" data-calendar role="group" aria-labelledby="bf-cal-label">
-      <div class="bcal__head">
-        <button type="button" class="bcal__nav" data-cal-prev aria-label="Previous month">
-          <span aria-hidden="true">&lsaquo;</span>
-        </button>
-        <span class="bcal__month" data-cal-month aria-live="polite"></span>
-        <button type="button" class="bcal__nav" data-cal-next aria-label="Next month">
-          <span aria-hidden="true">&rsaquo;</span>
-        </button>
-      </div>
-      <div class="bcal__dow" aria-hidden="true">
-        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-      </div>
-      <div class="bcal__grid" data-cal-grid></div>
-      <div class="bcal__legend" aria-hidden="true">
-        <span class="bcal__key bcal__key--avail">Available</span>
-        <span class="bcal__key bcal__key--shared">Shared Monday</span>
-        <span class="bcal__key bcal__key--taken">Taken</span>
-        <span class="bcal__key bcal__key--out">Unavailable</span>
-      </div>
+  {/* Step 1 — group size, then compare the three options by total group cost. */}
+  <div class="bstep">
+    <p class="bstep__heading" id="bf-size-label">1. How many of you are walking?</p>
+    <div class="form-field bstep__size">
+      <label for="bf-group" class="sr-only">Group size</label>
+      <select id="bf-group" name="groupSize" aria-labelledby="bf-size-label" required>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+          <option value={n}>{n} {n === 1 ? 'person' : 'people'}</option>
+        ))}
+      </select>
     </div>
-    <input id="bf-start" name="startDate" type="hidden" required />
-    <p class="bcal__selected" data-cal-selected aria-live="polite"></p>
-  </div>
 
-  <p class="bform__mode-note" data-mode-note hidden></p>
-
-  <div class="form-field">
-    <label for="bf-group" data-group-label>Group size</label>
-    <select id="bf-group" name="groupSize" required></select>
-  </div>
-
-  <fieldset class="form-field" data-catering-field>
-    <legend>Catering</legend>
-    <div class="bform__radios">
-      <label class="bform__radio">
-        <input type="radio" name="catering" value="uncatered" checked /> Self-catered
+    <div class="boption-compare" data-compare aria-live="polite">
+      <label class="boption">
+        <input type="radio" name="tripOption" value="uncatered" checked />
+        <span class="boption__body">
+          <span class="boption__name">Private, self-catered</span>
+          <span class="boption__total" data-opt-total="uncatered">{fmt(uncateredQ.totalCents)} total &middot; flat rate</span>
+          <span class="boption__tag" data-opt-tag="uncatered" hidden>Lowest total for your group</span>
+        </span>
       </label>
-      <label class="bform__radio">
-        <input type="radio" name="catering" value="catered" /> Catered (flat {fmt(cateredQ.totalCents)} per group)
+      <label class="boption">
+        <input type="radio" name="tripOption" value="catered" />
+        <span class="boption__body">
+          <span class="boption__name">Private, catered</span>
+          <span class="boption__total" data-opt-total="catered">{fmt(cateredQ.totalCents)} total &middot; flat rate</span>
+          <span class="boption__tag" data-opt-tag="catered" hidden>Lowest total for your group</span>
+        </span>
+      </label>
+      <label class="boption" data-opt-shared>
+        <input type="radio" name="tripOption" value="shared" />
+        <span class="boption__body">
+          <span class="boption__name">Shared Monday departure</span>
+          <span class="boption__total" data-opt-total="shared"></span>
+          <span class="boption__tag" data-opt-tag="shared" hidden>Lowest total for your group</span>
+        </span>
       </label>
     </div>
-  </fieldset>
+    <p class="bstep__hint" data-crossover-hint hidden></p>
+  </div>
 
-  <div class="bform__grid">
-    <div class="form-field">
-      <label for="bf-name">Lead guest name</label>
-      <span class="form-hint">First and last name, e.g. Sarah van der Merwe</span>
-      <input
-        id="bf-name"
-        name="leadName"
-        type="text"
-        autocomplete="name"
-        maxlength="120"
-        required
-        aria-describedby="bf-name-err"
-      />
-      <span class="form-error" id="bf-name-err" aria-live="polite"></span>
-    </div>
-    <div class="form-field">
-      <label for="bf-email">Email</label>
-      <span class="form-hint">We'll send your booking confirmation here.</span>
-      <input
-        id="bf-email"
-        name="leadEmail"
-        type="email"
-        autocomplete="email"
-        maxlength="180"
-        required
-        aria-describedby="bf-email-err"
-      />
-      <span class="form-error" id="bf-email-err" aria-live="polite"></span>
-    </div>
-    <div class="form-field">
-      <label for="bf-phone">Mobile number</label>
-      <span class="form-hint">e.g. +27 82 123 4567, so we can reach you if needed</span>
-      <input
-        id="bf-phone"
-        name="leadPhone"
-        type="tel"
-        autocomplete="tel"
-        maxlength="40"
-        required
-        aria-describedby="bf-phone-err"
-      />
-      <span class="form-error" id="bf-phone-err" aria-live="polite"></span>
+  {/* Step 2 — calendar, filtered to the chosen option above. */}
+  <div class="bstep">
+    <p class="bstep__heading" id="bf-cal-label">2. Choose a start date (Day 1, arrival)</p>
+    <div class="form-field bform__datefield">
+      <p class="bform__nextavail" data-nextavail hidden></p>
+      <div class="bcal" data-calendar role="group" aria-labelledby="bf-cal-label">
+        <div class="bcal__head">
+          <button type="button" class="bcal__nav" data-cal-prev aria-label="Previous month">
+            <span aria-hidden="true">&lsaquo;</span>
+          </button>
+          <span class="bcal__month" data-cal-month aria-live="polite"></span>
+          <button type="button" class="bcal__nav" data-cal-next aria-label="Next month">
+            <span aria-hidden="true">&rsaquo;</span>
+          </button>
+        </div>
+        <div class="bcal__dow" aria-hidden="true">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+        </div>
+        <div class="bcal__grid" data-cal-grid></div>
+        <div class="bcal__legend" aria-hidden="true">
+          <span class="bcal__key bcal__key--avail">Available</span>
+          <span class="bcal__key bcal__key--out">Unavailable</span>
+        </div>
+      </div>
+      <input id="bf-start" name="startDate" type="hidden" required />
+      <p class="bcal__selected" data-cal-selected aria-live="polite"></p>
     </div>
   </div>
 
-  {/* Honeypot — must stay empty */}
-  <div class="hp" aria-hidden="true">
-    <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
+  {/* Step 3 — details and payment. */}
+  <div class="bstep">
+    <p class="bstep__heading" id="bf-details-label">3. Your details</p>
+    <div class="bform__grid" aria-labelledby="bf-details-label">
+      <div class="form-field">
+        <label for="bf-name">Lead guest name</label>
+        <span class="form-hint">First and last name, e.g. Sarah van der Merwe</span>
+        <input
+          id="bf-name"
+          name="leadName"
+          type="text"
+          autocomplete="name"
+          maxlength="120"
+          required
+          aria-describedby="bf-name-err"
+        />
+        <span class="form-error" id="bf-name-err" aria-live="polite"></span>
+      </div>
+      <div class="form-field">
+        <label for="bf-email">Email</label>
+        <span class="form-hint">We'll send your booking confirmation here.</span>
+        <input
+          id="bf-email"
+          name="leadEmail"
+          type="email"
+          autocomplete="email"
+          maxlength="180"
+          required
+          aria-describedby="bf-email-err"
+        />
+        <span class="form-error" id="bf-email-err" aria-live="polite"></span>
+      </div>
+      <div class="form-field">
+        <label for="bf-phone">Mobile number</label>
+        <span class="form-hint">e.g. +27 82 123 4567, so we can reach you if needed</span>
+        <input
+          id="bf-phone"
+          name="leadPhone"
+          type="tel"
+          autocomplete="tel"
+          maxlength="40"
+          required
+          aria-describedby="bf-phone-err"
+        />
+        <span class="form-error" id="bf-phone-err" aria-live="polite"></span>
+      </div>
+    </div>
+
+    {/* Honeypot — must stay empty */}
+    <div class="hp" aria-hidden="true">
+      <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
+    </div>
+
+    <div class="bform__pricing">
+      <p class="bform__total-formula" data-total-formula></p>
+      <p class="bform__estimate">
+        <span data-payment-label>Total:</span>
+        <strong data-estimate>{fmt(uncateredQ.totalCents)}</strong>
+      </p>
+      <p class="bform__balance-note" data-balance-note hidden>
+        Balance of <strong data-balance-amount></strong> due by <strong data-balance-date></strong>. We'll email a secure payment link.
+      </p>
+      <p class="bform__deposit-hint" data-deposit-hint>
+        Trips departing 30 or more days away pay a 50% deposit today, with the balance due 45 days before arrival. Choose a start date to see your exact amounts.
+      </p>
+    </div>
+
+    <button type="submit" class="btn btn-primary bform__submit" data-submit>Continue to secure payment</button>
+
+    <p class="bform__status" data-status role="status" aria-live="polite"></p>
+
+    <p class="bform__privacy">
+      By continuing you agree we may use your details to take and fulfil your booking. See our
+      <a href="/privacy">Privacy Policy</a> and <a href="/rates#refund-heading">cancellation policy</a>.
+    </p>
   </div>
-
-  <div class="bform__pricing">
-    <p class="bform__pp-breakdown" data-pp-breakdown hidden></p>
-    <p class="bform__estimate">
-      <span data-payment-label>Estimated total:</span>
-      <strong data-estimate>{fmt(uncateredQ.totalCents)}</strong>
-      <span data-estimate-unit>per group</span>
-      <span class="bform__estnote" data-est-note>Final amount confirmed at checkout.</span>
-    </p>
-    <p class="bform__balance-note" data-balance-note hidden>
-      Remaining balance of <strong data-balance-amount></strong> due ~45 days before arrival. We'll email a secure payment link.
-    </p>
-    <p class="bform__deposit-hint" data-deposit-hint>
-      Trips departing 30+ days away pay a <strong>50% deposit today</strong>, with the balance collected ~45 days before arrival.
-    </p>
-  </div>
-
-  <p class="bform__flat" data-flat-note>
-    Private, exclusive use. One group at a time. Priced per trip regardless of group size.
-  </p>
-
-  <button type="submit" class="btn btn-primary bform__submit" data-submit>Continue to secure payment</button>
-
-  <p class="bform__status" data-status role="status" aria-live="polite"></p>
-
-  <p class="bform__privacy">
-    By continuing you agree we may use your details to take and fulfil your booking. See our
-    <a href="/privacy">Privacy Policy</a> and <a href="/rates#refund-heading">cancellation policy</a>.
-  </p>
 </form>
 
 <script>
@@ -184,6 +218,8 @@ const earliest = earliestBookableDate();
   const daysBetween = (fromIso: string, toIso: string) =>
     Math.round((Date.parse(toIso + 'T00:00:00Z') - Date.parse(fromIso + 'T00:00:00Z')) / 86_400_000);
   const isMondayIso = (iso: string) => new Date(iso + 'T00:00:00Z').getUTCDay() === 1;
+
+  type TripOption = 'uncatered' | 'catered' | 'shared';
 
   // Blocked start dates: exclusive actives + operator-blocked days + FULL (or near-full) shared
   // Mondays. A date inside another trip's range but not itself a start date stays bookable.
@@ -233,14 +269,16 @@ const earliest = earliestBookableDate();
     }
   }
 
+  // Calendar controller — two visible states only (available / unavailable). Which dates are
+  // available depends on the chosen option (private modes exclude Mondays; shared mode only
+  // shows Mondays with enough seats left for the current group size), set via applyFilter().
   function setupCalendar(
     form: HTMLFormElement,
     startInput: HTMLInputElement,
-    onDateSelected: (iso: string, mode: 'exclusive' | 'shared', seatsLeft: number) => void,
-  ): () => void {
-    const noop = () => {};
+    onDateSelected: (iso: string, seatsLeft: number) => void,
+  ) {
     const cal = form.querySelector<HTMLElement>('[data-calendar]');
-    if (!cal) return noop;
+    if (!cal) return { applyFilter: () => {} };
     const grid = cal.querySelector<HTMLElement>('[data-cal-grid]');
     const monthLabel = cal.querySelector<HTMLElement>('[data-cal-month]');
     const prevBtn = cal.querySelector<HTMLButtonElement>('[data-cal-prev]');
@@ -248,10 +286,10 @@ const earliest = earliestBookableDate();
     const field = cal.closest<HTMLElement>('.bform__datefield');
     const nextAvailEl = field?.querySelector<HTMLElement>('[data-nextavail]') ?? null;
     const selectedEl = field?.querySelector<HTMLElement>('[data-cal-selected]') ?? null;
-    if (!grid || !monthLabel || !prevBtn || !nextBtn) return noop;
+    if (!grid || !monthLabel || !prevBtn || !nextBtn) return { applyFilter: () => {} };
 
     // The earliest bookable date is the later of the 7-day lead time and the go-live opening
-    // date (server-computed, passed via data-earliest) — every date before it is 'out'.
+    // date (server-computed, passed via data-earliest) — every date before it is unavailable.
     const todayIso = new Date().toISOString().slice(0, 10);
     const earliest = form.dataset.earliest || addDaysIso(todayIso, 7);
     const latest = addDaysIso(todayIso, 365); // 365-day ceiling (mirrors the server)
@@ -259,34 +297,49 @@ const earliest = earliestBookableDate();
     let blocked = new Set<string>();
     let sharedSeats = new Map<string, number>();
     let selected = '';
+    let mode: TripOption = 'uncatered';
+    let groupSize = 1;
     const viewIdx = (y: number, m: number) => y * 12 + m;
     const minIdx = viewIdx(+earliest.slice(0, 4), +earliest.slice(5, 7) - 1);
     const maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
+    // Default to the first bookable month, not the calendar month — users should never have to
+    // page past months that can't be booked yet.
     let view = { y: +earliest.slice(0, 4), m: +earliest.slice(5, 7) - 1 };
 
-    // Mondays are shared departures (a distinct, still-bookable state) unless the availability
-    // view lists them as blocked (full, or too few seats left for a new 2-person minimum booking).
-    const stateOf = (d: string): 'out' | 'taken' | 'avail' | 'shared' => {
+    const seatsFor = (d: string) => sharedSeats.get(d) ?? 8;
+
+    const stateOf = (d: string): 'out' | 'avail' => {
       if (d < earliest || d > latest) return 'out';
-      if (blocked.has(d)) return 'taken';
-      return isMondayIso(d) ? 'shared' : 'avail';
+      const monday = isMondayIso(d);
+      if (mode === 'shared') {
+        if (!monday) return 'out';
+        if (blocked.has(d)) return 'out';
+        return seatsFor(d) >= groupSize ? 'avail' : 'out';
+      }
+      if (monday) return 'out'; // Mondays are reserved for shared departures
+      return blocked.has(d) ? 'out' : 'avail';
     };
 
     const nextAvailable = (): string | null => {
       let d = earliest;
       while (d <= latest) {
-        const st = stateOf(d);
-        if (st === 'avail' || st === 'shared') return d;
+        if (stateOf(d) === 'avail') return d;
         d = addDaysIso(d, 1);
       }
       return null;
     };
 
+    const clearSelection = () => {
+      selected = '';
+      startInput.value = '';
+      if (selectedEl) selectedEl.textContent = '';
+      onDateSelected('', 0);
+    };
+
     const selectDate = (iso: string) => {
       selected = iso;
       startInput.value = iso;
-      const mode: 'exclusive' | 'shared' = isMondayIso(iso) ? 'shared' : 'exclusive';
-      const seatsLeft = mode === 'shared' ? (sharedSeats.get(iso) ?? 8) : 0;
+      const seatsLeft = mode === 'shared' ? seatsFor(iso) : 0;
       if (selectedEl) {
         const dateStr = humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         selectedEl.textContent =
@@ -295,7 +348,7 @@ const earliest = earliestBookableDate();
             : `Selected start: ${dateStr}`;
       }
       render();
-      onDateSelected(iso, mode, seatsLeft);
+      onDateSelected(iso, seatsLeft);
     };
 
     const render = () => {
@@ -327,15 +380,15 @@ const earliest = earliestBookableDate();
           month: 'long',
           year: 'numeric',
         });
-        if (st === 'avail' || st === 'shared') {
-          const seatsLabel = st === 'shared' ? `, shared departure, ${sharedSeats.get(iso) ?? 8} place(s) left` : '';
+        if (st === 'avail') {
+          const seatsLabel = mode === 'shared' ? `, ${seatsFor(iso)} place(s) left` : '';
           cell.setAttribute('aria-label', human + seatsLabel);
           cell.setAttribute('aria-pressed', iso === selected ? 'true' : 'false');
           if (iso === selected) cell.classList.add('is-selected');
           cell.addEventListener('click', () => selectDate(iso));
         } else {
           cell.disabled = true;
-          cell.setAttribute('aria-label', `${human}, ${st === 'taken' ? 'taken' : 'unavailable'}`);
+          cell.setAttribute('aria-label', `${human}, unavailable`);
         }
         grid.appendChild(cell);
       }
@@ -346,7 +399,7 @@ const earliest = earliestBookableDate();
       const na = nextAvailable();
       nextAvailEl.textContent = na
         ? 'Next available: ' + humanDate(na, { day: 'numeric', month: 'long', year: 'numeric' })
-        : 'No dates are currently available. Please contact us.';
+        : 'No dates are currently available for this option. Please contact us.';
       nextAvailEl.hidden = false;
     };
 
@@ -367,17 +420,36 @@ const earliest = earliestBookableDate();
       Promise.all([fetchBlockedStarts(), fetchSharedSeats()]).then(([b, s]) => {
         blocked = b;
         sharedSeats = s;
+        if (selected && stateOf(selected) !== 'avail') clearSelection();
         updateNextAvail();
-        const na = nextAvailable();
-        if (na && !selected) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 };
+        if (!selected) {
+          const na = nextAvailable();
+          if (na) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 };
+        }
         render();
       });
     };
 
-    render(); // immediate paint (no taken dates yet)
-    refetch(); // load blocked dates + shared seats, jump to first available month
+    // Called whenever Step 1's chosen option or group size changes. Re-filters availability and
+    // jumps to the first bookable month for the NEW filter if nothing valid stays selected.
+    const applyFilter = (newMode: TripOption, newGroupSize: number) => {
+      const filterChanged = newMode !== mode || newGroupSize !== groupSize;
+      mode = newMode;
+      groupSize = newGroupSize;
+      if (!filterChanged) return;
+      if (selected && stateOf(selected) !== 'avail') clearSelection();
+      if (!selected) {
+        const na = nextAvailable();
+        if (na) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 };
+      }
+      updateNextAvail();
+      render();
+    };
 
-    return refetch;
+    render(); // immediate paint (no blocked dates yet)
+    refetch(); // load blocked dates + shared seats
+
+    return { applyFilter };
   }
 
   function initBooking() {
@@ -385,19 +457,19 @@ const earliest = earliestBookableDate();
     if (!form || form.dataset.bound === 'true') return;
     form.dataset.bound = 'true';
 
+    const groupSelect = form.querySelector<HTMLSelectElement>('#bf-group')!;
+    const compare = form.querySelector<HTMLElement>('[data-compare]')!;
+    const crossoverHint = form.querySelector<HTMLElement>('[data-crossover-hint]');
+    const sharedLabel = form.querySelector<HTMLElement>('[data-opt-shared]')!;
+    const sharedRadio = sharedLabel.querySelector<HTMLInputElement>('input[name="tripOption"]')!;
+
+    const totalFormula = form.querySelector<HTMLElement>('[data-total-formula]');
     const estimate = form.querySelector<HTMLElement>('[data-estimate]');
-    const estimateUnit = form.querySelector<HTMLElement>('[data-estimate-unit]');
     const paymentLabel = form.querySelector<HTMLElement>('[data-payment-label]');
-    const estNote = form.querySelector<HTMLElement>('[data-est-note]');
     const balanceNote = form.querySelector<HTMLElement>('[data-balance-note]');
     const balanceAmt = form.querySelector<HTMLElement>('[data-balance-amount]');
+    const balanceDate = form.querySelector<HTMLElement>('[data-balance-date]');
     const depositHint = form.querySelector<HTMLElement>('[data-deposit-hint]');
-    const ppBreakdown = form.querySelector<HTMLElement>('[data-pp-breakdown]');
-    const modeNote = form.querySelector<HTMLElement>('[data-mode-note]');
-    const flatNote = form.querySelector<HTMLElement>('[data-flat-note]');
-    const cateringField = form.querySelector<HTMLElement>('[data-catering-field]');
-    const groupLabel = form.querySelector<HTMLElement>('[data-group-label]');
-    const groupSelect = form.querySelector<HTMLSelectElement>('#bf-group')!;
     const status = form.querySelector<HTMLElement>('[data-status]');
     const startInput = form.querySelector<HTMLInputElement>('#bf-start');
     const submit = form.querySelector<HTMLButtonElement>('[data-submit]');
@@ -406,19 +478,19 @@ const earliest = earliestBookableDate();
     const phoneInput = form.querySelector<HTMLInputElement>('#bf-phone')!;
 
     // ---- Pricing constants (cents) from the server, mirrored client-side for the ESTIMATE only.
-    // Both exclusive rates are FIXED per group; group size only affects shared (per-person) pricing.
-    const GROUP_RATE_UNCATERED = Number(form.dataset.groupRate ?? 0);
-    const GROUP_RATE_CATERED = Number(form.dataset.groupRateCatered ?? 0);
+    const RATE_UNCATERED = Number(form.dataset.groupRate ?? 0);
+    const RATE_CATERED = Number(form.dataset.groupRateCatered ?? 0);
     const SHARED_PP_NIGHT = Number(form.dataset.sharedPpNight ?? 0);
     const NIGHTS = Number(form.dataset.nights ?? 3);
     const SPLIT_DAYS = Number(form.dataset.splitDays ?? 30);
+    const BALANCE_LEAD_DAYS = Number(form.dataset.balanceLeadDays ?? 45);
     const SHARED_MIN = Number(form.dataset.sharedMin ?? 2);
     const SHARED_MAX = Number(form.dataset.sharedMax ?? 8);
     const fmtR = (cents: number) => 'R' + Math.round(cents / 100).toLocaleString('en-US');
     const todayIso = new Date().toISOString().slice(0, 10); // UTC — display only, server re-validates
 
-    let mode: 'exclusive' | 'shared' = 'exclusive';
-    let seatsLeftForDate = SHARED_MAX;
+    let tripOption: TripOption = 'uncatered';
+    let selectedStartIso = '';
 
     // ---- Inline validation helpers ----------------------------------------
     type Rule = (v: string) => string | null;
@@ -435,10 +507,7 @@ const earliest = earliestBookableDate();
       if (errEl) errEl.textContent = msg ?? '';
     }
 
-    function bindField(
-      input: HTMLInputElement | HTMLTextAreaElement,
-      rules: Rule[],
-    ): void {
+    function bindField(input: HTMLInputElement, rules: Rule[]): void {
       const wrapper = input.closest('.form-field');
       input.addEventListener('blur', () => markField(wrapper, firstErr(input.value, rules)));
       input.addEventListener('input', () => {
@@ -467,113 +536,145 @@ const earliest = earliestBookableDate();
     bindField(emailInput, emailRules);
     bindField(phoneInput, phoneRules);
 
-    // Rebuild the group-size <select> for the current mode. Keeps the previous value when it's
-    // still valid, otherwise clamps to the nearest valid option.
-    function rebuildGroupOptions() {
-      const prev = Number(groupSelect.value) || (mode === 'shared' ? SHARED_MIN : 1);
-      const lo = mode === 'shared' ? SHARED_MIN : 1;
-      const hi = mode === 'shared' ? Math.min(SHARED_MAX, seatsLeftForDate) : 12;
-      groupSelect.innerHTML = '';
-      for (let n = lo; n <= hi; n++) {
-        const opt = document.createElement('option');
-        opt.value = String(n);
-        let label = String(n);
-        if (mode === 'exclusive') {
-          if (n === 10) label += ' (recommended)';
-          if (n > 10) label += ' (by special arrangement)';
-        }
-        opt.textContent = label;
-        groupSelect.appendChild(opt);
-      }
-      const clamped = Math.min(Math.max(prev, lo), hi);
-      groupSelect.value = String(clamped);
+    // ---- Step 1: group size → three-way total comparison -------------------
+    function groupSize(): number {
+      return Number(groupSelect.value || 1);
     }
 
-    function applyMode() {
-      rebuildGroupOptions();
-      if (mode === 'shared') {
-        if (groupLabel) groupLabel.textContent = 'Group size (2 to 8 people)';
-        if (cateringField) cateringField.hidden = true;
-        if (flatNote) flatNote.hidden = true;
-        if (modeNote) {
-          modeNote.hidden = false;
-          modeNote.textContent = `Shared Monday departure: fully catered, ${seatsLeftForDate} place(s) left. Your group joins other small groups on the trail, up to ${SHARED_MAX} walkers in total.`;
+    function sharedTotals(n: number): { enabled: boolean; reason: string | null; ppNight: number; ppTotal: number; total: number } {
+      const ppNight = SHARED_PP_NIGHT;
+      const ppTotal = ppNight * NIGHTS;
+      if (n < SHARED_MIN) return { enabled: false, reason: 'Needs at least 2 walkers', ppNight, ppTotal, total: ppTotal * n };
+      if (n > SHARED_MAX) return { enabled: false, reason: 'Shared departures take up to 8 walkers', ppNight, ppTotal, total: ppTotal * n };
+      return { enabled: true, reason: null, ppNight, ppTotal, total: ppTotal * n };
+    }
+
+    function renderComparison() {
+      const n = groupSize();
+      const shared = sharedTotals(n);
+
+      const uncateredEl = compare.querySelector<HTMLElement>('[data-opt-total="uncatered"]');
+      const cateredEl = compare.querySelector<HTMLElement>('[data-opt-total="catered"]');
+      const sharedEl = compare.querySelector<HTMLElement>('[data-opt-total="shared"]');
+      if (uncateredEl) uncateredEl.textContent = `${fmtR(RATE_UNCATERED)} total · flat rate`;
+      if (cateredEl) cateredEl.textContent = `${fmtR(RATE_CATERED)} total · flat rate`;
+      if (sharedEl) {
+        sharedEl.textContent = shared.enabled
+          ? `${n} × ${fmtR(shared.ppTotal)} = ${fmtR(shared.total)} total`
+          : (shared.reason ?? '');
+      }
+
+      sharedRadio.disabled = !shared.enabled;
+      sharedLabel.classList.toggle('boption--disabled', !shared.enabled);
+
+      // If shared just became unavailable while selected, fall back to self-catered.
+      if (!shared.enabled && sharedRadio.checked) {
+        sharedRadio.checked = false;
+        const uncateredRadio = compare.querySelector<HTMLInputElement>('input[name="tripOption"][value="uncatered"]');
+        if (uncateredRadio) uncateredRadio.checked = true;
+        tripOption = 'uncatered';
+        calendar.applyFilter(tripOption, n);
+      }
+
+      // Lowest-total badge — text-based, never colour-only.
+      const totals: Array<[TripOption, number]> = [
+        ['uncatered', RATE_UNCATERED],
+        ['catered', RATE_CATERED],
+      ];
+      if (shared.enabled) totals.push(['shared', shared.total]);
+      const lowest = totals.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
+      (['uncatered', 'catered', 'shared'] as TripOption[]).forEach((opt) => {
+        const tag = compare.querySelector<HTMLElement>(`[data-opt-tag="${opt}"]`);
+        if (tag) tag.hidden = opt !== lowest;
+        tag?.closest('.boption')?.classList.toggle('boption--lowest', opt === lowest);
+      });
+
+      // Crossover hint: shared is cheaper but within ~R2,000 of the self-catered flat rate.
+      if (crossoverHint) {
+        const diff = RATE_UNCATERED - shared.total;
+        if (shared.enabled && diff > 0 && diff <= 200_000) {
+          crossoverHint.hidden = false;
+          crossoverHint.textContent = `For ${fmtR(diff)} more, the whole trail is yours.`;
+        } else {
+          crossoverHint.hidden = true;
         }
-      } else {
-        if (groupLabel) groupLabel.textContent = 'Group size';
-        if (cateringField) cateringField.hidden = false;
-        if (flatNote) flatNote.hidden = false;
-        if (modeNote) modeNote.hidden = true;
       }
     }
 
-    const catering = () =>
-      (form.querySelector<HTMLInputElement>('input[name="catering"]:checked')?.value as
-        | 'catered'
-        | 'uncatered') ?? 'uncatered';
-
-    const updateEstimate = () => {
-      const startIso = startInput?.value ?? '';
-      const groupSize = Number(groupSelect.value || (mode === 'shared' ? SHARED_MIN : 1));
-      const isDeposit = startIso.length === 10 && daysBetween(todayIso, startIso) >= SPLIT_DAYS;
-
+    // ---- Step 3: definite total + deposit/balance --------------------------
+    function updateEstimate() {
+      const n = groupSize();
       let totalCents: number;
-      if (mode === 'shared') {
-        const ppNight = SHARED_PP_NIGHT;
-        const ppTotal = ppNight * NIGHTS;
-        totalCents = ppTotal * groupSize;
-        if (ppBreakdown) {
-          ppBreakdown.hidden = false;
-          ppBreakdown.textContent = `${fmtR(ppNight)} pp/night · ${fmtR(ppTotal)} pp for the ${NIGHTS}-night trail`;
+
+      if (tripOption === 'shared') {
+        const shared = sharedTotals(n);
+        totalCents = shared.total;
+        if (totalFormula) {
+          totalFormula.hidden = false;
+          totalFormula.textContent = `${n} × ${fmtR(shared.ppTotal)} pp = ${fmtR(totalCents)}`;
         }
-        if (estimateUnit) estimateUnit.textContent = `total for ${groupSize} ${groupSize === 1 ? 'person' : 'people'}`;
       } else {
-        // Fixed per-group rate, either uncatered or catered — group size does not change it.
-        totalCents = catering() === 'catered' ? GROUP_RATE_CATERED : GROUP_RATE_UNCATERED;
-        if (ppBreakdown) {
-          ppBreakdown.hidden = catering() !== 'catered';
-          if (catering() === 'catered') {
-            ppBreakdown.textContent = `Flat catered rate, regardless of group size`;
-          }
+        totalCents = tripOption === 'catered' ? RATE_CATERED : RATE_UNCATERED;
+        if (totalFormula) {
+          totalFormula.hidden = false;
+          totalFormula.textContent = `${fmtR(totalCents)} (same price for any group size)`;
         }
-        if (estimateUnit) estimateUnit.textContent = 'per group';
       }
 
+      if (estimate) estimate.textContent = fmtR(totalCents);
+
+      const isDeposit = selectedStartIso.length === 10 && daysBetween(todayIso, selectedStartIso) >= SPLIT_DAYS;
       const depositCents = isDeposit ? Math.round(totalCents / 2) : totalCents;
       const balanceCents = isDeposit ? totalCents - depositCents : 0;
 
-      if (isDeposit) {
-        if (paymentLabel) paymentLabel.textContent = '50% deposit due today:';
-        if (estimate) estimate.textContent = fmtR(depositCents);
-        if (estNote) estNote.textContent = 'Full amount confirmed at checkout.';
-        if (balanceNote) balanceNote.hidden = false;
-        if (balanceAmt) balanceAmt.textContent = fmtR(balanceCents);
-        if (depositHint) depositHint.hidden = true; // redundant once we show the live split
-        if (submit) submit.textContent = 'Pay deposit & continue to checkout';
-      } else {
-        if (paymentLabel) paymentLabel.textContent = startIso ? 'Total due today:' : 'Estimated total:';
-        if (estimate) estimate.textContent = fmtR(totalCents);
-        if (estNote) estNote.textContent = 'Final amount confirmed at checkout.';
+      if (!selectedStartIso) {
+        if (paymentLabel) paymentLabel.textContent = 'Total:';
         if (balanceNote) balanceNote.hidden = true;
         if (depositHint) depositHint.hidden = false;
         if (submit) submit.textContent = 'Continue to secure payment';
+      } else if (isDeposit) {
+        if (paymentLabel) paymentLabel.textContent = 'Pay today (50% deposit):';
+        if (estimate) estimate.textContent = fmtR(depositCents);
+        if (balanceNote) {
+          balanceNote.hidden = false;
+          if (balanceAmt) balanceAmt.textContent = fmtR(balanceCents);
+          if (balanceDate) {
+            const dueIso = addDaysIso(selectedStartIso, -BALANCE_LEAD_DAYS);
+            balanceDate.textContent = humanDate(dueIso, { day: 'numeric', month: 'long', year: 'numeric' });
+          }
+        }
+        if (depositHint) depositHint.hidden = true;
+        if (submit) submit.textContent = 'Pay deposit & continue to checkout';
+      } else {
+        if (paymentLabel) paymentLabel.textContent = 'Pay in full today:';
+        if (balanceNote) balanceNote.hidden = true;
+        if (depositHint) depositHint.hidden = true;
+        if (submit) submit.textContent = 'Continue to secure payment';
       }
-    };
-
-    if (startInput) {
-      setupCalendar(form, startInput, (_iso, newMode, seatsLeft) => {
-        mode = newMode;
-        seatsLeftForDate = newMode === 'shared' ? seatsLeft : SHARED_MAX;
-        applyMode();
-        updateEstimate();
-      });
     }
 
-    form
-      .querySelectorAll<HTMLInputElement>('input[name="catering"]')
-      .forEach((el) => el.addEventListener('change', updateEstimate));
-    groupSelect.addEventListener('change', updateEstimate);
-    applyMode();
+    const calendar = setupCalendar(form, startInput!, (iso, _seatsLeft) => {
+      selectedStartIso = iso;
+      updateEstimate();
+    });
+
+    groupSelect.addEventListener('change', () => {
+      renderComparison();
+      calendar.applyFilter(tripOption, groupSize());
+      updateEstimate();
+    });
+
+    form.querySelectorAll<HTMLInputElement>('input[name="tripOption"]').forEach((el) => {
+      el.addEventListener('change', () => {
+        if (!el.checked) return;
+        tripOption = el.value as TripOption;
+        calendar.applyFilter(tripOption, groupSize());
+        updateEstimate();
+      });
+    });
+
+    renderComparison();
+    calendar.applyFilter(tripOption, groupSize());
     updateEstimate();
 
     const setStatus = (msg: string, kind: 'error' | 'info' = 'error') => {
@@ -605,7 +706,7 @@ const earliest = earliestBookableDate();
         setStatus('Please choose a start date from the calendar.');
         return;
       }
-      const fieldChecks: Array<[HTMLInputElement | HTMLTextAreaElement, Rule[]]> = [
+      const fieldChecks: Array<[HTMLInputElement, Rule[]]> = [
         [nameInput,  nameRules],
         [emailInput, emailRules],
         [phoneInput, phoneRules],
@@ -620,8 +721,8 @@ const earliest = earliestBookableDate();
 
       const payload = {
         startDate: startVal,
-        groupSize: Number(fd.get('groupSize') ?? 0),
-        catering: mode === 'shared' ? ('catered' as const) : catering(),
+        groupSize: groupSize(),
+        catering: tripOption === 'shared' ? ('catered' as const) : tripOption,
         leadName: String(fd.get('leadName') ?? ''),
         leadEmail: String(fd.get('leadEmail') ?? ''),
         leadPhone: String(fd.get('leadPhone') ?? ''),

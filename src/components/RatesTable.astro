@@ -1,6 +1,7 @@
 ---
-// RatesTable — Booking v2. Two products: the private (exclusive) trail and shared Monday
-// departures. Per group or per person as appropriate — never a fabricated combined figure.
+// RatesTable — Booking v2.1. Three purchasable options, equal visual weight: private
+// self-catered, private catered, shared Monday. Per-person figures ONLY ever appear on the
+// shared card — the two private cards are flat group rates and never show a divided figure.
 import { rates } from '../data/rates';
 import { withBase } from '../data/site';
 ---
@@ -8,12 +9,15 @@ import { withBase } from '../data/site';
 <div class="rates">
   {
     rates.map((r) => (
-      <div class:list={['ratecard', r.id === 'exclusive' && 'ratecard--primary']}>
+      <div class="ratecard">
         <p class="ratecard__label">{r.label}</p>
+        <p class="ratecard__bestfor">{r.bestFor}</p>
         <p class="ratecard__price">
-          {r.headline}
+          {r.heroPrice}
+          <span class="ratecard__unit">{r.heroUnit}</span>
         </p>
-        <p class="ratecard__incl">{r.headlineNote}</p>
+        {r.smallPrint && <p class="ratecard__smallprint">{r.smallPrint}</p>}
+        <p class="ratecard__subline">{r.subline}</p>
         {r.notes.map((n) => (
           <p class="ratecard__note">{n}</p>
         ))}

@@ -47,35 +47,61 @@ export function formatRand(amount: number): string {
   return 'R' + amount.toLocaleString('en-US');
 }
 
-// Display cards for the Rates page (RatesTable.astro).
+// Display cards for the Rates page (RatesTable.astro). Three purchasable options, equal
+// visual weight. Per-person figures are ONLY ever attached to the shared option — the two
+// private options are flat group rates and must never show a divided/per-person figure.
 export interface RateCard {
-  id: 'exclusive' | 'shared';
+  id: 'exclusive-uncatered' | 'exclusive-catered' | 'shared';
   label: string;
-  headline: string; // the big price line
-  headlineNote: string; // qualifier under the price
+  bestFor: string; // short quiet badge, e.g. "Best for groups of 6 or more"
+  heroPrice: string; // the big number
+  heroUnit: string; // qualifier next to the price, e.g. "per group"
+  smallPrint?: string; // tertiary detail shown in small print (shared card's pp/night figure)
+  subline: string; // the sentence directly beneath the price
   notes: string[]; // supporting bullet lines
 }
 
+// Wording matches the brief's sub-line verbatim, with the em-dash swapped for a colon per the
+// site's standing no-em-dash copy rule.
+const FLAT_RATE_SUBLINE =
+  'Flat rate: all 10 beds and the whole trail are yours, however many walk.';
+
 export const rates: RateCard[] = [
   {
-    id: 'exclusive',
-    label: 'Private trail (exclusive use)',
-    headline: formatRand(GROUP_RATE_UNCATERED),
-    headlineNote: 'per group, self-catered',
+    id: 'exclusive-uncatered',
+    label: 'Private trail, self-catered',
+    bestFor: 'Best for groups of 6 or more',
+    heroPrice: formatRand(GROUP_RATE_UNCATERED),
+    heroUnit: 'per group',
+    subline: FLAT_RATE_SUBLINE,
     notes: [
-      `Flat rate for your private group of up to 10 guests (optional two extra by special arrangement), regardless of group size. Includes all conservation levies.`,
-      `Catered option: a fixed ${formatRand(GROUP_RATE_CATERED)} per group instead, also regardless of group size.`,
+      'You bring and prepare your own food, with camp assistants for cleaning and the barbeque.',
+      'Departs any day except Monday.',
+    ],
+  },
+  {
+    id: 'exclusive-catered',
+    label: 'Private trail, catered',
+    bestFor: 'Best for private catered trips',
+    heroPrice: formatRand(GROUP_RATE_CATERED),
+    heroUnit: 'per group',
+    subline: FLAT_RATE_SUBLINE,
+    notes: [
+      'All meals included, prepared by camp staff.',
       'Departs any day except Monday.',
     ],
   },
   {
     id: 'shared',
-    label: 'Shared Monday departures',
-    headline: `${formatRand(SHARED_PP_NIGHT)} pp/night`,
-    headlineNote: `${formatRand(SHARED_PP_NIGHT * NIGHTS)} per person for the ${NIGHTS}-night trail, catered`,
+    label: 'Shared Monday departure',
+    bestFor: 'Best for 2 to 5 walkers',
+    heroPrice: formatRand(SHARED_PP_NIGHT * NIGHTS),
+    heroUnit: 'per person for the trail',
+    smallPrint: `${formatRand(SHARED_PP_NIGHT)} pp/night`,
+    subline: 'The only per-person option. Join other walkers, up to 8 in total.',
     notes: [
-      `One shared departure every Monday: your booking of ${SHARED_MIN_PEOPLE} to ${SHARED_MAX_CAPACITY} people joins other small groups, up to ${SHARED_MAX_CAPACITY} walkers in total.`,
-      'Fully catered only. Includes all conservation levies.',
+      'Mondays only, all meals included.',
+      `Bookings of ${SHARED_MIN_PEOPLE} to ${SHARED_MAX_CAPACITY} people.`,
     ],
   },
 ];
@@ -83,7 +109,7 @@ export const rates: RateCard[] = [
 // What the private group rate includes / excludes. Single source shared by the Rates page and
 // the homepage so the two can never drift.
 export const inclusions = [
-  'Private guided walk for your group only, with exclusive use of each safari lodge overnight (up to 10 guests; optional two extra by special arrangement)',
+  'Private guided walk for your group only, with exclusive use of each safari lodge overnight (up to 10 guests, with two more by special arrangement)',
   'Two qualified, armed trail guides throughout',
   'Daily transport of your baggage and provisions between camps',
   'Camp assistants for cleaning, kitchen prep and the barbeque',

@@ -5,17 +5,19 @@ import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import RatesTable from '../components/RatesTable.astro';
 import BookingWidget from '../components/BookingWidget.astro';
+import BetaBanner from '../components/BetaBanner.astro';
 import InquiryForm from '../components/InquiryForm.astro';
 import {
   GROUP_RATE_UNCATERED,
   GROUP_RATE_CATERED,
   SHARED_PP_NIGHT,
   NIGHTS,
-  BOOKING_OPEN_DISPLAY,
+  BOOKING_OPEN_DATE,
   formatRand,
   inclusions,
   exclusions,
 } from '../data/rates';
+import { todaySast } from '../lib/pricing';
 import { refundPolicy } from '../data/policies';
 import { site } from '../data/site';
 import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
@@ -29,8 +31,14 @@ const bookingEnabled = Boolean(
   import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_PAYSTACK_PUBLIC_KEY,
 );
 
+// Best-effort default for the enquiry disclosure's initial open/closed state (a static build
+// can't know "today" at request time) — BetaBanner's own script corrects both it and the banner
+// against the visitor's real date on load, so the page self-corrects after 15 Jan 2027 without
+// a redeploy.
+const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
+
 const title = 'Rates & Booking | The Rooiberg Wander';
-const description = `R${GROUP_RATE_UNCATERED.toLocaleString('en-US')} per private group, self-catered. Catering and shared Monday departures also available. See what is included and book.`;
+const description = `Private trail from ${formatRand(GROUP_RATE_UNCATERED)} per group (self-catered) or ${formatRand(GROUP_RATE_CATERED)} catered. Shared Monday departures from ${formatRand(SHARED_PP_NIGHT * NIGHTS)} per person. See what's included and book.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -43,8 +51,13 @@ const jsonLd = [
   ]),
   offerSchema({
     price: GROUP_RATE_UNCATERED,
-    name: 'The Rooiberg Wander: private trail (exclusive use)',
-    description: 'Private group of up to 10, self-catered, incl. conservation levies.',
+    name: 'The Rooiberg Wander: private trail, self-catered (exclusive use)',
+    description: 'Flat rate for a private group of up to 10, self-catered, incl. conservation levies.',
+  }),
+  offerSchema({
+    price: GROUP_RATE_CATERED,
+    name: 'The Rooiberg Wander: private trail, catered (exclusive use)',
+    description: 'Flat rate for a private group of up to 10, fully catered, incl. conservation levies.',
   }),
   offerSchema({
     price: SHARED_PP_NIGHT * NIGHTS,
@@ -64,21 +77,15 @@ const jsonLd = [
         What the trail costs
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        The Rooiberg Wander is priced <strong>per group, not per person</strong>. One flat rate
-        buys exclusive use of the whole trail for up to ten guests (optional two extra by special
-        arrangement), with all conservation levies included.
+        The private trail is priced <strong>per group, not per person</strong>: one flat rate
+        buys exclusive use of the whole trail for up to ten guests, with two more by special
+        arrangement. Prefer to join others? A shared Monday departure is priced per person.
       </p>
     </div>
   </Section>
 
   <Section bg="cream" space="md" containerClass="!pt-0">
-    <div class="launch-banner">
-      <p class="launch-banner__eyebrow">Booking opens {BOOKING_OPEN_DISPLAY}</p>
-      <p class="launch-banner__lead">
-        Online booking is accepted for start dates from {BOOKING_OPEN_DISPLAY} onwards. For
-        earlier dates, please send an enquiry or contact us on WhatsApp.
-      </p>
-    </div>
+    <BetaBanner />
   </Section>
 
   <Section bg="cream" labelledby="matrix-heading" space="md" containerClass="!pt-0">
@@ -109,6 +116,35 @@ const jsonLd = [
     </div>
   </Section>
 
+  {/* Enquiry — prominent, above the widget, while online booking is not yet open (before
+      BOOKING_OPEN_DATE); collapses behind a disclosure once booking opens. BetaBanner's script
+      sets `open` on load using the visitor's real date, so this self-corrects without a deploy. */}
+  {
+    bookingEnabled && (
+      <Section bg="cream" labelledby="enquire-heading" space="md" containerClass="!pt-0">
+        <details class="enquire-disclosure" data-enquire-disclosure data-until={BOOKING_OPEN_DATE} open={isBetaAtBuildTime}>
+          <summary class="enquire-disclosure__summary">Prefer to talk to us first?</summary>
+          <div class="enquire-disclosure__body max-w-3xl">
+            <h2 id="enquire-heading" class="font-display text-2xl text-earth sm:text-3xl">
+              Enquire first
+            </h2>
+            <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+              Send us your details and target dates and we’ll be in touch.
+            </p>
+            <p class="mt-2">
+              <a href={site.contact.whatsappUrl} target="_blank" rel="noopener" class="enquire-disclosure__whatsapp">
+                or WhatsApp {site.contact.name}
+              </a>
+            </p>
+            <div class="mt-8">
+              <InquiryForm />
+            </div>
+          </div>
+        </details>
+      </Section>
+    )
+  }
+
   {/* Booking area — live BookingWidget when configured, else a calm "coming soon" + enquiry. */}
   <Section bg="cream" labelledby="book-heading" space="md" containerClass="!pt-0">
     <div id="book" class="max-w-3xl">
@@ -119,13 +155,13 @@ const jsonLd = [
         bookingEnabled ? (
           <Fragment>
             <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-              Choose your start date and group size and pay securely by card. Your booking is
-              confirmed once payment is received, and a receipt is issued by email.
+              Choose your group size and trip type, then a date, and pay securely by card. Your
+              booking is confirmed once payment is received, and a receipt is issued by email.
             </p>
             <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
-              Choose <strong>Monday</strong> for a shared, per-person departure, or any other day
-              for a private group at a flat group rate ({formatRand(GROUP_RATE_UNCATERED)} self-catered,
-              or {formatRand(GROUP_RATE_CATERED)} catered, regardless of group size).
+              Private trail: a flat group rate ({formatRand(GROUP_RATE_UNCATERED)} self-catered,
+              or {formatRand(GROUP_RATE_CATERED)} catered, regardless of group size), any day
+              except Monday. Or join a shared Monday departure, priced per person.
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}
@@ -180,62 +216,56 @@ const jsonLd = [
     </div>
   </Section>
 
-  {
-    bookingEnabled && (
-      <Section bg="cream" labelledby="enquire-heading" space="md" containerClass="!pt-0">
-        <div class="max-w-3xl">
-          <h2 id="enquire-heading" class="font-display text-2xl text-earth sm:text-3xl">
-            Enquire first
-          </h2>
-          <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-            Send us your details and target dates and we’ll be in touch.
-          </p>
-          <div class="mt-8">
-            <InquiryForm />
-          </div>
-        </div>
-      </Section>
-    )
-  }
-
-  {/* Refund & cancellation policy (Part 9 / draft in policies.ts). Also referenced at checkout. */}
+  {/* Refund & cancellation policy (Part 9 / draft in policies.ts). Also referenced at checkout.
+      Two summary lines stay visible at all times; the full schedule and clauses collapse into a
+      native accordion below them. Policy text itself is unchanged, just re-presented. */}
   <Section bg="cream" labelledby="refund-heading" space="md" containerClass="!pt-0">
     <div class="max-w-3xl">
       <h2 id="refund-heading" class="font-display text-2xl text-earth sm:text-3xl">
         Cancellations &amp; refunds
       </h2>
-      <p class="mt-4 font-body leading-relaxed text-charcoal/85">{refundPolicy.intro}</p>
+      <ul class="policy-summary">
+        <li>30 or more days before arrival pays a 50% deposit, with the balance due 45 days before arrival; inside 30 days pays in full.</li>
+        <li>If we manage to re-book your cancelled dates, you're refunded everything paid less a 10% admin fee.</li>
+      </ul>
 
-      <table class="policy-table">
-        <caption class="sr-only">Refund schedule by notice given before arrival</caption>
-        <thead>
-          <tr>
-            <th scope="col">Notice before arrival</th>
-            <th scope="col">Refund of total paid</th>
-          </tr>
-        </thead>
-        <tbody>
-          {
-            refundPolicy.tiers.map((t) => (
+      <details class="policy-accordion">
+        <summary class="policy-accordion__summary">Full cancellation &amp; refund policy</summary>
+        <div class="policy-accordion__body">
+          <p class="font-body leading-relaxed text-charcoal/85">{refundPolicy.intro}</p>
+
+          <table class="policy-table">
+            <caption class="sr-only">Refund schedule by notice given before arrival</caption>
+            <thead>
               <tr>
-                <th scope="row">{t.window}</th>
-                <td>{t.refund}</td>
+                <th scope="col">Notice before arrival</th>
+                <th scope="col">Refund of total paid</th>
               </tr>
-            ))
-          }
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {
+                refundPolicy.tiers.map((t) => (
+                  <tr>
+                    <th scope="row">{t.window}</th>
+                    <td>{t.refund}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
 
-      <dl class="policy-clauses">
-        {
-          refundPolicy.clauses.map((c) => (
-            <div>
-              <dt>{c.heading}</dt>
-              <dd>{c.body}</dd>
-            </div>
-          ))
-        }
-      </dl>
+          <dl class="policy-clauses">
+            {
+              refundPolicy.clauses.map((c) => (
+                <div>
+                  <dt>{c.heading}</dt>
+                  <dd>{c.body}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </div>
+      </details>
     </div>
   </Section>
 </Layout>
