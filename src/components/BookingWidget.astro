@@ -638,9 +638,9 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
       if (n === R.exclusiveSize) {
         sizeHint.textContent = `At ${n}, you can take a Wednesday or Thursday exclusive buyout, or open a shared date on any other day.`;
       } else if (n >= R.sharedOpenMin) {
-        sizeHint.textContent = 'Choose any day except Wednesday or Thursday. You can open a new shared date, or join one that’s already open with matching catering.';
+        sizeHint.textContent = `Choose any day except Wednesday or Thursday. You can open a new shared date, or join one that’s already open with matching catering. Choose ${R.exclusiveSize} for a Wednesday or Thursday exclusive buyout instead.`;
       } else {
-        sizeHint.textContent = `Groups under ${R.sharedOpenMin} can only join a shared date someone else has already opened, with matching catering and room for ${n}.`;
+        sizeHint.textContent = `Groups under ${R.sharedOpenMin} can only join a shared date someone else has already opened, with matching catering and room for ${n}. Choose ${R.exclusiveSize} for a Wednesday or Thursday exclusive buyout instead.`;
       }
     }
 

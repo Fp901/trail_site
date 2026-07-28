@@ -115,7 +115,7 @@ export const rates: RateCard[] = [
     heroPrice: `From ${formatRand(uncateredWeekLow)} pp/night`,
     heroUnit: '',
     smallPrint: 'Self-catered or catered, priced the same as the shared rate above',
-    subline: 'Exactly 8 guests, Wednesday or Thursday only. No other booking joins your date.',
+    subline: 'Exactly 8 places, Wednesday or Thursday only. No other booking joins your date.',
     notes: [
       'Self-catered or catered, your choice.',
       'Priced per person per night, same rates as the shared departures.',
