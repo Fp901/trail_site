@@ -16,11 +16,9 @@ export const site = {
   location: 'Rooiberg, Limpopo, South Africa',
   region: 'Waterberg, Limpopo',
   terrainHa: 15000,
-  driveFromJoburg: '2.5 hours',
   // Sitewide tagline (footer + hero + llms.txt). Catering is optional (Booking v2), so the old
   // "Self-catering walking safari" tagline no longer describes every booking.
   hook: 'A luxury walking safari in the Waterberg',
-  maxGuests: 12,
 
   // Enquiries / bookings email.
   notifyEmail: 'hanlie@rooibergwander.co.za',
@@ -59,7 +57,7 @@ export const site = {
 
   // Sitewide SEO fallback description (pages pass their own per Part 8.8).
   defaultDescription:
-    'A walking safari in the Waterberg, self-catered or catered. A 3-night, 3-day slackpacking trail through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from Johannesburg.',
+    'A walking safari in the Waterberg, self-catered or catered. A 3-night, 3-day slackpacking trail through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from OR Tambo International Airport.',
 
   // Social-card fallback.
   ogImage: '/images/og-default.jpg',
@@ -69,8 +67,8 @@ export const site = {
 export const stats = [
   { value: '3', label: 'Nights' },
   { value: '3', label: 'Days Walking' },
-  { value: '3', label: 'Private Lodges' },
-  { value: 'Up to 10', label: 'Guests (Exclusive Group Use)' },
+  { value: '3', label: 'Private Dedicated Lodges' },
+  { value: 'Exclusive Group Use', label: 'Uncatered up to 10 · Catered up to 8' },
 ] as const;
 
 // Prefix a root-relative path with the configured base (Astro `base`), so internal links work

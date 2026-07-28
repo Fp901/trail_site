@@ -1,12 +1,13 @@
-// Server-side price authority (Part 9.1 / 11.4) — Booking v2. Works in CENTS. The browser never
+// Server-side price authority (Part 9.1 / 11.4) — Booking v2.2. Works in CENTS. The browser never
 // sends a price; the server always recomputes from the constants in data/rates.ts (shared with
 // the display layer so they can never drift). The operator is NOT VAT-registered, so no VAT is
 // charged or shown anywhere; totalCents is the full amount the customer pays.
 //
 // Two products:
-//   exclusive — private group; FIXED flat group rate (self-catered or catered) — group size
-//               does not change the price.
-//   shared    — Monday-only shared departure; catered only; priced PER PERSON per night.
+//   exclusive — private group (Tue-Sat only); FIXED flat group rate (self-catered up to 10, or
+//               catered up to 8) — group size does not change the price.
+//   shared    — Sunday or Monday shared/mixed departure; catered only; priced PER PERSON per
+//               night, 2 to 8 people.
 import {
   NIGHTS,
   GROUP_RATE_UNCATERED,
@@ -21,12 +22,14 @@ export type Catering = 'catered' | 'uncatered';
 
 const toCents = (rand: number) => Math.round(rand * 100);
 
-// Split-payment rule (money policy). A booking made this many days (or more) before its start date
-// pays a deposit now and the balance later; inside this window it pays in full up front.
-export const SPLIT_THRESHOLD_DAYS = 30;
+// Payment model: full payment is due 45 days before arrival, non-refundable thereafter. A
+// booking made 45+ days before its start date pays a deposit now and the balance is collected
+// (via an emailed link) at the 45-day mark; inside 45 days it pays in full up front.
+export const SPLIT_THRESHOLD_DAYS = 45;
 // Deposit fraction for split bookings (50% deposit, 50% balance).
 export const DEPOSIT_FRACTION = 0.5;
-// The balance link is sent this many days before start_date (anchored to start_date).
+// The balance link is sent this many days before start_date (anchored to start_date) — the same
+// 45-day mark that full payment is due by.
 export const BALANCE_LEAD_DAYS = 45;
 
 const MS_PER_DAY = 86_400_000;
@@ -59,10 +62,12 @@ export function earliestBookableDate(now: Date = new Date()): string {
   return lead > BOOKING_OPEN_DATE ? lead : BOOKING_OPEN_DATE;
 }
 
-// Is the ISO date a Monday? Mondays are reserved for shared departures (ISO dow 1). Anchored to
-// UTC midnight, matching how date-only strings are handled everywhere else in the codebase.
-export function isMonday(isoDate: string): boolean {
-  return new Date(`${isoDate}T00:00:00Z`).getUTCDay() === 1;
+// Is the ISO date a shared/mixed departure day (Sunday or Monday)? Private exclusive bookings
+// run Tuesday to Saturday only; shared bookings run Sunday or Monday only. Anchored to UTC
+// midnight, matching how date-only strings are handled everywhere else in the codebase.
+export function isSharedDay(isoDate: string): boolean {
+  const dow = new Date(`${isoDate}T00:00:00Z`).getUTCDay(); // 0 = Sunday, 1 = Monday
+  return dow === 0 || dow === 1;
 }
 
 export type PaymentPlan = 'full' | 'deposit_balance';

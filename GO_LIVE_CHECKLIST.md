@@ -183,22 +183,35 @@ auth user created, **Vercel** project live with SSR adapter. **Next:** fill rema
 
 ---
 
-## Part D — Booking v2 (merged to `main` 2026-07-08, commit `83f7cdc`)
+## Part D — Booking v2 (merged to `main` 2026-07-08, commit `83f7cdc`; pricing/day model
+## revised to v2.2 on 2026-07-11, NOT yet committed/pushed)
 
-Catered/uncatered pricing, shared Monday departures, and 2027 go-live gating. See the CHANGELOG
-entries "Booking v2" and the VAT/Franili removal (both 2026-07-08) for the full design. The code
-is merged; these are the remaining go-live steps:
+Catered/uncatered pricing, shared/mixed departures, and 2027 go-live gating. See the CHANGELOG
+entries "Booking v2", "VAT/Franili removal" and "Booking v2.2" for the full design. Code is
+written; these are the remaining go-live steps:
 
 - [ ] **Apply migration `0013_booking_v2.sql`** in Supabase (adds `booking_type`/`catering`
       columns, the `bookings_slot_guard` trigger, redefines `unavailable_windows`, adds
-      `shared_slot_availability`). Not yet applied anywhere.
-- [ ] **Confirm `SHARED_PP_NIGHT`** (currently R3,435 per person per night, a PLACEHOLDER derived
-      from the earlier R3,950-incl.-VAT industry-norm placeholder with VAT mathematically divided
-      out — not a quoted rate). Single edit point: `SHARED_PP_NIGHT` in `src/data/rates.ts`.
-- [ ] **Confirm the fixed catered group rate** — `GROUP_RATE_CATERED` (R112,174 flat per group,
-      any size) is derived in `src/data/rates.ts` from `GROUP_RATE_UNCATERED` (R52,174) plus a
-      10-person basis at R2,000 pp/night (VAT removed from the original R2,300 pp/night figure).
-      It does **not** scale per person at checkout — confirm the 10-person basis is still right.
+      `shared_slot_availability`). Not yet applied anywhere. The trigger now enforces Tuesday to
+      Saturday for exclusive bookings, Sunday/Monday for shared, and the catered-max-8/
+      uncatered-max-10 group-size caps (2026-07-11 revision).
+- [ ] **Confirm the pricing (2026-07-11 revision)**: private self-catered **R54,000/group** (up
+      to 10 guests), private catered **R105,000/group** (up to 8 guests, flat, not per-person),
+      shared/mixed **R5,000 pp/night** (R15,000 pp for the trail, 2 to 8 people). All in
+      `src/data/rates.ts` (`GROUP_RATE_UNCATERED`, `GROUP_RATE_CATERED`, `SHARED_PP_NIGHT`,
+      `UNCATERED_MAX_PEOPLE`, `CATERED_MAX_PEOPLE`). These supersede the earlier R52,174/
+      R112,174/R3,435 figures — confirm none of these are still quoted verbally to guests.
+- [ ] **Confirm the day-of-week split**: private bookings run **Tuesday to Saturday** only;
+      shared/mixed departures run **Sunday or Monday** only (previously Monday-only). The old
+      "10 guests + 2 by special arrangement" ceiling is retired — capacity is now a hard 10
+      (self-catered) or 8 (catered) with no exception.
+- [ ] **Confirm the payment model (2026-07-11 revision)**: full payment is due **45 days**
+      before arrival (was 30) and is non-refundable from that point; a booking made 45+ days out
+      pays a 50% deposit now with the balance auto-collected at the 45-day mark
+      (`SPLIT_THRESHOLD_DAYS`/`BALANCE_LEAD_DAYS` in `lib/pricing.ts`, both 45). The refund
+      schedule collapsed from 4 tiers to 2 (45+ days = full refund less 5%; inside 45 days /
+      no-show = no refund), and the "re-book your dates, get more back" clause was **dropped**
+      (`src/data/policies.ts`) — confirm the operator is comfortable losing that goodwill clause.
 - [ ] **No VAT is charged** (operator confirmed not VAT-registered, 2026-07-08) — all the figures
       above are the full charged amount, not VAT-inclusive totals. Guest documents are payment
       receipts, not tax invoices. If VAT registration happens later, this needs re-adding
@@ -207,24 +220,47 @@ is merged; these are the remaining go-live steps:
       Investments was removed as the registered entity, 2026-07-08 — a new company is pending).
       Update `site.ts` `operator`, `schema.ts` `legalName`, `email.ts` receipt "From" block, and
       `privacy.astro` "who we are" clause together once known.
-- [ ] **Sign off the sitewide tagline** (2026-07-11): now "A luxury walking safari in the
-      Waterberg" (`site.ts hook`, footer + hero + llms.txt). The nav no longer shows a text
-      tagline at all — it renders the full logo lockup (same artwork as the footer);
-      `headerTagline` was removed.
+- [ ] **Sign off the "Temminck's Lodge" rename** (2026-07-11, was "Rotavi Lodge") — applied
+      site-wide (homepage, trail page, accommodation, logistics, rates, route map data, emails,
+      privacy policy, pre-trip form) and to all alt text. Confirm this is the operator's intended
+      final name and that the apostrophe is acceptable everywhere it renders (incl. emails).
+- [ ] **Sign off "experienced trail guides"** (2026-07-11, replaces all "armed guides"/"armed
+      trail guides" wording site-wide, including one exception at `logistics.ts`'s "Is it safe?"
+      FAQ which now reads "qualified trail guides" per the operator's literal wording for that
+      answer) — confirm the guides are in fact still armed operationally; only the *public copy*
+      changed, nothing about the actual safety protocol.
+- [ ] **Confirm the new FAQs** added 2026-07-11: "What are the conservation levies?" (R380 to
+      R760 pp/day, "up to approximately 20%" of the booking fee — confirm the range and that
+      "up to" is the right qualifier) and "Where can I stay before or after my visit?" (links to
+      babirwa.com and the Newmark "Letamo at Qwabi" booking page — confirm both are still the
+      recommended partners).
+- [ ] **Sign off the sitewide tagline**: "A luxury walking safari in the Waterberg" (`site.ts
+      hook`, footer + hero + llms.txt). The nav shows no text tagline — it renders the full logo
+      lockup (same artwork as the footer); `headerTagline` was removed.
 - [ ] **Confirm the beta banner wording** (`BetaBanner.astro`): booking opens 15 January 2027;
-      family-and-friends discount via enquiry/WhatsApp only, no promo-code gate (same "enforced
-      by who you share the link with" model as the prior soft-launch discount). The beta phase
-      has **no fixed end date** (the earlier 15 July 2027 date was incorrect and was removed,
-      2026-07-11).
+      family-and-friends discount via enquiry/WhatsApp only, no promo-code gate. The beta phase
+      has **no fixed end date** (the earlier 15 July 2027 date was incorrect and was removed).
+      The homepage banner now also states the trail is "currently in beta testing" — confirm
+      this framing is accurate and desired.
 - [ ] **Confirm `BOOKING_OPEN_DATE` (15 Jan 2027)** is still correct closer to go-live — a
       single constant in `src/data/rates.ts`.
-- [ ] **Test the shared-Monday trigger** in Supabase SQL editor before relying on it: exclusive
-      insert on a Monday rejected; shared insert on a non-Monday rejected; shared 6+4 on one
-      Monday rejected (exceeds 8), 6+2 accepted; a Monday with 7 seats taken (1 remaining) shows
-      as unavailable in `unavailable_windows` (protects the 2-person minimum).
-- [ ] **Paystack test-mode E2E** for BOTH products once the migration is applied: a shared
-      Monday booking (2 people, confirm the total), and a private catered booking (confirm the
-      flat group total matches the widget's live estimate, not a per-person figure).
+- [ ] **Test the slot-guard trigger** in Supabase SQL editor before relying on it: exclusive
+      insert on a Sunday/Monday rejected; shared insert on a Tue-Sat date rejected; catered
+      exclusive insert with group_size 9+ rejected; uncatered exclusive with group_size 11+
+      rejected; shared 6+4 on one date rejected (exceeds 8), 6+2 accepted; a shared date with 7
+      seats taken (1 remaining) shows as unavailable in `unavailable_windows` (protects the
+      2-person minimum).
+- [ ] **Paystack test-mode E2E** for all three products once the migration is applied: a shared
+      Sunday or Monday booking (2 people, confirm the R15,000 pp total), a private self-catered
+      booking on a Tue-Sat date (confirm the flat R54,000 total, not per-person), and a private
+      catered booking with 8 guests (confirm the flat R105,000 total and that 9+ guests is
+      rejected client- and server-side).
+- [ ] **Elevation profile images** (`src/assets/images/elevation-day{2,3,4}.png`) are low-
+      resolution source files (~400-410px wide) now displayed up to 42rem (~672px) wide on
+      desktop per the responsive-layout fix (2026-07-11) — consider supplying higher-resolution
+      source images so they don't look soft at the larger display size.
+- [ ] **Route map illustration** — the Trail page's conceptual SVG map is unchanged pending a
+      real illustration asset from the operator (flagged 2026-07-11, asset not yet supplied).
 - [ ] Decide whether to **merge to `main`** once the above are confirmed, or keep iterating on
       the branch.
 

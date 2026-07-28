@@ -6,7 +6,7 @@ export interface RoutePin {
   role: string;
   x: number;
   y: number;
-  isHub?: boolean; // start & end point (Rotavi Lodge)
+  isHub?: boolean; // start & end point (Temminck's Lodge)
 }
 
 export interface RouteSegment {
@@ -21,7 +21,7 @@ export interface RouteSegment {
 export const routeViewBox = '0 0 800 560';
 
 export const routePins: RoutePin[] = [
-  { id: 'rotavi', name: 'Rotavi Lodge', role: 'Start & end', x: 158, y: 432, isHub: true },
+  { id: 'rotavi', name: "Temminck's Lodge", role: 'Start & end', x: 158, y: 432, isHub: true },
   { id: 'oukraal', name: 'Oukraal', role: 'Night 2', x: 432, y: 120 },
   { id: 'viervanacht', name: 'ViervanAcht', role: 'Night 3', x: 660, y: 360 },
 ];
@@ -30,7 +30,7 @@ export const routeSegments: RouteSegment[] = [
   {
     day: 2,
     colorVar: '--color-day2',
-    from: 'Rotavi Lodge',
+    from: "Temminck's Lodge",
     to: 'Oukraal',
     path: 'M158 432 Q 228 232 432 120',
     landmarks: ['Groenkop summit', 'Exit of Groenkop climb', 'Scenic dam'],
@@ -43,7 +43,6 @@ export const routeSegments: RouteSegment[] = [
     path: 'M432 120 Q 632 162 660 360',
     landmarks: [
       'Entrance to L-Kloof',
-      'Kareedam',
       'Welgedacht lookout',
       'Scenic ravine',
       'Vista picnic',
@@ -53,7 +52,7 @@ export const routeSegments: RouteSegment[] = [
     day: 4,
     colorVar: '--color-day4',
     from: 'ViervanAcht',
-    to: 'Rotavi Lodge',
+    to: "Temminck's Lodge",
     path: 'M660 360 Q 452 524 158 432',
     landmarks: [
       'Scenic riverbed walk',

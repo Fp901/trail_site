@@ -10,6 +10,73 @@ marked done. Dates are the working dates.
 
 ---
 
+## Booking v2.2: new pricing/day-of-week model, Temminck's Lodge rename, guide wording — 2026-07-11 (NOT yet committed/pushed)
+
+A second, larger same-day revision covering pricing, the private/shared day split, a lodge
+rename, and a sitewide "armed guides" wording change. `npm run check` + `npm run build` clean;
+pricing and day-of-week logic spot-checked against the live TypeScript source (`lib/pricing.ts`,
+`data/rates.ts`) for R54,000/R105,000/R15,000pp totals, the 45-day deposit/full-payment split,
+and Sunday/Monday vs Tuesday-Saturday classification.
+
+1. **New pricing.** Private self-catered **R54,000/group** (up to 10 guests, replaces
+   R52,174); private catered **R105,000/group flat** (up to 8 guests — the catered cap dropped
+   from 10 to 8, replaces R112,174); shared/mixed **R5,000 pp/night** (R15,000 pp for the
+   3-night trail, replaces R3,435 pp/night). `GROUP_RATE_UNCATERED`/`GROUP_RATE_CATERED`/
+   `SHARED_PP_NIGHT` in `src/data/rates.ts`; new `UNCATERED_MAX_PEOPLE`/`CATERED_MAX_PEOPLE`
+   constants replace the old "+2 by special arrangement" 12-guest ceiling, which is retired
+   entirely (removed from every page and FAQ that mentioned it).
+2. **Day-of-week split changes.** Private/exclusive bookings now run **Tuesday to Saturday**
+   only (previously any day except Monday); shared/mixed departures now run **Sunday or Monday**
+   (previously Monday-only), still 2 to 8 people, 8 seats per date. `lib/pricing.ts`'s `isMonday`
+   replaced by `isSharedDay` (Sunday-or-Monday); `supabase/migrations/0013_booking_v2.sql`'s
+   `bookings_slot_guard` trigger updated to the new day rule plus new catered-max-8/
+   uncatered-max-10 group-size checks (new error codes `RW_PRIVATE_TUE_SAT_ONLY`/
+   `RW_SHARED_SUN_MON_ONLY`/`RW_CATERED_MAX_8`/`RW_UNCATERED_MAX_10`, not yet applied to any
+   Supabase project). `actions/index.ts` and `BookingWidget.astro`'s Step 1 comparison/Step 2
+   calendar updated to match (group-size select now tops out at 10, not 12; the catered option
+   disables itself above 8 guests, mirroring the existing shared-option disable pattern).
+3. **Payment model: 30 days → 45 days.** Full payment is now due 45 days before arrival (was
+   30) and is non-refundable from that point; the deposit/balance split threshold moved with it
+   (`SPLIT_THRESHOLD_DAYS` 30 → 45 in `lib/pricing.ts`; `BALANCE_LEAD_DAYS` stays 45, so the two
+   now align exactly). `policies.ts`'s refund schedule collapsed from 4 tiers to 2 (45+ days =
+   full refund less 5%; inside 45 days/no-show = no refund), and the "re-book your dates, get
+   more back" goodwill clause was dropped. Widget copy, the rates page's policy summary and
+   booking-confidence strip, the homepage's step-1 copy, and `llms.txt` all updated to "45".
+4. **"Rotavi Lodge" renamed to "Temminck's Lodge"** site-wide: homepage, the-trail, accommodation,
+   logistics, rates, `data/route.ts` (route-map pins/segments), `RouteMap.astro`'s SVG
+   `<desc>`, `data/itinerary.ts`, `data/sanctuaries.ts`, `PretripForm.astro`, `privacy.astro`,
+   `lib/email.ts`, and all alt text. No image filenames renamed.
+5. **"Armed guides" → "experienced trail guides"** sitewide (hero badges, wildlife/trail copy,
+   logistics safety block + FAQ, rates inclusions, cancellation-policy conduct clause, schema.ts,
+   llms.txt, email.ts). One exception: the logistics "Is it safe?" FAQ now reads "qualified trail
+   guides" (operator's literal wording for that specific answer). No instance of "armed" remains
+   in user-facing copy or code that renders to the page.
+6. **Homepage additions**: hero badges now "Malaria-Free · Experienced Trail Guides · 2.5 hours
+   from OR Tambo Intl Airport" (dropped "Private Group"); stats bar "3 Private Dedicated Lodges" +
+   "Exclusive Group Use · Uncatered up to 10 · Catered up to 8"; new "Mixed group" card alongside
+   "Private group" (the "Unpack and walk" card kept — grid widened to 4 columns on desktop); step
+   2 rewritten with the Matopo Lookout Point detail; beta-testing mention added to the launch
+   banner, mirroring `BetaBanner.astro`'s copy.
+7. **Logistics additions**: new "Every lodge, one standard" block; two new FAQs — conservation
+   levies (R380 to R760 pp/day, "up to approximately 20%" of the booking fee) and where to stay
+   before/after (links to babirwa.com and Newmark's "Letamo at Qwabi" booking page, URL confirmed
+   live via the operator's own site); packing list expanded (Vaseline, duct tape, hat, raincoat);
+   Food & Provisions section trimmed to one paragraph + a one-line disclaimer (Sixty60 mention
+   and store-locator link removed); Transfers section gained gate/reception/WhatsApp-codes detail;
+   spring/summer season copy lightly adjusted (occasional spring showers, medium-to-low summer
+   humidity). `Faq.a` type extended to `string | FaqAnswerPart[]` so an answer can safely inline
+   a real hyperlink without `set:html`; `FaqAccordion.astro` and `faqPageSchema` updated to match.
+8. **The Trail page**: intro paragraph gained the "vehicle transfers can be arranged" line; Day 2
+   wording "climb" → "traverse"; Day 3's "Kareedam" waypoint removed (`route.ts`). Elevation
+   profile images were hard-capped at 380px CSS width regardless of viewport — now responsive up
+   to 42rem on desktop (`DayCard.astro`/`global.css`); flagged in the checklist that the source
+   PNGs are only ~400-410px natively, so a higher-resolution asset would look sharper at the
+   larger display size. Route map illustration still pending a real asset from the operator.
+9. **Regression fix (from this session, not this turn's request):** `.bform__radios`/
+   `.bform__radio` CSS was deleted during an earlier `BookingWidget.astro` rewrite on the
+   assumption it was dead — it was still used by the admin comp-booking form. Restored, and that
+   form's group-size cap (12 → 10) and Monday-only hint (→ Sunday/Monday) updated to match.
+
 ## Rates-page layout, beta-date removal, nav logo, sitewide wording pass — 2026-07-11
 
 Presentation and copy only (plus one guest-facing form fix); no pricing/booking-logic changes.

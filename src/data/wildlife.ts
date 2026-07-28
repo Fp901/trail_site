@@ -17,7 +17,7 @@ export interface WildlifeGroup {
 export const wildlifeGroups: WildlifeGroup[] = [
   {
     title: 'Big game on foot',
-    blurb: 'The marquee animals you track on foot, always with two armed guides.',
+    blurb: 'The marquee animals you track on foot, always with two experienced trail guides.',
     species: ['Lion', 'Leopard', 'Elephant', 'African buffalo', 'Cheetah', 'Giraffe', 'Hippo'],
   },
   {

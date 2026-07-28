@@ -48,11 +48,11 @@ export const sanctuaryAmenities = [
 export const sanctuaries: Sanctuary[] = [
   {
     id: 'rotavi',
-    name: 'Rotavi Lodge',
+    name: "Temminck's Lodge",
     role: 'The Valley Basecamp · Start & End Point',
     description:
       'Your start and end point. A comfortable, established safari lodge low in the Waterberg valley. Arrive on Day 1 to register and get your safety briefing, leave the car in secure shaded parking, and return on Day 4 to shower, share a final meal and head home.',
-    alt: 'The valley around Rotavi Lodge, the basecamp at the foot of the Rooiberg where the trail begins and ends.',
+    alt: "The valley around Temminck's Lodge, the basecamp at the foot of the Rooiberg where the trail begins and ends.",
     accentVar: '--color-ochre',
     image: rotaviImg,
     amenities: [

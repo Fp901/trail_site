@@ -7,9 +7,15 @@ import {
   computeQuote,
   BALANCE_LEAD_DAYS,
   earliestBookableDate,
-  isMonday,
+  isSharedDay,
 } from '../lib/pricing';
-import { BOOKING_OPEN_DISPLAY, SHARED_MIN_PEOPLE, SHARED_MAX_CAPACITY } from '../data/rates';
+import {
+  BOOKING_OPEN_DISPLAY,
+  SHARED_MIN_PEOPLE,
+  SHARED_MAX_CAPACITY,
+  UNCATERED_MAX_PEOPLE,
+  CATERED_MAX_PEOPLE,
+} from '../data/rates';
 import { getSupabaseAdmin } from '../lib/supabase';
 import { payments } from '../lib/payments';
 import {
@@ -46,7 +52,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
-      groupSize: z.number().int().min(1).max(12),
+      groupSize: z.number().int().min(1).max(10),
       catering: z.enum(['catered', 'uncatered']),
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
@@ -87,27 +93,40 @@ export const server = {
         });
       }
 
-      // Booking type is derived from the DATE, never trusted from the client: Mondays are
-      // shared, catered-only departures (2..8 people per booking, 8 places total); all other
-      // days are private exclusive bookings.
-      const bookingType = isMonday(input.startDate) ? 'shared' : 'exclusive';
+      // Booking type is derived from the DATE, never trusted from the client: Sunday and Monday
+      // are shared, catered-only departure days (2..8 people per booking, 8 places total per
+      // date); Tuesday to Saturday are private exclusive bookings.
+      const bookingType = isSharedDay(input.startDate) ? 'shared' : 'exclusive';
       if (bookingType === 'shared') {
         if (input.groupSize < SHARED_MIN_PEOPLE || input.groupSize > SHARED_MAX_CAPACITY) {
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: `Shared Monday departures take ${SHARED_MIN_PEOPLE} to ${SHARED_MAX_CAPACITY} people per booking.`,
+            message: `Shared departures take ${SHARED_MIN_PEOPLE} to ${SHARED_MAX_CAPACITY} people per booking.`,
           });
         }
         if (input.catering !== 'catered') {
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: 'Shared Monday departures are fully catered.',
+            message: 'Shared departures are fully catered.',
+          });
+        }
+      } else {
+        if (input.catering === 'catered' && input.groupSize > CATERED_MAX_PEOPLE) {
+          throw new ActionError({
+            code: 'BAD_REQUEST',
+            message: `Catered private bookings take up to ${CATERED_MAX_PEOPLE} guests.`,
+          });
+        }
+        if (input.catering === 'uncatered' && input.groupSize > UNCATERED_MAX_PEOPLE) {
+          throw new ActionError({
+            code: 'BAD_REQUEST',
+            message: `Self-catered private bookings take up to ${UNCATERED_MAX_PEOPLE} guests.`,
           });
         }
       }
 
       // SERVER is the price authority (Part 11.4). startDate drives the split-payment rule: a trip
-      // 30+ days out pays a 50% deposit now + 50% balance later; inside 30 days pays in full.
+      // 45+ days out pays a 50% deposit now + 50% balance later; inside 45 days pays in full.
       const quote = computeQuote({
         bookingType,
         catering: input.catering,
@@ -150,7 +169,7 @@ export const server = {
 
       // Insert pending booking. Exclusive: the DB unique-start-date index (active exclusive rows)
       // + the hold prevent two private groups starting the same day. Shared: the DB slot-guard
-      // trigger serializes concurrent seat-grabs and caps the Monday at 8 seats. The server is
+      // trigger serializes concurrent seat-grabs and caps each date at 8 seats. The server is
       // the authority; a violation fails the insert here. amount_due_cents is the FIRST charge;
       // balance_due_date is computed at confirmation in the webhook, so it is left null here.
       const { data, error } = await supabase
@@ -186,8 +205,8 @@ export const server = {
           throw new ActionError({
             code: 'CONFLICT',
             message: left
-              ? `Not enough places left on that Monday. ${left} place(s) remain.`
-              : 'Not enough places left on that Monday. Please pick another Monday or reduce your group.',
+              ? `Not enough places left on that date. ${left} place(s) remain.`
+              : 'Not enough places left on that date. Please pick another Sunday or Monday, or reduce your group.',
           });
         }
         throw new ActionError({
@@ -741,24 +760,31 @@ export const server = {
         if ((error as { code?: string }).code === '23505') {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
         }
-        // Slot-guard trigger: Mondays are shared-only (and vice versa), shared capacity is 8.
+        // Slot-guard trigger: Sun/Mon are shared-only (and vice versa), shared capacity is 8,
+        // and exclusive group size is capped by catering.
         const msg = error.message ?? '';
-        if (msg.includes('RW_MONDAY_SHARED_ONLY')) {
+        if (msg.includes('RW_PRIVATE_TUE_SAT_ONLY')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Mondays are reserved for shared departures; a private booking cannot move onto a Monday.',
+            message: 'Private bookings run Tuesday to Saturday only; this booking cannot move onto a Sunday or Monday.',
           });
         }
-        if (msg.includes('RW_SHARED_MONDAY_ONLY')) {
+        if (msg.includes('RW_SHARED_SUN_MON_ONLY')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Shared departures start on Mondays only; pick another Monday.',
+            message: 'Shared departures start on Sundays or Mondays only; pick another such date.',
           });
         }
         if (msg.includes('RW_SHARED_FULL')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Not enough places left on that Monday for this group.',
+            message: 'Not enough places left on that date for this group.',
+          });
+        }
+        if (msg.includes('RW_CATERED_MAX_8') || msg.includes('RW_UNCATERED_MAX_10')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: "This group size is not valid for the booking's catering option.",
           });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not move the booking.' });
@@ -1000,7 +1026,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
-      groupSize: z.number().int().min(1).max(12),
+      groupSize: z.number().int().min(1).max(10),
       catering: z.enum(['catered', 'uncatered']),
       leadName: z.string().trim().min(2, 'Please enter the guest\'s full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
@@ -1029,6 +1055,21 @@ export const server = {
         .limit(1);
       if (blocked && blocked.length > 0) {
         throw new ActionError({ code: 'CONFLICT', message: 'That date falls in a blocked window. Unblock it first or pick another date.' });
+      }
+
+      // Comp bookings are always exclusive/private (Tuesday to Saturday), same group-size caps
+      // as a paid private booking.
+      if (input.catering === 'catered' && input.groupSize > CATERED_MAX_PEOPLE) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: `Catered private bookings take up to ${CATERED_MAX_PEOPLE} guests.`,
+        });
+      }
+      if (input.catering === 'uncatered' && input.groupSize > UNCATERED_MAX_PEOPLE) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: `Self-catered private bookings take up to ${UNCATERED_MAX_PEOPLE} guests.`,
+        });
       }
 
       const leadName = input.leadName.trim().replace(/\s+/g, ' ');
@@ -1066,10 +1107,10 @@ export const server = {
         if ((error as { code?: string } | null)?.code === '23505') {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
         }
-        if ((error?.message ?? '').includes('RW_MONDAY_SHARED_ONLY')) {
+        if ((error?.message ?? '').includes('RW_PRIVATE_TUE_SAT_ONLY')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Mondays are reserved for shared departures; comp bookings are private (exclusive). Pick another day.',
+            message: 'Sundays and Mondays are reserved for shared departures; comp bookings are private (exclusive). Pick a Tuesday-to-Saturday date.',
           });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not create the booking.' });

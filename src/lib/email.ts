@@ -12,7 +12,7 @@ export interface EmailMessage {
 
 const stripHeader = (v: string) => v.replace(/[\r\n]+/g, ' ').trim();
 
-// Matches the site's formatRand style ("R52,174" — no space, comma groups) so guests see one
+// Matches the site's formatRand style ("R54,000" — no space, comma groups) so guests see one
 // consistent money format on the site and in email.
 const randFromCents = (cents: number) =>
   'R' + Math.round(cents / 100).toLocaleString('en-US');
@@ -241,7 +241,7 @@ export async function sendBookingConfirmation(opts: {
       ['Trail', 'The Rooiberg Wander'],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ...(opts.bookingType === 'shared'
-        ? ([['Departure', 'Shared Monday departure']] as Array<[string, string]>)
+        ? ([['Departure', 'Shared departure (Sun/Mon)']] as Array<[string, string]>)
         : []),
       ...(opts.catering
         ? ([['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered']] as Array<[string, string]>)
@@ -372,7 +372,7 @@ export async function sendBookingOperatorNotification(opts: {
       ['Email', escapeHtml(opts.leadEmail)],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ['Group size', String(opts.groupSize)],
-      ['Type', opts.bookingType === 'shared' ? 'Shared Monday departure' : 'Private (exclusive)'],
+      ['Type', opts.bookingType === 'shared' ? 'Shared departure (Sun/Mon)' : 'Private (exclusive)'],
       ['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered'],
       ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
       ['Plan', opts.paymentPlan],
@@ -510,7 +510,7 @@ export async function sendPaymentReceipt(opts: {
   // pre-v2 phrasing for legacy re-issues.
   const productLabel =
     opts.bookingType === 'shared'
-      ? `shared Monday departure, fully catered (${guestsLabel})`
+      ? `shared departure (Sun/Mon), fully catered (${guestsLabel})`
       : `private group (up to ${guestsLabel})${opts.catering === 'catered' ? ', fully catered' : opts.catering === 'uncatered' ? ', self-catered' : ''}`;
   const descriptionLine =
     opts.receiptType === 'deposit'
@@ -519,7 +519,7 @@ export async function sendPaymentReceipt(opts: {
         ? `The Rooiberg Wander: balance payment (50%). ${productLabel.charAt(0).toUpperCase() + productLabel.slice(1)}. Arrival: ${humanDate(opts.startDate)}.`
         : `The Rooiberg Wander: 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`;
 
-  // Receipt keeps 2 decimals (money document) but matches the site's no-space "R52,174.00" style.
+  // Receipt keeps 2 decimals (money document) but matches the site's no-space "R54,000.00" style.
   const fmt = (c: number) => 'R' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const name = escapeHtml(opts.leadName);

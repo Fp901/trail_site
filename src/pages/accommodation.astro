@@ -10,7 +10,7 @@ import { webPageSchema, breadcrumbSchema, touristAttractionSchema } from '../dat
 
 const title = 'The Safari Lodges | Three private trail lodges';
 const description =
-  'Rotavi Lodge, Oukraal and ViervanAcht: three private safari lodges on The Rooiberg Wander, each with a pool, equipped kitchen, barbeque and free WiFi. Each lodge exclusively yours for the night.';
+  "Temminck's Lodge, Oukraal and ViervanAcht: three private safari lodges on The Rooiberg Wander, each with a pool, equipped kitchen, barbeque and free WiFi. Each lodge exclusively yours for the night.";
 
 const jsonLd = [
   webPageSchema({ path: '/accommodation', name: title, description }),
@@ -22,10 +22,10 @@ const jsonLd = [
 ];
 
 // Trail context per lodge — grounded in the itinerary (Day 2 crosses Groenkop to Oukraal; Day 3
-// takes the Elandsberg L-Kloof to ViervanAcht; Rotavi is the Day 1 arrival and Day 4 return).
+// takes the Elandsberg L-Kloof to ViervanAcht; Temminck's is the Day 1 arrival and Day 4 return).
 const context: Record<string, string> = {
-  rotavi: 'Day 1 arrival & Day 4 return · the valley basecamp',
-  oukraal: 'Day 2 · Rotavi Lodge → Oukraal, over Groenkop',
+  rotavi: "Day 1 arrival & Day 4 return · the valley basecamp",
+  oukraal: "Day 2 · Temminck's Lodge → Oukraal, over Groenkop",
   viervanacht: 'Day 3 · Oukraal → ViervanAcht, via the Elandsberg L-Kloof',
 };
 ---
@@ -48,9 +48,9 @@ const context: Record<string, string> = {
 
     <div class="mt-8 max-w-3xl">
       <p class="lodge-note">
-        Up to 10 guests, with two more by special arrangement. Each lodge is reserved
-        exclusively for your group on the night you stay, and you walk only with your own group
-        and guides.
+        The trail and each lodge are reserved exclusively for your group: self-catered groups of
+        up to 10 guests, catered groups up to a maximum of 8 guests. Mixed groups of up to 8
+        guests start on Sundays or Mondays and are fully catered only.
       </p>
     </div>
   </Section>
@@ -61,9 +61,9 @@ const context: Record<string, string> = {
         Every lodge, one standard
       </h2>
       <p class="mt-3 font-body leading-relaxed text-charcoal/85">
-        Each of the three private lodges is fully equipped to the same premium standard: pool,
-        equipped kitchen, barbeque, free ice, wood and WiFi. You carry only a daypack, and
-        everything you need is waiting when you arrive.
+        Each of the three private lodges is fully equipped to the same premium standard:
+        bedding, pool, equipped kitchen, barbeque, free ice, wood and WiFi. You carry only a
+        daypack, and everything you need is waiting when you arrive.
       </p>
     </div>
   </Section>

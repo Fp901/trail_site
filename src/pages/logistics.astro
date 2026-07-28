@@ -8,6 +8,7 @@ import FaqAccordion from '../components/FaqAccordion.astro';
 import {
   logisticsBlocks,
   faqs,
+  faqAnswerText,
   provisions,
   transfers,
   kitList,
@@ -19,7 +20,7 @@ import lion from '../assets/images/big5-lion-rooiberg.jpg';
 
 const title = 'Trail Logistics, Safety & FAQ';
 const description =
-  'Self-catered or catered, with daily porterage and lodge staff; two armed trail guides under the Two-Man Rule; moderate-to-challenging grading; 100% malaria-free.';
+  'Self-catered or catered, with daily porterage and lodge staff; two experienced trail guides under the Two-Man Rule; moderate-to-challenging grading; 100% malaria-free.';
 
 const jsonLd = [
   webPageSchema({ path: '/logistics', name: title, description }),
@@ -27,7 +28,7 @@ const jsonLd = [
     { name: 'Home', path: '/' },
     { name: 'Trail Logistics & FAQ', path: '/logistics' },
   ]),
-  faqPageSchema(faqs),
+  faqPageSchema(faqs.map((f) => ({ q: f.q, a: faqAnswerText(f.a) }))),
 ];
 ---
 
@@ -53,7 +54,7 @@ const jsonLd = [
   <figure class="media-band">
     <Image
       src={lion}
-      alt="A male lion resting in the Rooiberg bushveld, a Big 5 environment walked on foot with two armed guides."
+      alt="A male lion resting in the Rooiberg bushveld, a Big 5 environment walked on foot with two experienced trail guides."
       widths={[768, 1280, 1920]}
       sizes="100vw"
       loading="lazy"
@@ -67,7 +68,11 @@ const jsonLd = [
           <div class:list={['logblock', b.emphasis && 'logblock--safety']}>
             <p class="logblock__kicker">{b.kicker}</p>
             <h2 class="logblock__title">{b.title}</h2>
-            <p class="logblock__body">{b.body}</p>
+            {Array.isArray(b.body) ? (
+              b.body.map((p) => <p class="logblock__body">{p}</p>)
+            ) : (
+              <p class="logblock__body">{b.body}</p>
+            )}
           </div>
         ))
       }
@@ -81,12 +86,6 @@ const jsonLd = [
         <p class="logblock__kicker">{provisions.kicker}</p>
         <h2 class="logblock__title">{provisions.title}</h2>
         <p class="logblock__body">{provisions.intro}</p>
-        <p class="mt-3">
-          <a href={provisions.linkUrl} class="info-link">
-            {provisions.linkText} <span aria-hidden="true">&rarr;</span>
-          </a>
-        </p>
-        <p class="logblock__body">{provisions.howTo}</p>
         <div class="notice">
           <p class="notice__label">Please note</p>
           <p class="notice__body">{provisions.disclaimer}</p>
@@ -125,7 +124,6 @@ const jsonLd = [
           ))
         }
       </ul>
-      <p class="mt-6 font-body text-sm italic text-charcoal/75">{kitList.note}</p>
     </div>
   </Section>
 

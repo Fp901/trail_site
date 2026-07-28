@@ -25,16 +25,16 @@ export const itinerary: ItineraryDay[] = [
     title: 'Arrival & Briefing',
     distanceKm: null,
     description:
-      'Arrive and register at Rotavi Lodge, the valley basecamp, from 13h00 onwards. Park in the shaded, secure on-site parking; your vehicles stay here for the whole trail. Your two armed trail guides run a full safety and route briefing, then the afternoon is yours at the pool, with the evening around the fire.',
+      'Arrive and register at Temminck\'s Lodge, the valley basecamp, from 13h00 onwards. Park in the shaded, secure on-site parking; your vehicles stay here for the whole trail. Your two experienced trail guides run a full safety and route briefing, then the afternoon is yours at the pool, with the evening around the fire.',
   },
   {
     day: 2,
     title: 'The Mountain Crossing',
     distanceKm: 15,
-    from: 'Rotavi Lodge',
+    from: "Temminck's Lodge",
     to: 'Oukraal',
     description:
-      'Set off early for the rewarding climb over Groenkop. The trail is tough but the payoff is huge: 360° views that reach 100 km. You’ll wind past deep kloofs, towering fig trees, and striking rock formations, all leading to Oukraal, a quiet bush lodge where your luggage and dinner supplies are already waiting.',
+      'Set off early for the rewarding traverse over Groenkop. The trail is tough but the payoff is huge: 360° views that reach 100 km. You’ll wind past deep kloofs, towering fig trees, and striking rock formations, all leading to Oukraal, a quiet bush lodge where your luggage and dinner supplies are already waiting.',
     colorVar: '--color-day2',
     elevation: elevationDay2,
     elevationAlt:
@@ -60,13 +60,13 @@ export const itinerary: ItineraryDay[] = [
     title: 'The Plains & Departure',
     distanceKm: 18,
     from: 'ViervanAcht',
-    to: 'Rotavi Lodge',
+    to: "Temminck's Lodge",
     description:
-      'Cross the open grass plains where game is frequently seen grazing, follow the upper reaches of the Sand River, and circle the base of Groenkop back to Rotavi Lodge, where the trail concludes. Shower, share a final meal, collect your vehicles and depart.',
+      'Cross the open grass plains where game is frequently seen grazing, follow the upper reaches of the Sand River, and circle the base of Groenkop back to Temminck\'s Lodge, where the trail concludes. Shower, share a final meal, collect your vehicles and depart.',
     colorVar: '--color-day4',
     elevation: elevationDay4,
     elevationAlt:
-      'Day 4 elevation profile: 18.61 km, descending from about 1,341 m across the open plains back to Rotavi Lodge.',
+      'Day 4 elevation profile: 18.61 km, descending from about 1,341 m across the open plains back to Temminck\'s Lodge.',
     elevationCaption: 'Elevation profile · 18.6 km · descending across the plains',
   },
 ];

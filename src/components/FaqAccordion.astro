@@ -13,7 +13,19 @@ import { faqs } from '../data/logistics';
           <span class="faq__icon" aria-hidden="true" />
         </summary>
         <div class="faq__a">
-          <p>{item.a}</p>
+          <p>
+            {Array.isArray(item.a)
+              ? item.a.map((part) =>
+                  typeof part === 'string' ? (
+                    part
+                  ) : (
+                    <a href={part.href} target="_blank" rel="noopener">
+                      {part.text}
+                    </a>
+                  ),
+                )
+              : item.a}
+          </p>
         </div>
       </details>
     ))

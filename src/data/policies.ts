@@ -25,21 +25,16 @@ export const refundPolicy = {
   contactEmail: site.notifyEmail,
 
   intro:
-    'The Rooiberg Wander is booked as exclusive use of the whole trail for a single private group. Bookings made 30 or more days before arrival are secured with a 50% deposit, with the balance due 45 days before arrival; bookings made inside 30 days are paid in full. Because each booking reserves the entire trail, its guides and lodge staff for your group alone, cancellations are subject to the schedule below, though we always try to find a fair outcome first. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
+    'The Rooiberg Wander is booked as exclusive use of the whole trail for a single private group. Full payment is due 45 days before arrival: bookings made 45 or more days before arrival are secured with a 50% deposit, with the balance due 45 days before arrival; bookings made inside 45 days are paid in full at booking. Payment is non-refundable from 45 days before arrival. Because each booking reserves the entire trail, its guides and lodge staff for your group alone, cancellations are subject to the schedule below, though we always try to find a fair outcome first. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
 
-  // Tiered refund of the total amount paid to date, by notice given before arrival (Day 1).
+  // Refund of the total amount paid to date, by notice given before arrival (Day 1). The
+  // schedule mirrors the payment model: full payment (and non-refundability) starts at 45 days.
   tiers: [
-    { window: '60 or more days before arrival', refund: 'Full refund, less a 5% administration fee' },
-    { window: '30 to 59 days before arrival', refund: '50% refund of the amount paid' },
-    { window: '15 to 29 days before arrival', refund: '25% refund of the amount paid' },
-    { window: 'Fewer than 15 days before arrival, or no-show', refund: 'No refund' },
+    { window: '45 or more days before arrival', refund: 'Full refund, less a 5% administration fee' },
+    { window: 'Fewer than 45 days before arrival, or no-show', refund: 'No refund' },
   ] as RefundTier[],
 
   clauses: [
-    {
-      heading: 'If we can re-book your dates, you get more back',
-      body: 'Whatever the schedule above says: if you cancel and we succeed in re-booking your dates to another group, we will refund everything you have paid less a 10% administration fee. We actively try to re-sell cancelled dates; the tiered schedule only applies when the dates go unused.',
-    },
     {
       heading: 'How refunds are paid',
       body: 'Approved refunds are returned to the original payment method via our payment provider, normally within 10 business days of confirmation. Payment-processing or bank charges, and any difference arising from foreign-exchange or international card fees, are not recoverable.',
@@ -62,7 +57,7 @@ export const refundPolicy = {
     },
     {
       heading: 'Safety and conduct',
-      body: 'Because the trail operates in a Big 5 environment, guests must follow all instructions from the armed trail guides at all times, including the Two-Man Rule. Guests who place themselves or others at risk, or who materially breach safety instructions, may be removed from the trail without refund.',
+      body: 'Because the trail operates in a Big 5 environment, guests must follow all instructions from the experienced trail guides at all times, including the Two-Man Rule. Guests who place themselves or others at risk, or who materially breach safety instructions, may be removed from the trail without refund.',
     },
     {
       heading: 'No-show and unused services',

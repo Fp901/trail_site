@@ -23,7 +23,7 @@ import {
 
 const title = 'The Rooiberg Wander | Malaria-free Big 5 slackpacking trail';
 const description =
-  'A walking safari in the Waterberg, self-catered or catered. 3 nights and 3 days through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from Johannesburg.';
+  'A walking safari in the Waterberg, self-catered or catered. 3 nights and 3 days through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from OR Tambo International Airport.';
 
 const jsonLd = [
   organizationSchema,
@@ -33,19 +33,19 @@ const jsonLd = [
 ];
 
 // Trust-signal band (below the hero). Kept short; the "Why walk" section below covers the detail.
-const trustSignals = ['Malaria-Free', 'Armed Guides', 'Private Group'];
+const trustSignals = ['Malaria-Free', 'Experienced Trail Guides', '2.5 hours from OR Tambo Intl Airport'];
 
 // How the trail works — four plain steps.
 const steps = [
   {
     n: '1',
     title: 'Choose your dates and book',
-    text: 'Pick a start date and pay securely online. A 50% deposit holds dates booked 30 or more days ahead.',
+    text: 'Pick a start date and pay securely online. Full payment is due 45 days before arrival; a 50% deposit holds dates booked 45 or more days ahead.',
   },
   {
     n: '2',
-    title: 'Arrive at Rotavi Lodge',
-    text: 'Park securely, unpack and meet your two guides, settle in. There is no walking on the arrival day.',
+    title: "Arrive at Temminck's Lodge on start day",
+    text: 'Park securely, unpack, register and meet your two guides. If you are settled in before 16h00, you will take a short walk to Matopo Lookout Point for drinks. There is no walking on the arrival day.',
   },
   {
     n: '3',
@@ -55,13 +55,13 @@ const steps = [
   {
     n: '4',
     title: 'Finish and head home',
-    text: 'After the final morning walk you return to Rotavi Lodge, freshen up, collect your car and drive home.',
+    text: "After the final morning walk, you return to Temminck's Lodge, freshen up, collect your car or meet your shuttle, and drive home.",
   },
 ];
 
 // Lodge teasers (image-led) from the shared sanctuaries data.
 const lodgeContext: Record<string, string> = {
-  rotavi: 'Nights 1 and 4',
+  rotavi: 'Night 1',
   oukraal: 'Night 2',
   viervanacht: 'Night 3',
 };
@@ -89,10 +89,11 @@ const lodgeContext: Record<string, string> = {
 
   <Section bg="cream" space="md">
     <div class="launch-banner">
-      <p class="launch-banner__eyebrow">Booking opens {BOOKING_OPEN_DISPLAY}</p>
+      <p class="launch-banner__eyebrow">We're in beta &middot; Booking opens {BOOKING_OPEN_DISPLAY}</p>
       <p class="launch-banner__lead">
-        Online booking is accepted for start dates from {BOOKING_OPEN_DISPLAY} onwards. For
-        earlier dates, please send an enquiry or contact us on WhatsApp.
+        The trail is currently in beta testing. Online booking is accepted for start dates from
+        {BOOKING_OPEN_DISPLAY}. Dates before then are available to family and friends at a
+        significant discount, by enquiry or WhatsApp only.
       </p>
       <p class="mt-4">
         <a href={withBase('/rates')} class="btn btn-primary">See rates and book</a>
@@ -114,8 +115,8 @@ const lodgeContext: Record<string, string> = {
       </h2>
       <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         The Rooiberg Wander is a 3-night, 3-day walking trail through 15,000 hectares of
-        malaria-free Big 5 reserve near Rooiberg in Limpopo, 2.5 hours by road from Johannesburg.
-        Self-catered as standard, or fully catered.
+        malaria-free Big 5 reserve near Rooiberg in Limpopo, 2.5 hours from OR Tambo
+        International Airport. Choose between catered (max 8) or uncatered (up to 10).
       </p>
       <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
         You walk from one private lodge to the next while your luggage and provisions are moved
@@ -140,8 +141,7 @@ const lodgeContext: Record<string, string> = {
     <div class="statement-band__scrim"></div>
     <div class="statement-band__inner">
       <p class="statement-band__text">
-        A guided walking trail on foot through a private Big 5 reserve, with no game-drive vehicles
-        and no through-traffic.
+        A guided walking trail on foot through the exclusive low-density RoiSan Big 5 reserve.
       </p>
     </div>
   </section>
@@ -153,14 +153,14 @@ const lodgeContext: Record<string, string> = {
     </h2>
     <p class="mt-5 max-w-2xl font-body leading-relaxed text-charcoal/85">
       A point-to-point trail: you walk from one private lodge to the next and sleep somewhere new
-      each night, with a pool, a fire and a bed at the end of every day.
+      each night, with a pool, ice, wood, fire and a luxurious bed at the end of the day.
     </p>
-    <div class="mt-10 grid gap-8 sm:grid-cols-3">
+    <div class="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
       <div class="border-t-2 border-ochre pt-4">
         <h3 class="font-display text-xl text-earth">Big 5 on foot</h3>
         <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
-          Mountain summits, deep valleys, riverbeds and open plains, crossed at ground level with
-          two armed guides rather than viewed from a vehicle.
+          Mountain summits, deep valleys, riverbeds and open plains, crossed on foot with two
+          experienced trail guides rather than viewed from a vehicle.
         </p>
       </div>
       <div class="border-t-2 border-ochre pt-4">
@@ -173,8 +173,15 @@ const lodgeContext: Record<string, string> = {
       <div class="border-t-2 border-ochre pt-4">
         <h3 class="font-display text-xl text-earth">Private group</h3>
         <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
-          You walk with your own group and two guides, and each lodge is reserved for your group on
-          the night you stay. Up to 10 guests, with two more by special arrangement.
+          Start days from Tuesday to Saturday are reserved for private groups, and the trail and
+          each lodge are reserved exclusively for your group: self-catered groups of up to 10
+          guests, catered groups up to a maximum of 8 guests.
+        </p>
+      </div>
+      <div class="border-t-2 border-ochre pt-4">
+        <h3 class="font-display text-xl text-earth">Mixed group</h3>
+        <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/80">
+          Mixed groups of up to 8 guests start on Sundays or Mondays and are fully catered.
         </p>
       </div>
     </div>

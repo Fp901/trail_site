@@ -38,7 +38,7 @@ const bookingEnabled = Boolean(
 const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
 
 const title = 'Rates & Booking | The Rooiberg Wander';
-const description = `Private trail from ${formatRand(GROUP_RATE_UNCATERED)} per group (self-catered) or ${formatRand(GROUP_RATE_CATERED)} catered. Shared Monday departures from ${formatRand(SHARED_PP_NIGHT * NIGHTS)} per person. See what's included and book.`;
+const description = `Private trail (Tue-Sat) from ${formatRand(GROUP_RATE_UNCATERED)} per group (self-catered, up to 10) or ${formatRand(GROUP_RATE_CATERED)} catered (up to 8). Shared Sunday/Monday departures from ${formatRand(SHARED_PP_NIGHT * NIGHTS)} per person. See what's included and book.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -52,17 +52,17 @@ const jsonLd = [
   offerSchema({
     price: GROUP_RATE_UNCATERED,
     name: 'The Rooiberg Wander: private trail, self-catered (exclusive use)',
-    description: 'Flat rate for a private group of up to 10, self-catered, incl. conservation levies.',
+    description: 'Flat rate for a private group of up to 10, self-catered, incl. conservation levies. Tuesday to Saturday.',
   }),
   offerSchema({
     price: GROUP_RATE_CATERED,
     name: 'The Rooiberg Wander: private trail, catered (exclusive use)',
-    description: 'Flat rate for a private group of up to 10, fully catered, incl. conservation levies.',
+    description: 'Flat rate for a private group of up to 8, fully catered, incl. conservation levies. Tuesday to Saturday.',
   }),
   offerSchema({
     price: SHARED_PP_NIGHT * NIGHTS,
-    name: 'The Rooiberg Wander: shared Monday departure (per person)',
-    description: 'Shared, fully catered departure, 2 to 8 people, incl. conservation levies.',
+    name: 'The Rooiberg Wander: shared departure (per person)',
+    description: 'Shared, fully catered departure, 2 to 8 people, incl. conservation levies. Sundays or Mondays.',
   }),
 ];
 ---
@@ -77,9 +77,10 @@ const jsonLd = [
         What the trail costs
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        The private trail is priced <strong>per group, not per person</strong>: one flat rate
-        buys exclusive use of the whole trail for up to 10 guests, with two more by special
-        arrangement. Prefer to join others? A shared Monday departure is priced per person.
+        For start days Tuesday to Saturday, the private trail is priced <strong>per group, not
+        per person</strong>: one flat rate buys exclusive use of the whole trail for up to 10
+        guests (self-catered) or up to 8 guests (catered). Prefer to join others? A shared
+        Sunday or Monday start date is priced per person on a fully catered basis only.
       </p>
     </div>
   </Section>
@@ -130,9 +131,10 @@ const jsonLd = [
               booking is confirmed once payment is received, and a receipt is issued by email.
             </p>
             <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
-              Private trail: a flat group rate ({formatRand(GROUP_RATE_UNCATERED)} self-catered,
-              or {formatRand(GROUP_RATE_CATERED)} catered, regardless of group size), any day
-              except Monday. Or join a shared Monday departure, priced per person.
+              Private trail: a flat group rate ({formatRand(GROUP_RATE_UNCATERED)} self-catered
+              up to 10 guests, or {formatRand(GROUP_RATE_CATERED)} catered up to 8 guests,
+              regardless of group size), Tuesday to Saturday. Or join a shared departure on a
+              Sunday or Monday, priced per person.
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}
@@ -141,7 +143,7 @@ const jsonLd = [
                 <span class="booking-assure__icon" aria-hidden="true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4m8-4v4M4 9h16M5 5h14a1 1 0 0 1 1 1v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1Z"/></svg>
                 </span>
-                50% deposit secures dates 30+ days out; the balance is due 45 days before arrival
+                50% deposit secures dates 45+ days out; full payment is due 45 days before arrival
               </li>
               <li>
                 <span class="booking-assure__icon" aria-hidden="true">
@@ -196,8 +198,8 @@ const jsonLd = [
         Cancellations &amp; refunds
       </h2>
       <ul class="policy-summary">
-        <li>30 or more days before arrival pays a 50% deposit, with the balance due 45 days before arrival; inside 30 days pays in full.</li>
-        <li>If we manage to re-book your cancelled dates, you're refunded everything paid less a 10% admin fee.</li>
+        <li>Full payment is due 45 days before arrival: bookings made 45 or more days out pay a 50% deposit, with the balance due at the 45-day mark; inside 45 days pays in full.</li>
+        <li>Cancel 45 or more days before arrival for a full refund, less a 5% admin fee.</li>
       </ul>
 
       <details class="policy-accordion">
