@@ -899,6 +899,30 @@
     color: color-mix(in srgb, var(--color-charcoal) 62%, transparent);
   }
 
+  /* --- Abandoned-checkout resume prompt (Booking v3.0) ---------------------- */
+  .resume-prompt {
+    margin-bottom: 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-ochre) 55%, transparent);
+    border-radius: 1rem;
+    background-color: color-mix(in srgb, var(--color-ochre) 12%, #fff);
+    padding: 1.1rem 1.25rem;
+  }
+  .resume-prompt__text {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-earth);
+  }
+  .resume-prompt__actions {
+    margin-top: 0.9rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .bform__resume {
+    margin-top: 0.75rem;
+  }
+
   /* --- Forms: booking + enquiry (Part 5.6) --------------------------------- */
   .bform {
     border: 1px solid var(--color-hairline);
@@ -1032,6 +1056,30 @@
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--color-green);
+    min-height: 1.2em; /* reserves space so the crossover message never shifts the layout */
+  }
+  .bstep__notice {
+    margin-top: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--color-ochre) 45%, transparent);
+    border-radius: 0.6rem;
+    background-color: color-mix(in srgb, var(--color-ochre) 10%, #fff);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--color-earth);
+  }
+  .bstep__static {
+    margin-top: 1.1rem;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
+  }
+  .bstep__deposit-note {
+    margin-top: 0.75rem;
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
   }
 
   /* ---- Radios (still used by the admin comp-booking form) ------------------ */
@@ -1055,9 +1103,9 @@
     display: grid;
     gap: 0.75rem;
   }
-  @media (min-width: 640px) {
+  @media (min-width: 480px) {
     .boption-compare {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
   .boption {
@@ -1274,14 +1322,31 @@
     padding: 0;
     box-sizing: border-box;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 0.05rem;
     border: 1px solid transparent;
     border-radius: 0.5rem;
     font-family: var(--font-body);
     font-size: 0.85rem;
     line-height: 1;
     color: var(--color-charcoal);
+  }
+  /* Shared-mode grid: cells grow to fit a visible seat count under the day number, not just an
+     aria-label — a "3 left" cell should read differently from an undifferentiated available one. */
+  .bcal--shared .bcal__cell {
+    aspect-ratio: auto;
+    min-height: 3rem;
+  }
+  .bcal__seats {
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--color-green);
+  }
+  .bcal__cell--out .bcal__seats {
+    display: none;
   }
   .bcal__cell--blank {
     border: 0;
@@ -2448,7 +2513,7 @@
     border-color: color-mix(in srgb, #9c5b3b 45%, transparent);
     color: #7d4227;
   }
-  /* Shared Monday departure — shown alongside the status badge. */
+  /* Shared/flexible departure — shown alongside the status badge. */
   .admin-badge--shared {
     margin-left: 0.35rem;
     text-transform: uppercase;

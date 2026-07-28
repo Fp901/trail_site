@@ -7,14 +7,14 @@ import {
   computeQuote,
   BALANCE_LEAD_DAYS,
   earliestBookableDate,
-  isSharedDay,
+  latestBookableDate,
+  isExclusiveDay,
 } from '../lib/pricing';
 import {
-  BOOKING_OPEN_DISPLAY,
-  SHARED_MIN_PEOPLE,
-  SHARED_MAX_CAPACITY,
-  UNCATERED_MAX_PEOPLE,
-  CATERED_MAX_PEOPLE,
+  MAX_GROUP_SIZE,
+  EXCLUSIVE_SIZE,
+  SHARED_OPEN_MIN,
+  SHARED_TOPUP_MIN,
 } from '../data/rates';
 import { getSupabaseAdmin } from '../lib/supabase';
 import { payments } from '../lib/payments';
@@ -52,7 +52,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
-      groupSize: z.number().int().min(1).max(10),
+      groupSize: z.number().int().min(1).max(MAX_GROUP_SIZE),
       catering: z.enum(['catered', 'uncatered']),
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
@@ -74,53 +74,87 @@ export const server = {
 
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
 
-      // Booking window (server-authoritative): the later of the 7-day lead time and the go-live
-      // opening date (earliestBookableDate), maximum 365 days ahead. ISO YYYY-MM-DD strings
-      // compare lexicographically, so string comparison is safe.
-      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
+      const supabase = getSupabaseAdmin();
+      const now = new Date().toISOString();
+
+      // Booking window (server-authoritative): earliest is a flat 7-day lead time; latest is a
+      // rolling per-catering ceiling (18 months for catered, 8 for self-catered — matches the
+      // longer international trip-planning cycle). ISO YYYY-MM-DD strings compare
+      // lexicographically, so string comparison is safe.
       const earliest = earliestBookableDate();
-      const latest = addDays(today, 365); // no more than 12 months ahead
+      const latest = latestBookableDate(input.catering);
       if (input.startDate < earliest) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `Online bookings open for start dates from ${BOOKING_OPEN_DISPLAY} (with at least 7 days notice). For earlier dates, please send an enquiry or contact us on WhatsApp.`,
+          message: 'That start date is too soon; choose a date at least 7 days out. For an earlier departure, please send an enquiry or contact us on WhatsApp.',
         });
       }
       if (input.startDate > latest) {
+        const windowLabel = input.catering === 'catered' ? '18 months' : '8 months';
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: 'Choose a start date no more than 12 months (365 days) ahead.',
+          message: `${input.catering === 'catered' ? 'Catered' : 'Self-catered'} bookings open up to ${windowLabel} ahead. Choose an earlier date.`,
         });
       }
 
-      // Booking type is derived from the DATE, never trusted from the client: Sunday and Monday
-      // are shared, catered-only departure days (2..8 people per booking, 8 places total per
-      // date); Tuesday to Saturday are private exclusive bookings.
-      const bookingType = isSharedDay(input.startDate) ? 'shared' : 'exclusive';
-      if (bookingType === 'shared') {
-        if (input.groupSize < SHARED_MIN_PEOPLE || input.groupSize > SHARED_MAX_CAPACITY) {
+      // Booking type is derived from the DATE, never trusted from the client: Wednesday and
+      // Thursday are exclusive buyout days (exactly EXCLUSIVE_SIZE guests); every other day is a
+      // shared/flexible departure (the first active booking needs SHARED_OPEN_MIN+, its catering
+      // choice locks the day, later bookings need SHARED_TOPUP_MIN+ and must match, up to
+      // MAX_GROUP_SIZE seats total).
+      const bookingType = isExclusiveDay(input.startDate) ? 'exclusive' : 'shared';
+
+      if (bookingType === 'exclusive') {
+        if (input.groupSize !== EXCLUSIVE_SIZE) {
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: `Shared departures take ${SHARED_MIN_PEOPLE} to ${SHARED_MAX_CAPACITY} people per booking.`,
-          });
-        }
-        if (input.catering !== 'catered') {
-          throw new ActionError({
-            code: 'BAD_REQUEST',
-            message: 'Shared departures are fully catered.',
+            message: `A Wednesday or Thursday departure is an exclusive buyout for exactly ${EXCLUSIVE_SIZE} guests.`,
           });
         }
       } else {
-        if (input.catering === 'catered' && input.groupSize > CATERED_MAX_PEOPLE) {
+        if (input.groupSize > MAX_GROUP_SIZE) {
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: `Catered private bookings take up to ${CATERED_MAX_PEOPLE} guests.`,
+            message: `Shared departures take up to ${MAX_GROUP_SIZE} guests in total.`,
           });
         }
-        if (input.catering === 'uncatered' && input.groupSize > UNCATERED_MAX_PEOPLE) {
+        // Check what (if anything) is already booked on this shared date, so we can give a
+        // specific message before even trying the insert. The DB trigger is the final guard
+        // against a concurrent race between this check and the insert below.
+        const { data: sharedRows } = await supabase
+          .from('bookings')
+          .select('group_size, catering')
+          .eq('booking_type', 'shared')
+          .eq('start_date', input.startDate)
+          .or(`status.eq.confirmed,and(status.eq.pending,hold_expires_at.gt.${now})`);
+        const seatsTaken = (sharedRows ?? []).reduce((sum, r) => sum + r.group_size, 0);
+        const lockedCatering = sharedRows && sharedRows.length > 0 ? sharedRows[0].catering : null;
+
+        if (seatsTaken === 0) {
+          if (input.groupSize < SHARED_OPEN_MIN) {
+            throw new ActionError({
+              code: 'BAD_REQUEST',
+              message: `Opening a new shared date takes at least ${SHARED_OPEN_MIN} people. For a smaller group, choose a date that already has a group booked, or a Wednesday/Thursday exclusive buyout.`,
+            });
+          }
+        } else {
+          if (input.groupSize < SHARED_TOPUP_MIN) {
+            throw new ActionError({
+              code: 'BAD_REQUEST',
+              message: `Joining an open shared date takes at least ${SHARED_TOPUP_MIN} people.`,
+            });
+          }
+          if (lockedCatering && input.catering !== lockedCatering) {
+            throw new ActionError({
+              code: 'CONFLICT',
+              message: `That date is already booked ${lockedCatering === 'catered' ? 'catered' : 'self-catered'}. Choose a matching option, or pick another date.`,
+            });
+          }
+        }
+        if (seatsTaken + input.groupSize > MAX_GROUP_SIZE) {
           throw new ActionError({
-            code: 'BAD_REQUEST',
-            message: `Self-catered private bookings take up to ${UNCATERED_MAX_PEOPLE} guests.`,
+            code: 'CONFLICT',
+            message: `Only ${MAX_GROUP_SIZE - seatsTaken} place(s) left on that date.`,
           });
         }
       }
@@ -134,24 +168,31 @@ export const server = {
         startDate: input.startDate,
       });
 
-      const supabase = getSupabaseAdmin();
-
       // One active booking per email. Blocks confirmed bookings (any date) and live pending holds
       // (hold_expires_at still in the future). Expired pending rows are not matched, so a genuine
-      // retry after an abandoned checkout (hold expired) is allowed through.
-      const now = new Date().toISOString();
+      // retry after an abandoned checkout (hold expired) is allowed through. The two cases get
+      // different messages: a confirmed trip has no self-service path, but a pending hold can be
+      // resumed — the widget offers a "Resume payment" button keyed off this exact message
+      // (kept in sync with the check in BookingWidget.astro's submit handler).
       const { data: existingBooking } = await supabase
         .from('bookings')
-        .select('id')
+        .select('id, status')
         .eq('lead_email', input.leadEmail.trim().toLowerCase())
         .or(`status.eq.confirmed,and(status.eq.pending,hold_expires_at.gt.${now})`)
         .maybeSingle();
 
       if (existingBooking) {
+        if (existingBooking.status === 'confirmed') {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message:
+              'You already have a confirmed trip booked. Please contact us at hanlie@rooibergwander.co.za if you need to make changes.',
+          });
+        }
         throw new ActionError({
           code: 'CONFLICT',
           message:
-            'You already have an active booking. Please contact us at hanlie@rooibergwander.co.za if you need to make changes.',
+            'You already have a booking waiting for payment. You can resume that payment instead of starting a new one.',
         });
       }
 
@@ -198,7 +239,7 @@ export const server = {
         .single();
 
       if (error || !data) {
-        // Friendly messages for the two inventory guards; generic conflict otherwise.
+        // Friendly messages for the inventory guards; generic conflict otherwise.
         const msg = (error?.message ?? '') as string;
         if (msg.includes('RW_SHARED_FULL')) {
           const left = msg.match(/only (\d+)/)?.[1];
@@ -206,7 +247,19 @@ export const server = {
             code: 'CONFLICT',
             message: left
               ? `Not enough places left on that date. ${left} place(s) remain.`
-              : 'Not enough places left on that date. Please pick another Sunday or Monday, or reduce your group.',
+              : 'Not enough places left on that date. Please choose another date, or reduce your group.',
+          });
+        }
+        if (msg.includes('RW_SHARED_CATERING_LOCKED')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'That date was just booked with a different catering choice. Please choose another date.',
+          });
+        }
+        if (msg.includes('RW_SHARED_OPEN_MIN_4') || msg.includes('RW_SHARED_TOPUP_MIN_2')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'That date no longer meets the minimum group size for this booking. Please choose another date.',
           });
         }
         throw new ActionError({
@@ -248,6 +301,69 @@ export const server = {
         .eq('processor_reference', input.reference)
         .eq('status', 'pending');
       return { ok: true };
+    },
+  }),
+
+  // Resume payment for an existing live pending hold, without creating a new booking row.
+  // Two callers: (1) the abandoned-checkout confirm prompt, which already knows the exact
+  // `reference` it stashed client-side; (2) the createCheckout duplicate-booking conflict,
+  // where the widget only has the email the guest just typed. At least one must be given;
+  // `reference` is matched first when both are present. Paystack references are single-use,
+  // so this issues a NEW reference for the same booking (same amount, same row) and returns a
+  // fresh authorization_url — no new inventory is claimed, no price is recomputed.
+  resumeCheckout: defineAction({
+    accept: 'json',
+    input: z
+      .object({
+        reference: z.string().max(100).optional(),
+        leadEmail: z.string().trim().email('Please enter a valid email address.').max(180).optional(),
+      })
+      .refine((v) => !!v.reference || !!v.leadEmail, { message: 'Provide a reference or email.' }),
+    handler: async (input, ctx) => {
+      const ip = clientIp(ctx.request);
+      if (!(await rateLimit(`resume:min:${ip}`, 5, 60))) {
+        throw new ActionError({ code: 'TOO_MANY_REQUESTS', message: 'Too many requests. Please wait a moment and try again.' });
+      }
+
+      const supabase = getSupabaseAdmin();
+      const now = new Date().toISOString();
+      let query = supabase
+        .from('bookings')
+        .select('id, lead_email, amount_due_cents')
+        .eq('status', 'pending')
+        .gt('hold_expires_at', now);
+      query = input.reference
+        ? query.eq('processor_reference', input.reference)
+        : query.eq('lead_email', input.leadEmail!.trim().toLowerCase());
+      const { data: booking } = await query.maybeSingle();
+
+      if (!booking) {
+        throw new ActionError({
+          code: 'NOT_FOUND',
+          message: 'No booking waiting for payment was found. It may have expired; please start a new booking.',
+        });
+      }
+
+      const newReference = `rw_${crypto.randomUUID()}`;
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ processor_reference: newReference })
+        .eq('id', booking.id)
+        .eq('status', 'pending'); // guard against a race with the hold-sweep/webhook
+      if (updateError) {
+        throw new ActionError({ code: 'CONFLICT', message: 'That booking is no longer waiting for payment. Please start a new booking.' });
+      }
+
+      const siteUrl = import.meta.env.PUBLIC_SITE_URL ?? site.url;
+      const init = await payments.initCheckout({
+        email: booking.lead_email,
+        amountCents: booking.amount_due_cents,
+        reference: newReference,
+        callbackUrl: `${siteUrl}/booking/confirm`,
+        metadata: { booking_id: booking.id },
+      });
+
+      return { authorizationUrl: init.authorizationUrl, reference: newReference };
     },
   }),
 
@@ -760,31 +876,49 @@ export const server = {
         if ((error as { code?: string }).code === '23505') {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
         }
-        // Slot-guard trigger: Sun/Mon are shared-only (and vice versa), shared capacity is 8,
-        // and exclusive group size is capped by catering.
+        // Slot-guard trigger: Wed/Thu are exclusive-only (and vice versa), shared capacity is 8
+        // with a catering lock, and exclusive group size must stay exactly EXCLUSIVE_SIZE.
         const msg = error.message ?? '';
-        if (msg.includes('RW_PRIVATE_TUE_SAT_ONLY')) {
+        if (msg.includes('RW_EXCLUSIVE_WED_THU_ONLY')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Private bookings run Tuesday to Saturday only; this booking cannot move onto a Sunday or Monday.',
+            message: 'Exclusive buyouts run Wednesday or Thursday only; this booking cannot move to that date.',
           });
         }
-        if (msg.includes('RW_SHARED_SUN_MON_ONLY')) {
+        if (msg.includes('RW_EXCLUSIVE_SIZE_8')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Shared departures start on Sundays or Mondays only; pick another such date.',
+            message: `An exclusive buyout must be exactly ${EXCLUSIVE_SIZE} guests.`,
+          });
+        }
+        if (msg.includes('RW_SHARED_NOT_WED_THU')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'Shared departures cannot start on a Wednesday or Thursday; pick another date.',
+          });
+        }
+        if (msg.includes('RW_SHARED_OPEN_MIN_4')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: `That date has no other booking yet, so it needs at least ${SHARED_OPEN_MIN} people to move here.`,
+          });
+        }
+        if (msg.includes('RW_SHARED_TOPUP_MIN_2')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: `Joining that date needs at least ${SHARED_TOPUP_MIN} people.`,
+          });
+        }
+        if (msg.includes('RW_SHARED_CATERING_LOCKED')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'That date is already booked with a different catering choice.',
           });
         }
         if (msg.includes('RW_SHARED_FULL')) {
           throw new ActionError({
             code: 'CONFLICT',
             message: 'Not enough places left on that date for this group.',
-          });
-        }
-        if (msg.includes('RW_CATERED_MAX_8') || msg.includes('RW_UNCATERED_MAX_10')) {
-          throw new ActionError({
-            code: 'CONFLICT',
-            message: "This group size is not valid for the booking's catering option.",
           });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not move the booking.' });
@@ -1026,7 +1160,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
-      groupSize: z.number().int().min(1).max(10),
+      groupSize: z.number().int().min(1).max(MAX_GROUP_SIZE),
       catering: z.enum(['catered', 'uncatered']),
       leadName: z.string().trim().min(2, 'Please enter the guest\'s full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
@@ -1057,18 +1191,18 @@ export const server = {
         throw new ActionError({ code: 'CONFLICT', message: 'That date falls in a blocked window. Unblock it first or pick another date.' });
       }
 
-      // Comp bookings are always exclusive/private (Tuesday to Saturday), same group-size caps
-      // as a paid private booking.
-      if (input.catering === 'catered' && input.groupSize > CATERED_MAX_PEOPLE) {
+      // Comp bookings are always an exclusive buyout: Wednesday or Thursday, exactly
+      // EXCLUSIVE_SIZE guests, same as a paid exclusive booking.
+      if (!isExclusiveDay(input.startDate)) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `Catered private bookings take up to ${CATERED_MAX_PEOPLE} guests.`,
+          message: 'Exclusive buyouts run Wednesday or Thursday only; choose such a date.',
         });
       }
-      if (input.catering === 'uncatered' && input.groupSize > UNCATERED_MAX_PEOPLE) {
+      if (input.groupSize !== EXCLUSIVE_SIZE) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `Self-catered private bookings take up to ${UNCATERED_MAX_PEOPLE} guests.`,
+          message: `Comp bookings are exclusive buyouts of exactly ${EXCLUSIVE_SIZE} guests.`,
         });
       }
 
@@ -1107,10 +1241,17 @@ export const server = {
         if ((error as { code?: string } | null)?.code === '23505') {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
         }
-        if ((error?.message ?? '').includes('RW_PRIVATE_TUE_SAT_ONLY')) {
+        const msg = error?.message ?? '';
+        if (msg.includes('RW_EXCLUSIVE_WED_THU_ONLY')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Sundays and Mondays are reserved for shared departures; comp bookings are private (exclusive). Pick a Tuesday-to-Saturday date.',
+            message: 'Exclusive buyouts run Wednesday or Thursday only; pick such a date.',
+          });
+        }
+        if (msg.includes('RW_EXCLUSIVE_SIZE_8')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: `An exclusive buyout must be exactly ${EXCLUSIVE_SIZE} guests.`,
           });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not create the booking.' });

@@ -1,103 +1,125 @@
 ---
-// BookingWidget (Booking v2.2) — vanilla-JS island. Three visible steps, one screen, no wizard
-// navigation:
-//   1. Group size, then a live group-total comparison of all three options (private
-//      self-catered up to 10, private catered up to 8, shared/mixed Sunday-or-Monday) — the
-//      user picks one.
-//   2. A calendar filtered to the chosen option: private modes only show Tuesday-Saturday;
-//      shared mode only shows Sundays/Mondays with enough seats left for the chosen group size.
-//   3. Lead-guest details and a definite total (server-confirmed at checkout; the server is
+// BookingWidget (Booking v3.1 — Workstream B, per-person-per-night commercial model) —
+// vanilla-JS island. Four visible steps, one screen, no wizard navigation:
+//   1. Group size (1-8; the universal 2-guides:8-walkers safety cap).
+//   2. Catering — self-catered vs catered. A real, always-relevant choice now: every departure
+//      (Wed/Thu exclusive buyout or shared/flexible) is priced per person per night for either
+//      catering, so there is no more "shared is always catered" special case from the old
+//      flat-rate model.
+//   3. Calendar. Wednesday and Thursday are exclusive-buyout days, bookable only at exactly
+//      EXCLUSIVE_SIZE guests. Every other day is shared/flexible: a brand-new (unopened) date
+//      needs SHARED_OPEN_MIN+ people of either catering; a date someone else already opened
+//      needs SHARED_TOPUP_MIN+ people AND the SAME catering already locked in (shown per date),
+//      up to MAX_GROUP_SIZE seats total. bookingType (exclusive vs shared) is never sent — the
+//      server always derives it from the date, exactly mirroring lib/pricing.ts's
+//      isExclusiveDay().
+//   4. Lead-guest details and a definite total (server-confirmed at checkout; the server is
 //      always the price authority — this is a display mirror of the same constants, never a
-//      value the server trusts).
-// Per-person figures are ONLY ever shown for the shared option. Booking type is derived
-// server-side from the date; the chosen option here is a UI filter only and is never sent to
-// the server as a type/option field — only startDate, groupSize and catering are sent, exactly
-// as the createCheckout action already expects.
+//      value the server trusts). Price varies by season and, for self-catered only, by weekday
+//      vs the Thursday/Friday "weekend" premium; a last-minute discount badge appears for
+//      self-catered starts LAST_MINUTE_MIN_DAYS-LAST_MINUTE_MAX_DAYS out.
 import {
   formatRand,
-  SHARED_PP_NIGHT,
-  SHARED_MIN_PEOPLE,
-  SHARED_MAX_CAPACITY,
-  UNCATERED_MAX_PEOPLE,
-  CATERED_MAX_PEOPLE,
   NIGHTS,
+  MAX_GROUP_SIZE,
+  EXCLUSIVE_SIZE,
+  SHARED_OPEN_MIN,
+  SHARED_TOPUP_MIN,
+  UNCATERED_PP_NIGHT,
+  CATERED_PP_NIGHT,
+  LAST_MINUTE_MIN_DAYS,
+  LAST_MINUTE_MAX_DAYS,
+  LAST_MINUTE_DISCOUNT,
 } from '../data/rates';
 import {
-  computeQuote,
   SPLIT_THRESHOLD_DAYS,
   BALANCE_LEAD_DAYS,
   earliestBookableDate,
+  latestBookableDate,
 } from '../lib/pricing';
 
-// Display-only quotes for the current pricing phase (no startDate → always 'full' plan, and
-// groupSize is a placeholder for the two flat-rate options — it never changes their price).
-const uncateredQ = computeQuote({ bookingType: 'exclusive', catering: 'uncatered', groupSize: 1 });
-const cateredQ = computeQuote({ bookingType: 'exclusive', catering: 'catered', groupSize: 1 });
-
-const fmt = (cents: number) => formatRand(cents / 100);
+const fmt = (rand: number) => formatRand(rand);
 const earliest = earliestBookableDate();
+
+// Everything the client needs to mirror the server's price/date math, as one JSON blob — the
+// single source of truth for these numbers stays data/rates.ts + lib/pricing.ts; this is just a
+// serialised copy for the ESTIMATE display (the server always recomputes and is authoritative).
+const clientRates = {
+  nights: NIGHTS,
+  maxGroup: MAX_GROUP_SIZE,
+  exclusiveSize: EXCLUSIVE_SIZE,
+  sharedOpenMin: SHARED_OPEN_MIN,
+  sharedTopupMin: SHARED_TOPUP_MIN,
+  uncatered: UNCATERED_PP_NIGHT,
+  catered: CATERED_PP_NIGHT,
+  lastMinuteMinDays: LAST_MINUTE_MIN_DAYS,
+  lastMinuteMaxDays: LAST_MINUTE_MAX_DAYS,
+  lastMinuteDiscount: LAST_MINUTE_DISCOUNT,
+  splitDays: SPLIT_THRESHOLD_DAYS,
+  balanceLeadDays: BALANCE_LEAD_DAYS,
+  earliest,
+  cateredLatest: latestBookableDate('catered'),
+  uncateredLatest: latestBookableDate('uncatered'),
+};
+
+const uncateredFrom = fmt(UNCATERED_PP_NIGHT.week.low);
+const cateredFrom = fmt(CATERED_PP_NIGHT.low);
 ---
 
-<form
-  id="booking-form"
-  class="bform"
-  data-group-rate={uncateredQ.totalCents}
-  data-group-rate-catered={cateredQ.totalCents}
-  data-shared-pp-night={SHARED_PP_NIGHT * 100}
-  data-nights={NIGHTS}
-  data-split-days={SPLIT_THRESHOLD_DAYS}
-  data-balance-lead-days={BALANCE_LEAD_DAYS}
-  data-earliest={earliest}
-  data-shared-min={SHARED_MIN_PEOPLE}
-  data-shared-max={SHARED_MAX_CAPACITY}
-  data-uncatered-max={UNCATERED_MAX_PEOPLE}
-  data-catered-max={CATERED_MAX_PEOPLE}
-  novalidate
->
-  {/* Step 1 — group size, then compare the three options by total group cost. */}
+<div class="resume-prompt" data-resume-prompt hidden role="status" aria-live="polite">
+  <p class="resume-prompt__text">
+    You have a booking waiting for payment. Continue to payment, or release it so you can start
+    a new one?
+  </p>
+  <div class="resume-prompt__actions">
+    <button type="button" class="btn btn-primary" data-resume-continue>Continue to payment</button>
+    <button type="button" class="btn btn-secondary" data-resume-release>Release it</button>
+  </div>
+</div>
+
+<form id="booking-form" class="bform" data-rates={JSON.stringify(clientRates)} novalidate>
+  {/* Step 1 — group size. */}
   <div class="bstep">
     <p class="bstep__heading" id="bf-size-label">1. How many of you are walking?</p>
     <div class="form-field bstep__size">
       <label for="bf-group" class="sr-only">Group size</label>
       <select id="bf-group" name="groupSize" aria-labelledby="bf-size-label" required>
-        {Array.from({ length: UNCATERED_MAX_PEOPLE }, (_, i) => i + 1).map((n) => (
+        {Array.from({ length: MAX_GROUP_SIZE }, (_, i) => i + 1).map((n) => (
           <option value={n}>{n} {n === 1 ? 'person' : 'people'}</option>
         ))}
       </select>
     </div>
+    <p class="bstep__hint" data-size-hint></p>
+  </div>
 
-    <div class="boption-compare" data-compare aria-live="polite">
+  {/* Step 2 — catering: a real choice for every group size and every departure type. */}
+  <div class="bstep">
+    <p class="bstep__heading" id="bf-catering-label">2. Catering</p>
+    <div class="boption-compare" data-catering-compare aria-live="polite">
       <label class="boption">
-        <input type="radio" name="tripOption" value="uncatered" checked />
+        <input type="radio" name="catering" value="uncatered" checked />
         <span class="boption__body">
-          <span class="boption__name">Private, self-catered</span>
-          <span class="boption__total" data-opt-total="uncatered">{fmt(uncateredQ.totalCents)} total &middot; flat rate</span>
-          <span class="boption__tag" data-opt-tag="uncatered" hidden>Lowest total for your group</span>
+          <span class="boption__name">Self-catered</span>
+          <span class="boption__total" data-cat-total="uncatered">From {uncateredFrom} pp/night</span>
         </span>
       </label>
-      <label class="boption" data-opt-catered>
-        <input type="radio" name="tripOption" value="catered" />
+      <label class="boption">
+        <input type="radio" name="catering" value="catered" />
         <span class="boption__body">
-          <span class="boption__name">Private, catered</span>
-          <span class="boption__total" data-opt-total="catered">{fmt(cateredQ.totalCents)} total &middot; flat rate</span>
-          <span class="boption__tag" data-opt-tag="catered" hidden>Lowest total for your group</span>
-        </span>
-      </label>
-      <label class="boption" data-opt-shared>
-        <input type="radio" name="tripOption" value="shared" />
-        <span class="boption__body">
-          <span class="boption__name">Shared departure</span>
-          <span class="boption__total" data-opt-total="shared"></span>
-          <span class="boption__tag" data-opt-tag="shared" hidden>Lowest total for your group</span>
+          <span class="boption__name">Catered</span>
+          <span class="boption__total" data-cat-total="catered">From {cateredFrom} pp/night</span>
         </span>
       </label>
     </div>
-    <p class="bstep__hint" data-crossover-hint hidden></p>
+    <p class="bstep__hint">
+      Self-catered is lower midweek, a little more on a Thursday or Friday start; catered is one
+      rate any day. Both are lower outside the high season.
+    </p>
   </div>
 
-  {/* Step 2 — calendar, filtered to the chosen option above. */}
+  {/* Step 3 — calendar, filtered by group size + catering above. */}
   <div class="bstep">
-    <p class="bstep__heading" id="bf-cal-label">2. Choose a start date (Day 1, arrival)</p>
+    <p class="bstep__heading" id="bf-cal-label">3. Choose a start date (Day 1, arrival)</p>
     <div class="form-field bform__datefield">
       <p class="bform__nextavail" data-nextavail hidden></p>
       <div class="bcal" data-calendar role="group" aria-labelledby="bf-cal-label">
@@ -124,9 +146,9 @@ const earliest = earliestBookableDate();
     </div>
   </div>
 
-  {/* Step 3 — details and payment. */}
+  {/* Step 4 — details and payment. */}
   <div class="bstep">
-    <p class="bstep__heading" id="bf-details-label">3. Your details</p>
+    <p class="bstep__heading" id="bf-details-label">4. Your details</p>
     <div class="bform__grid" aria-labelledby="bf-details-label">
       <div class="form-field">
         <label for="bf-name">Lead guest name</label>
@@ -181,7 +203,10 @@ const earliest = earliestBookableDate();
       <p class="bform__total-formula" data-total-formula></p>
       <p class="bform__estimate">
         <span data-payment-label>Total:</span>
-        <strong data-estimate>{fmt(uncateredQ.totalCents)}</strong>
+        <strong data-estimate>&mdash;</strong>
+      </p>
+      <p class="bstep__notice" data-lastminute-note role="status" aria-live="polite" hidden>
+        Last-minute self-catered rate applied.
       </p>
       <p class="bform__balance-note" data-balance-note hidden>
         Balance of <strong data-balance-amount></strong> due by <strong data-balance-date></strong>. We'll email a secure payment link.
@@ -194,6 +219,7 @@ const earliest = earliestBookableDate();
     <button type="submit" class="btn btn-primary bform__submit" data-submit>Continue to secure payment</button>
 
     <p class="bform__status" data-status role="status" aria-live="polite"></p>
+    <button type="button" class="btn btn-secondary bform__resume" data-resume-payment-btn hidden>Resume payment</button>
 
     <p class="bform__privacy">
       By continuing you agree we may use your details to take and fulfil your booking. See our
@@ -206,11 +232,14 @@ const earliest = earliestBookableDate();
   import { actions } from 'astro:actions';
 
   // Anon, PUBLIC creds only (never the service-role key). unavailable_windows and
-  // shared_slot_availability are RLS-granted to anon and expose ONLY dates/seat counts — no PII.
+  // shared_slot_availability are RLS-granted to anon and expose ONLY dates/seat counts/catering
+  // (no PII).
   const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
   const SUPABASE_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
-  // Date helpers — UTC, ISO YYYY-MM-DD (mirror the server's lead-time/window rules).
+  type Catering = 'catered' | 'uncatered';
+
+  // Date helpers — UTC, ISO YYYY-MM-DD (mirror the server's lead-time/window/season rules).
   const pad = (n: number) => String(n).padStart(2, '0');
   const isoYMD = (y: number, m0: number, d: number) => `${y}-${pad(m0 + 1)}-${pad(d)}`;
   const addDaysIso = (iso: string, n: number) => {
@@ -222,14 +251,25 @@ const earliest = earliestBookableDate();
     new Date(iso + 'T00:00:00Z').toLocaleDateString('en-ZA', { timeZone: 'UTC', ...opts });
   const daysBetween = (fromIso: string, toIso: string) =>
     Math.round((Date.parse(toIso + 'T00:00:00Z') - Date.parse(fromIso + 'T00:00:00Z')) / 86_400_000);
-  // Sunday or Monday — shared/mixed departure days. Private exclusive bookings run Tuesday to
-  // Saturday only.
-  const isSharedDayIso = (iso: string) => {
-    const dow = new Date(iso + 'T00:00:00Z').getUTCDay(); // 0 = Sunday, 1 = Monday
-    return dow === 0 || dow === 1;
+  // Wednesday or Thursday — the exclusive-buyout days. JS getUTCDay() (Sun=0..Sat=6) happens to
+  // agree with Postgres isodow (Mon=1..Sun=7) on Wed=3/Thu=4, so no conversion is needed here.
+  const isExclusiveDayIso = (iso: string) => {
+    const dow = new Date(iso + 'T00:00:00Z').getUTCDay();
+    return dow === 3 || dow === 4;
   };
-
-  type TripOption = 'uncatered' | 'catered' | 'shared';
+  // Thursday or Friday — the self-catered "weekend" pricing premium (also agrees with isodow).
+  const isWeekendPricingDayIso = (iso: string) => {
+    const dow = new Date(iso + 'T00:00:00Z').getUTCDay();
+    return dow === 4 || dow === 5;
+  };
+  // High season: 1 April - 31 October, and 15 December - 15 January (wraps the year boundary).
+  const isHighSeasonIso = (iso: string) => {
+    const [, mStr, dStr] = iso.split('-');
+    const mmdd = Number(mStr) * 100 + Number(dStr);
+    if (mmdd >= 401 && mmdd <= 1031) return true;
+    if (mmdd >= 1215 || mmdd <= 115) return true;
+    return false;
+  };
 
   // Blocked start dates: exclusive actives + operator-blocked days + FULL (or near-full) shared
   // dates. A date inside another trip's range but not itself a start date stays bookable.
@@ -254,38 +294,42 @@ const earliest = earliestBookableDate();
     }
   }
 
-  // Seats remaining per shared Monday. A Monday absent from this map has all seats free.
-  async function fetchSharedSeats(): Promise<Map<string, number>> {
-    const seats = new Map<string, number>();
-    if (!SUPABASE_URL || !SUPABASE_ANON) return seats;
+  // Seats remaining + the locked catering per ALREADY-OPENED shared date. A date absent from
+  // this map has never been opened: all MAX_GROUP_SIZE places are free and no catering is
+  // locked in yet — either catering can open it, given SHARED_OPEN_MIN+ people.
+  async function fetchSharedAvailability(): Promise<Map<string, { seatsLeft: number; catering: Catering }>> {
+    const avail = new Map<string, { seatsLeft: number; catering: Catering }>();
+    if (!SUPABASE_URL || !SUPABASE_ANON) return avail;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/shared_slot_availability?select=start_date,seats_left`,
+        `${SUPABASE_URL}/rest/v1/shared_slot_availability?select=start_date,seats_left,catering`,
         {
           headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
           cache: 'no-store',
         },
       );
-      if (!res.ok) return seats;
+      if (!res.ok) return avail;
       const rows = await res.json();
       if (Array.isArray(rows)) {
-        for (const r of rows as { start_date: string; seats_left: number }[]) {
-          if (r?.start_date) seats.set(r.start_date, r.seats_left);
+        for (const r of rows as { start_date: string; seats_left: number; catering: Catering | null }[]) {
+          if (r?.start_date && r.catering) avail.set(r.start_date, { seatsLeft: r.seats_left, catering: r.catering });
         }
       }
-      return seats;
+      return avail;
     } catch {
-      return seats;
+      return avail;
     }
   }
 
-  // Calendar controller — two visible states only (available / unavailable). Which dates are
-  // available depends on the chosen option (private modes exclude Mondays; shared mode only
-  // shows Mondays with enough seats left for the current group size), set via applyFilter().
+  // Calendar controller. A date's availability depends on the guest's group size AND catering
+  // choice (set via applyFilter()), plus what's already booked on that date server-side.
+  // Bookable shared cells carry a visible seat count (and, once a date is opened, its locked
+  // catering), not just an aria-label.
   function setupCalendar(
     form: HTMLFormElement,
     startInput: HTMLInputElement,
-    onDateSelected: (iso: string, seatsLeft: number) => void,
+    rates: typeof window extends never ? never : any,
+    onDateSelected: (iso: string) => void,
   ) {
     const cal = form.querySelector<HTMLElement>('[data-calendar]');
     if (!cal) return { applyFilter: () => {} };
@@ -298,36 +342,37 @@ const earliest = earliestBookableDate();
     const selectedEl = field?.querySelector<HTMLElement>('[data-cal-selected]') ?? null;
     if (!grid || !monthLabel || !prevBtn || !nextBtn) return { applyFilter: () => {} };
 
-    // The earliest bookable date is the later of the 7-day lead time and the go-live opening
-    // date (server-computed, passed via data-earliest) — every date before it is unavailable.
-    const todayIso = new Date().toISOString().slice(0, 10);
-    const earliest = form.dataset.earliest || addDaysIso(todayIso, 7);
-    const latest = addDaysIso(todayIso, 365); // 365-day ceiling (mirrors the server)
+    cal.classList.add('bcal--shared'); // taller cells for a visible seat/catering badge
+
+    const earliest: string = rates.earliest;
 
     let blocked = new Set<string>();
-    let sharedSeats = new Map<string, number>();
+    let sharedAvail = new Map<string, { seatsLeft: number; catering: Catering }>();
     let selected = '';
-    let mode: TripOption = 'uncatered';
     let groupSize = 1;
+    let catering: Catering = 'uncatered';
+    let latest = rates.uncateredLatest;
+
     const viewIdx = (y: number, m: number) => y * 12 + m;
     const minIdx = viewIdx(+earliest.slice(0, 4), +earliest.slice(5, 7) - 1);
-    const maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
+    let maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
     // Default to the first bookable month, not the calendar month — users should never have to
     // page past months that can't be booked yet.
     let view = { y: +earliest.slice(0, 4), m: +earliest.slice(5, 7) - 1 };
 
-    const seatsFor = (d: string) => sharedSeats.get(d) ?? 8;
-
     const stateOf = (d: string): 'out' | 'avail' => {
       if (d < earliest || d > latest) return 'out';
-      const sharedDay = isSharedDayIso(d);
-      if (mode === 'shared') {
-        if (!sharedDay) return 'out';
-        if (blocked.has(d)) return 'out';
-        return seatsFor(d) >= groupSize ? 'avail' : 'out';
+      if (blocked.has(d)) return 'out';
+      if (isExclusiveDayIso(d)) {
+        return groupSize === rates.exclusiveSize ? 'avail' : 'out';
       }
-      if (sharedDay) return 'out'; // Sunday/Monday are reserved for shared departures
-      return blocked.has(d) ? 'out' : 'avail';
+      const entry = sharedAvail.get(d);
+      if (!entry) {
+        return groupSize >= rates.sharedOpenMin ? 'avail' : 'out';
+      }
+      if (entry.catering !== catering) return 'out';
+      if (groupSize < rates.sharedTopupMin) return 'out';
+      return groupSize <= entry.seatsLeft ? 'avail' : 'out';
     };
 
     const nextAvailable = (): string | null => {
@@ -343,22 +388,26 @@ const earliest = earliestBookableDate();
       selected = '';
       startInput.value = '';
       if (selectedEl) selectedEl.textContent = '';
-      onDateSelected('', 0);
+      onDateSelected('');
     };
 
     const selectDate = (iso: string) => {
       selected = iso;
       startInput.value = iso;
-      const seatsLeft = mode === 'shared' ? seatsFor(iso) : 0;
       if (selectedEl) {
         const dateStr = humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        selectedEl.textContent =
-          mode === 'shared'
-            ? `Selected start: ${dateStr}. Shared departure, ${seatsLeft} place(s) left.`
-            : `Selected start: ${dateStr}`;
+        if (isExclusiveDayIso(iso)) {
+          selectedEl.textContent = `Selected start: ${dateStr}. Exclusive buyout for your group of ${rates.exclusiveSize}.`;
+        } else {
+          const entry = sharedAvail.get(iso);
+          const seatsLeft = entry ? entry.seatsLeft : rates.maxGroup;
+          selectedEl.textContent = entry
+            ? `Selected start: ${dateStr}. Shared departure, ${seatsLeft} place(s) available.`
+            : `Selected start: ${dateStr}. You'll be opening this shared date.`;
+        }
       }
       render();
-      onDateSelected(iso, seatsLeft);
+      onDateSelected(iso);
     };
 
     const render = () => {
@@ -382,7 +431,6 @@ const earliest = earliestBookableDate();
         const st = stateOf(iso);
         const cell = document.createElement('button');
         cell.type = 'button';
-        cell.textContent = String(day);
         cell.className = `bcal__cell bcal__cell--${st}`;
         const human = humanDate(iso, {
           weekday: 'long',
@@ -390,8 +438,27 @@ const earliest = earliestBookableDate();
           month: 'long',
           year: 'numeric',
         });
+        const dayNum = document.createElement('span');
+        dayNum.className = 'bcal__daynum';
+        dayNum.textContent = String(day);
+        cell.appendChild(dayNum);
         if (st === 'avail') {
-          const seatsLabel = mode === 'shared' ? `, ${seatsFor(iso)} place(s) left` : '';
+          let seatsLabel = '';
+          if (isExclusiveDayIso(iso)) {
+            seatsLabel = ', exclusive buyout';
+            const badge = document.createElement('span');
+            badge.className = 'bcal__seats';
+            badge.textContent = 'Exclusive';
+            cell.appendChild(badge);
+          } else {
+            const entry = sharedAvail.get(iso);
+            const left = entry ? entry.seatsLeft : rates.maxGroup;
+            seatsLabel = entry ? `, ${left} place(s) left` : ', open a new shared date';
+            const badge = document.createElement('span');
+            badge.className = 'bcal__seats';
+            badge.textContent = entry ? `${left} left` : 'Open new';
+            cell.appendChild(badge);
+          }
           cell.setAttribute('aria-label', human + seatsLabel);
           cell.setAttribute('aria-pressed', iso === selected ? 'true' : 'false');
           if (iso === selected) cell.classList.add('is-selected');
@@ -409,7 +476,7 @@ const earliest = earliestBookableDate();
       const na = nextAvailable();
       nextAvailEl.textContent = na
         ? 'Next available: ' + humanDate(na, { day: 'numeric', month: 'long', year: 'numeric' })
-        : 'No dates are currently available for this option. Please contact us.';
+        : 'No dates are currently available for this group size and catering. Please contact us.';
       nextAvailEl.hidden = false;
     };
 
@@ -427,9 +494,9 @@ const earliest = earliestBookableDate();
     });
 
     const refetch = () => {
-      Promise.all([fetchBlockedStarts(), fetchSharedSeats()]).then(([b, s]) => {
+      Promise.all([fetchBlockedStarts(), fetchSharedAvailability()]).then(([b, s]) => {
         blocked = b;
-        sharedSeats = s;
+        sharedAvail = s;
         if (selected && stateOf(selected) !== 'avail') clearSelection();
         updateNextAvail();
         if (!selected) {
@@ -440,12 +507,15 @@ const earliest = earliestBookableDate();
       });
     };
 
-    // Called whenever Step 1's chosen option or group size changes. Re-filters availability and
-    // jumps to the first bookable month for the NEW filter if nothing valid stays selected.
-    const applyFilter = (newMode: TripOption, newGroupSize: number) => {
-      const filterChanged = newMode !== mode || newGroupSize !== groupSize;
-      mode = newMode;
+    // Called whenever Step 1/2's group size or catering changes. Re-filters availability (and
+    // the per-catering booking-window ceiling) and jumps to the first bookable month for the NEW
+    // filter if nothing valid stays selected.
+    const applyFilter = (newGroupSize: number, newCatering: Catering) => {
+      const filterChanged = newGroupSize !== groupSize || newCatering !== catering;
       groupSize = newGroupSize;
+      catering = newCatering;
+      latest = newCatering === 'catered' ? rates.cateredLatest : rates.uncateredLatest;
+      maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
       if (!filterChanged) return;
       if (selected && stateOf(selected) !== 'avail') clearSelection();
       if (!selected) {
@@ -457,7 +527,7 @@ const earliest = earliestBookableDate();
     };
 
     render(); // immediate paint (no blocked dates yet)
-    refetch(); // load blocked dates + shared seats
+    refetch(); // load blocked dates + shared availability
 
     return { applyFilter };
   }
@@ -467,43 +537,51 @@ const earliest = earliestBookableDate();
     if (!form || form.dataset.bound === 'true') return;
     form.dataset.bound = 'true';
 
-    const groupSelect = form.querySelector<HTMLSelectElement>('#bf-group')!;
-    const compare = form.querySelector<HTMLElement>('[data-compare]')!;
-    const crossoverHint = form.querySelector<HTMLElement>('[data-crossover-hint]');
-    const sharedLabel = form.querySelector<HTMLElement>('[data-opt-shared]')!;
-    const sharedRadio = sharedLabel.querySelector<HTMLInputElement>('input[name="tripOption"]')!;
-    const cateredLabel = form.querySelector<HTMLElement>('[data-opt-catered]')!;
-    const cateredRadio = cateredLabel.querySelector<HTMLInputElement>('input[name="tripOption"]')!;
+    const R = JSON.parse(form.dataset.rates || '{}');
 
+    const groupSelect = form.querySelector<HTMLSelectElement>('#bf-group')!;
+    const sizeHint = form.querySelector<HTMLElement>('[data-size-hint]');
+
+    // Step 4 — details/payment.
     const totalFormula = form.querySelector<HTMLElement>('[data-total-formula]');
     const estimate = form.querySelector<HTMLElement>('[data-estimate]');
     const paymentLabel = form.querySelector<HTMLElement>('[data-payment-label]');
+    const lastMinuteNote = form.querySelector<HTMLElement>('[data-lastminute-note]');
     const balanceNote = form.querySelector<HTMLElement>('[data-balance-note]');
     const balanceAmt = form.querySelector<HTMLElement>('[data-balance-amount]');
     const balanceDate = form.querySelector<HTMLElement>('[data-balance-date]');
     const depositHint = form.querySelector<HTMLElement>('[data-deposit-hint]');
     const status = form.querySelector<HTMLElement>('[data-status]');
+    const resumeBtn = form.querySelector<HTMLButtonElement>('[data-resume-payment-btn]');
     const startInput = form.querySelector<HTMLInputElement>('#bf-start');
     const submit = form.querySelector<HTMLButtonElement>('[data-submit]');
     const nameInput = form.querySelector<HTMLInputElement>('#bf-name')!;
     const emailInput = form.querySelector<HTMLInputElement>('#bf-email')!;
     const phoneInput = form.querySelector<HTMLInputElement>('#bf-phone')!;
 
-    // ---- Pricing constants (cents) from the server, mirrored client-side for the ESTIMATE only.
-    const RATE_UNCATERED = Number(form.dataset.groupRate ?? 0);
-    const RATE_CATERED = Number(form.dataset.groupRateCatered ?? 0);
-    const SHARED_PP_NIGHT = Number(form.dataset.sharedPpNight ?? 0);
-    const NIGHTS = Number(form.dataset.nights ?? 3);
-    const SPLIT_DAYS = Number(form.dataset.splitDays ?? 45);
-    const BALANCE_LEAD_DAYS = Number(form.dataset.balanceLeadDays ?? 45);
-    const SHARED_MIN = Number(form.dataset.sharedMin ?? 2);
-    const SHARED_MAX = Number(form.dataset.sharedMax ?? 8);
-    const CATERED_MAX = Number(form.dataset.cateredMax ?? 8);
     const fmtR = (cents: number) => 'R' + Math.round(cents / 100).toLocaleString('en-US');
     const todayIso = new Date().toISOString().slice(0, 10); // UTC — display only, server re-validates
 
-    let tripOption: TripOption = 'uncatered';
+    let catering: Catering = 'uncatered';
     let selectedStartIso = '';
+
+    // ---- Price math mirrored from lib/pricing.ts (display only; server recomputes) -----------
+    function ppNightCents(cat: Catering, iso: string): number {
+      const season = isHighSeasonIso(iso) ? 'high' : 'low';
+      if (cat === 'catered') return R.catered[season] * 100;
+      const bucket = isWeekendPricingDayIso(iso) ? 'weekend' : 'week';
+      return R.uncatered[bucket][season] * 100;
+    }
+    function lastMinuteEligible(cat: Catering, iso: string): boolean {
+      if (cat !== 'uncatered') return false;
+      const gap = daysBetween(todayIso, iso);
+      return gap >= R.lastMinuteMinDays && gap <= R.lastMinuteMaxDays;
+    }
+    function ppTotalCents(cat: Catering, iso: string): number {
+      let total = ppNightCents(cat, iso) * R.nights;
+      if (lastMinuteEligible(cat, iso)) total = Math.round(total * (1 - R.lastMinuteDiscount));
+      return total;
+    }
 
     // ---- Inline validation helpers ----------------------------------------
     type Rule = (v: string) => string | null;
@@ -549,116 +627,59 @@ const earliest = earliestBookableDate();
     bindField(emailInput, emailRules);
     bindField(phoneInput, phoneRules);
 
-    // ---- Step 1: group size → three-way total comparison -------------------
     function groupSize(): number {
       return Number(groupSelect.value || 1);
     }
 
-    function sharedTotals(n: number): { enabled: boolean; reason: string | null; ppNight: number; ppTotal: number; total: number } {
-      const ppNight = SHARED_PP_NIGHT;
-      const ppTotal = ppNight * NIGHTS;
-      if (n < SHARED_MIN) return { enabled: false, reason: 'Needs at least 2 walkers', ppNight, ppTotal, total: ppTotal * n };
-      if (n > SHARED_MAX) return { enabled: false, reason: 'Shared departures take up to 8 walkers', ppNight, ppTotal, total: ppTotal * n };
-      return { enabled: true, reason: null, ppNight, ppTotal, total: ppTotal * n };
-    }
-
-    function renderComparison() {
+    // ---- Step 1: dynamic hint on what this group size can book -------------
+    function renderSizeHint() {
       const n = groupSize();
-      const shared = sharedTotals(n);
-      const cateredEnabled = n <= CATERED_MAX;
-
-      const uncateredEl = compare.querySelector<HTMLElement>('[data-opt-total="uncatered"]');
-      const cateredEl = compare.querySelector<HTMLElement>('[data-opt-total="catered"]');
-      const sharedEl = compare.querySelector<HTMLElement>('[data-opt-total="shared"]');
-      if (uncateredEl) uncateredEl.textContent = `${fmtR(RATE_UNCATERED)} total · flat rate`;
-      if (cateredEl) {
-        cateredEl.textContent = cateredEnabled
-          ? `${fmtR(RATE_CATERED)} total · flat rate`
-          : `Catered private bookings take up to ${CATERED_MAX} guests`;
-      }
-      if (sharedEl) {
-        sharedEl.textContent = shared.enabled
-          ? `${n} × ${fmtR(shared.ppTotal)} = ${fmtR(shared.total)} total`
-          : (shared.reason ?? '');
-      }
-
-      sharedRadio.disabled = !shared.enabled;
-      sharedLabel.classList.toggle('boption--disabled', !shared.enabled);
-      cateredRadio.disabled = !cateredEnabled;
-      cateredLabel.classList.toggle('boption--disabled', !cateredEnabled);
-
-      // If shared or catered just became unavailable while selected, fall back to self-catered.
-      if ((!shared.enabled && sharedRadio.checked) || (!cateredEnabled && cateredRadio.checked)) {
-        sharedRadio.checked = false;
-        cateredRadio.checked = false;
-        const uncateredRadio = compare.querySelector<HTMLInputElement>('input[name="tripOption"][value="uncatered"]');
-        if (uncateredRadio) uncateredRadio.checked = true;
-        tripOption = 'uncatered';
-        calendar.applyFilter(tripOption, n);
-      }
-
-      // Lowest-total badge — text-based, never colour-only.
-      const totals: Array<[TripOption, number]> = [['uncatered', RATE_UNCATERED]];
-      if (cateredEnabled) totals.push(['catered', RATE_CATERED]);
-      if (shared.enabled) totals.push(['shared', shared.total]);
-      const lowest = totals.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
-      (['uncatered', 'catered', 'shared'] as TripOption[]).forEach((opt) => {
-        const tag = compare.querySelector<HTMLElement>(`[data-opt-tag="${opt}"]`);
-        if (tag) tag.hidden = opt !== lowest;
-        tag?.closest('.boption')?.classList.toggle('boption--lowest', opt === lowest);
-      });
-
-      // Crossover hint: shared is cheaper but within ~R2,000 of the self-catered flat rate.
-      if (crossoverHint) {
-        const diff = RATE_UNCATERED - shared.total;
-        if (shared.enabled && diff > 0 && diff <= 200_000) {
-          crossoverHint.hidden = false;
-          crossoverHint.textContent = `For ${fmtR(diff)} more, the whole trail is yours.`;
-        } else {
-          crossoverHint.hidden = true;
-        }
+      if (!sizeHint) return;
+      if (n === R.exclusiveSize) {
+        sizeHint.textContent = `At ${n}, you can take a Wednesday or Thursday exclusive buyout, or open a shared date on any other day.`;
+      } else if (n >= R.sharedOpenMin) {
+        sizeHint.textContent = 'Choose any day except Wednesday or Thursday. You can open a new shared date, or join one that’s already open with matching catering.';
+      } else {
+        sizeHint.textContent = `Groups under ${R.sharedOpenMin} can only join a shared date someone else has already opened, with matching catering and room for ${n}.`;
       }
     }
 
-    // ---- Step 3: definite total + deposit/balance --------------------------
+    // ---- Step 4: definite total + deposit/balance --------------------------
     function updateEstimate() {
       const n = groupSize();
-      let totalCents: number;
-
-      if (tripOption === 'shared') {
-        const shared = sharedTotals(n);
-        totalCents = shared.total;
-        if (totalFormula) {
-          totalFormula.hidden = false;
-          totalFormula.textContent = `${n} × ${fmtR(shared.ppTotal)} pp = ${fmtR(totalCents)}`;
-        }
-      } else {
-        totalCents = tripOption === 'catered' ? RATE_CATERED : RATE_UNCATERED;
-        if (totalFormula) {
-          totalFormula.hidden = false;
-          totalFormula.textContent = `${fmtR(totalCents)} (same price for any group size)`;
-        }
-      }
-
-      if (estimate) estimate.textContent = fmtR(totalCents);
-
-      const isDeposit = selectedStartIso.length === 10 && daysBetween(todayIso, selectedStartIso) >= SPLIT_DAYS;
-      const depositCents = isDeposit ? Math.round(totalCents / 2) : totalCents;
-      const balanceCents = isDeposit ? totalCents - depositCents : 0;
+      if (lastMinuteNote) lastMinuteNote.hidden = true;
 
       if (!selectedStartIso) {
+        if (estimate) estimate.textContent = '—';
+        if (totalFormula) totalFormula.hidden = true;
         if (paymentLabel) paymentLabel.textContent = 'Total:';
         if (balanceNote) balanceNote.hidden = true;
         if (depositHint) depositHint.hidden = false;
         if (submit) submit.textContent = 'Continue to secure payment';
-      } else if (isDeposit) {
+        return;
+      }
+
+      const ppTotal = ppTotalCents(catering, selectedStartIso);
+      const totalCents = ppTotal * n;
+      if (totalFormula) {
+        totalFormula.hidden = false;
+        totalFormula.textContent = `${n} × ${fmtR(ppTotal)} pp = ${fmtR(totalCents)}`;
+      }
+      if (lastMinuteNote) lastMinuteNote.hidden = !lastMinuteEligible(catering, selectedStartIso);
+      if (estimate) estimate.textContent = fmtR(totalCents);
+
+      const isDeposit = daysBetween(todayIso, selectedStartIso) >= R.splitDays;
+      const depositCents = isDeposit ? Math.round(totalCents / 2) : totalCents;
+      const balanceCents = isDeposit ? totalCents - depositCents : 0;
+
+      if (isDeposit) {
         if (paymentLabel) paymentLabel.textContent = 'Pay today (50% deposit):';
         if (estimate) estimate.textContent = fmtR(depositCents);
         if (balanceNote) {
           balanceNote.hidden = false;
           if (balanceAmt) balanceAmt.textContent = fmtR(balanceCents);
           if (balanceDate) {
-            const dueIso = addDaysIso(selectedStartIso, -BALANCE_LEAD_DAYS);
+            const dueIso = addDaysIso(selectedStartIso, -R.balanceLeadDays);
             balanceDate.textContent = humanDate(dueIso, { day: 'numeric', month: 'long', year: 'numeric' });
           }
         }
@@ -672,29 +693,27 @@ const earliest = earliestBookableDate();
       }
     }
 
-    const calendar = setupCalendar(form, startInput!, (iso, _seatsLeft) => {
+    const calendar = setupCalendar(form, startInput!, R, (iso) => {
       selectedStartIso = iso;
       updateEstimate();
     });
 
-    groupSelect.addEventListener('change', () => {
-      renderComparison();
-      calendar.applyFilter(tripOption, groupSize());
+    function renderAll() {
+      renderSizeHint();
+      calendar.applyFilter(groupSize(), catering);
       updateEstimate();
-    });
+    }
 
-    form.querySelectorAll<HTMLInputElement>('input[name="tripOption"]').forEach((el) => {
+    groupSelect.addEventListener('change', renderAll);
+    form.querySelectorAll<HTMLInputElement>('input[name="catering"]').forEach((el) => {
       el.addEventListener('change', () => {
         if (!el.checked) return;
-        tripOption = el.value as TripOption;
-        calendar.applyFilter(tripOption, groupSize());
-        updateEstimate();
+        catering = el.value as Catering;
+        renderAll();
       });
     });
 
-    renderComparison();
-    calendar.applyFilter(tripOption, groupSize());
-    updateEstimate();
+    renderAll();
 
     const setStatus = (msg: string, kind: 'error' | 'info' = 'error') => {
       if (!status) return;
@@ -702,21 +721,49 @@ const earliest = earliestBookableDate();
       status.dataset.kind = kind;
     };
 
-    // If the user returned from an abandoned Paystack checkout (browser back OR full reload),
-    // redirect to /booking/cancel which cancels the pending booking server-side and shows a
-    // clear "no payment taken" message with a link back to try again.
+    // ---- Abandoned-checkout recovery ---------------------------------------
+    // A guest who returns (back-button, bfcache, or a fresh visit to a stashed reference) sees
+    // an explicit confirm prompt rather than a silent auto-redirect — hitting back to re-check a
+    // date must not lose the hold with no warning.
     const PENDING_KEY = 'rw_checkout_pending';
+    const resumePrompt = document.querySelector<HTMLElement>('[data-resume-prompt]');
+    const resumeContinueBtn = resumePrompt?.querySelector<HTMLButtonElement>('[data-resume-continue]') ?? null;
+    const resumeReleaseBtn = resumePrompt?.querySelector<HTMLButtonElement>('[data-resume-release]') ?? null;
+
     const pendingRef = sessionStorage.getItem(PENDING_KEY);
-    if (pendingRef) {
-      sessionStorage.removeItem(PENDING_KEY);
-      window.location.replace(
-        `/booking/cancel?reference=${encodeURIComponent(pendingRef)}`,
-      );
+    if (pendingRef && resumePrompt) {
+      resumePrompt.hidden = false;
+      resumeContinueBtn?.focus();
     }
+
+    resumeContinueBtn?.addEventListener('click', async () => {
+      if (!pendingRef) return;
+      resumeContinueBtn.disabled = true;
+      resumeContinueBtn.textContent = 'Taking you to checkout…';
+      const { data, error } = await actions.resumeCheckout({ reference: pendingRef });
+      if (error || !data?.authorizationUrl) {
+        sessionStorage.removeItem(PENDING_KEY);
+        if (resumePrompt) resumePrompt.hidden = true;
+        setStatus(error?.message || 'That booking could not be resumed. Please start a new one below.');
+        return;
+      }
+      sessionStorage.setItem(PENDING_KEY, data.reference ?? '');
+      window.location.href = data.authorizationUrl;
+    });
+
+    resumeReleaseBtn?.addEventListener('click', () => {
+      sessionStorage.removeItem(PENDING_KEY);
+      if (pendingRef) {
+        window.location.href = `/booking/cancel?reference=${encodeURIComponent(pendingRef)}`;
+      } else if (resumePrompt) {
+        resumePrompt.hidden = true;
+      }
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       setStatus('', 'info');
+      if (resumeBtn) resumeBtn.hidden = true;
       const fd = new FormData(form);
 
       // Validate all required fields; focus first error.
@@ -741,7 +788,7 @@ const earliest = earliestBookableDate();
       const payload = {
         startDate: startVal,
         groupSize: groupSize(),
-        catering: tripOption === 'shared' ? ('catered' as const) : tripOption,
+        catering,
         leadName: String(fd.get('leadName') ?? ''),
         leadEmail: String(fd.get('leadEmail') ?? ''),
         leadPhone: String(fd.get('leadPhone') ?? ''),
@@ -757,6 +804,11 @@ const earliest = earliestBookableDate();
 
       if (error) {
         setStatus(error.message || 'Something went wrong. Please try again.');
+        // The duplicate-booking conflict for a live pending hold offers a resume path — kept in
+        // sync with the exact message actions/index.ts throws for that case.
+        if (resumeBtn && error.message?.includes('waiting for payment')) {
+          resumeBtn.hidden = false;
+        }
         if (submit) {
           submit.disabled = false;
           updateEstimate(); // restore correct button label
@@ -764,10 +816,24 @@ const earliest = earliestBookableDate();
         return;
       }
       if (data?.authorizationUrl) {
-        // Store the reference so on back-navigation we can cancel the pending booking immediately.
+        // Store the reference so on back-navigation we can offer to resume the same booking.
         sessionStorage.setItem('rw_checkout_pending', data.reference ?? '');
         window.location.href = data.authorizationUrl;
       }
+    });
+
+    resumeBtn?.addEventListener('click', async () => {
+      resumeBtn.disabled = true;
+      resumeBtn.textContent = 'Taking you to checkout…';
+      const { data, error } = await actions.resumeCheckout({ leadEmail: emailInput.value });
+      if (error || !data?.authorizationUrl) {
+        resumeBtn.disabled = false;
+        resumeBtn.textContent = 'Resume payment';
+        setStatus(error?.message || 'That booking could not be resumed.');
+        return;
+      }
+      sessionStorage.setItem(PENDING_KEY, data.reference ?? '');
+      window.location.href = data.authorizationUrl;
     });
   }
 
@@ -775,9 +841,9 @@ const earliest = earliestBookableDate();
 
   // bfcache restore: user pressed the browser back button from the Paystack page.
   // The browser thaws the frozen DOM (button still disabled) without firing astro:page-load.
-  // Re-enable the button and re-run initBooking (which also checks sessionStorage for the message).
+  // Re-enable the button and re-run initBooking (which also re-checks the resume prompt).
   // For full-reload back-navigation (no bfcache), astro:page-load fires instead and initBooking
-  // already handles the sessionStorage check — so no message logic lives here.
+  // already handles that check — so no message logic lives here.
   window.addEventListener('pageshow', (e) => {
     if (!(e as PageTransitionEvent).persisted) return;
     const form = document.getElementById('booking-form') as HTMLFormElement | null;
@@ -785,6 +851,6 @@ const earliest = earliestBookableDate();
     const sub = form.querySelector<HTMLButtonElement>('[data-submit]');
     if (sub) sub.disabled = false;
     form.removeAttribute('data-bound');
-    initBooking(); // includes the sessionStorage check + message
+    initBooking();
   });
 </script>

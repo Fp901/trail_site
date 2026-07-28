@@ -192,19 +192,32 @@ written; these are the remaining go-live steps:
 
 - [ ] **Apply migration `0013_booking_v2.sql`** in Supabase (adds `booking_type`/`catering`
       columns, the `bookings_slot_guard` trigger, redefines `unavailable_windows`, adds
-      `shared_slot_availability`). Not yet applied anywhere. The trigger now enforces Tuesday to
-      Saturday for exclusive bookings, Sunday/Monday for shared, and the catered-max-8/
-      uncatered-max-10 group-size caps (2026-07-11 revision).
-- [ ] **Confirm the pricing (2026-07-11 revision)**: private self-catered **R54,000/group** (up
-      to 10 guests), private catered **R105,000/group** (up to 8 guests, flat, not per-person),
-      shared/mixed **R5,000 pp/night** (R15,000 pp for the trail, 2 to 8 people). All in
-      `src/data/rates.ts` (`GROUP_RATE_UNCATERED`, `GROUP_RATE_CATERED`, `SHARED_PP_NIGHT`,
-      `UNCATERED_MAX_PEOPLE`, `CATERED_MAX_PEOPLE`). These supersede the earlier R52,174/
-      R112,174/R3,435 figures — confirm none of these are still quoted verbally to guests.
-- [ ] **Confirm the day-of-week split**: private bookings run **Tuesday to Saturday** only;
-      shared/mixed departures run **Sunday or Monday** only (previously Monday-only). The old
-      "10 guests + 2 by special arrangement" ceiling is retired — capacity is now a hard 10
-      (self-catered) or 8 (catered) with no exception.
+      `shared_slot_availability`). Not yet applied anywhere. **Rewritten 2026-07-28** for the
+      per-person-per-night commercial model: exclusive bookings now require Wednesday or
+      Thursday and exactly 8 guests (not the old Tue-Sat / catered-8-uncatered-10 split); shared
+      bookings now require any OTHER day, an opening booking of 4+ that locks the date's catering,
+      and top-up bookings of 2+ matching that catering, up to 8 seats total.
+- [ ] **Confirm the pricing (2026-07-28 revision — "Rooiberg Wander Booking & Pricing Policy"
+      brief)**: every departure is now priced **per person per night**, self-catered or catered,
+      replacing the flat R54,000/R105,000/R5,000pp figures entirely. Self-catered: R1,100
+      pp/night midweek, R1,500 pp/night on a Thursday/Friday start (high season), 20% lower in
+      low season. Catered: R4,800 pp/night flat, any day (high season), 20% lower in low season.
+      A self-catered booking made 8-21 days out gets a further 22% off. All in
+      `src/data/rates.ts` (`UNCATERED_PP_NIGHT`, `CATERED_PP_NIGHT`, `SEASON_DISCOUNT`,
+      `LAST_MINUTE_DISCOUNT`) — confirm none of the old flat-rate figures are still quoted
+      verbally to guests.
+- [ ] **Confirm the day-of-week split (2026-07-28 revision)**: an exclusive buyout now runs
+      **Wednesday or Thursday only**, for **exactly 8 guests** (not up to 8 or 10 — the user
+      confirmed a universal 8-guest cap, matching the 2-guides:8-walkers safety ratio). Every
+      OTHER day (Sun, Mon, Tue, Fri, Sat) is a shared/flexible departure: the first booking on a
+      date needs 4+ people and its catering choice locks the day; later bookings need 2+ and must
+      match, up to 8 seats total. This retires the old Tue-Sat-private / Sun-Mon-shared split.
+- [ ] **Confirm the booking-window mechanics (2026-07-28 revision)**: `BOOKING_OPEN_DATE`
+      (15 Jan 2027) is unchanged as the site-wide soft-launch gate, but each catering type now
+      ALSO has its own rolling ceiling — catered up to 18 months ahead, self-catered up to 8
+      months ahead (`CATERED_WINDOW_MONTHS`/`UNCATERED_WINDOW_MONTHS` in `src/data/rates.ts`),
+      anchored to the LATER of today and the launch date (`windowAnchor()` in `lib/pricing.ts`),
+      so the window opens at full length on launch day rather than having shrunk during the wait.
 - [ ] **Confirm the payment model (2026-07-11 revision)**: full payment is due **45 days**
       before arrival (was 30) and is non-refundable from that point; a booking made 45+ days out
       pays a 50% deposit now with the balance auto-collected at the 45-day mark
@@ -244,17 +257,23 @@ written; these are the remaining go-live steps:
       this framing is accurate and desired.
 - [ ] **Confirm `BOOKING_OPEN_DATE` (15 Jan 2027)** is still correct closer to go-live — a
       single constant in `src/data/rates.ts`.
-- [ ] **Test the slot-guard trigger** in Supabase SQL editor before relying on it: exclusive
-      insert on a Sunday/Monday rejected; shared insert on a Tue-Sat date rejected; catered
-      exclusive insert with group_size 9+ rejected; uncatered exclusive with group_size 11+
-      rejected; shared 6+4 on one date rejected (exceeds 8), 6+2 accepted; a shared date with 7
-      seats taken (1 remaining) shows as unavailable in `unavailable_windows` (protects the
-      2-person minimum).
-- [ ] **Paystack test-mode E2E** for all three products once the migration is applied: a shared
-      Sunday or Monday booking (2 people, confirm the R15,000 pp total), a private self-catered
-      booking on a Tue-Sat date (confirm the flat R54,000 total, not per-person), and a private
-      catered booking with 8 guests (confirm the flat R105,000 total and that 9+ guests is
-      rejected client- and server-side).
+- [ ] **Test the slot-guard trigger** in Supabase SQL editor before relying on it (2026-07-28
+      rewrite): exclusive insert on a non-Wed/Thu date rejected (`RW_EXCLUSIVE_WED_THU_ONLY`);
+      exclusive insert with group_size ≠ 8 rejected (`RW_EXCLUSIVE_SIZE_8`); shared insert on a
+      Wed/Thu date rejected (`RW_SHARED_NOT_WED_THU`); a shared opening insert with group_size < 4
+      rejected (`RW_SHARED_OPEN_MIN_4`); a shared top-up insert with group_size < 2 rejected
+      (`RW_SHARED_TOPUP_MIN_2`); a shared top-up with a DIFFERENT catering than the date's first
+      booking rejected (`RW_SHARED_CATERING_LOCKED`); shared 6+4 on one date rejected (exceeds 8,
+      `RW_SHARED_FULL`), 6+2 accepted; a shared date with 7 seats taken (1 remaining) shows as
+      unavailable in `unavailable_windows` (protects the 2-person top-up minimum); confirm
+      `shared_slot_availability` returns the correct locked `catering` value per date.
+- [ ] **Paystack test-mode E2E** once the migration is applied: an exclusive Wednesday or Thursday
+      buyout of exactly 8 (both self-catered and catered, confirm the pp-night × nights × 8
+      total); a shared opening booking of 4 on a non-Wed/Thu date; a shared top-up booking of 2
+      on the same date with MATCHING catering (accepted) and then with mismatched catering
+      (rejected); a self-catered booking dated 8-21 days out (confirm the 22% last-minute
+      discount is applied); a booking dated inside vs outside each catering's rolling window
+      (8 months self-catered / 18 months catered) to confirm both the accept and reject paths.
 - [ ] **Elevation profile images** (`src/assets/images/elevation-day{2,3,4}.png`) are low-
       resolution source files (~400-410px wide) now displayed up to 42rem (~672px) wide on
       desktop per the responsive-layout fix (2026-07-11) — consider supplying higher-resolution

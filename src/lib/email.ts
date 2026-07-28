@@ -240,8 +240,8 @@ export async function sendBookingConfirmation(opts: {
     infoTable([
       ['Trail', 'The Rooiberg Wander'],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
-      ...(opts.bookingType === 'shared'
-        ? ([['Departure', 'Shared departure (Sun/Mon)']] as Array<[string, string]>)
+      ...(opts.bookingType
+        ? ([['Departure', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive buyout']] as Array<[string, string]>)
         : []),
       ...(opts.catering
         ? ([['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered']] as Array<[string, string]>)
@@ -372,7 +372,7 @@ export async function sendBookingOperatorNotification(opts: {
       ['Email', escapeHtml(opts.leadEmail)],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ['Group size', String(opts.groupSize)],
-      ['Type', opts.bookingType === 'shared' ? 'Shared departure (Sun/Mon)' : 'Private (exclusive)'],
+      ['Type', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive buyout'],
       ['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered'],
       ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
       ['Plan', opts.paymentPlan],
@@ -506,12 +506,13 @@ export async function sendPaymentReceipt(opts: {
   });
 
   const guestsLabel = `${opts.groupSize} ${opts.groupSize === 1 ? 'guest' : 'guests'}`;
-  // Product wording per booking type + catering (Booking v2). Defaults preserve the
-  // pre-v2 phrasing for legacy re-issues.
+  // Product wording per booking type + catering (Booking v3.1: both departure types are priced
+  // per person per night and either catering is available on either type).
+  const cateringLabel = opts.catering === 'catered' ? ', fully catered' : opts.catering === 'uncatered' ? ', self-catered' : '';
   const productLabel =
     opts.bookingType === 'shared'
-      ? `shared departure (Sun/Mon), fully catered (${guestsLabel})`
-      : `private group (up to ${guestsLabel})${opts.catering === 'catered' ? ', fully catered' : opts.catering === 'uncatered' ? ', self-catered' : ''}`;
+      ? `shared departure (${guestsLabel})${cateringLabel}`
+      : `exclusive buyout (${guestsLabel})${cateringLabel}`;
   const descriptionLine =
     opts.receiptType === 'deposit'
       ? `The Rooiberg Wander: 50% deposit. 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`

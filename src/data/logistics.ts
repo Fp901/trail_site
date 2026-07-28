@@ -17,7 +17,7 @@ export const logisticsBlocks: LogBlock[] = [
     body: [
       'For un-catered groups you bring your own food and drinks; we move them. Your provisions and bags travel between lodges each day, kept cool and dry, and every lodge has staff to help with kitchen prep, cooking, the barbeque, and washing up.',
       'Prefer not to plan meals? For catered groups we provide a full English breakfast, a snack pack for the trail, and a full barbeque for dinner. Unfortunately, due to logistical limitations, we do not cater for special dietary requirements.',
-      'Shared group Sunday and Monday departures are fully catered only.',
+      'Self-catered or catered, your choice, on any start date. On a shared departure, whichever catering the first booking on that date chooses is what everyone joining that date gets.',
     ],
   },
   {
@@ -95,7 +95,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How big is the group?',
-    a: 'The trail and each lodge are reserved exclusively for your group: self-catered groups of up to 10 guests, catered groups up to a maximum of 8 guests. Mixed groups of up to 8 guests start on Sundays or Mondays and are fully catered only.',
+    a: 'Up to 8 guests, either way. Book a Wednesday or Thursday exclusive buyout for exactly 8, with the trail and each lodge to yourselves, or join a shared departure on any other day, where the first booking needs 4 or more people and later bookings can top up to 8 in total.',
   },
   {
     q: 'Where can I stay before or after my visit?',

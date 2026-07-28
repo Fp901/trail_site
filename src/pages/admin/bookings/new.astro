@@ -51,17 +51,12 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
         <div class="bform__grid">
           <div class="form-field">
             <label for="cb-date">Start date (Day 1)</label>
+            <span class="form-hint">Wednesday or Thursday only</span>
             <input id="cb-date" type="date" min={todaySast} required />
           </div>
           <div class="form-field">
             <label for="cb-group">Group size</label>
-            <select id="cb-group" required>
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                <option value={n} selected={n === 2}>
-                  {n}
-                </option>
-              ))}
-            </select>
+            <input id="cb-group" type="text" value="8" readonly disabled />
           </div>
         </div>
 
@@ -77,8 +72,9 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
           </label>
         </fieldset>
         <p class="admin-card__hint">
-          Comp bookings are private (exclusive) trips: self-catered up to 10 guests, catered up
-          to 8. Sundays and Mondays are reserved for shared departures and cannot be comped.
+          Comp bookings are exclusive buyouts: exactly 8 guests, Wednesday or Thursday only,
+          self-catered or catered. Every other day is reserved for shared departures and cannot
+          be comped.
         </p>
 
         <div class="form-field">
@@ -168,7 +164,7 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
 
       const { data, error } = await actions.adminCreateCompBooking({
         startDate,
-        groupSize: Number(val('cb-group') || '2'),
+        groupSize: Number(val('cb-group') || '8'),
         catering,
         leadName,
         leadEmail,

@@ -10,7 +10,150 @@ marked done. Dates are the working dates.
 
 ---
 
-## Booking v2.2: new pricing/day-of-week model, Temminck's Lodge rename, guide wording — 2026-07-11 (NOT yet committed/pushed)
+## Booking v3.0: occupancy-first widget restructure ("Workstream A") — 2026-07-28 (NOT yet committed/pushed)
+
+UX restructure only — no rate changes, no migration changes, no commercial model change. Ships
+against the exact pricing/day-of-week model documented in Booking v2.2. `npm run check` +
+`npm run build` clean; the new crossover copy was traced for every group size 1-10 against the
+live rate constants and matches the design doc's table exactly.
+
+Before writing any code, three of the six defects an audit doc flagged as needing fixes were
+ground-truthed against the actual repo and found already resolved by earlier work this session:
+exclusive group-size caps were already enforced in the `bookings_slot_guard` trigger, the
+group-size `<select>` already topped out at 10 (not 12), and the trigger's Sunday/Monday
+handling was already internally consistent. Only three defects were real and are fixed below.
+
+1. **Occupancy now leads, not catering** (`BookingWidget.astro`). The old single 3-way radio
+   group (self-catered / catered / shared) conflated two independent dimensions — occupancy
+   (private vs shared) and catering (a real choice only on the private branch, since shared is
+   always catered). Step 2 is now two cards, "Join a shared departure" vs "Take the whole
+   trail," each showing the live total for the current group size; Step 3 (catering) renders
+   only on the private branch, replaced by a static "Shared departures are fully catered" line
+   otherwise. The wire payload is unchanged (`startDate`, `groupSize`, `catering`); `bookingType`
+   stays derived server-side from `isSharedDay()`.
+2. **Crossover copy fixed (was defect: unreachable).** The old `[data-crossover-hint]` only ever
+   fired when shared undercut self-catered by ≤R2,000 — a threshold last true under a previous
+   set of rate constants, unreachable at the current R54,000/R105,000/R5,000pp figures. Replaced
+   with a parametric function (comparing the live rate constants directly, not a hand-written
+   table) that produces the exact wording spec'd for every group size, e.g. "The whole trail
+   costs less than sharing: R6,000 less" at 4 walkers, "...costs exactly the same as sharing" at
+   7, "...is R15,000 less than sharing" at 8.
+3. **Silent price-changing fallback fixed (was P0 defect).** Previously, if a group-size change
+   invalidated the selected catering or occupancy option, the widget silently unchecked it,
+   fell back to self-catered, and re-filtered the calendar with no notice — on the
+   catered-to-self-catered case that's a R51,000 change with nothing telling the guest. Both
+   fallback paths (occupancy and catering) now show a `role="status"` notice naming the old and
+   new choice before the calendar re-filters.
+4. **Calendar seat counts are now visible**, not just in `aria-label` — shared-mode dates show a
+   small "N left" badge under the day number (`.bcal--shared` modifier grows the cell to fit it;
+   private-mode cells are unaffected). `applyFilter()`'s re-homing to the first bookable month
+   and the `cache: 'no-store'` fetches are both preserved verbatim, as specified.
+5. **Deposit rule promoted to Step 2** — an indicative "Pay today: 50% if you book more than 45
+   days ahead" note now appears before a date is chosen, not only after.
+6. **Abandoned-checkout recovery is no longer a silent auto-redirect.** Returning to the page
+   (back button, bfcache, or a fresh visit) with a stashed pending reference now shows a
+   `role="status"` confirm prompt — "Continue to payment" or "Release it" — instead of
+   immediately cancelling the hold. The bfcache-thaw detection logic is preserved verbatim.
+7. **New `resumeCheckout` action** (`actions/index.ts`) backs both the confirm prompt above and
+   the duplicate-booking conflict below: given a live pending hold (matched by `reference` or by
+   `leadEmail`), it issues a fresh Paystack reference for the *same* booking row (same amount,
+   no new inventory claimed) and returns a new `authorization_url`. Rate-limited 5/min/IP.
+8. **Duplicate-booking message now distinguishes confirmed vs pending (was defect: one generic
+   message).** A confirmed trip gets a "contact us" message with no self-service path; a live
+   pending hold gets "You can resume that payment instead of starting a new one," and the widget
+   shows a "Resume payment" button wired to `resumeCheckout`. The button-detection is keyed off
+   the literal message text, kept in sync by a comment on both sides.
+9. Two new user-facing strings (the crossover copy and the new "no booking found" error) briefly
+   used em-dashes; caught in review and swapped for colons/periods per the standing no-em-dash
+   copy rule.
+
+**Explicitly not touched at the time** ("Workstream B" of the same audit doc, gated behind
+unanswered commercial decisions): `rates.ts`, `pricing.ts`, `0013_booking_v2.sql`'s
+day-of-week/capacity rules, `BOOKING_OPEN_DATE`/forward-booking-window logic, and seasonal or
+last-minute pricing. **Superseded below** — the "Rooiberg Wander Booking & Pricing Policy" brief
+resolved these decisions and Workstream B is now implemented (Booking v3.1).
+
+---
+
+## Booking v3.1: per-person-per-night commercial model ("Workstream B") — 2026-07-28
+
+Implements the "Rooiberg Wander Booking & Pricing Policy" brief as the live commercial model,
+retiring the flat-group-rate product entirely. `npm run check` + `npm run build` clean; price
+math traced numerically across season × day-of-week × catering × group-size combinations against
+`lib/pricing.ts` (season boundaries, weekday/weekend premium, last-minute discount, split-payment
+threshold, both rolling booking windows) — all matched the brief's worked examples.
+
+1. **Every departure is now priced per person per night** (`data/rates.ts`, `lib/pricing.ts`).
+   The old flat R54,000/R105,000 group rates and the R5,000pp shared rate are gone. Self-catered:
+   R1,100 pp/night midweek, R1,500 pp/night on a Thursday/Friday start (high season); catered:
+   R4,800 pp/night flat, any day (high season). All rates drop 20% outside the high season
+   (1 Apr-31 Oct, plus 15 Dec-15 Jan).
+2. **Two departure types, redefined by day of week.** Wednesday or Thursday is now an exclusive
+   buyout for **exactly 8 guests** (the universal 2-guides:8-walkers safety cap — confirmed by the
+   user as a hard correction from an earlier 8/10 split), either catering. Every other day is
+   shared/flexible: the first active booking on a date needs 4 or more people and its catering
+   choice **locks the date**; later bookings need 2 or more and must match, up to 8 seats total.
+   This replaces the old Tuesday-Saturday-private / Sunday-Monday-shared-catered-only split.
+3. **Rolling, per-catering booking windows** replace the single fixed `BOOKING_OPEN_DATE` ceiling
+   (which is kept, unchanged, as the separate site-wide soft-launch gate it always was — the two
+   now combine: `earliestBookableDate()` is the later of the two). Catered trips can be booked up
+   to 18 months ahead; self-catered up to 8 months ahead, both measured from "today."
+4. **Last-minute discount**: a self-catered booking made 8-21 days before arrival gets 22% off.
+   Never applies to catered.
+5. **Migration `0013_booking_v2.sql` rewritten** (not yet applied to any environment — safe to
+   edit in place): `bookings_slot_guard` now enforces Wed/Thu-only + exactly-8 for exclusive rows,
+   and the open(4+)/top-up(2+)-with-catering-lock rules for shared rows, via a `min(catering)`
+   lookup under the existing advisory lock. `shared_slot_availability` now also exposes the
+   locked catering per date (`NULL` for an unopened date) so the widget can filter out a
+   catering-mismatched date even when seats remain.
+6. **`actions/index.ts`**: `createCheckout`'s validation rewritten for the new day/group/window/
+   catering-lock rules (with a pre-insert DB lookup for a friendly conflict message before the
+   trigger's authoritative check); `adminMoveDates` and `adminCreateCompBooking` updated for the
+   same day/size rules and new `RW_*` error codes.
+7. **`BookingWidget.astro` restructured** from the Booking v3.0 five-step, occupancy-first flow
+   down to four steps: group size, catering (now a real choice on every departure type, not just
+   the old private branch), calendar, details. The "occupancy" concept from v3.0 is gone entirely
+   — since exclusive and shared now share one price table, a guest of 8 taking a shared date alone
+   is priced identically to a Wed/Thu buyout, so the choice is fully implied by group size +
+   catering + the date picked, not a separate preference. The calendar now reads both
+   `unavailable_windows` and `shared_slot_availability` (seats + locked catering) to compute
+   per-date bookability, and shows a last-minute-discount note on the total when it applies.
+8. **Copy sweep** for the new model across `RatesTable`/`rates.astro` (rates matrix, JSON-LD
+   offers, booking-area copy), `index.astro` (feature grid, hero promise line), `public/llms.txt`
+   (group/price/booking-window paragraphs), and `lib/email.ts` (booking-type labels in the
+   confirmation, operator-notification and receipt emails — "Sun/Mon"/"Tue-Sat" phrasing replaced
+   throughout, since neither departure type is tied to a fixed day range any more).
+
+**VAT note (interpretation, flagged, not a fabrication):** the pricing brief calls its figures
+"VAT inclusive," but the operator is confirmed **not** VAT-registered. These rates are implemented
+as the plain full amount charged — one all-in number — with no VAT number, tax-invoice language,
+or VAT breakdown invented. Flag for the operator if real VAT registration is actually intended.
+
+**Not touched, unchanged:** the 50%-deposit/45-day-balance payment plan, the 45-day refund
+policy, and the pre-trip acknowledgment logic (already catering-conditional from an earlier fix).
+
+**Follow-up copy sweep (same day):** a second pass caught stale booking-model/capacity copy the
+first sweep missed, all fixed to the exactly-8/Wed-Thu/shared-flexible model above, none touching
+unrelated wording: the homepage `StatsBar` stat (`site.ts` `stats`, was "Uncatered up to 10 ·
+Catered up to 8"), the `logistics.ts` catering block and "How big is the group?" FAQ answer, the
+`accommodation.astro` lodge-capacity note, the `TouristTrip` JSON-LD description (`schema.ts`),
+the admin booking-detail "Type" label and the admin comp-booking form (`new.astro`) — its group
+size selector still defaulted to 2 and offered up to 10, which would have failed the exactly-8
+buyout rule server-side on every submission, so it's now a fixed, read-only 8, with a Wed/Thu-only
+hint and updated warning copy. A `global.css` comment referencing "Shared Monday departure" was
+also corrected (the badge text it describes was already accurate).
+
+**Follow-up fix (same day):** the rolling per-catering windows were initially anchored to "today,"
+which meant a narrow ~10-week self-catered window right after the 15 Jan 2027 launch (the 8-month
+ceiling was already rolling forward during the wait for launch day). Fixed by anchoring
+`latestBookableDate()` to the *later* of today and `BOOKING_OPEN_DATE` (a new `windowAnchor()`
+helper in `lib/pricing.ts`, mirroring `earliestBookableDate()`'s own "later of the two" rule): the
+window now opens at its full length the moment booking opens, and after launch behaves exactly as
+before (rolling from today). Verified numerically pre-launch, at launch, and well after launch.
+
+---
+
+## Booking v2.2: new pricing/day-of-week model, Temminck's Lodge rename, guide wording — 2026-07-11
 
 A second, larger same-day revision covering pricing, the private/shared day split, a lodge
 rename, and a sitewide "armed guides" wording change. `npm run check` + `npm run build` clean;

@@ -8,10 +8,11 @@ import BookingWidget from '../components/BookingWidget.astro';
 import BetaBanner from '../components/BetaBanner.astro';
 import InquiryForm from '../components/InquiryForm.astro';
 import {
-  GROUP_RATE_UNCATERED,
-  GROUP_RATE_CATERED,
-  SHARED_PP_NIGHT,
-  NIGHTS,
+  UNCATERED_PP_NIGHT,
+  CATERED_PP_NIGHT,
+  MAX_GROUP_SIZE,
+  EXCLUSIVE_SIZE,
+  SHARED_OPEN_MIN,
   BOOKING_OPEN_DATE,
   formatRand,
   inclusions,
@@ -38,7 +39,7 @@ const bookingEnabled = Boolean(
 const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
 
 const title = 'Rates & Booking | The Rooiberg Wander';
-const description = `Private trail (Tue-Sat) from ${formatRand(GROUP_RATE_UNCATERED)} per group (self-catered, up to 10) or ${formatRand(GROUP_RATE_CATERED)} catered (up to 8). Shared Sunday/Monday departures from ${formatRand(SHARED_PP_NIGHT * NIGHTS)} per person. See what's included and book.`;
+const description = `From ${formatRand(UNCATERED_PP_NIGHT.week.low)} per person per night self-catered, or ${formatRand(CATERED_PP_NIGHT.low)} catered. Wednesday/Thursday exclusive buyouts for ${EXCLUSIVE_SIZE}, or join a shared departure on any other day. See what's included and book.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -50,19 +51,14 @@ const jsonLd = [
     { name: 'Rates & Booking', path: '/rates' },
   ]),
   offerSchema({
-    price: GROUP_RATE_UNCATERED,
-    name: 'The Rooiberg Wander: private trail, self-catered (exclusive use)',
-    description: 'Flat rate for a private group of up to 10, self-catered, incl. conservation levies. Tuesday to Saturday.',
+    price: UNCATERED_PP_NIGHT.week.low,
+    name: 'The Rooiberg Wander: self-catered, per person per night',
+    description: `From this rate per person per night, self-catered, incl. conservation levies. Wednesday/Thursday exclusive buyout for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
   }),
   offerSchema({
-    price: GROUP_RATE_CATERED,
-    name: 'The Rooiberg Wander: private trail, catered (exclusive use)',
-    description: 'Flat rate for a private group of up to 8, fully catered, incl. conservation levies. Tuesday to Saturday.',
-  }),
-  offerSchema({
-    price: SHARED_PP_NIGHT * NIGHTS,
-    name: 'The Rooiberg Wander: shared departure (per person)',
-    description: 'Shared, fully catered departure, 2 to 8 people, incl. conservation levies. Sundays or Mondays.',
+    price: CATERED_PP_NIGHT.low,
+    name: 'The Rooiberg Wander: catered, per person per night',
+    description: `From this rate per person per night, fully catered, incl. conservation levies. Wednesday/Thursday exclusive buyout for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
   }),
 ];
 ---
@@ -77,10 +73,11 @@ const jsonLd = [
         What the trail costs
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        For start days Tuesday to Saturday, the private trail is priced <strong>per group, not
-        per person</strong>: one flat rate buys exclusive use of the whole trail for up to 10
-        guests (self-catered) or up to 8 guests (catered). Prefer to join others? A shared
-        Sunday or Monday start date is priced per person on a fully catered basis only.
+        Every trail is priced <strong>per person, per night</strong>, self-catered or catered.
+        Take a Wednesday or Thursday exclusive buyout for exactly {EXCLUSIVE_SIZE} guests, with
+        no other booking on your date, or join a shared departure on any other day: the first
+        booking on a date needs {SHARED_OPEN_MIN} or more people and sets its catering, and
+        later bookings top up from there, up to {MAX_GROUP_SIZE} in total.
       </p>
     </div>
   </Section>
@@ -127,14 +124,14 @@ const jsonLd = [
         bookingEnabled ? (
           <Fragment>
             <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-              Choose your group size and trip type, then a date, and pay securely by card. Your
+              Choose your group size and catering, then a date, and pay securely by card. Your
               booking is confirmed once payment is received, and a receipt is issued by email.
             </p>
             <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
-              Private trail: a flat group rate ({formatRand(GROUP_RATE_UNCATERED)} self-catered
-              up to 10 guests, or {formatRand(GROUP_RATE_CATERED)} catered up to 8 guests,
-              regardless of group size), Tuesday to Saturday. Or join a shared departure on a
-              Sunday or Monday, priced per person.
+              Priced per person per night, self-catered or catered: a Wednesday or Thursday
+              exclusive buyout for exactly {EXCLUSIVE_SIZE} guests, or a shared departure any
+              other day (from {SHARED_OPEN_MIN} people to open a new date, up to{' '}
+              {MAX_GROUP_SIZE} in total).
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}
