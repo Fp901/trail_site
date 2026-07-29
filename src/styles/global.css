@@ -1165,6 +1165,101 @@
     color: var(--color-green);
   }
 
+  /* ---- Join-list: departures a party of 1-3 can join (Phase 1 party-size split) ------------ */
+  .bjoin-list {
+    margin-top: 1.1rem;
+    display: grid;
+    gap: 0.65rem;
+  }
+  .bjoin-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 18%, transparent);
+    border-radius: 0.85rem;
+    background-color: #fff;
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-body);
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  .bjoin-card:hover,
+  .bjoin-card:focus-visible {
+    border-color: var(--color-ochre);
+    background-color: color-mix(in srgb, var(--color-ochre) 10%, #fff);
+  }
+  .bjoin-card:focus-visible {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 1px;
+  }
+  .bjoin-card.is-selected {
+    border-color: var(--color-ochre);
+    background-color: color-mix(in srgb, var(--color-ochre) 12%, #fff);
+  }
+  .bjoin-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .bjoin-card__date {
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--color-earth);
+  }
+  .bjoin-card__tag {
+    display: inline-block;
+    margin-left: 0.45rem;
+    padding: 0.08rem 0.4rem;
+    border-radius: 999px;
+    background-color: color-mix(in srgb, var(--color-green) 16%, transparent);
+    color: var(--color-green);
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  .bjoin-card__meta {
+    font-size: 0.8rem;
+    color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
+  }
+  .bjoin-card__price {
+    flex-shrink: 0;
+    text-align: right;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    color: var(--color-earth);
+    white-space: nowrap;
+  }
+  .bjoin-card__price small {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+  }
+  .bjoin-empty {
+    margin-top: 1.1rem;
+    padding: 1rem 1.1rem 1.2rem;
+    border: 1px dashed color-mix(in srgb, var(--color-earth) 28%, transparent);
+    border-radius: 0.85rem;
+    background-color: color-mix(in srgb, var(--color-cream) 70%, #fff);
+  }
+  .bjoin-empty__lead {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--color-earth);
+    font-weight: 500;
+  }
+  .bjoin-empty .form-field {
+    margin-top: 0.9rem;
+  }
+
   .bform__estimate {
     margin-top: 1.5rem;
     font-family: var(--font-body);
@@ -1333,47 +1428,83 @@
     line-height: 1;
     color: var(--color-charcoal);
   }
-  /* Shared-mode grid: cells grow to fit a visible seat count under the day number, not just an
-     aria-label — a "3 left" cell should read differently from an undifferentiated available one. */
+  /* Every cell carries a badge (seats/price/reason) under the day number, not just an aria-label
+     — a "3 left" or "Switch?" cell should read differently from a plain joinable one. */
   .bcal--shared .bcal__cell {
     aspect-ratio: auto;
-    min-height: 3rem;
+    min-height: 3.4rem;
   }
   .bcal__seats {
-    font-size: 0.58rem;
+    font-size: 0.56rem;
     font-weight: 700;
     letter-spacing: 0.01em;
+    line-height: 1.15;
     color: var(--color-green);
+    text-align: center;
   }
-  .bcal__cell--out .bcal__seats {
-    display: none;
+  .bcal__cell--closed .bcal__seats,
+  .bcal__cell--buyout-only .bcal__seats,
+  .bcal__cell--needs-open .bcal__seats,
+  .bcal__cell--full .bcal__seats {
+    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+  }
+  .bcal__cell--catering-locked .bcal__seats {
+    color: color-mix(in srgb, var(--color-earth) 85%, transparent);
+  }
+  .bcal__price {
+    font-size: 0.52rem;
+    font-weight: 500;
+    line-height: 1.1;
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .bcal__cell--blank {
     border: 0;
   }
-  .bcal__cell--avail {
+  /* Sellable now: opening, topping up, or an exclusive buyout at exactly EXCLUSIVE_SIZE. */
+  .bcal__cell--joinable {
     background-color: color-mix(in srgb, var(--color-green) 12%, #fff);
     border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
     color: var(--color-earth);
     font-weight: 600;
     cursor: pointer;
   }
-  .bcal__cell--avail:hover {
+  .bcal__cell--joinable:hover {
     background-color: var(--color-ochre);
     border-color: var(--color-ochre);
     color: var(--color-earth);
   }
-  .bcal__cell--avail.is-selected {
+  .bcal__cell--joinable.is-selected {
     background-color: var(--color-ochre);
     border-color: var(--color-earth);
     color: var(--color-earth);
     font-weight: 700;
   }
-  .bcal__cell--avail:focus-visible {
+  .bcal__cell--joinable:focus-visible {
     outline: 2px solid var(--color-ochre);
     outline-offset: 1px;
   }
-  .bcal__cell--out {
+  /* Already open, locked to the OTHER catering — visible and actionable (click switches catering
+     and selects the date), never just greyed out as if sold out. */
+  .bcal__cell--catering-locked {
+    background-color: color-mix(in srgb, var(--color-ochre) 14%, #fff);
+    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
+    color: var(--color-earth);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .bcal__cell--catering-locked:hover {
+    background-color: color-mix(in srgb, var(--color-ochre) 30%, #fff);
+  }
+  .bcal__cell--catering-locked:focus-visible {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 1px;
+  }
+  /* Disabled states — buyout-only, needs-open, full, closed. Same muted treatment; the reason is
+     always carried in the badge text and aria-label, never bare grey with no explanation. */
+  .bcal__cell--buyout-only,
+  .bcal__cell--needs-open,
+  .bcal__cell--full,
+  .bcal__cell--closed {
     background-color: transparent;
     color: color-mix(in srgb, var(--color-charcoal) 30%, transparent);
     cursor: not-allowed;
@@ -1399,13 +1530,31 @@
     border-radius: 0.2rem;
     border: 1px solid transparent;
   }
-  .bcal__key--avail::before {
+  .bcal__key--joinable::before {
     background-color: color-mix(in srgb, var(--color-green) 12%, #fff);
     border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
+  }
+  .bcal__key--switch::before {
+    background-color: color-mix(in srgb, var(--color-ochre) 14%, #fff);
+    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
   }
   .bcal__key--out::before {
     background-color: transparent;
     border-color: var(--color-hairline);
+  }
+  .bform__windowlimit {
+    margin-top: 0.6rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px dashed color-mix(in srgb, var(--color-earth) 25%, transparent);
+    border-radius: 0.6rem;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--color-charcoal) 80%, transparent);
+  }
+  .bform__windowlimit a {
+    color: var(--color-earth);
+    text-decoration: underline;
   }
   .bcal__selected {
     margin-top: 0.6rem;

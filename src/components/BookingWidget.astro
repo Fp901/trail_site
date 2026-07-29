@@ -1,23 +1,39 @@
 ---
-// BookingWidget (Booking v3.1 — Workstream B, per-person-per-night commercial model) —
-// vanilla-JS island. Four visible steps, one screen, no wizard navigation:
-//   1. Group size (1-8; the universal 2-guides:8-walkers safety cap).
-//   2. Catering — self-catered vs catered. A real, always-relevant choice now: every departure
-//      (Wed/Thu exclusive buyout or shared/flexible) is priced per person per night for either
-//      catering, so there is no more "shared is always catered" special case from the old
-//      flat-rate model.
-//   3. Calendar. Wednesday and Thursday are exclusive-buyout days, bookable only at exactly
-//      EXCLUSIVE_SIZE guests. Every other day is shared/flexible: a brand-new (unopened) date
-//      needs SHARED_OPEN_MIN+ people of either catering; a date someone else already opened
-//      needs SHARED_TOPUP_MIN+ people AND the SAME catering already locked in (shown per date),
-//      up to MAX_GROUP_SIZE seats total. bookingType (exclusive vs shared) is never sent — the
-//      server always derives it from the date, exactly mirroring lib/pricing.ts's
-//      isExclusiveDay().
-//   4. Lead-guest details and a definite total (server-confirmed at checkout; the server is
-//      always the price authority — this is a display mirror of the same constants, never a
-//      value the server trusts). Price varies by season and, for self-catered only, by weekday
-//      vs the Thursday/Friday "weekend" premium; a last-minute discount badge appears for
-//      self-catered starts LAST_MINUTE_MIN_DAYS-LAST_MINUTE_MAX_DAYS out.
+// BookingWidget (Booking v3.2 — Phases 1+2 of the "yield algorithm" prompt) — vanilla-JS island.
+//
+// Phase 1 — the flow branches on group size right after Step 1:
+//   Party of SHARED_OPEN_MIN (4) or more ("Path A") — group size → catering → calendar →
+//     details. This party can OPEN a shared date, so catering is a real choice they make.
+//   Party of 1 to SHARED_OPEN_MIN-1 ("Path B") — group size → a LIST of departures they can
+//     actually join (already open, matching seats, sorted soonest-first for now — Phase 3's
+//     rankDates() replaces the sort) → details. Catering is a property of the date, shown per
+//     entry, never asked. An empty list shows a notify-me capture, not an error.
+// Wednesday/Thursday exclusive buyouts are EXACTLY 8 people and only ever appear in Path A. It
+// is 8 people, full stop — nothing here should ever imply a buyout is obtainable below 8.
+//
+// Phase 2 — the calendar (Path A) is no longer a two-state available/unavailable grid. Every
+// cell resolves to one of six states: joinable (opening, topping up, or a buyout), buyoutOnly
+// (Wed/Thu, wrong headcount), needsOpen (unopened, party too small — unreachable via Path A
+// today, since Path A only exists for n >= SHARED_OPEN_MIN, but classifyDate() stays correct
+// regardless of caller), cateringLocked (open, OTHER catering — shown and clickable, never just
+// greyed out as if sold out), full (open, matching catering, not enough seats), closed (blocked
+// or outside the booking window). Catering-locked and joinable cells show the resolved
+// per-person price for that exact date. A window-ceiling month shows why, not just a disabled
+// arrow.
+//
+// Both the calendar and Path B's join list read from ONE shared availability store
+// (blockedDates/sharedAvail, loaded by loadAvailability()) — never two independent fetches of
+// unavailable_windows/shared_slot_availability, so the two views can't silently drift apart if
+// either view's shape ever changes.
+//
+// Both paths write the SAME two variables (`selectedStartIso`, `catering`) before submit, so
+// updateEstimate() and the submit handler are shared. Switching path, or invalidating a
+// selection (a group-size or catering change, or a client-side minimum, that no longer fits the
+// date picked), always shows a role="status" notice naming what changed — never a silent
+// reassignment.
+//
+// The wire payload is unchanged: { startDate, groupSize, catering }. bookingType stays derived
+// server-side from the date, never sent.
 import {
   formatRand,
   NIGHTS,
@@ -78,9 +94,9 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
 </div>
 
 <form id="booking-form" class="bform" data-rates={JSON.stringify(clientRates)} novalidate>
-  {/* Step 1 — group size. */}
+  {/* Step 1 — group size. Always visible; decides which path below is shown. */}
   <div class="bstep">
-    <p class="bstep__heading" id="bf-size-label">1. How many of you are walking?</p>
+    <p class="bstep__heading" id="bf-size-label"><span data-step-num>1</span>. How many of you are walking?</p>
     <div class="form-field bstep__size">
       <label for="bf-group" class="sr-only">Group size</label>
       <select id="bf-group" name="groupSize" aria-labelledby="bf-size-label" required>
@@ -90,11 +106,12 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
       </select>
     </div>
     <p class="bstep__hint" data-size-hint></p>
+    <p class="bstep__notice" data-path-notice role="status" aria-live="polite" hidden></p>
   </div>
 
-  {/* Step 2 — catering: a real choice for every group size and every departure type. */}
-  <div class="bstep">
-    <p class="bstep__heading" id="bf-catering-label">2. Catering</p>
+  {/* --- Path A (party of SHARED_OPEN_MIN+): catering is a real choice, then the calendar. --- */}
+  <div class="bstep" data-path-a>
+    <p class="bstep__heading" id="bf-catering-label"><span data-step-num>2</span>. Catering</p>
     <div class="boption-compare" data-catering-compare aria-live="polite">
       <label class="boption">
         <input type="radio" name="catering" value="uncatered" checked />
@@ -117,9 +134,8 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
     </p>
   </div>
 
-  {/* Step 3 — calendar, filtered by group size + catering above. */}
-  <div class="bstep">
-    <p class="bstep__heading" id="bf-cal-label">3. Choose a start date (Day 1, arrival)</p>
+  <div class="bstep" data-path-a>
+    <p class="bstep__heading" id="bf-cal-label"><span data-step-num>3</span>. Choose a start date (Day 1, arrival)</p>
     <div class="form-field bform__datefield">
       <p class="bform__nextavail" data-nextavail hidden></p>
       <div class="bcal" data-calendar role="group" aria-labelledby="bf-cal-label">
@@ -137,18 +153,55 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
         </div>
         <div class="bcal__grid" data-cal-grid></div>
         <div class="bcal__legend" aria-hidden="true">
-          <span class="bcal__key bcal__key--avail">Available</span>
+          <span class="bcal__key bcal__key--joinable">Available</span>
+          <span class="bcal__key bcal__key--switch">Booked, other catering: tap to switch</span>
           <span class="bcal__key bcal__key--out">Unavailable</span>
         </div>
       </div>
-      <input id="bf-start" name="startDate" type="hidden" required />
       <p class="bcal__selected" data-cal-selected aria-live="polite"></p>
+      <p class="bform__windowlimit" data-window-limit role="status" aria-live="polite" hidden></p>
     </div>
   </div>
 
-  {/* Step 4 — details and payment. */}
+  {/* --- Path B (party of 1 to SHARED_OPEN_MIN-1): join an already-open date. Catering is ------
+       shown per entry, never asked — it belongs to the date, not to this party. --- */}
+  <div class="bstep" data-path-b hidden>
+    <p class="bstep__heading" id="bf-join-label"><span data-step-num>2</span>. Choose a departure to join</p>
+    <p class="bstep__hint">
+      Smaller groups join a date someone else has already opened. The catering shown is already
+      set for that date.
+    </p>
+    <div class="bjoin-list" data-join-list aria-live="polite"></div>
+    <div class="bjoin-empty" data-join-empty hidden>
+      <p class="bjoin-empty__lead">No open departures currently fit a group this size.</p>
+      <p class="bstep__hint">Tell us which months work and we'll let you know the moment a matching date opens.</p>
+      <div class="form-field">
+        <label for="bf-notify-name">Name</label>
+        <input id="bf-notify-name" type="text" maxlength="120" autocomplete="name" aria-describedby="bf-notify-name-err" />
+        <span class="form-error" id="bf-notify-name-err" aria-live="polite"></span>
+      </div>
+      <div class="form-field">
+        <label for="bf-notify-email">Email</label>
+        <input id="bf-notify-email" type="email" maxlength="180" autocomplete="email" aria-describedby="bf-notify-email-err" />
+        <span class="form-error" id="bf-notify-email-err" aria-live="polite"></span>
+      </div>
+      <div class="form-field">
+        <label for="bf-notify-months">Which months work for you?</label>
+        <span class="form-hint">e.g. September or October 2026, or flexible</span>
+        <input id="bf-notify-months" type="text" maxlength="120" />
+      </div>
+      <div class="hp" aria-hidden="true">
+        <label>Company<input id="bf-notify-company" tabindex="-1" autocomplete="off" /></label>
+      </div>
+      <button type="button" class="btn btn-secondary" data-notify-submit>Notify me</button>
+      <p class="bform__status" data-notify-status role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  {/* Step — details and payment. Shared by both paths; startDate/groupSize/catering are already
+      set by whichever path the guest used. */}
   <div class="bstep">
-    <p class="bstep__heading" id="bf-details-label">4. Your details</p>
+    <p class="bstep__heading" id="bf-details-label"><span data-step-num>4</span>. Your details</p>
     <div class="bform__grid" aria-labelledby="bf-details-label">
       <div class="form-field">
         <label for="bf-name">Lead guest name</label>
@@ -216,6 +269,8 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
       </p>
     </div>
 
+    <input id="bf-start" name="startDate" type="hidden" required />
+
     <button type="submit" class="btn btn-primary bform__submit" data-submit>Continue to secure payment</button>
 
     <p class="bform__status" data-status role="status" aria-live="polite"></p>
@@ -230,6 +285,7 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
 
 <script>
   import { actions } from 'astro:actions';
+  import { rankDates, type RankCandidate } from '../lib/ranking';
 
   // Anon, PUBLIC creds only (never the service-role key). unavailable_windows and
   // shared_slot_availability are RLS-granted to anon and expose ONLY dates/seat counts/catering
@@ -321,217 +377,6 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
     }
   }
 
-  // Calendar controller. A date's availability depends on the guest's group size AND catering
-  // choice (set via applyFilter()), plus what's already booked on that date server-side.
-  // Bookable shared cells carry a visible seat count (and, once a date is opened, its locked
-  // catering), not just an aria-label.
-  function setupCalendar(
-    form: HTMLFormElement,
-    startInput: HTMLInputElement,
-    rates: typeof window extends never ? never : any,
-    onDateSelected: (iso: string) => void,
-  ) {
-    const cal = form.querySelector<HTMLElement>('[data-calendar]');
-    if (!cal) return { applyFilter: () => {} };
-    const grid = cal.querySelector<HTMLElement>('[data-cal-grid]');
-    const monthLabel = cal.querySelector<HTMLElement>('[data-cal-month]');
-    const prevBtn = cal.querySelector<HTMLButtonElement>('[data-cal-prev]');
-    const nextBtn = cal.querySelector<HTMLButtonElement>('[data-cal-next]');
-    const field = cal.closest<HTMLElement>('.bform__datefield');
-    const nextAvailEl = field?.querySelector<HTMLElement>('[data-nextavail]') ?? null;
-    const selectedEl = field?.querySelector<HTMLElement>('[data-cal-selected]') ?? null;
-    if (!grid || !monthLabel || !prevBtn || !nextBtn) return { applyFilter: () => {} };
-
-    cal.classList.add('bcal--shared'); // taller cells for a visible seat/catering badge
-
-    const earliest: string = rates.earliest;
-
-    let blocked = new Set<string>();
-    let sharedAvail = new Map<string, { seatsLeft: number; catering: Catering }>();
-    let selected = '';
-    let groupSize = 1;
-    let catering: Catering = 'uncatered';
-    let latest = rates.uncateredLatest;
-
-    const viewIdx = (y: number, m: number) => y * 12 + m;
-    const minIdx = viewIdx(+earliest.slice(0, 4), +earliest.slice(5, 7) - 1);
-    let maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
-    // Default to the first bookable month, not the calendar month — users should never have to
-    // page past months that can't be booked yet.
-    let view = { y: +earliest.slice(0, 4), m: +earliest.slice(5, 7) - 1 };
-
-    const stateOf = (d: string): 'out' | 'avail' => {
-      if (d < earliest || d > latest) return 'out';
-      if (blocked.has(d)) return 'out';
-      if (isExclusiveDayIso(d)) {
-        return groupSize === rates.exclusiveSize ? 'avail' : 'out';
-      }
-      const entry = sharedAvail.get(d);
-      if (!entry) {
-        return groupSize >= rates.sharedOpenMin ? 'avail' : 'out';
-      }
-      if (entry.catering !== catering) return 'out';
-      if (groupSize < rates.sharedTopupMin) return 'out';
-      return groupSize <= entry.seatsLeft ? 'avail' : 'out';
-    };
-
-    const nextAvailable = (): string | null => {
-      let d = earliest;
-      while (d <= latest) {
-        if (stateOf(d) === 'avail') return d;
-        d = addDaysIso(d, 1);
-      }
-      return null;
-    };
-
-    const clearSelection = () => {
-      selected = '';
-      startInput.value = '';
-      if (selectedEl) selectedEl.textContent = '';
-      onDateSelected('');
-    };
-
-    const selectDate = (iso: string) => {
-      selected = iso;
-      startInput.value = iso;
-      if (selectedEl) {
-        const dateStr = humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        if (isExclusiveDayIso(iso)) {
-          selectedEl.textContent = `Selected start: ${dateStr}. Exclusive buyout for your group of ${rates.exclusiveSize}.`;
-        } else {
-          const entry = sharedAvail.get(iso);
-          const seatsLeft = entry ? entry.seatsLeft : rates.maxGroup;
-          selectedEl.textContent = entry
-            ? `Selected start: ${dateStr}. Shared departure, ${seatsLeft} place(s) available.`
-            : `Selected start: ${dateStr}. You'll be opening this shared date.`;
-        }
-      }
-      render();
-      onDateSelected(iso);
-    };
-
-    const render = () => {
-      monthLabel.textContent = humanDate(isoYMD(view.y, view.m, 1), {
-        month: 'long',
-        year: 'numeric',
-      });
-      prevBtn.disabled = viewIdx(view.y, view.m) <= minIdx;
-      nextBtn.disabled = viewIdx(view.y, view.m) >= maxIdx;
-      grid.innerHTML = '';
-      const firstDow = new Date(Date.UTC(view.y, view.m, 1)).getUTCDay(); // 0=Sun
-      const lead = (firstDow + 6) % 7; // Monday-first
-      for (let i = 0; i < lead; i++) {
-        const blank = document.createElement('span');
-        blank.className = 'bcal__cell bcal__cell--blank';
-        grid.appendChild(blank);
-      }
-      const days = new Date(Date.UTC(view.y, view.m + 1, 0)).getUTCDate();
-      for (let day = 1; day <= days; day++) {
-        const iso = isoYMD(view.y, view.m, day);
-        const st = stateOf(iso);
-        const cell = document.createElement('button');
-        cell.type = 'button';
-        cell.className = `bcal__cell bcal__cell--${st}`;
-        const human = humanDate(iso, {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        });
-        const dayNum = document.createElement('span');
-        dayNum.className = 'bcal__daynum';
-        dayNum.textContent = String(day);
-        cell.appendChild(dayNum);
-        if (st === 'avail') {
-          let seatsLabel = '';
-          if (isExclusiveDayIso(iso)) {
-            seatsLabel = ', exclusive buyout';
-            const badge = document.createElement('span');
-            badge.className = 'bcal__seats';
-            badge.textContent = 'Exclusive';
-            cell.appendChild(badge);
-          } else {
-            const entry = sharedAvail.get(iso);
-            const left = entry ? entry.seatsLeft : rates.maxGroup;
-            seatsLabel = entry ? `, ${left} place(s) left` : ', open a new shared date';
-            const badge = document.createElement('span');
-            badge.className = 'bcal__seats';
-            badge.textContent = entry ? `${left} left` : 'Open new';
-            cell.appendChild(badge);
-          }
-          cell.setAttribute('aria-label', human + seatsLabel);
-          cell.setAttribute('aria-pressed', iso === selected ? 'true' : 'false');
-          if (iso === selected) cell.classList.add('is-selected');
-          cell.addEventListener('click', () => selectDate(iso));
-        } else {
-          cell.disabled = true;
-          cell.setAttribute('aria-label', `${human}, unavailable`);
-        }
-        grid.appendChild(cell);
-      }
-    };
-
-    const updateNextAvail = () => {
-      if (!nextAvailEl) return;
-      const na = nextAvailable();
-      nextAvailEl.textContent = na
-        ? 'Next available: ' + humanDate(na, { day: 'numeric', month: 'long', year: 'numeric' })
-        : 'No dates are currently available for this group size and catering. Please contact us.';
-      nextAvailEl.hidden = false;
-    };
-
-    prevBtn.addEventListener('click', () => {
-      const idx = viewIdx(view.y, view.m) - 1;
-      if (idx < minIdx) return;
-      view = { y: Math.floor(idx / 12), m: ((idx % 12) + 12) % 12 };
-      render();
-    });
-    nextBtn.addEventListener('click', () => {
-      const idx = viewIdx(view.y, view.m) + 1;
-      if (idx > maxIdx) return;
-      view = { y: Math.floor(idx / 12), m: ((idx % 12) + 12) % 12 };
-      render();
-    });
-
-    const refetch = () => {
-      Promise.all([fetchBlockedStarts(), fetchSharedAvailability()]).then(([b, s]) => {
-        blocked = b;
-        sharedAvail = s;
-        if (selected && stateOf(selected) !== 'avail') clearSelection();
-        updateNextAvail();
-        if (!selected) {
-          const na = nextAvailable();
-          if (na) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 };
-        }
-        render();
-      });
-    };
-
-    // Called whenever Step 1/2's group size or catering changes. Re-filters availability (and
-    // the per-catering booking-window ceiling) and jumps to the first bookable month for the NEW
-    // filter if nothing valid stays selected.
-    const applyFilter = (newGroupSize: number, newCatering: Catering) => {
-      const filterChanged = newGroupSize !== groupSize || newCatering !== catering;
-      groupSize = newGroupSize;
-      catering = newCatering;
-      latest = newCatering === 'catered' ? rates.cateredLatest : rates.uncateredLatest;
-      maxIdx = viewIdx(+latest.slice(0, 4), +latest.slice(5, 7) - 1);
-      if (!filterChanged) return;
-      if (selected && stateOf(selected) !== 'avail') clearSelection();
-      if (!selected) {
-        const na = nextAvailable();
-        if (na) view = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 };
-      }
-      updateNextAvail();
-      render();
-    };
-
-    render(); // immediate paint (no blocked dates yet)
-    refetch(); // load blocked dates + shared availability
-
-    return { applyFilter };
-  }
-
   function initBooking() {
     const form = document.getElementById('booking-form') as HTMLFormElement | null;
     if (!form || form.dataset.bound === 'true') return;
@@ -541,8 +386,39 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
 
     const groupSelect = form.querySelector<HTMLSelectElement>('#bf-group')!;
     const sizeHint = form.querySelector<HTMLElement>('[data-size-hint]');
+    const pathNotice = form.querySelector<HTMLElement>('[data-path-notice]');
 
-    // Step 4 — details/payment.
+    // Path A / Path B containers + step-number spans (renumbered as the path switches).
+    const pathAEls = Array.from(form.querySelectorAll<HTMLElement>('[data-path-a]'));
+    const pathBEl = form.querySelector<HTMLElement>('[data-path-b]');
+    const catNumEl = form.querySelector<HTMLElement>('#bf-catering-label [data-step-num]');
+    const calNumEl = form.querySelector<HTMLElement>('#bf-cal-label [data-step-num]');
+    const joinNumEl = form.querySelector<HTMLElement>('#bf-join-label [data-step-num]');
+    const detailsNumEl = form.querySelector<HTMLElement>('#bf-details-label [data-step-num]');
+
+    // Path B — join list + notify-me capture.
+    const joinList = form.querySelector<HTMLElement>('[data-join-list]');
+    const joinEmpty = form.querySelector<HTMLElement>('[data-join-empty]');
+    const notifyName = form.querySelector<HTMLInputElement>('#bf-notify-name');
+    const notifyEmail = form.querySelector<HTMLInputElement>('#bf-notify-email');
+    const notifyMonths = form.querySelector<HTMLInputElement>('#bf-notify-months');
+    const notifyCompany = form.querySelector<HTMLInputElement>('#bf-notify-company');
+    const notifySubmit = form.querySelector<HTMLButtonElement>('[data-notify-submit]');
+    const notifyStatus = form.querySelector<HTMLElement>('[data-notify-status]');
+
+    // Path A — calendar.
+    const cal = form.querySelector<HTMLElement>('[data-calendar]');
+    const calGrid = cal?.querySelector<HTMLElement>('[data-cal-grid]') ?? null;
+    const calMonthLabel = cal?.querySelector<HTMLElement>('[data-cal-month]') ?? null;
+    const calPrevBtn = cal?.querySelector<HTMLButtonElement>('[data-cal-prev]') ?? null;
+    const calNextBtn = cal?.querySelector<HTMLButtonElement>('[data-cal-next]') ?? null;
+    const calField = cal?.closest<HTMLElement>('.bform__datefield') ?? null;
+    const calNextAvailEl = calField?.querySelector<HTMLElement>('[data-nextavail]') ?? null;
+    const calSelectedEl = calField?.querySelector<HTMLElement>('[data-cal-selected]') ?? null;
+    const calWindowLimitEl = calField?.querySelector<HTMLElement>('[data-window-limit]') ?? null;
+    cal?.classList.add('bcal--shared'); // taller cells for a visible badge + price
+
+    // Step "Your details" — details/payment.
     const totalFormula = form.querySelector<HTMLElement>('[data-total-formula]');
     const estimate = form.querySelector<HTMLElement>('[data-estimate]');
     const paymentLabel = form.querySelector<HTMLElement>('[data-payment-label]');
@@ -564,6 +440,42 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
 
     let catering: Catering = 'uncatered';
     let selectedStartIso = '';
+    let path: 'A' | 'B' = 'A';
+    let initialized = false;
+
+    // ---- Unified availability store — the ONE read of unavailable_windows/shared_slot_
+    // availability, shared by the calendar (Path A) and the join list (Path B). Neither reads
+    // either view independently; both re-filter from these two maps, so they can never silently
+    // drift apart if the views' shape ever changes. ------------------------------------------
+    let blockedDates = new Set<string>();
+    let sharedAvail = new Map<string, { seatsLeft: number; catering: Catering }>();
+    let availabilityInFlight: Promise<void> | null = null;
+
+    // Fetches both views once and updates the shared maps. Concurrent callers (e.g. a rapid
+    // group-size change while a fetch is still in flight) share the one in-flight request rather
+    // than firing a second independent one.
+    function loadAvailability(): Promise<void> {
+      if (!availabilityInFlight) {
+        availabilityInFlight = Promise.all([fetchBlockedStarts(), fetchSharedAvailability()])
+          .then(([b, s]) => {
+            blockedDates = b;
+            sharedAvail = s;
+          })
+          .finally(() => {
+            availabilityInFlight = null;
+          });
+      }
+      return availabilityInFlight;
+    }
+
+    // Fetches fresh data, then repaints whichever path is currently visible. Always fetches
+    // fresh (never trusts a cached view) — a cancellation or a competing booking must be
+    // reflected immediately, matching the "cache: 'no-store'" fetches underneath.
+    async function syncAvailability(): Promise<void> {
+      await loadAvailability();
+      if (path === 'A') calRefresh();
+      else joinRefresh();
+    }
 
     // ---- Price math mirrored from lib/pricing.ts (display only; server recomputes) -----------
     function ppNightCents(cat: Catering, iso: string): number {
@@ -626,9 +538,15 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
     bindField(nameInput,  nameRules);
     bindField(emailInput, emailRules);
     bindField(phoneInput, phoneRules);
+    if (notifyName) bindField(notifyName, nameRules);
+    if (notifyEmail) bindField(notifyEmail, emailRules);
 
     function groupSize(): number {
       return Number(groupSelect.value || 1);
+    }
+
+    function pathFor(n: number): 'A' | 'B' {
+      return n >= R.sharedOpenMin ? 'A' : 'B';
     }
 
     // ---- Step 1: dynamic hint on what this group size can book -------------
@@ -640,11 +558,121 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
       } else if (n >= R.sharedOpenMin) {
         sizeHint.textContent = `Choose any day except Wednesday or Thursday. You can open a new shared date, or join one that’s already open with matching catering. Choose ${R.exclusiveSize} for a Wednesday or Thursday exclusive buyout instead.`;
       } else {
-        sizeHint.textContent = `Groups under ${R.sharedOpenMin} can only join a shared date someone else has already opened, with matching catering and room for ${n}. Choose ${R.exclusiveSize} for a Wednesday or Thursday exclusive buyout instead.`;
+        sizeHint.textContent = `Groups under ${R.sharedOpenMin} join a shared date someone else has already opened, below. Choose ${R.exclusiveSize} for a Wednesday or Thursday exclusive buyout instead.`;
       }
     }
 
-    // ---- Step 4: definite total + deposit/balance --------------------------
+    // Renumbers the visible step headings for the active path (Path A: 1-2-3-4; Path B: 1-2-3,
+    // since the join list replaces both the catering step and the calendar step).
+    function renumberSteps(p: 'A' | 'B') {
+      if (p === 'A') {
+        if (catNumEl) catNumEl.textContent = '2';
+        if (calNumEl) calNumEl.textContent = '3';
+        if (detailsNumEl) detailsNumEl.textContent = '4';
+      } else {
+        if (joinNumEl) joinNumEl.textContent = '2';
+        if (detailsNumEl) detailsNumEl.textContent = '3';
+      }
+    }
+
+    function showPathNotice(msg: string) {
+      if (!pathNotice) return;
+      pathNotice.textContent = msg;
+      pathNotice.hidden = false;
+    }
+    function hidePathNotice() {
+      if (pathNotice) pathNotice.hidden = true;
+    }
+
+    // ---- Path B: the list of departures a group this size can actually join ----------------
+    // Ordered by rankDates() (Phase 3) — the price signal already in the published rate card,
+    // not an estimated cost. The top-scored card (when there's more than one option) carries a
+    // quiet "Recommended" tag — ordering and a label, never a price difference or urgency cue.
+    function renderJoinList(rows: ReturnType<typeof rankDates>) {
+      if (!joinList) return;
+      joinList.innerHTML = '';
+      rows.forEach((row, i) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'bjoin-card';
+        if (row.date === selectedStartIso) card.classList.add('is-selected');
+        const dateStr = humanDate(row.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const cateringLabel = row.catering === 'catered' ? 'Catered' : 'Self-catered';
+        const isTop = i === 0 && rows.length > 1;
+
+        const body = document.createElement('span');
+        body.className = 'bjoin-card__body';
+        const dateEl = document.createElement('span');
+        dateEl.className = 'bjoin-card__date';
+        dateEl.textContent = dateStr;
+        if (isTop) {
+          const tag = document.createElement('span');
+          tag.className = 'bjoin-card__tag';
+          tag.textContent = 'Recommended';
+          dateEl.appendChild(tag);
+        }
+        const metaEl = document.createElement('span');
+        metaEl.className = 'bjoin-card__meta';
+        metaEl.textContent = `${cateringLabel} · ${row.seatsLeft} place(s) left`;
+        body.append(dateEl, metaEl);
+
+        const priceEl = document.createElement('span');
+        priceEl.className = 'bjoin-card__price';
+        priceEl.textContent = fmtR(row.ppTotalCents);
+        const priceSmall = document.createElement('small');
+        priceSmall.textContent = 'per person';
+        priceEl.appendChild(priceSmall);
+
+        card.append(body, priceEl);
+        card.setAttribute(
+          'aria-label',
+          `${dateStr}${isTop ? ', recommended' : ''}, ${cateringLabel.toLowerCase()}, ${fmtR(row.ppTotalCents)} per person, ${row.seatsLeft} place(s) left`,
+        );
+        card.addEventListener('click', () => {
+          selectedStartIso = row.date;
+          catering = row.catering;
+          if (startInput) startInput.value = row.date;
+          joinList.querySelectorAll('.bjoin-card').forEach((el) => el.classList.remove('is-selected'));
+          card.classList.add('is-selected');
+          hidePathNotice();
+          updateEstimate();
+          document.getElementById('bf-details-label')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        joinList.appendChild(card);
+      });
+    }
+
+    // Re-filters + repaints from whatever's currently in the shared store (no fetch — see
+    // loadAvailability() below). Called both right after a group-size change (against
+    // possibly-stale data, for instant feedback) and again once a fresh fetch resolves.
+    function joinRefresh() {
+      const n = groupSize();
+      const candidates: RankCandidate[] = Array.from(sharedAvail.entries())
+        .filter(([date]) => !blockedDates.has(date))
+        .filter(([date]) => date >= R.earliest)
+        .filter(([date, entry]) => date <= (entry.catering === 'catered' ? R.cateredLatest : R.uncateredLatest))
+        .filter(([, entry]) => entry.seatsLeft >= n)
+        .map(([date, entry]) => ({ date, action: 'join', catering: entry.catering, seatsLeft: entry.seatsLeft }));
+      const rows = rankDates(candidates, n);
+
+      // If the guest already picked a date from this list and a refresh (e.g. a group-size
+      // change) makes it no longer fit, clear it with a visible reason — never silently.
+      if (selectedStartIso && !rows.some((r) => r.date === selectedStartIso)) {
+        const prev = selectedStartIso;
+        selectedStartIso = '';
+        if (startInput) startInput.value = '';
+        showPathNotice(
+          `Your group changed to ${n}, so ${humanDate(prev, { day: 'numeric', month: 'long' })} no longer has room. Please choose another departure below.`,
+        );
+        updateEstimate();
+      }
+
+      if (joinList) joinList.hidden = rows.length === 0;
+      if (joinEmpty) joinEmpty.hidden = rows.length > 0;
+      renderJoinList(rows);
+    }
+
+    // ---- Step "Your details": definite total + deposit/balance --------------------------
     function updateEstimate() {
       const n = groupSize();
       if (lastMinuteNote) lastMinuteNote.hidden = true;
@@ -693,27 +721,385 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
       }
     }
 
-    const calendar = setupCalendar(form, startInput!, R, (iso) => {
-      selectedStartIso = iso;
-      updateEstimate();
-    });
+    // ---- Calendar (Path A) — six cell states, per Phase 2 -----------------------------------
+    // joinable: sellable now (opening, topping up, or a buyout at exactly EXCLUSIVE_SIZE).
+    // buyoutOnly: Wed/Thu, but this party isn't exactly EXCLUSIVE_SIZE.
+    // needsOpen: unopened, party too small to open it — unreachable via Path A today (Path A
+    //   only exists for n >= SHARED_OPEN_MIN), kept for classifyDate()'s own correctness.
+    // cateringLocked: already open, locked to the OTHER catering — shown and clickable (switches
+    //   catering + selects the date in one action), never just greyed out as if sold out.
+    // full: already open, matching catering, not enough seats for this party.
+    // closed: blocked, or outside the booking window.
+    type CellState = 'joinable' | 'buyoutOnly' | 'needsOpen' | 'cateringLocked' | 'full' | 'closed';
+    interface Classification {
+      state: CellState;
+      seatsLeft?: number;
+      entryCatering?: Catering;
+    }
 
-    function renderAll() {
-      renderSizeHint();
-      calendar.applyFilter(groupSize(), catering);
+    const viewIdx = (y: number, m: number) => y * 12 + m;
+    const calMinIdx = viewIdx(+R.earliest.slice(0, 4), +R.earliest.slice(5, 7) - 1);
+    let calSelected = '';
+    let calGroupSize = 1;
+    let calLatest: string = R.uncateredLatest;
+    let calMaxIdx = viewIdx(+calLatest.slice(0, 4), +calLatest.slice(5, 7) - 1);
+    // Default to the first bookable month, not the calendar month — users should never have to
+    // page past months that can't be booked yet.
+    let calView = { y: +R.earliest.slice(0, 4), m: +R.earliest.slice(5, 7) - 1 };
+
+    function classifyDate(d: string): Classification {
+      if (d < R.earliest || d > calLatest) return { state: 'closed' };
+      if (blockedDates.has(d)) return { state: 'closed' };
+      if (isExclusiveDayIso(d)) {
+        return calGroupSize === R.exclusiveSize ? { state: 'joinable' } : { state: 'buyoutOnly' };
+      }
+      const entry = sharedAvail.get(d);
+      if (!entry) {
+        return calGroupSize >= R.sharedOpenMin ? { state: 'joinable' } : { state: 'needsOpen' };
+      }
+      if (entry.catering !== catering) {
+        return { state: 'cateringLocked', seatsLeft: entry.seatsLeft, entryCatering: entry.catering };
+      }
+      if (calGroupSize > entry.seatsLeft) return { state: 'full', seatsLeft: entry.seatsLeft };
+      return { state: 'joinable', seatsLeft: entry.seatsLeft };
+    }
+
+    function calNextAvailable(): string | null {
+      let d = R.earliest;
+      while (d <= calLatest) {
+        if (classifyDate(d).state === 'joinable') return d;
+        d = addDaysIso(d, 1);
+      }
+      return null;
+    }
+
+    function calClearSelection() {
+      calSelected = '';
+      if (startInput) startInput.value = '';
+      if (calSelectedEl) calSelectedEl.textContent = '';
+      selectedStartIso = '';
       updateEstimate();
     }
 
-    groupSelect.addEventListener('change', renderAll);
+    function calSelectDate(iso: string, cat: Catering) {
+      calSelected = iso;
+      selectedStartIso = iso;
+      catering = cat;
+      if (startInput) startInput.value = iso;
+      // Keep the visible catering radio in sync when a catering-locked cell switched it.
+      const radio = form!.querySelector<HTMLInputElement>(`input[name="catering"][value="${cat}"]`);
+      if (radio) radio.checked = true;
+      if (calSelectedEl) {
+        const dateStr = humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        if (isExclusiveDayIso(iso)) {
+          calSelectedEl.textContent = `Selected start: ${dateStr}. Exclusive buyout for your group of ${R.exclusiveSize}.`;
+        } else {
+          const entry = sharedAvail.get(iso);
+          const seatsLeft = entry ? entry.seatsLeft : R.maxGroup;
+          calSelectedEl.textContent = entry
+            ? `Selected start: ${dateStr}. Shared departure, ${seatsLeft} place(s) available.`
+            : `Selected start: ${dateStr}. You'll be opening this shared date.`;
+        }
+      }
+      calRender();
+      updateEstimate();
+    }
+
+    function calUpdateNextAvail() {
+      if (!calNextAvailEl) return;
+      const na = calNextAvailable();
+      calNextAvailEl.textContent = na
+        ? 'Next available: ' + humanDate(na, { day: 'numeric', month: 'long', year: 'numeric' })
+        : 'No dates are currently available for this group size and catering. Please contact us.';
+      calNextAvailEl.hidden = false;
+    }
+
+    function calRender() {
+      if (!calGrid || !calMonthLabel || !calPrevBtn || !calNextBtn) return;
+      calMonthLabel.textContent = humanDate(isoYMD(calView.y, calView.m, 1), { month: 'long', year: 'numeric' });
+      calPrevBtn.disabled = viewIdx(calView.y, calView.m) <= calMinIdx;
+      const atMaxMonth = viewIdx(calView.y, calView.m) >= calMaxIdx;
+      calNextBtn.disabled = atMaxMonth;
+      calGrid.innerHTML = '';
+      const firstDow = new Date(Date.UTC(calView.y, calView.m, 1)).getUTCDay(); // 0=Sun
+      const lead = (firstDow + 6) % 7; // Monday-first
+      for (let i = 0; i < lead; i++) {
+        const blank = document.createElement('span');
+        blank.className = 'bcal__cell bcal__cell--blank';
+        calGrid.appendChild(blank);
+      }
+      const days = new Date(Date.UTC(calView.y, calView.m + 1, 0)).getUTCDate();
+      for (let day = 1; day <= days; day++) {
+        const iso = isoYMD(calView.y, calView.m, day);
+        const c = classifyDate(iso);
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        const stateClass = c.state.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
+        cell.className = `bcal__cell bcal__cell--${stateClass}`;
+        const human = humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const dayNum = document.createElement('span');
+        dayNum.className = 'bcal__daynum';
+        dayNum.textContent = String(day);
+        cell.appendChild(dayNum);
+
+        if (c.state === 'joinable') {
+          const isExcl = isExclusiveDayIso(iso);
+          const ppTotal = ppTotalCents(catering, iso);
+          const badge = document.createElement('span');
+          badge.className = 'bcal__seats';
+          badge.textContent = isExcl ? 'Exclusive' : c.seatsLeft != null ? `${c.seatsLeft} left` : 'Open new';
+          cell.appendChild(badge);
+          const priceEl = document.createElement('span');
+          priceEl.className = 'bcal__price';
+          priceEl.textContent = `${fmtR(ppTotal)}pp`;
+          cell.appendChild(priceEl);
+          const reason = isExcl
+            ? ', exclusive buyout'
+            : c.seatsLeft != null
+              ? `, ${c.seatsLeft} place(s) left`
+              : ', open a new shared date';
+          cell.setAttribute('aria-label', `${human}${reason}, ${fmtR(ppTotal)} per person`);
+          cell.setAttribute('aria-pressed', iso === calSelected ? 'true' : 'false');
+          if (iso === calSelected) cell.classList.add('is-selected');
+          cell.addEventListener('click', () => calSelectDate(iso, catering));
+        } else if (c.state === 'cateringLocked') {
+          const otherCat = c.entryCatering!;
+          const ppTotal = ppTotalCents(otherCat, iso);
+          const label = otherCat === 'catered' ? 'Catered' : 'Self-catered';
+          const badge = document.createElement('span');
+          badge.className = 'bcal__seats';
+          badge.textContent = `${label} · Switch?`;
+          cell.appendChild(badge);
+          const priceEl = document.createElement('span');
+          priceEl.className = 'bcal__price';
+          priceEl.textContent = `${fmtR(ppTotal)}pp`;
+          cell.appendChild(priceEl);
+          cell.setAttribute(
+            'aria-label',
+            `${human}, already booked ${label.toLowerCase()}, ${fmtR(ppTotal)} per person, ${c.seatsLeft} place(s) left. Select to switch your catering to ${label.toLowerCase()} and book this date.`,
+          );
+          cell.setAttribute('aria-pressed', iso === calSelected ? 'true' : 'false');
+          if (iso === calSelected) cell.classList.add('is-selected');
+          cell.addEventListener('click', () => {
+            calSelectDate(iso, otherCat);
+            showPathNotice(`Switched to ${label.toLowerCase()} to book ${humanDate(iso, { day: 'numeric', month: 'long' })}.`);
+          });
+        } else {
+          cell.disabled = true;
+          let reason = 'unavailable';
+          let badgeText = '';
+          if (c.state === 'buyoutOnly') {
+            reason = `exclusive buyout only, needs exactly ${R.exclusiveSize} people`;
+            badgeText = `Buyout ×${R.exclusiveSize}`;
+          } else if (c.state === 'needsOpen') {
+            reason = `needs ${R.sharedOpenMin} or more people to open`;
+            badgeText = `Needs ${R.sharedOpenMin}+`;
+          } else if (c.state === 'full') {
+            reason = `only ${c.seatsLeft} place(s) left, your group needs ${calGroupSize}`;
+            badgeText = c.seatsLeft ? `Only ${c.seatsLeft} left` : 'Full';
+          }
+          if (badgeText) {
+            const badge = document.createElement('span');
+            badge.className = 'bcal__seats';
+            badge.textContent = badgeText;
+            cell.appendChild(badge);
+          }
+          cell.setAttribute('aria-label', `${human}, ${reason}`);
+          cell.setAttribute('aria-disabled', 'true');
+        }
+        calGrid.appendChild(cell);
+      }
+
+      // Window-ceiling label — the last navigable month explains the boundary rather than just
+      // disabling the "next" arrow with no reason.
+      if (calWindowLimitEl) {
+        if (atMaxMonth) {
+          calWindowLimitEl.hidden = false;
+          calWindowLimitEl.innerHTML =
+            catering === 'catered'
+              ? 'Catered bookings open up to 18 months ahead; later dates open as time passes.'
+              : 'Self-catered bookings open up to 8 months ahead; catered runs further, up to 18 months. Later self-catered dates open as time passes. Want a specific later date? <a href="/rates#enquire-heading">Send us an enquiry</a> and we\'ll let you know as soon as it\'s bookable.';
+        } else {
+          calWindowLimitEl.hidden = true;
+        }
+      }
+    }
+
+    calPrevBtn?.addEventListener('click', () => {
+      const idx = viewIdx(calView.y, calView.m) - 1;
+      if (idx < calMinIdx) return;
+      calView = { y: Math.floor(idx / 12), m: ((idx % 12) + 12) % 12 };
+      calRender();
+    });
+    calNextBtn?.addEventListener('click', () => {
+      const idx = viewIdx(calView.y, calView.m) + 1;
+      if (idx > calMaxIdx) return;
+      calView = { y: Math.floor(idx / 12), m: ((idx % 12) + 12) % 12 };
+      calRender();
+    });
+
+    // Re-filters + repaints from whatever's currently in the shared store (no fetch).
+    function calRefresh() {
+      if (calSelected && classifyDate(calSelected).state !== 'joinable') calClearSelection();
+      if (!calSelected) {
+        const na = calNextAvailable();
+        if (na) calView = { y: +na.slice(0, 4), m: +na.slice(5, 7) - 1 };
+      }
+      calUpdateNextAvail();
+      calRender();
+    }
+
+    // Called whenever group size or catering changes. Updates the per-catering window ceiling
+    // and re-filters/re-renders immediately from whatever's already loaded; syncAvailability()
+    // (called by renderAll) follows up with a fresh fetch.
+    function calApplyFilter(newGroupSize: number, newCatering: Catering) {
+      calGroupSize = newGroupSize;
+      calLatest = newCatering === 'catered' ? R.cateredLatest : R.uncateredLatest;
+      calMaxIdx = viewIdx(+calLatest.slice(0, 4), +calLatest.slice(5, 7) - 1);
+      calRefresh();
+    }
+
+    function calClear() {
+      calClearSelection();
+      calRender();
+    }
+
+    calRender(); // immediate paint (no data loaded yet)
+
+    // Switches the visible path, clearing whichever path is now hidden so a stale selection from
+    // it can never be submitted, and announcing the switch (never silent) once past first paint.
+    function switchPath(newPath: 'A' | 'B', prevN: number, newN: number) {
+      const hadSelection = !!selectedStartIso;
+      path = newPath;
+      pathAEls.forEach((el) => { el.hidden = newPath !== 'A'; });
+      if (pathBEl) pathBEl.hidden = newPath !== 'B';
+      renumberSteps(newPath);
+      if (newPath === 'A') {
+        calClear();
+      } else {
+        selectedStartIso = '';
+        if (startInput) startInput.value = '';
+      }
+      updateEstimate();
+      if (initialized) {
+        const from = prevN < R.sharedOpenMin ? 'joining an open date' : 'opening or joining a date, choosing catering yourself';
+        const to = newN < R.sharedOpenMin ? 'joining an open date' : 'opening or joining a date, choosing catering yourself';
+        showPathNotice(
+          `Your group changed from ${prevN} to ${newN}, so the flow switched: you're now ${to}` +
+            (hadSelection ? '. Your previous date selection was cleared.' : `, not ${from}.`),
+        );
+      }
+    }
+
+    function renderAll(prevN?: number) {
+      const n = groupSize();
+      const newPath = pathFor(n);
+      renderSizeHint();
+
+      // switchPath() owns the notice for a path change end-to-end; the per-path notice logic
+      // below must not run in the same cycle, or it immediately clobbers (hides) the notice
+      // switchPath just showed, since `path` has already been updated to `newPath` by then.
+      const switched = initialized && newPath !== path;
+      if (switched) {
+        switchPath(newPath, prevN ?? n, n);
+      } else if (!initialized) {
+        path = newPath;
+        pathAEls.forEach((el) => { el.hidden = newPath !== 'A'; });
+        if (pathBEl) pathBEl.hidden = newPath !== 'B';
+        renumberSteps(newPath);
+      }
+
+      if (path === 'A') {
+        const prevStart = selectedStartIso;
+        calApplyFilter(n, catering); // instant re-filter against whatever's already loaded
+        if (!switched) {
+          if (initialized && prevStart && !selectedStartIso) {
+            showPathNotice(
+              `Your group changed to ${n}, so ${humanDate(prevStart, { day: 'numeric', month: 'long' })} no longer works for this booking. Please choose another date.`,
+            );
+          } else if (initialized) {
+            hidePathNotice();
+          }
+        }
+      } else {
+        // Always refreshes the list (needed on first entry to Path B too, not just on later
+        // same-path group-size changes); its own invalidation notice is a no-op right after a
+        // switch, since switchPath already cleared selectedStartIso.
+        joinRefresh();
+      }
+      updateEstimate();
+      syncAvailability(); // background fetch; re-renders whichever path is active once it resolves
+    }
+
+    let lastGroupSize = groupSize();
+    groupSelect.addEventListener('change', () => {
+      const prevN = lastGroupSize;
+      renderAll(prevN);
+      lastGroupSize = groupSize();
+    });
+
     form.querySelectorAll<HTMLInputElement>('input[name="catering"]').forEach((el) => {
       el.addEventListener('change', () => {
         if (!el.checked) return;
         catering = el.value as Catering;
-        renderAll();
+        const prevStart = selectedStartIso;
+        calApplyFilter(groupSize(), catering);
+        if (prevStart && !selectedStartIso) {
+          showPathNotice(
+            `You switched to ${catering === 'catered' ? 'catered' : 'self-catered'}, so ${humanDate(prevStart, { day: 'numeric', month: 'long' })} no longer matches (it's already locked to the other catering). Please choose another date.`,
+          );
+        } else {
+          hidePathNotice();
+        }
+        updateEstimate();
       });
     });
 
     renderAll();
+    initialized = true;
+
+    // ---- Notify-me capture (Path B, empty list) — reuses the existing createInquiry action. ---
+    notifySubmit?.addEventListener('click', async () => {
+      const setNotifyStatus = (msg: string, kind: 'error' | 'success') => {
+        if (!notifyStatus) return;
+        notifyStatus.textContent = msg;
+        notifyStatus.dataset.kind = kind;
+      };
+      if (notifyCompany?.value) return; // honeypot
+
+      const name = notifyName?.value.trim() ?? '';
+      const email = notifyEmail?.value.trim() ?? '';
+      const months = notifyMonths?.value.trim() ?? '';
+
+      const nameErr = firstErr(name, nameRules);
+      const emailErr = firstErr(email, emailRules);
+      if (notifyName) markField(notifyName.closest('.form-field'), nameErr);
+      if (notifyEmail) markField(notifyEmail.closest('.form-field'), emailErr);
+      if (nameErr) return notifyName?.focus();
+      if (emailErr) return notifyEmail?.focus();
+
+      const n = groupSize();
+      notifySubmit.disabled = true;
+      notifySubmit.textContent = 'Sending…';
+
+      const { error } = await actions.createInquiry({
+        name,
+        email,
+        groupSize: String(n),
+        targetDates: months || undefined,
+        message: `Notify me when a shared departure opens for a group of ${n}${months ? `, ideally around ${months}` : ''}.`,
+      });
+
+      if (error) {
+        notifySubmit.disabled = false;
+        notifySubmit.textContent = 'Notify me';
+        setNotifyStatus(error.message || 'Something went wrong. Please try again.', 'error');
+        return;
+      }
+
+      notifySubmit.textContent = 'Notify me';
+      setNotifyStatus("Thanks. We'll be in touch as soon as a matching date opens.", 'success');
+    });
 
     const setStatus = (msg: string, kind: 'error' | 'info' = 'error') => {
       if (!status) return;
@@ -769,7 +1155,11 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
       // Validate all required fields; focus first error.
       const startVal = String(fd.get('startDate') ?? '');
       if (!startVal) {
-        setStatus('Please choose a start date from the calendar.');
+        setStatus(
+          path === 'A'
+            ? 'Please choose a start date from the calendar.'
+            : 'Please choose a departure to join from the list.',
+        );
         return;
       }
       const fieldChecks: Array<[HTMLInputElement, Rule[]]> = [
