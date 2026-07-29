@@ -16,8 +16,8 @@ export const logisticsBlocks: LogBlock[] = [
     title: 'Self-catered or fully catered',
     body: [
       'For un-catered groups you bring your own food and drinks; we move them. Your provisions and bags travel between lodges each day, kept cool and dry, and every lodge has staff to help with kitchen prep, cooking, the barbeque, and washing up.',
-      'Prefer not to plan meals? For catered groups we provide a full English breakfast, a snack pack for the trail, and a full barbeque for dinner. Unfortunately, due to logistical limitations, we do not cater for special dietary requirements.',
-      'Self-catered or catered, your choice, on any start date. On a shared departure, whichever catering the first booking on that date chooses is what everyone joining that date gets.',
+      'Prefer not to plan meals? For catered groups we provide a full English breakfast, a snack pack for the trail, and a full barbeque for dinner. Unfortunately, due to logistical limitations, we have a fixed typical safari menu and are not able to accommodate special dietary requirements.',
+      'Self-catered or catered, your choice, on any start date. On a shared departure date, whichever catering option the first booking on that date chose is what everyone joining gets.',
     ],
   },
   {
@@ -63,7 +63,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'What are the conservation levies?',
-    a: 'Included in your package are conservation levies of approximately R380 to R760 (depending on residency status) per person per day, payable to RoiSan Reserve NPC, the manager of the reserve, which allocates monies to the maintenance and protection of the ecosystem and wildlife. This represents up to approximately 20% of your booking fee.',
+    a: 'Included in your package are conservation levies of 18% of your booking fee, payable to RoiSan Reserve NPC, the manager of the reserve, which allocates monies to the maintenance and protection of the ecosystem and wildlife.',
   },
   {
     q: 'Where is the trail and how do I get there?',
@@ -79,11 +79,11 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How far do you walk each day?',
-    a: 'Between 15 and 20 km on each of the three walking days, about 55 km in total. There is no walking on the arrival day.',
+    a: 'Between 15 and 20 km on each of the three walking days, about 55 km in total. There is no scheduled walking on the arrival day. You can arrange a vehicle transfer with your trail guide to shorten your walk on any day.',
   },
   {
     q: 'Is a walking safari in a Big 5 reserve safe?',
-    a: 'Yes. Two qualified trail guides are with you at all times under the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve.',
+    a: 'Yes. Two qualified trail guides are with you at all times under the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. Walking in Big 5 territory carries risk, but your two guides are trained to read the terrain and animal behaviour, and will adjust your route and pace throughout the walk.',
   },
   {
     q: 'Who carries the luggage and food?',
@@ -131,6 +131,12 @@ export const transfers = {
   linkUrl: 'https://www.ezshuttle.co.za/',
   booking:
     'Arrange your pick-up times, vehicle and rates with them directly, before your trip. The destination point is the reserve access gate. Rooiberg Wander reception is 2 km from the gate. Prior to your trip, please contact us via WhatsApp for gate access codes.',
+  // Pinned location of the reserve access gate, for guests to reference or share with EZ
+  // Shuttle when arranging their pick-up (EZ Shuttle's own booking form is app/JS-based with no
+  // documented way to pre-fill a destination via URL, so this is a plain map link, not an
+  // auto-fill integration).
+  mapUrl: 'https://maps.app.goo.gl/q513JEGNSY3ZhbUk8',
+  mapLinkText: 'View the reserve access gate on Google Maps',
   disclaimer:
     'All transport arrangements, bookings, payments and itineraries are strictly between you and EZ Shuttle. The Rooiberg Wander operates independently of all transit providers and takes no responsibility for scheduling, delays, vehicle safety, service quality, cancellations, or any incident on your way to or from the trail.',
 };
