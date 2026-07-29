@@ -1,32 +1,56 @@
 ---
-// RatesTable — Booking v3.1. Three purchasable options, equal visual weight: shared
-// self-catered, shared catered, and the Wednesday/Thursday exclusive buyout. Every card is
-// priced per person per night now (data/rates.ts) — there is no flat group rate left.
-import { rates } from '../data/rates';
-import { withBase } from '../data/site';
+// RatesTable — Booking v3.2. An actual table now (it was a three-card grid despite the name).
+// One glanceable price matrix: rate types as rows, seasons as columns. Transposed from the
+// operator's source spreadsheet so it is three columns instead of four and fits a 380px phone
+// without sideways scrolling. All figures come from data/rates.ts, which reads them from the
+// same constants lib/pricing.ts charges from.
+import {
+  rateRows,
+  formatRand,
+  SEASON_HIGH_LABEL,
+  SEASON_HIGH_DATES,
+  SEASON_LOW_LABEL,
+  SEASON_LOW_NOTE,
+} from '../data/rates';
 ---
 
-<div class="rates">
-  {
-    rates.map((r) => (
-      <div class="ratecard">
-        <p class="ratecard__label">{r.label}</p>
-        <p class="ratecard__bestfor">{r.bestFor}</p>
-        <p class="ratecard__price">
-          {r.heroPrice}
-          <span class="ratecard__unit">{r.heroUnit}</span>
-        </p>
-        {r.smallPrint && <p class="ratecard__smallprint">{r.smallPrint}</p>}
-        <p class="ratecard__subline">{r.subline}</p>
-        {r.notes.map((n) => (
-          <p class="ratecard__note">{n}</p>
-        ))}
-        <p class="ratecard__cta">
-          <a href={withBase('/rates#book')}>
-            Check available dates <span aria-hidden="true">&darr;</span>
-          </a>
-        </p>
-      </div>
-    ))
-  }
+<div class="ratetable-wrap">
+  <table class="ratetable">
+    <caption class="sr-only">
+      Rates per person per night, by catering type, start day and season.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col"><span class="sr-only">Rate type</span></th>
+        <th scope="col">
+          {SEASON_HIGH_LABEL}
+          <span class="ratetable__seasonnote">{SEASON_HIGH_DATES}</span>
+        </th>
+        <th scope="col">
+          {SEASON_LOW_LABEL}
+          <span class="ratetable__seasonnote">{SEASON_LOW_NOTE}</span>
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        rateRows.map((r) => (
+          <tr>
+            <th scope="row">
+              <span class="ratetable__label">{r.label}</span>
+              <span class="ratetable__qualifier">{r.qualifier}</span>
+            </th>
+            <td>
+              <span class="ratetable__price">{formatRand(r.high)}</span>
+              <span class="ratetable__unit">pp/night</span>
+            </td>
+            <td>
+              <span class="ratetable__price">{formatRand(r.low)}</span>
+              <span class="ratetable__unit">pp/night</span>
+            </td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
 </div>

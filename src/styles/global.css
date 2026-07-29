@@ -89,8 +89,7 @@
   }
 
   /* Tabular figures so prices, stats, day numbers and dates align cleanly. */
-  .ratecard__price,
-  .ratecard__vat,
+  .ratetable,
   .statsbar__value,
   .daycard__num,
   .daycard__distance,
@@ -1664,78 +1663,154 @@
     margin-bottom: 0.4rem;
   }
 
-  /* --- Rates (Part 5.6 / 8.5 / Booking v2.1) -------------------------------- */
-  .rates {
-    display: grid;
-    gap: 1.5rem;
+  /* --- Rate matrix (Booking v3.2) -------------------------------------------
+     Replaces the old three-card `.rates`/`.ratecard*` grid. Mobile-first: at the 380px baseline
+     the content box is ~332px, so the row-label column takes ~150px and the two season columns
+     ~90px each. The overflow-x wrapper is a safety net for large-text/zoom users only, matching
+     the convention already used by `.admin-tablewrap` and privacy's `.table-wrap`. */
+  .ratetable-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-hairline);
+    border-radius: 1rem;
+    background-color: color-mix(in srgb, var(--color-cream) 50%, #fff);
+  }
+  .ratetable {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-body);
+  }
+  .ratetable th,
+  .ratetable td {
+    text-align: left;
+    padding: 0.85rem 0.6rem;
+    border-bottom: 1px solid var(--color-hairline);
+    vertical-align: top;
   }
   @media (min-width: 640px) {
-    .rates {
-      grid-template-columns: repeat(2, 1fr);
+    .ratetable th,
+    .ratetable td {
+      padding: 1rem 1.1rem;
     }
   }
-  @media (min-width: 900px) {
-    .rates {
-      grid-template-columns: repeat(3, 1fr);
-    }
+  .ratetable tbody tr:last-child th,
+  .ratetable tbody tr:last-child td {
+    border-bottom: 0;
   }
-  .ratecard {
-    border: 1px solid var(--color-hairline);
-    border-radius: 1.25rem;
-    background-color: color-mix(in srgb, var(--color-cream) 50%, #fff);
-    padding: 1.75rem;
+  .ratetable thead th {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
   }
-  .ratecard__label {
-    font-family: var(--font-body);
-    font-size: 0.8rem;
+  .ratetable__seasonnote {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    line-height: 1.3;
+    color: color-mix(in srgb, var(--color-charcoal) 50%, transparent);
+  }
+  .ratetable__label {
+    display: block;
+    font-size: 0.9rem;
     font-weight: 600;
-    letter-spacing: 0.12em;
+    color: var(--color-earth);
+  }
+  .ratetable__qualifier {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+  }
+  .ratetable__price {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--color-earth);
+  }
+  @media (min-width: 640px) {
+    .ratetable__price {
+      font-size: 1.5rem;
+    }
+  }
+  .ratetable__unit {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+  }
+
+  /* Worked example + inclusions strip beneath the matrix. */
+  .rate-example {
+    margin-top: 1.25rem;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--color-earth);
+  }
+  .rate-includes {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    background-color: color-mix(in srgb, var(--color-green) 7%, var(--color-cream));
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+  }
+  .rate-includes strong {
+    color: var(--color-green);
+  }
+
+  /* The two availability rules. One column on mobile, two from 640px. */
+  .bookrules {
+    margin-top: 1.25rem;
+    display: grid;
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+    max-width: 56rem;
+  }
+  @media (min-width: 640px) {
+    .bookrules {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .bookrules li {
+    border: 1px solid var(--color-hairline);
+    border-left: 3px solid var(--color-ochre);
+    border-radius: 0.85rem;
+    background-color: color-mix(in srgb, var(--color-cream) 50%, #fff);
+    padding: 1.1rem 1.25rem;
+  }
+  .bookrules__days {
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-green);
   }
-  /* Quiet badge — deliberately not a filled/promo-ribbon treatment. */
-  .ratecard__bestfor {
-    display: inline-block;
-    margin-top: 0.65rem;
-    padding: 0.2rem 0.55rem;
-    border: 1px solid color-mix(in srgb, var(--color-earth) 25%, transparent);
-    border-radius: 0.4rem;
-    font-family: var(--font-body);
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: color-mix(in srgb, var(--color-earth) 80%, transparent);
-  }
-  .ratecard__price {
-    margin-top: 0.75rem;
+  .bookrules__title {
+    margin-top: 0.4rem;
     font-family: var(--font-display);
-    font-weight: 700;
-    font-size: clamp(2.25rem, 6vw, 2.85rem);
-    line-height: 1;
+    font-size: 1.1rem;
     color: var(--color-earth);
   }
-  .ratecard__unit {
-    display: block;
-    margin-top: 0.35rem;
+  .bookrules__body {
+    margin-top: 0.4rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
-  }
-  .ratecard__smallprint {
-    margin-top: 0.25rem;
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
-  }
-  .ratecard__subline {
-    margin-top: 0.9rem;
-    padding-top: 0.9rem;
-    border-top: 1px solid var(--color-hairline);
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    font-weight: 500;
-    line-height: 1.5;
-    color: var(--color-earth);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: color-mix(in srgb, var(--color-charcoal) 80%, transparent);
   }
 
   /* Launch-offer banner (Home page) */
@@ -1761,32 +1836,6 @@
     line-height: 1.25;
     color: var(--color-earth);
   }
-  .ratecard__note {
-    margin-top: 0.75rem;
-    font-family: var(--font-body);
-    font-size: 0.8125rem;
-    line-height: 1.55;
-    color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
-  }
-  .ratecard__cta {
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--color-hairline);
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-  }
-  .ratecard__cta a {
-    font-weight: 600;
-    color: var(--color-green);
-    text-decoration: underline;
-    text-underline-offset: 4px;
-    text-decoration-color: color-mix(in srgb, var(--color-green) 40%, transparent);
-    transition: text-decoration-color 200ms ease;
-  }
-  .ratecard__cta a:hover {
-    text-decoration-color: var(--color-green);
-  }
-
   /* --- Booking-confidence strip + payment trust row (Rates page) ----------- */
   .booking-assure {
     margin-top: 1.5rem;

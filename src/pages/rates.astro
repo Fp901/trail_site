@@ -10,10 +10,13 @@ import InquiryForm from '../components/InquiryForm.astro';
 import {
   UNCATERED_PP_NIGHT,
   CATERED_PP_NIGHT,
-  MAX_GROUP_SIZE,
   EXCLUSIVE_SIZE,
-  SHARED_OPEN_MIN,
   BOOKING_OPEN_DATE,
+  NIGHTS,
+  LAST_MINUTE_MIN_DAYS,
+  LAST_MINUTE_MAX_DAYS,
+  LAST_MINUTE_DISCOUNT,
+  bookingRules,
   formatRand,
   inclusions,
   exclusions,
@@ -37,6 +40,13 @@ const bookingEnabled = Boolean(
 // against the visitor's real date on load, so the page self-corrects after 15 Jan 2027 without
 // a redeploy.
 const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
+
+// Worked example under the rate table: the cheapest genuine combination (self-catered, a
+// Saturday-to-Wednesday start, low season) multiplied out across the trail, so nobody has to do
+// the arithmetic themselves to picture a real cost. Computed from the constants, never hardcoded.
+const exampleRate = UNCATERED_PP_NIGHT.week.low;
+const exampleTotal = exampleRate * NIGHTS;
+const lastMinutePercent = Math.round(LAST_MINUTE_DISCOUNT * 100);
 
 const title = 'Rates & Booking | The Rooiberg Wander';
 const description = `From ${formatRand(UNCATERED_PP_NIGHT.week.low)} per person per night self-catered, or ${formatRand(CATERED_PP_NIGHT.low)} catered. Wednesday/Thursday exclusive buyouts for ${EXCLUSIVE_SIZE}, or join a shared departure on any other day. See what's included and book.`;
@@ -73,10 +83,12 @@ const jsonLd = [
         What the trail costs
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        Every trail is priced <strong>per person, per night</strong>, self-catered or catered.
-        Take a Wednesday or Thursday exclusive buyout for exactly {EXCLUSIVE_SIZE} guests, with
-        no other booking on your date, or join a shared departure on any other day: the first
-        booking on arrival days starting Saturdays to Tuesdays require an initial {SHARED_OPEN_MIN} people to open the day and their election sets the catering option for the trip, later bookings top up from there, up to {MAX_GROUP_SIZE} in total.
+        Every booking is priced <strong>per person, per night</strong>, across the {NIGHTS}-night
+        trail. What you pay depends on three things: whether you self-cater or we cater, the
+        season, and your start day.
+      </p>
+      <p class="mt-8">
+        <a href="#book" class="btn btn-primary">Check dates and book</a>
       </p>
     </div>
   </Section>
@@ -86,34 +98,49 @@ const jsonLd = [
   </Section>
 
   <Section bg="cream" labelledby="matrix-heading" space="md" containerClass="!pt-0">
-    <h2 id="matrix-heading" class="sr-only">Rates</h2>
-    <RatesTable />
-    <p class="mt-6 max-w-3xl font-body text-sm text-charcoal/70">
-      Prices are in South African Rand. No VAT is charged. A payment receipt is issued on
-      confirmation of payment.
-    </p>
-  </Section>
+    <h2 id="matrix-heading" class="font-display text-2xl text-earth sm:text-3xl">Rates at a glance</h2>
 
-  <Section bg="cream" labelledby="included-heading" space="md" containerClass="!pt-0">
-    <div class="grid gap-10 md:grid-cols-2">
-      <div>
-        <h2 id="included-heading" class="font-display text-2xl text-earth sm:text-3xl">
-          Included in the price
-        </h2>
-        <ul class="incl-list incl-list--in">
-          {included.map((i) => <li>{i}</li>)}
-        </ul>
-      </div>
-      <div>
-        <h2 class="font-display text-2xl text-earth sm:text-3xl">What to arrange yourself</h2>
-        <ul class="incl-list incl-list--out">
-          {excluded.map((i) => <li>{i}</li>)}
-        </ul>
-      </div>
+    <div class="mt-6 max-w-3xl">
+      <RatesTable />
+
+      <p class="rate-example">
+        Rates are per person, per night. The trail is {NIGHTS} nights, so a self-catered
+        Saturday-to-Wednesday start in low season works out at {formatRand(exampleRate)} &times;{' '}
+        {NIGHTS} = <strong>{formatRand(exampleTotal)} per person</strong>.
+      </p>
+
+      <p class="rate-includes">
+        <strong>Every rate includes</strong> two trail guides &middot; daily baggage transport
+        &middot; lodge staff &middot; bedding, ice, wood and WiFi &middot; all conservation levies
+      </p>
+
+      <p class="mt-6 font-body text-sm leading-relaxed text-charcoal/70">
+        Prices are in South African Rand. No VAT is charged. A payment receipt is issued on
+        confirmation of payment. Self-catered bookings made {LAST_MINUTE_MIN_DAYS} to{' '}
+        {LAST_MINUTE_MAX_DAYS} days before the start date get a further {lastMinutePercent}% off.
+      </p>
     </div>
+
+    {/* The two availability rules, stated once. Deliberately separate from the price matrix:
+        what a trip costs and which days you can book it are independent, and merging them into
+        three repeating cards was the main source of confusion on the old page. */}
+    <h3 class="mt-12 font-display text-xl text-earth sm:text-2xl">Two ways to book</h3>
+    <ul class="bookrules">
+      {
+        bookingRules.map((r) => (
+          <li>
+            <p class="bookrules__days">{r.days}</p>
+            <p class="bookrules__title">{r.title}</p>
+            <p class="bookrules__body">{r.body}</p>
+          </li>
+        ))
+      }
+    </ul>
   </Section>
 
-  {/* Booking area — live BookingWidget when configured, else a calm "coming soon" + enquiry. */}
+  {/* Booking area — live BookingWidget when configured, else a calm "coming soon" + enquiry.
+      Sits directly after the rates so the conversion action is reached without first scrolling
+      past the full included/excluded lists, which now follow it as supporting detail. */}
   <Section bg="cream" labelledby="book-heading" space="md" containerClass="!pt-0">
     <div id="book" class="max-w-3xl">
       <h2 id="book-heading" class="font-display text-2xl text-earth sm:text-3xl">
@@ -125,12 +152,6 @@ const jsonLd = [
             <p class="mt-4 font-body leading-relaxed text-charcoal/85">
               Choose your group size and catering, then a date, and pay securely by card. Your
               booking is confirmed once payment is received, and a receipt is issued by email.
-            </p>
-            <p class="mt-2 font-body text-sm leading-relaxed text-charcoal/70">
-              Priced per person per night, self-catered or catered: a Wednesday or Thursday
-              exclusive buyout for exactly {EXCLUSIVE_SIZE} guests, or a shared departure any
-              other day (from {SHARED_OPEN_MIN} people to open a new date, up to{' '}
-              {MAX_GROUP_SIZE} in total).
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}
@@ -182,6 +203,27 @@ const jsonLd = [
           </div>
         )
       }
+    </div>
+  </Section>
+
+  {/* Included / to arrange — supporting detail. A one-line summary already sits under the rate
+      table, so this full breakdown follows the widget rather than delaying it. */}
+  <Section bg="cream" labelledby="included-heading" space="md" containerClass="!pt-0">
+    <div class="grid gap-10 md:grid-cols-2">
+      <div>
+        <h2 id="included-heading" class="font-display text-2xl text-earth sm:text-3xl">
+          Included in the price
+        </h2>
+        <ul class="incl-list incl-list--in">
+          {included.map((i) => <li>{i}</li>)}
+        </ul>
+      </div>
+      <div>
+        <h2 class="font-display text-2xl text-earth sm:text-3xl">What to arrange yourself</h2>
+        <ul class="incl-list incl-list--out">
+          {excluded.map((i) => <li>{i}</li>)}
+        </ul>
+      </div>
     </div>
   </Section>
 

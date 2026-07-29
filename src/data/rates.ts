@@ -64,69 +64,78 @@ export function formatRand(amount: number): string {
   return 'R' + Math.round(amount).toLocaleString('en-US');
 }
 
-// Display cards for the Rates page (RatesTable.astro). Every card is now priced pp — there is
-// no flat-group product left. Headline uses the LOW-season "from" figure (the lowest genuine
-// entry price); supporting notes carry the season/day variation and group-size rules.
-export interface RateCard {
-  id: 'exclusive' | 'shared-uncatered' | 'shared-catered';
-  label: string;
-  bestFor: string; // short quiet badge
-  heroPrice: string; // the big "from R___ pp/night" number
-  heroUnit: string;
-  smallPrint?: string; // tertiary detail (e.g. the full-trail pp total)
-  subline: string;
-  notes: string[];
+// --- Rates page display model -----------------------------------------------------------------
+// One rate matrix (RatesTable.astro), not three marketing cards. The three cards it replaces
+// repeated the same day-of-week/group-size rules verbatim and each led with the single cheapest
+// cell in the matrix ("From R880 pp/night"), which anchored on a price most bookings never pay.
+//
+// The matrix is deliberately TRANSPOSED relative to the operator's source spreadsheet: rate
+// types are rows and seasons are columns, so it is three columns wide instead of four and fits a
+// 380px phone without sideways scrolling. Same numbers, rotated.
+//
+// Every figure is read from the constants above — never re-typed as a literal — so the displayed
+// rate and the amount lib/pricing.ts actually charges cannot drift apart.
+export interface RateRow {
+  label: string; // "Catered"
+  qualifier: string; // "any start day"
+  high: number; // rand pp/night, high season
+  low: number; // rand pp/night, low season
 }
 
-const uncateredWeekLow = UNCATERED_PP_NIGHT.week.low;
-const uncateredWeekendHigh = UNCATERED_PP_NIGHT.weekend.high;
-const cateredLow = CATERED_PP_NIGHT.low;
+export const rateRows: RateRow[] = [
+  {
+    label: 'Catered',
+    qualifier: 'any start day',
+    high: CATERED_PP_NIGHT.high,
+    low: CATERED_PP_NIGHT.low,
+  },
+  {
+    label: 'Self-catered',
+    qualifier: 'Thursday & Friday start',
+    high: UNCATERED_PP_NIGHT.weekend.high,
+    low: UNCATERED_PP_NIGHT.weekend.low,
+  },
+  {
+    label: 'Self-catered',
+    qualifier: 'Saturday to Wednesday start',
+    high: UNCATERED_PP_NIGHT.week.high,
+    low: UNCATERED_PP_NIGHT.week.low,
+  },
+];
 
-export const rates: RateCard[] = [
+// Season column headings for the matrix.
+export const SEASON_HIGH_LABEL = 'High season';
+export const SEASON_HIGH_DATES = '1 Apr to 31 Oct, 15 Dec to 15 Jan';
+export const SEASON_LOW_LABEL = 'Low season';
+export const SEASON_LOW_NOTE = `${Math.round(SEASON_DISCOUNT * 100)}% less`;
+
+// The two booking rules, stated ONCE (the retired cards repeated them three times). These are
+// availability rules, deliberately kept separate from the price matrix above: what a trip costs
+// and which days you may book it on are two independent axes, and merging them was the main
+// source of confusion on the old page.
+export interface BookingRule {
+  days: string;
+  title: string;
+  body: string;
+}
+
+export const bookingRules: BookingRule[] = [
   {
-    id: 'shared-uncatered',
-    label: 'Shared, self-catered',
-    bestFor: 'Best for 2 to 7 walkers',
-    heroPrice: `From ${formatRand(uncateredWeekLow)} pp/night`,
-    heroUnit: '',
-    smallPrint: `Up to ${formatRand(uncateredWeekendHigh)} pp/night on a Thursday/Friday start in high season`,
-    subline: 'Join or open a shared departure. You bring and prepare your own food.',
-    notes: [
-      'Sunday, Monday, Tuesday, Friday or Saturday start. The first booking on a date needs 4 or more people; later bookings top up in 2s, up to 8 in total.',
-      'Lower midweek, higher on a Thursday or Friday start; lower again outside the high season.',
-    ],
+    days: 'Wednesday or Thursday',
+    title: 'The whole trail to yourselves',
+    body: `A private buyout for a group of exactly ${EXCLUSIVE_SIZE}. No other booking joins your dates.`,
   },
   {
-    id: 'shared-catered',
-    label: 'Shared, catered',
-    bestFor: 'Best for the international market',
-    heroPrice: `From ${formatRand(cateredLow)} pp/night`,
-    heroUnit: '',
-    subline: 'Join or open a shared departure, fully catered. One rate, any start day.',
-    notes: [
-      'Sunday, Monday, Tuesday, Friday or Saturday start. The first booking on a date needs 4 or more people; later bookings top up in 2s, up to 8 in total.',
-      'Lower outside the high season; no day-of-week premium.',
-    ],
-  },
-  {
-    id: 'exclusive',
-    label: 'Private buyout',
-    bestFor: 'The whole trail to yourselves',
-    heroPrice: `From ${formatRand(uncateredWeekLow)} pp/night`,
-    heroUnit: '',
-    smallPrint: 'Self-catered or catered, priced the same as the shared rate above',
-    subline: 'Exactly 8 places, Wednesday or Thursday only. No other booking joins your date.',
-    notes: [
-      'Self-catered or catered, your choice.',
-      'Priced per person per night, same rates as the shared departures.',
-    ],
+    days: 'Friday to Tuesday',
+    title: 'Join a shared departure',
+    body: `The first booking of ${SHARED_OPEN_MIN} or more opens a date and sets its catering. Others then join in ${SHARED_TOPUP_MIN}s until the trail is full at ${MAX_GROUP_SIZE}.`,
   },
 ];
 
 // What the price includes / excludes. Single source shared by the Rates page and the homepage
 // so the two can never drift.
 export const inclusions = [
-  'A guided walk with your group, with exclusive use of each safari lodge overnight',
+  'A guided walk, with each safari lodge reserved for your departure alone overnight',
   'Two experienced trail guides throughout',
   'Daily transport of your baggage and provisions between lodges',
   'Lodge staff for cleaning, kitchen prep and the barbeque',
