@@ -133,12 +133,20 @@ export function isHighSeason(isoDate: string): boolean {
   return false;
 }
 
-// The per-person-per-night rate (cents) for a given catering choice and start date.
+// Rounds a cents figure to the nearest WHOLE RAND (nearest 100 cents), not just the nearest
+// cent. Under today's rate constants every per-night figure is already a whole rand, so this is
+// a no-op in practice — it exists so a future non-whole rate (e.g. a runtime-computed seasonal
+// adjustment instead of a hardcoded constant) can never leave fractional cents to compound
+// through NIGHTS and the last-minute discount below.
+const roundToRand = (cents: number) => Math.round(cents / 100) * 100;
+
+// The per-person-per-night rate (cents) for a given catering choice and start date, rounded to
+// the nearest rand BEFORE it gets multiplied out by NIGHTS/discounts (see roundToRand above).
 export function ppNightCentsFor(catering: Catering, startDate: string): number {
   const season = isHighSeason(startDate) ? 'high' : 'low';
-  if (catering === 'catered') return toCents(CATERED_PP_NIGHT[season]);
+  if (catering === 'catered') return roundToRand(toCents(CATERED_PP_NIGHT[season]));
   const bucket = isWeekendPricingDay(startDate) ? 'weekend' : 'week';
-  return toCents(UNCATERED_PP_NIGHT[bucket][season]);
+  return roundToRand(toCents(UNCATERED_PP_NIGHT[bucket][season]));
 }
 
 // Is a self-catered booking for this start date eligible for the last-minute discount (8 to 21
@@ -189,7 +197,7 @@ export function computeQuote(input: {
 
   const ppNightCents = input.startDate
     ? ppNightCentsFor(catering, input.startDate)
-    : toCents(catering === 'catered' ? CATERED_PP_NIGHT.high : UNCATERED_PP_NIGHT.week.high);
+    : roundToRand(toCents(catering === 'catered' ? CATERED_PP_NIGHT.high : UNCATERED_PP_NIGHT.week.high));
 
   let ppTotalCents = ppNightCents * NIGHTS;
   const lastMinuteDiscountApplied = !!input.startDate && isLastMinuteEligible(catering, input.startDate, now);

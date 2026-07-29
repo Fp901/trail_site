@@ -1,7 +1,18 @@
 ---
-// Booking confirmation callback (Part 9.2). prerender=false. Verifies the transaction by
-// reference for display only — the webhook (verified) is the source of truth for confirmation.
-// Resilient when payments aren't configured yet (shows a neutral "confirming" state).
+// Booking confirmation callback (Part 9.2). prerender=false. Display-only: verifies the
+// transaction with Paystack for a first-paint guess, but the WEBHOOK remains the sole writer of
+// `confirmed` — this page never confirms a booking itself.
+//
+// The redirect back from Paystack usually beats the webhook, so at the moment this page first
+// renders, Paystack may already say the charge succeeded while our own booking row is still
+// `pending` (the webhook hasn't landed yet). Declaring the booking "secured" on the strength of
+// the redirect alone would be exactly the callback-trusting pattern the rest of this codebase
+// avoids. So: check OUR booking's actual status too. If it's already `confirmed`, show the real
+// confirmed state immediately (the common case — webhooks are usually fast). If Paystack says
+// success (or its own verify call merely errored — inconclusive, not a denial) but our booking
+// isn't confirmed yet, show confident "payment received, confirming" copy and poll
+// checkBookingStatus client-side until it flips, updating in place with no reload. Never a bare
+// "pending" state for someone who has just paid.
 import Layout from '../../layouts/Layout.astro';
 import Section from '../../components/Section.astro';
 import { payments } from '../../lib/payments';
@@ -12,37 +23,40 @@ export const prerender = false;
 
 const reference = Astro.url.searchParams.get('reference') ?? Astro.url.searchParams.get('trxref');
 
-let state: 'success' | 'pending' | 'error' = 'pending';
+let state: 'confirmed' | 'awaiting' = 'awaiting';
 let pretripToken: string | null = null;
+
 if (reference) {
   try {
     const result = await payments.verifyTransaction(reference);
-    if (result.status === 'success') {
-      state = 'success';
-    } else {
+    if (result.status !== 'success') {
       // Payment was cancelled or abandoned inside Paystack — redirect to the cancel page which
       // releases the hold immediately and shows a clear "no payment taken" message.
       return Astro.redirect(`/booking/cancel?reference=${encodeURIComponent(reference)}`);
     }
   } catch {
-    state = 'error';
+    // Paystack's verify call itself failed (network/transient) — inconclusive, not a denial.
+    // Fall through to the DB check below; the webhook's own independent verification is what
+    // actually matters, and polling will pick up the true state either way.
   }
-  // Fetch the booking's pre-trip token so we can send the guest straight to the details form.
+
   try {
     const supabase = getSupabaseAdmin();
     const { data } = await supabase
       .from('bookings')
-      .select('pretrip_token')
+      .select('status, pretrip_token')
       .eq('processor_reference', reference)
       .maybeSingle();
-    pretripToken = data?.pretrip_token ?? null;
+    if (data?.status === 'confirmed') {
+      state = 'confirmed';
+      pretripToken = data.pretrip_token ?? null;
+    }
   } catch {
-    pretripToken = null;
+    // Leave state as 'awaiting'; the client-side poll below will keep checking.
   }
 }
 
-const heading =
-  state === 'success' ? 'Your booking is confirmed' : 'We’re confirming your booking';
+const heading = state === 'confirmed' ? 'Your booking is confirmed' : 'Payment received';
 ---
 
 <Layout
@@ -52,45 +66,41 @@ const heading =
   noindex={true}
 >
   <Section bg="cream" labelledby="confirm-heading" space="lg">
-    <div class="max-w-2xl">
-      <h1 id="confirm-heading" class="font-display text-4xl text-earth sm:text-5xl">
+    <div class="max-w-2xl" data-confirm-root data-reference={reference ?? ''} data-state={state}>
+      <h1 id="confirm-heading" class="font-display text-4xl text-earth sm:text-5xl" data-confirm-heading>
         {heading}
       </h1>
 
-      {
-        state === 'success' && (
-          <Fragment>
+      <div data-confirm-body>
+        {
+          state === 'confirmed' ? (
             <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
               Thank you. Your payment was received and your exclusive booking is secured. A
               confirmation email and receipt are on their way. We look forward to welcoming
               your group to the Rooiberg.
             </p>
-            {pretripToken && (
-              <div class="mt-8 rounded-2xl border border-ochre/50 bg-ochre/10 p-6">
-                <p class="font-display text-xl text-earth">One more step: your pre-trip details</p>
-                <p class="mt-2 font-body leading-relaxed text-charcoal/85">
-                  Please complete a few details for your group within 7 days so we can prepare for
-                  your trail.
-                </p>
-                <p class="mt-4">
-                  <a href={withBase(`/pretrip/${pretripToken}`)} class="btn btn-primary">
-                    Complete your pre-trip details
-                  </a>
-                </p>
-              </div>
-            )}
-          </Fragment>
-        )
-      }
-      {
-        state !== 'success' && (
-          <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
-            Thank you. We’re finalising your payment confirmation. If your payment was
-            successful you’ll receive a confirmation email shortly, so there’s no need to pay
-            again. If anything looks wrong, please contact us.
-          </p>
-        )
-      }
+          ) : (
+            <p class="mt-6 font-body text-lg leading-relaxed text-charcoal" data-confirm-awaiting-text>
+              Thank you. Your payment has been received. We're confirming it with the bank now;
+              this usually takes a few seconds, and this page will update on its own. There's no
+              need to pay again or refresh.
+            </p>
+          )
+        }
+      </div>
+
+      <div class="mt-8 rounded-2xl border border-ochre/50 bg-ochre/10 p-6" data-confirm-pretrip hidden={!(state === 'confirmed' && pretripToken)}>
+        <p class="font-display text-xl text-earth">One more step: your pre-trip details</p>
+        <p class="mt-2 font-body leading-relaxed text-charcoal/85">
+          Please complete a few details for your group within 7 days so we can prepare for
+          your trail.
+        </p>
+        <p class="mt-4">
+          <a href={withBase(`/pretrip/${pretripToken ?? ''}`)} class="btn btn-primary" data-confirm-pretrip-link>
+            Complete your pre-trip details
+          </a>
+        </p>
+      </div>
 
       <p class="mt-8">
         <a href="/" class="btn btn-secondary">Return home</a>
@@ -98,3 +108,74 @@ const heading =
     </div>
   </Section>
 </Layout>
+
+<script>
+  import { actions } from 'astro:actions';
+
+  function initConfirmPoll() {
+    const root = document.querySelector<HTMLElement>('[data-confirm-root]');
+    if (!root || root.dataset.bound === 'true') return;
+    root.dataset.bound = 'true';
+
+    if (root.dataset.state === 'confirmed') return; // nothing to poll for
+
+    const reference = root.dataset.reference;
+    if (!reference) return;
+    const ref: string = reference; // narrowed, non-optional copy for the closures below
+
+    const heading = root.querySelector<HTMLElement>('[data-confirm-heading]');
+    const body = root.querySelector<HTMLElement>('[data-confirm-body]');
+    const awaitingText = root.querySelector<HTMLElement>('[data-confirm-awaiting-text]');
+    const pretripBlock = root.querySelector<HTMLElement>('[data-confirm-pretrip]');
+    const pretripLink = root.querySelector<HTMLAnchorElement>('[data-confirm-pretrip-link]');
+
+    const POLL_INTERVAL_MS = 2500;
+    const MAX_ATTEMPTS = 24; // ~60 seconds
+
+    function showConfirmed(pretripToken: string | null) {
+      if (heading) heading.textContent = 'Your booking is confirmed';
+      if (body) {
+        body.innerHTML = '';
+        const p = document.createElement('p');
+        p.className = 'mt-6 font-body text-lg leading-relaxed text-charcoal';
+        p.textContent =
+          'Thank you. Your payment was received and your exclusive booking is secured. A confirmation email and receipt are on their way. We look forward to welcoming your group to the Rooiberg.';
+        body.appendChild(p);
+      }
+      if (pretripToken && pretripBlock && pretripLink) {
+        pretripLink.href = pretripLink.href.replace(/\/pretrip\/.*$/, `/pretrip/${pretripToken}`);
+        pretripBlock.hidden = false;
+      }
+    }
+
+    function showStillWaiting() {
+      if (awaitingText) {
+        awaitingText.textContent =
+          "Thank you. Your payment has been received and we're still finalising the confirmation. This can occasionally take a few minutes: check your email for the confirmation, or contact us if you don't hear from us shortly.";
+      }
+    }
+
+    let attempts = 0;
+    async function poll() {
+      attempts++;
+      try {
+        const { data, error } = await actions.checkBookingStatus({ reference: ref });
+        if (!error && data?.status === 'confirmed') {
+          showConfirmed(data.pretripToken ?? null);
+          return; // stop polling
+        }
+      } catch {
+        // transient network error — keep polling, don't alarm the guest over one failed check
+      }
+      if (attempts < MAX_ATTEMPTS) {
+        window.setTimeout(poll, POLL_INTERVAL_MS);
+      } else {
+        showStillWaiting();
+      }
+    }
+
+    window.setTimeout(poll, POLL_INTERVAL_MS);
+  }
+
+  document.addEventListener('astro:page-load', initConfirmPoll);
+</script>

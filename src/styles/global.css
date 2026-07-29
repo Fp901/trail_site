@@ -1223,6 +1223,7 @@
     letter-spacing: 0.03em;
     text-transform: uppercase;
     vertical-align: middle;
+    white-space: nowrap; /* the pill itself never breaks mid-word; it may wrap as a whole unit */
   }
   .bjoin-card__meta {
     font-size: 0.8rem;
@@ -1428,14 +1429,23 @@
     line-height: 1;
     color: var(--color-charcoal);
   }
-  /* Every cell carries a badge (seats/price/reason) under the day number, not just an aria-label
-     — a "3 left" or "Switch?" cell should read differently from a plain joinable one. */
+  /* Every cell carries a badge (seats/reason) under the day number, not just an aria-label — a
+     "3 left" or "Switch?" cell should read differently from a plain joinable one. Mobile-first:
+     at the 380px baseline, cells show day number + badge only (min-height 2.75rem = 44px, the
+     site's touch-target floor); the per-person price line only appears from 480px up, where
+     there's room for it without cramming a third line into a ~45px-wide column. The price is
+     always in the aria-label regardless of breakpoint, so screen-reader users never lose it. */
   .bcal--shared .bcal__cell {
     aspect-ratio: auto;
-    min-height: 3.4rem;
+    min-height: 2.75rem;
+  }
+  @media (min-width: 480px) {
+    .bcal--shared .bcal__cell {
+      min-height: 3.4rem;
+    }
   }
   .bcal__seats {
-    font-size: 0.56rem;
+    font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.01em;
     line-height: 1.15;
@@ -1452,10 +1462,16 @@
     color: color-mix(in srgb, var(--color-earth) 85%, transparent);
   }
   .bcal__price {
-    font-size: 0.52rem;
+    display: none;
+    font-size: 0.56rem;
     font-weight: 500;
     line-height: 1.1;
     color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+  }
+  @media (min-width: 480px) {
+    .bcal__price {
+      display: block;
+    }
   }
   .bcal__cell--blank {
     border: 0;

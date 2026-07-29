@@ -478,11 +478,15 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
     }
 
     // ---- Price math mirrored from lib/pricing.ts (display only; server recomputes) -----------
+    // roundToRand mirrors lib/pricing.ts's own guard: today's constants are already whole rands,
+    // so this is a no-op, but it stops a future non-whole rate leaving fractional cents to
+    // compound through NIGHTS and the last-minute discount below.
+    const roundToRand = (cents: number) => Math.round(cents / 100) * 100;
     function ppNightCents(cat: Catering, iso: string): number {
       const season = isHighSeasonIso(iso) ? 'high' : 'low';
-      if (cat === 'catered') return R.catered[season] * 100;
+      if (cat === 'catered') return roundToRand(R.catered[season] * 100);
       const bucket = isWeekendPricingDayIso(iso) ? 'weekend' : 'week';
-      return R.uncatered[bucket][season] * 100;
+      return roundToRand(R.uncatered[bucket][season] * 100);
     }
     function lastMinuteEligible(cat: Catering, iso: string): boolean {
       if (cat !== 'uncatered') return false;
@@ -868,7 +872,9 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
           const label = otherCat === 'catered' ? 'Catered' : 'Self-catered';
           const badge = document.createElement('span');
           badge.className = 'bcal__seats';
-          badge.textContent = `${label} · Switch?`;
+          // Short by design — "Catered · Switch?" wraps to two lines in a ~45px-wide mobile
+          // cell; the ochre colour + legend entry + full aria-label already carry the catering.
+          badge.textContent = 'Switch?';
           cell.appendChild(badge);
           const priceEl = document.createElement('span');
           priceEl.className = 'bcal__price';

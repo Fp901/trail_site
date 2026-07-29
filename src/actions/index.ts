@@ -304,6 +304,35 @@ export const server = {
     },
   }),
 
+  // Read-only status check for /booking/confirm's client-side poll (Part 9.2 / Phase 4). The
+  // redirect back from Paystack usually beats the webhook, so the callback page can't yet know
+  // whether OUR booking is actually confirmed — only that Paystack itself accepted the charge.
+  // This lets the page poll until the webhook (the sole writer of `confirmed`) has caught up,
+  // rather than the callback declaring the booking "secured" on the strength of the redirect
+  // alone. Returns only status + the pretrip link token — no PII, no amounts — for a reference
+  // the caller already holds (it's the same `?reference=` Paystack just appended to this URL,
+  // an unguessable UUID, not enumerable). Rate-limited generously for ~1 minute of ~2.5s polling.
+  checkBookingStatus: defineAction({
+    accept: 'json',
+    input: z.object({
+      reference: z.string().max(100),
+    }),
+    handler: async (input, ctx) => {
+      const ip = clientIp(ctx.request);
+      if (!(await rateLimit(`checkstatus:min:${ip}`, 40, 60))) {
+        throw new ActionError({ code: 'TOO_MANY_REQUESTS', message: 'Too many requests.' });
+      }
+      const supabase = getSupabaseAdmin();
+      const { data } = await supabase
+        .from('bookings')
+        .select('status, pretrip_token')
+        .eq('processor_reference', input.reference)
+        .maybeSingle();
+      if (!data) return { status: 'not_found' as const, pretripToken: null };
+      return { status: data.status as 'pending' | 'confirmed' | 'cancelled', pretripToken: data.pretrip_token as string | null };
+    },
+  }),
+
   // Resume payment for an existing live pending hold, without creating a new booking row.
   // Two callers: (1) the abandoned-checkout confirm prompt, which already knows the exact
   // `reference` it stashed client-side; (2) the createCheckout duplicate-booking conflict,
