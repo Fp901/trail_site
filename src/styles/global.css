@@ -2371,6 +2371,63 @@
      the content box is ~332px, so the row-label column takes ~150px and the two season columns
      ~90px each. The overflow-x wrapper is a safety net for large-text/zoom users only, matching
      the convention already used by `.admin-tablewrap` and privacy's `.table-wrap`. */
+  /* Currency tabs above the price matrix — radio buttons styled as pill chips, same idiom as
+     .bstyle__card and the calendar's .bcal__chip: native, keyboard-operable, no custom widget.
+     ZAR stays the default AND the only charged currency; the other three are a display-only,
+     indicative conversion (data/rates.ts's ZAR_TO_FOREIGN). */
+  .ratetable__currency {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 0.85rem;
+    padding: 0;
+    border: 0;
+  }
+  .ratetable__curbtn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    min-width: 3.25rem;
+    padding: 0 1rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 18%, transparent);
+    background-color: #fff;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--color-earth);
+    cursor: pointer;
+    transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+  }
+  .ratetable__curbtn input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .ratetable__curbtn:has(input:checked) {
+    background-color: var(--color-earth);
+    border-color: var(--color-earth);
+    color: var(--color-cream);
+  }
+  .ratetable__curbtn:has(input:focus-visible) {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 2px;
+  }
+  .ratetable__fxnote {
+    margin: 0.85rem 0 0;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+  }
+
   .ratetable-wrap {
     overflow-x: auto;
     border: 1px solid var(--color-hairline);

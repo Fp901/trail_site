@@ -11,8 +11,10 @@
 // the constant rather than a literal.
 import { readFileSync } from 'node:fs';
 import {
+  NIGHTS,
   LOWEST_PP_NIGHT,
-  FROM_PP_NIGHT_DISPLAY,
+  FROM_PP_SHARING_DISPLAY,
+  ppSharingRand,
   UNCATERED_PP_NIGHT,
   CATERED_PP_NIGHT,
   LAST_MINUTE_DISCOUNT,
@@ -40,7 +42,7 @@ const email = read('src/lib/email.ts');
 const rates = read('src/data/rates.ts');
 const css = read('src/styles/global.css');
 
-section('1. The "from" price is DERIVED, and every quoted rate is honourable');
+section('1. The "from" price is DERIVED, per person SHARING, and every quoted rate is honourable');
 assert('LOWEST_PP_NIGHT is computed with Math.min over the rate table, not assigned',
   /export const LOWEST_PP_NIGHT = Math\.min\(/.test(rates));
 // A hand-picked "cheapest cell" is the exact thing that goes stale: the table can change without
@@ -57,17 +59,27 @@ assert(`LOWEST_PP_NIGHT (${LOWEST_PP_NIGHT}) really is the minimum of all six pu
 assert('the last-minute rate is NOT advertised as the entry price',
   LOWEST_PP_NIGHT > LOWEST_PP_NIGHT * (1 - LAST_MINUTE_DISCOUNT) &&
   /Deliberately excludes the\n\/\/ last-minute discount/.test(rates));
-assert('the display string is built from it, once', /export const FROM_PP_NIGHT_DISPLAY = formatRand\(LOWEST_PP_NIGHT\)/.test(rates));
+// The trail has no shorter stay to choose (all NIGHTS nights are mandatory), so the entry price
+// quoted anywhere on the site must be the per-person SHARING total, never the bare nightly rate.
+assert('ppSharingRand multiplies by NIGHTS, and is the ONLY conversion site-wide',
+  /export const ppSharingRand = \(perNightRand: number\): number => perNightRand \* NIGHTS/.test(rates));
+assert(`FROM_PP_SHARING_DISPLAY (${FROM_PP_SHARING_DISPLAY}) is exactly LOWEST_PP_NIGHT x NIGHTS`,
+  FROM_PP_SHARING_DISPLAY === formatRand(LOWEST_PP_NIGHT * NIGHTS));
+assert('the display string is built from ppSharingRand, once',
+  /export const FROM_PP_SHARING_DISPLAY = formatRand\(ppSharingRand\(LOWEST_PP_NIGHT\)\)/.test(rates));
+assert('the retired nightly display constant is gone', !/FROM_PP_NIGHT_DISPLAY/.test(rates));
 
-section('2. Homepage CTAs quote it, and never a literal');
-assert('the homepage imports the computed figure', /FROM_PP_NIGHT_DISPLAY \} from '\.\.\/data\/rates'/.test(home));
-const homeUses = (home.match(/FROM_PP_NIGHT_DISPLAY/g) || []).length - 1; // minus the import
+section('2. Homepage CTAs quote the SHARING total, and never a literal');
+assert('the homepage imports the computed figure', /FROM_PP_SHARING_DISPLAY \} from '\.\.\/data\/rates'/.test(home));
+const homeUses = (home.match(/FROM_PP_SHARING_DISPLAY/g) || []).length - 1; // minus the import
 assert(`it is used in the copy (${homeUses} places)`, homeUses >= 3);
-assert(`the literal "${FROM_PP_NIGHT_DISPLAY}" appears nowhere on the homepage`,
-  !new RegExp(`\\b${FROM_PP_NIGHT_DISPLAY}\\b`).test(home));
+assert(`the literal "${FROM_PP_SHARING_DISPLAY}" appears nowhere on the homepage`,
+  !new RegExp(`\\b${FROM_PP_SHARING_DISPLAY}\\b`).test(home));
 assert('no rand figure at all is typed into the homepage', !/\bR\d[\d,]*\b/.test(home));
-assert('the primary CTA states the price', /See rates and book, from \{FROM_PP_NIGHT_DISPLAY\}/.test(home));
-assert('the closing CTA states it too', /Rates start at \{FROM_PP_NIGHT_DISPLAY\}/.test(home));
+assert('the primary CTA states the SHARING price', /See rates and book, from \{FROM_PP_SHARING_DISPLAY\} per person sharing/.test(home));
+assert('the closing CTA states it too', /Rates start at \{FROM_PP_SHARING_DISPLAY\} per person sharing/.test(home));
+assert('the retired nightly display constant is not imported anywhere on the homepage', !/FROM_PP_NIGHT_DISPLAY/.test(home));
+assert('the homepage never claims a per-night price', !/per person per night|pp\/night/.test(home));
 
 section('3. The pricing explainer exists and computes everything it claims');
 assert('the page exists at /how-pricing-works', explainer.length > 500);
@@ -105,6 +117,16 @@ assert('the catering label is derived', /const exampleStyle = exampleCatering ==
 }
 assert('the example shows deposit AND balance, not just a total',
   /Paid today \(50% deposit\)/.test(explainer) && /Balance, due \$\{BALANCE_LEAD_DAYS\} days before arrival/.test(explainer));
+// The worked example's headline row must be the per-person SHARING figure (nightly rate already
+// multiplied by NIGHTS), not a nightly rate awaiting a separate "x nights" step — the trail has no
+// shorter stay, so a two-step "per night, then x nights" breakdown would misstate what is on offer.
+assert('the example computes a SHARING figure by multiplying the engine\'s per-night rate by NIGHTS',
+  /const examplePpSharing = ppNightCentsFor\(exampleCatering, exampleIso, exampleNow\) \* NIGHTS/.test(explainer));
+assert('the example\'s headline row is labelled "per person sharing"',
+  /\$\{asRand\(examplePpSharing\)\} per person sharing/.test(explainer));
+assert('no separate nights-multiplication row survives in the example',
+  !/NIGHTS.{0,20}nights.{0,20}asRand\(examplePpTotal\)/.test(explainer) && !/examplePpTotal/.test(explainer));
+assert('the example never states a bare per-night figure', !/per person per night/.test(explainer));
 assert('inclusions and exclusions are mapped from data/rates.ts',
   /\{inclusions\.map\(/.test(explainer) && /\{exclusions\.map\(/.test(explainer));
 for (const item of [...inclusions, ...exclusions]) {
@@ -197,6 +219,16 @@ assert('no fabricated credential appears on the explainer',
   !/FGASA|certified|years of experience|award[- ]winning/i.test(explainer));
 assert(`the explainer claims exactly the ${inclusions.length} inclusions we publish`,
   (explainer.match(/inclusions\.map/g) || []).length === 1);
+
+// The trail is always exactly NIGHTS nights (mandatory, no shorter stay), so no customer-facing
+// surface may quote a bare per-night price — every figure is per person SHARING for the whole
+// trail. Swept across every surface this script already reads.
+for (const [name, src] of [['homepage', home], ['explainer', explainer], ['rates page', ratesPage], ['booking widget', widget]]) {
+  assert(`${name} never states a bare per-night price`, !/per person per night|pp\/night/.test(src));
+}
+assert('the rates JSON-LD offers price the SHARING total, not the raw nightly constant',
+  /price: ppSharingRand\(UNCATERED_PP_NIGHT\.week\.low\)/.test(ratesPage) &&
+  /price: ppSharingRand\(CATERED_PP_NIGHT\.low\)/.test(ratesPage));
 
 console.log(failed === 0 ? '\nALL SURFACE CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);
 process.exit(failed === 0 ? 0 : 1);

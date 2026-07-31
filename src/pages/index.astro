@@ -10,7 +10,7 @@ import StatsBar from '../components/StatsBar.astro';
 import Testimonials from '../components/Testimonials.astro';
 import GoogleReview from '../components/GoogleReview.astro';
 import { withBase } from '../data/site';
-import { BOOKING_OPEN_DISPLAY, FROM_PP_NIGHT_DISPLAY } from '../data/rates';
+import { BOOKING_OPEN_DISPLAY, FROM_PP_SHARING_DISPLAY } from '../data/rates';
 import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../lib/pricing';
 import { sanctuaries } from '../data/sanctuaries';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
@@ -98,7 +98,7 @@ const lodgeContext: Record<string, string> = {
       </p>
       <p class="mt-4">
         <a href={withBase('/rates')} class="btn btn-primary">
-          See rates and book, from {FROM_PP_NIGHT_DISPLAY} per person per night
+          See rates and book, from {FROM_PP_SHARING_DISPLAY} per person sharing
         </a>
       </p>
     </div>
@@ -119,8 +119,8 @@ const lodgeContext: Record<string, string> = {
       <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         The Rooiberg Wander is a 3-night, 3-day walking trail through 15,000 hectares of
         malaria-free Big 5 reserve near Rooiberg in Limpopo, 2.5 hours from OR Tambo
-        International Airport. Self-catered or catered, priced per person per night from
-        {FROM_PP_NIGHT_DISPLAY}.
+        International Airport. Self-catered or catered, priced per person sharing for the whole
+        trail, from {FROM_PP_SHARING_DISPLAY}.
       </p>
       <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
         You walk from one private lodge to the next while your luggage and provisions are moved
@@ -128,7 +128,7 @@ const lodgeContext: Record<string, string> = {
       </p>
       <p class="mt-10">
         <a href={withBase('/rates')} class="btn btn-primary">
-          View rates, from {FROM_PP_NIGHT_DISPLAY} per person per night
+          View rates, from {FROM_PP_SHARING_DISPLAY} per person sharing
         </a>
       </p>
     </div>
@@ -272,7 +272,7 @@ const lodgeContext: Record<string, string> = {
         Ready to walk the Rooiberg Wander?
       </h2>
       <p class="mt-5 max-w-2xl font-body leading-relaxed text-cream/85">
-        Rates start at {FROM_PP_NIGHT_DISPLAY} per person per night. Check available dates and
+        Rates start at {FROM_PP_SHARING_DISPLAY} per person sharing. Check available dates and
         book online, or read the full day-by-day trail first.
       </p>
       <div class="mt-8 flex flex-wrap gap-4">

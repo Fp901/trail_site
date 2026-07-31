@@ -7,6 +7,11 @@
 // So the named lines, and the fact that they reconcile with what we charge, are asserted here
 // rather than reviewed by eye.
 //
+// Every figure is per person SHARING — the price for the whole mandatory NIGHTS-night trail —
+// never a bare per-night rate: the trail has no shorter stay to choose, so a nightly figure would
+// misstate what is actually on offer. The per-night numbers still exist inside lib/pricing.ts's
+// model (season/day-of-week vary nightly), but nothing downstream may show one un-multiplied.
+//
 // It also checks the two things that are structurally load-bearing rather than cosmetic:
 //   - ONE primary action in the step (two primaries is a step with no obvious next move).
 //   - The policy modal is a native <dialog>, so the focus trap and Escape are the browser's.
@@ -57,7 +62,8 @@ assert('the connector is decorative CSS, not a character in the text',
   /\.bstrip__stop:not\(:last-child\)::after/.test(css) && !/&rarr;|→/.test(step));
 
 section('2. What is included, from the same list the rates page renders');
-assert('inclusions are imported from data/rates.ts', /\n  inclusions,\n\} from '\.\.\/data\/rates'/.test(widget));
+assert('inclusions are imported from data/rates.ts',
+  /import \{[\s\S]{0,400}\n  inclusions,\n[\s\S]{0,200}\} from '\.\.\/data\/rates'/.test(widget));
 assert('the list is mapped, not transcribed', /\{inclusions\.map\(\(item\) => \(/.test(step));
 for (const item of inclusions) {
   assert(`"${item.slice(0, 34)}..." is not duplicated as a literal`, !step.includes(item));
@@ -74,9 +80,20 @@ assert('season adjustment is a named line with its percentage from the constant'
   /Low season, \$\{Math\.round\(R\.seasonDiscount \* 100\)\}% less/.test(widget));
 assert('last-minute is a named line with its percentage from the constant',
   /Last-minute, \$\{Math\.round\(R\.lastMinuteDiscount \* 100\)\}% less/.test(widget));
-assert('the resolved rate is its own line', /previewRow\('Your rate', `\$\{fmtR\(final\)\} pp per night`, 'rate'\)/.test(widget));
-assert('the nights multiplication is shown', /previewRow\(`\$\{R\.nights\} nights`/.test(widget));
+assert('the resolved rate is its own line, in PER PERSON SHARING terms',
+  /previewRow\('Your rate', `\$\{fmtR\(ppTotal\)\} per person sharing`, 'rate'\)/.test(widget));
+// There is no separate "x NIGHTS" row any more: ppTotal (used in "Your rate" above) IS the
+// per-night rate already multiplied by R.nights, so a standalone nights-multiplication line would
+// just repeat the figure directly above it. Asserting its ABSENCE catches drift back to the old
+// two-step (nightly, then x nights) format this replaced.
+assert('no separate nights-multiplication row survives (folded into "Your rate")',
+  !/previewRow\(`\$\{R\.nights\} nights`/.test(widget));
+assert('the base and season-adjusted figures are pre-multiplied by nights before display',
+  /const baseSharing = highSeasonPpNightCents\(catering, iso\) \* R\.nights/.test(widget) &&
+  /const afterSeasonSharing = basePpNightCents\(catering, iso\) \* R\.nights/.test(widget));
 assert('the party multiplication is shown', /walker' : 'walkers'\}`, fmtR\(totalCents\), 'total'\)/.test(widget));
+assert('no row in the breakdown states a bare per-night figure',
+  !/pp per night/.test(step) && !/per person per night/.test(step));
 // One helper, two surfaces. Two implementations of the same arithmetic is how the card a guest
 // reads before choosing ends up disagreeing with the one they pay from.
 assert('the breakdown reuses the date preview\'s row helper rather than reimplementing it',

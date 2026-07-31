@@ -91,10 +91,23 @@ assert('badge is aria-hidden, with the discount spoken in the cell label instead
   /b\.setAttribute\('aria-hidden', 'true'\)/.test(widget) && /function lastMinuteSpoken/.test(widget));
 assert('it can land on a locked cell too, not only sellable ones', /if \(lmLocked\) cell\.appendChild\(lastMinuteBadge\(\)\)/.test(widget));
 
-section('6. §5 price semantics: a buyout shows the TOTAL FOR 8');
-assert('exclusive cells multiply out to the group total',
-  /const shownCents = isExcl \? perNight \* R\.nights \* R\.exclusiveSize : perNight/.test(widget));
+section('6. §5 price semantics: a buyout shows the TOTAL FOR 8, per person SHARING elsewhere');
+// Cells never show a bare per-night figure: cellRateCents() returns the per-night rate, and the
+// renderer must multiply by R.nights (the "sharing" total) before an exclusive cell multiplies
+// again by group size, or a joinable/locked cell shows it pp.
+assert('the per-night rate is converted to a per-person SHARING figure before use',
+  /const sharingRate = perNightRate \* R\.nights/.test(widget));
+assert('exclusive cells multiply the SHARING rate out to the group total',
+  /const shownCents = isExcl \? sharingRate \* R\.exclusiveSize : sharingRate/.test(widget));
 assert('exclusive labels say "total for N", not "per person"', /total for \$\{R\.exclusiveSize\}/.test(widget));
+assert('no cell derives its shown price straight from a per-night figure without the sharing step',
+  !/shownCents = isExcl \? perNight/.test(widget));
+// The customer never chooses a nightly stay (all NIGHTS are mandatory), so no cell's spoken or
+// visible price may be framed as a nightly rate — every figure is per person SHARING.
+assert('no cell aria-label claims a per-night price', !/per person per night/.test(widget));
+assert('joinable and locked cells state "per person sharing" instead',
+  /\$\{fmtR\(shownCents\)\} per person sharing/.test(widget) &&
+  /\$\{fmtR\(sharingOther\)\} per person sharing/.test(widget));
 assert('two eligible caterings are marked "from", never presented as a fixed price',
   (widget.match(/ambiguous \? 'from ' : ''/g) || []).length >= 2);
 

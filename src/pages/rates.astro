@@ -18,6 +18,7 @@ import {
   LAST_MINUTE_DISCOUNT,
   bookingRules,
   formatRand,
+  ppSharingRand,
   inclusions,
   exclusions,
 } from '../data/rates';
@@ -41,15 +42,10 @@ const bookingEnabled = Boolean(
 // a redeploy.
 const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
 
-// Worked example under the rate table: the cheapest genuine combination (self-catered, a
-// Saturday-to-Wednesday start, low season) multiplied out across the trail, so nobody has to do
-// the arithmetic themselves to picture a real cost. Computed from the constants, never hardcoded.
-const exampleRate = UNCATERED_PP_NIGHT.week.low;
-const exampleTotal = exampleRate * NIGHTS;
 const lastMinutePercent = Math.round(LAST_MINUTE_DISCOUNT * 100);
 
 const title = 'Rates & Booking | The Rooiberg Wander';
-const description = `From ${formatRand(UNCATERED_PP_NIGHT.week.low)} per person per night self-catered, or ${formatRand(CATERED_PP_NIGHT.low)} catered. Wednesday/Thursday exclusive buyouts for ${EXCLUSIVE_SIZE}, or join a shared departure on any other day. See what's included and book.`;
+const description = `From ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.low))} per person sharing self-catered, or ${formatRand(ppSharingRand(CATERED_PP_NIGHT.low))} catered, for the whole ${NIGHTS}-night trail. Wednesday/Thursday exclusive buyouts for ${EXCLUSIVE_SIZE}, or join a shared departure on any other day. See what's included and book.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -61,14 +57,14 @@ const jsonLd = [
     { name: 'Rates & Booking', path: '/rates' },
   ]),
   offerSchema({
-    price: UNCATERED_PP_NIGHT.week.low,
-    name: 'The Rooiberg Wander: self-catered, per person per night',
-    description: `From this rate per person per night, self-catered, incl. conservation levies. Wednesday/Thursday exclusive buyout for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
+    price: ppSharingRand(UNCATERED_PP_NIGHT.week.low),
+    name: 'The Rooiberg Wander: self-catered, per person sharing',
+    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail, self-catered, incl. conservation levies. Wednesday/Thursday exclusive buyout for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
   }),
   offerSchema({
-    price: CATERED_PP_NIGHT.low,
-    name: 'The Rooiberg Wander: catered, per person per night',
-    description: `From this rate per person per night, fully catered, incl. conservation levies. Wednesday/Thursday exclusive buyout for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
+    price: ppSharingRand(CATERED_PP_NIGHT.low),
+    name: 'The Rooiberg Wander: catered, per person sharing',
+    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail, fully catered, incl. conservation levies. Wednesday/Thursday exclusive buyout for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
   }),
 ];
 ---
@@ -83,9 +79,9 @@ const jsonLd = [
         What the trail costs
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        Every booking is priced <strong>per person, per night</strong>, across the {NIGHTS}-night
-        trail. What you pay depends on three things: whether you self-cater or we cater, the
-        season, and your start day.
+        Every booking is priced <strong>per person, sharing</strong>: one price per person for
+        the whole {NIGHTS}-night trail, not a nightly rate. What you pay depends on three things:
+        whether you self-cater or we cater, the season, and your start day.
       </p>
       <p class="mt-8">
         <a href="#book" class="btn btn-primary">Check dates and book</a>
@@ -102,12 +98,6 @@ const jsonLd = [
 
     <div class="mt-6 max-w-3xl">
       <RatesTable />
-
-      <p class="rate-example">
-        Rates are per person, per night. The trail is {NIGHTS} nights, so a self-catered
-        Saturday-to-Wednesday start in low season works out at {formatRand(exampleRate)} &times;{' '}
-        {NIGHTS} = <strong>{formatRand(exampleTotal)} per person</strong>.
-      </p>
 
       <p class="rate-includes">
         <strong>Every rate includes</strong> two trail guides &middot; daily baggage transport

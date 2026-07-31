@@ -1,23 +1,65 @@
 ---
-// RatesTable — Booking v3.2. An actual table now (it was a three-card grid despite the name).
+// RatesTable — Booking v3.3. An actual table now (it was a three-card grid despite the name).
 // One glanceable price matrix: rate types as rows, seasons as columns. Transposed from the
 // operator's source spreadsheet so it is three columns instead of four and fits a 380px phone
 // without sideways scrolling. All figures come from data/rates.ts, which reads them from the
 // same constants lib/pricing.ts charges from.
+//
+// Prices are PER PERSON SHARING (the whole mandatory NIGHTS-night trail), never per night: the
+// trail has no shorter option to choose, so a nightly figure would represent a choice that does
+// not exist. Every cell here is `ppSharingRand(nightlyRand)`, computed once at build time.
+//
+// Currency: ZAR is the default and only CHARGED currency (Paystack bills in ZAR — see
+// lib/payments.ts). The EUR/GBP/USD tabs are a static, indicative conversion for foreign guests
+// browsing the page; every currency's figure is pre-computed at build time into a data attribute,
+// and the tiny script below only chooses which pre-rendered string to show — there is no runtime
+// conversion logic to duplicate or drift from data/rates.ts.
 import {
   rateRows,
   formatRand,
+  formatForeign,
+  ppSharingRand,
   SEASON_HIGH_LABEL,
   SEASON_HIGH_DATES,
   SEASON_LOW_LABEL,
   SEASON_LOW_NOTE,
+  FX_RATES_AS_OF,
+  type ForeignCurrency,
 } from '../data/rates';
+
+const CURRENCIES: Array<'ZAR' | ForeignCurrency> = ['ZAR', 'EUR', 'GBP', 'USD'];
+
+// Every cell's figure, once, in all four currencies — read back out by the client script via
+// data-price-zar / -eur / -gbp / -usd rather than recomputed in JS.
+function priceSet(rand: number): Record<string, string> {
+  const sharing = ppSharingRand(rand);
+  return {
+    'data-price-zar': formatRand(sharing),
+    'data-price-eur': formatForeign(sharing, 'EUR'),
+    'data-price-gbp': formatForeign(sharing, 'GBP'),
+    'data-price-usd': formatForeign(sharing, 'USD'),
+  };
+}
 ---
 
 <div class="ratetable-wrap">
+  {/* Currency tabs — radio buttons styled as chips (native, keyboard-operable, no JS framework),
+      matching the filter-chip idiom already used in BookingWidget's calendar. ZAR pre-checked. */}
+  <fieldset class="ratetable__currency" data-currency-tabs>
+    <legend class="sr-only">Show prices in</legend>
+    {
+      CURRENCIES.map((cur) => (
+        <label class="ratetable__curbtn">
+          <input type="radio" name="ratetable-currency" value={cur} checked={cur === 'ZAR'} />
+          <span>{cur}</span>
+        </label>
+      ))
+    }
+  </fieldset>
+
   <table class="ratetable">
     <caption class="sr-only">
-      Rates per person per night, by catering type, start day and season.
+      Rates per person sharing, for the whole trail, by catering type, start day and season.
     </caption>
     <thead>
       <tr>
@@ -41,16 +83,57 @@ import {
               <span class="ratetable__qualifier">{r.qualifier}</span>
             </th>
             <td>
-              <span class="ratetable__price">{formatRand(r.high)}</span>
-              <span class="ratetable__unit">pp/night</span>
+              <span class="ratetable__price" data-currency-price {...priceSet(r.high)}>
+                {formatRand(ppSharingRand(r.high))}
+              </span>
+              <span class="ratetable__unit">per person sharing</span>
             </td>
             <td>
-              <span class="ratetable__price">{formatRand(r.low)}</span>
-              <span class="ratetable__unit">pp/night</span>
+              <span class="ratetable__price" data-currency-price {...priceSet(r.low)}>
+                {formatRand(ppSharingRand(r.low))}
+              </span>
+              <span class="ratetable__unit">per person sharing</span>
             </td>
           </tr>
         ))
       }
     </tbody>
   </table>
+
+  <p class="ratetable__fxnote" data-currency-note hidden>
+    Approximate conversion, indicative rates set {FX_RATES_AS_OF}. You are always charged in South
+    African Rand; your card issuer applies its own exchange rate.
+  </p>
 </div>
+
+<script>
+  function initCurrencyTabs(): void {
+    const wrap = document.querySelector<HTMLElement>('[data-currency-tabs]');
+    const note = document.querySelector<HTMLElement>('[data-currency-note]');
+    if (!wrap || wrap.dataset.bound === 'true') return;
+    wrap.dataset.bound = 'true';
+
+    const prices = document.querySelectorAll<HTMLElement>('[data-currency-price]');
+
+    function apply(currency: string): void {
+      const key = `price${currency.charAt(0)}${currency.slice(1).toLowerCase()}`; // priceZar / priceEur / ...
+      prices.forEach((el) => {
+        const value = (el.dataset as Record<string, string | undefined>)[key];
+        if (value) el.textContent = value;
+      });
+      if (note) note.hidden = currency === 'ZAR';
+    }
+
+    wrap.querySelectorAll<HTMLInputElement>('input[name="ratetable-currency"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        if (input.checked) apply(input.value);
+      });
+    });
+
+    const checked = wrap.querySelector<HTMLInputElement>('input[name="ratetable-currency"]:checked');
+    apply(checked?.value ?? 'ZAR');
+  }
+
+  initCurrencyTabs();
+  document.addEventListener('astro:page-load', initCurrencyTabs);
+</script>

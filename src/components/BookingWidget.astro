@@ -53,6 +53,7 @@ import {
   LAST_MINUTE_DISCOUNT,
   SEASON_DISCOUNT,
   inclusions,
+  ppSharingRand,
 } from '../data/rates';
 import { routePins } from '../data/route';
 import { site, withBase } from '../data/site';
@@ -103,8 +104,9 @@ const stops = [
   { name: hub.name, role: 'Day 4, depart' },
 ];
 
-const uncateredFrom = fmt(UNCATERED_PP_NIGHT.week.low);
-const cateredFrom = fmt(CATERED_PP_NIGHT.low);
+// Per-person SHARING (whole trail), never per night — see data/rates.ts's ppSharingRand.
+const uncateredFrom = fmt(ppSharingRand(UNCATERED_PP_NIGHT.week.low));
+const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
 ---
 
 <div class="resume-prompt" data-resume-prompt hidden role="status" aria-live="polite">
@@ -190,7 +192,7 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
           <span class="bstyle__body">
             <span class="bstyle__name">Fully catered</span>
             <span class="bstyle__desc">Meals handled throughout. Opens {CATERED_WINDOW_MONTHS} months ahead.</span>
-            <span class="bstyle__from">From {cateredFrom} pp/night</span>
+            <span class="bstyle__from">From {cateredFrom} per person sharing</span>
           </span>
         </label>
         <label class="bstyle__card">
@@ -198,7 +200,7 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
           <span class="bstyle__body">
             <span class="bstyle__name">Self-catered</span>
             <span class="bstyle__desc">Kitchen, ice and braai at every lodge. Opens {UNCATERED_WINDOW_MONTHS} months ahead.</span>
-            <span class="bstyle__from">From {uncateredFrom} pp/night</span>
+            <span class="bstyle__from">From {uncateredFrom} per person sharing</span>
           </span>
         </label>
       </div>
@@ -866,6 +868,8 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
 
     // The rate to show on a cell: if one catering is eligible, its exact rate; if both, the lower
     // of the two, flagged "from" by the caller so it is never mistaken for a fixed price.
+    // The PER-NIGHT rate for a cell (lowest of the eligible caterings). Callers must multiply by
+    // R.nights before showing anything to a guest — see the joinable-cell renderer.
     function cellRateCents(iso: string, cats: Catering[]): number | null {
       if (cats.length === 0) return null;
       return Math.min(...cats.map((c) => ppNightCents(c, iso)));
@@ -905,8 +909,8 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
       for (const c of ['uncatered', 'catered'] as Catering[]) {
         const label = box.querySelector<HTMLElement>(`[data-catchoice-label="${c}"]`);
         if (label) {
-          const per = ppNightCents(c, selectedStartIso);
-          label.textContent = `${c === 'catered' ? 'Catered' : 'Self-catered'}, ${fmtR(per)} pp/night`;
+          const sharing = ppTotalCents(c, selectedStartIso); // per person, whole trail — never per night
+          label.textContent = `${c === 'catered' ? 'Catered' : 'Self-catered'}, ${fmtR(sharing)} per person sharing`;
         }
       }
     }
@@ -961,13 +965,13 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
         priceEl.className = 'bjoin-card__price';
         priceEl.textContent = `${row.ambiguous ? 'from ' : ''}${fmtR(row.ppTotalCents)}`;
         const priceSmall = document.createElement('small');
-        priceSmall.textContent = 'per person';
+        priceSmall.textContent = 'per person sharing';
         priceEl.appendChild(priceSmall);
 
         card.append(body, priceEl);
         card.setAttribute(
           'aria-label',
-          `${dateStr}, ${cateringLabel.toLowerCase()}, ${fmtR(row.ppTotalCents)} per person, ${row.seatsLeft} place(s) left`,
+          `${dateStr}, ${cateringLabel.toLowerCase()}, ${fmtR(row.ppTotalCents)} per person sharing, ${row.seatsLeft} place(s) left`,
         );
         card.addEventListener('click', () => {
           // Route through the calendar's own selection so the grid highlight, the resolver and the
@@ -1044,31 +1048,32 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
         return;
       }
 
-      const ppTotal = ppTotalCents(catering, selectedStartIso);
+      const ppTotal = ppTotalCents(catering, selectedStartIso); // per person, SHARING, whole trail
       const totalCents = ppTotal * n;
 
       // §6: never one unexplained figure. The same previewRow() helper the date card uses, so the
       // two surfaces are the same arithmetic rendered twice rather than two implementations.
+      // Every row is per person SHARING (the whole mandatory trail), never per night: each
+      // per-night figure from lib/pricing.ts's model is multiplied by R.nights before display —
+      // there is no shorter stay to choose, so a nightly figure would misstate what is on offer.
       if (breakdownEl) {
         const iso = selectedStartIso;
-        const base = highSeasonPpNightCents(catering, iso);
-        const afterSeason = basePpNightCents(catering, iso);
-        const final = ppNightCents(catering, iso);
+        const baseSharing = highSeasonPpNightCents(catering, iso) * R.nights;
+        const afterSeasonSharing = basePpNightCents(catering, iso) * R.nights;
         breakdownEl.appendChild(previewRow(
           `${catering === 'catered' ? 'Catered' : 'Self-catered'} standard rate`,
-          `${fmtR(base)} pp per night`));
+          `${fmtR(baseSharing)} per person sharing`));
         if (!isHighSeasonIso(iso)) {
           breakdownEl.appendChild(previewRow(
             `Low season, ${Math.round(R.seasonDiscount * 100)}% less`,
-            `- ${fmtR(base - afterSeason)}`, 'credit'));
+            `- ${fmtR(baseSharing - afterSeasonSharing)}`, 'credit'));
         }
         if (withinLastMinuteWindow(iso)) {
           breakdownEl.appendChild(previewRow(
             `Last-minute, ${Math.round(R.lastMinuteDiscount * 100)}% less`,
-            `- ${fmtR(afterSeason - final)}`, 'credit'));
+            `- ${fmtR(afterSeasonSharing - ppTotal)}`, 'credit'));
         }
-        breakdownEl.appendChild(previewRow('Your rate', `${fmtR(final)} pp per night`, 'rate'));
-        breakdownEl.appendChild(previewRow(`${R.nights} nights`, `${fmtR(ppTotal)} per person`));
+        breakdownEl.appendChild(previewRow('Your rate', `${fmtR(ppTotal)} per person sharing`, 'rate'));
         breakdownEl.appendChild(previewRow(
           `${n} ${n === 1 ? 'walker' : 'walkers'}`, fmtR(totalCents), 'total'));
       }
@@ -1309,30 +1314,32 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
       wrap.appendChild(h);
 
       // Every figure below is rounded the same way the charged price is, so the lines the guest
-      // reads add up exactly to the total we take. §5 forbids one unexplained number.
-      const base = highSeasonPpNightCents(cat, iso);
-      const afterSeason = basePpNightCents(cat, iso);
-      const final = ppNightCents(cat, iso);
+      // reads add up exactly to the total we take. §5 forbids one unexplained number. Every row
+      // is per person SHARING (the whole mandatory trail): the underlying per-night rate is
+      // multiplied by R.nights before it is ever shown, since there is no shorter stay to buy.
+      const baseSharing = highSeasonPpNightCents(cat, iso) * R.nights;
+      const afterSeasonSharing = basePpNightCents(cat, iso) * R.nights;
+      const finalSharing = ppNightCents(cat, iso) * R.nights;
       const lowSeason = !isHighSeasonIso(iso);
       const lm = withinLastMinuteWindow(iso);
 
-      wrap.appendChild(previewRow('Standard rate', `${fmtR(base)} pp per night`));
+      wrap.appendChild(previewRow('Standard rate', `${fmtR(baseSharing)} per person sharing`));
       if (lowSeason) {
         wrap.appendChild(previewRow(
           `Low season, ${Math.round(R.seasonDiscount * 100)}% less`,
-          `- ${fmtR(base - afterSeason)}`, 'credit'));
+          `- ${fmtR(baseSharing - afterSeasonSharing)}`, 'credit'));
       }
       if (lm) {
         wrap.appendChild(previewRow(
           `Last-minute, ${Math.round(R.lastMinuteDiscount * 100)}% less`,
-          `- ${fmtR(afterSeason - final)}`, 'credit'));
+          `- ${fmtR(afterSeasonSharing - finalSharing)}`, 'credit'));
       }
-      wrap.appendChild(previewRow('Your rate', `${fmtR(final)} pp per night`, 'rate'));
+      wrap.appendChild(previewRow('Your rate', `${fmtR(finalSharing)} per person sharing`, 'rate'));
 
       const people = isExcl ? R.exclusiveSize : n;
-      const total = final * R.nights * people;
+      const total = finalSharing * people;
       wrap.appendChild(previewRow(
-        `${people} ${people === 1 ? 'walker' : 'walkers'} x ${R.nights} nights`,
+        `${people} ${people === 1 ? 'walker' : 'walkers'}`,
         fmtR(total), 'total'));
 
       const isDeposit = daysBetween(todayIso, iso) >= R.splitDays;
@@ -1521,7 +1528,8 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
           const cats = c.eligible ?? [];
           // Under "Show me both" an unopened date can be openable in two caterings at very
           // different rates, so the lower one is shown and explicitly marked "from".
-          const perNight = cellRateCents(iso, cats) ?? 0;
+          const perNightRate = cellRateCents(iso, cats) ?? 0;
+          const sharingRate = perNightRate * R.nights; // per person, whole trail — never per night
           const ambiguous = cats.length > 1;
 
           const badge = document.createElement('span');
@@ -1534,8 +1542,8 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
           cell.appendChild(badge);
 
           // §5: a buyout cell shows the TOTAL FOR 8, because that is what is being bought. Every
-          // other cell shows the per-person nightly rate.
-          const shownCents = isExcl ? perNight * R.nights * R.exclusiveSize : perNight;
+          // other cell shows the per-person SHARING rate (the whole trail, never per night).
+          const shownCents = isExcl ? sharingRate * R.exclusiveSize : sharingRate;
           const priceEl = document.createElement('span');
           priceEl.className = 'bcal__price';
           priceEl.textContent = `${ambiguous ? 'from ' : ''}${fmtR(shownCents)}${isExcl ? '' : 'pp'}`;
@@ -1555,14 +1563,14 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
               : ', catered or self-catered';
           const priceWord = isExcl
             ? `, ${ambiguous ? 'from ' : ''}${fmtR(shownCents)} total for ${R.exclusiveSize}`
-            : `, ${ambiguous ? 'from ' : ''}${fmtR(shownCents)} per person per night`;
+            : `, ${ambiguous ? 'from ' : ''}${fmtR(shownCents)} per person sharing`;
           cell.setAttribute('aria-label', `${human}${what}${catWord}${priceWord}${lm ? lastMinuteSpoken() : ''}`);
           cell.setAttribute('aria-pressed', iso === calSelected ? 'true' : 'false');
           if (iso === calSelected) cell.classList.add('is-selected');
           cell.addEventListener('click', () => { previewDismissedIso = ''; openPreview(iso); });
         } else if (c.state === 'cateringLocked') {
           const otherCat = c.entryCatering!;
-          const perNightOther = ppNightCents(otherCat, iso);
+          const sharingOther = ppNightCents(otherCat, iso) * R.nights; // per person, whole trail
           const label = otherCat === 'catered' ? 'Catered' : 'Self-catered';
           // §5 wants the TYPE named on the cell, not just implied by colour. Abbreviated because
           // the cell is ~45px wide on a phone; the full words are in the aria-label and legend.
@@ -1572,13 +1580,13 @@ const cateredFrom = fmt(CATERED_PP_NIGHT.low);
           cell.appendChild(badge);
           const priceEl = document.createElement('span');
           priceEl.className = 'bcal__price';
-          priceEl.textContent = `${fmtR(perNightOther)}pp`;
+          priceEl.textContent = `${fmtR(sharingOther)}pp`;
           cell.appendChild(priceEl);
           const lmLocked = withinLastMinuteWindow(iso);
           if (lmLocked) cell.appendChild(lastMinuteBadge());
           cell.setAttribute(
             'aria-label',
-            `${human}, already running as ${label.toLowerCase()}, ${fmtR(perNightOther)} per person per night, ${c.seatsLeft} place(s) left${lmLocked ? lastMinuteSpoken() : ''}. Activate to switch to ${label.toLowerCase()} and choose this date.`,
+            `${human}, already running as ${label.toLowerCase()}, ${fmtR(sharingOther)} per person sharing, ${c.seatsLeft} place(s) left${lmLocked ? lastMinuteSpoken() : ''}. Activate to switch to ${label.toLowerCase()} and choose this date.`,
           );
           cell.setAttribute('aria-pressed', iso === calSelected ? 'true' : 'false');
           if (iso === calSelected) cell.classList.add('is-selected');

@@ -56,6 +56,19 @@ export const LOWEST_PP_NIGHT = Math.min(
   CATERED_PP_NIGHT.low,
 );
 
+// --- Per-person SHARING price (the customer-facing unit) ------------------------------------
+// The trail is always exactly NIGHTS nights; there is no shorter stay to choose, so quoting a
+// nightly rate implies a duration decision that does not exist. Every price shown to a guest is
+// therefore the cost per person for the WHOLE trail, never a bare nightly figure. "Sharing" is
+// the standard travel-industry term for a per-person rate assuming shared (twin/double)
+// occupancy — which every rate here already assumes: there is no solo booking route and no
+// single supplement (MIN_PARTY_SIZE below).
+//
+// The underlying UNCATERED_PP_NIGHT / CATERED_PP_NIGHT tables stay per-night internally, because
+// season and start-day variation are genuinely nightly rules — but nothing downstream may show
+// one of those numbers un-multiplied. This is the one place that conversion happens.
+export const ppSharingRand = (perNightRand: number): number => perNightRand * NIGHTS;
+
 // --- Group formation -------------------------------------------------------------------------
 export const EXCLUSIVE_SIZE = 8; // Wed/Thu buyout: exactly this many (min = max)
 
@@ -92,13 +105,45 @@ export function formatRand(amount: number): string {
   return 'R' + Math.round(amount).toLocaleString('en-US');
 }
 
-// The entry price as it appears in copy. One expression, so no page can carry a stale figure.
-export const FROM_PP_NIGHT_DISPLAY = formatRand(LOWEST_PP_NIGHT);
+// The entry price as it appears in copy — the per-person SHARING total for the whole trail, not
+// a nightly figure. One expression, so no page can carry a stale figure.
+export const FROM_PP_SHARING_DISPLAY = formatRand(ppSharingRand(LOWEST_PP_NIGHT));
+
+// --- Indicative foreign-currency conversion (display only, /rates matrix) --------------------
+// For foreign guests to gauge the cost in a currency they recognise. The site never charges in
+// anything but ZAR — Paystack's transaction currency is hardcoded 'ZAR' in lib/payments.ts, and
+// nothing here changes that. These rates are a STATIC, manually-set approximation (not a live
+// FX feed): adding a live third-party rate API would be a new external dependency and a new SSR
+// data path for what is a browsing aid, not the transactional price. Flag to the operator: these
+// are illustrative and should be checked/updated periodically; they are not live market rates.
+export type ForeignCurrency = 'EUR' | 'GBP' | 'USD';
+export const CURRENCY_SYMBOLS: Record<'ZAR' | ForeignCurrency, string> = {
+  ZAR: 'R',
+  EUR: '€',
+  GBP: '£',
+  USD: '$',
+};
+// Illustrative ZAR -> foreign multipliers, set once at the date below. Update periodically.
+export const FX_RATES_AS_OF = '2026-07-31';
+export const ZAR_TO_FOREIGN: Record<ForeignCurrency, number> = {
+  EUR: 0.049,
+  GBP: 0.042,
+  USD: 0.053,
+};
+export function convertRand(rand: number, currency: ForeignCurrency): number {
+  return rand * ZAR_TO_FOREIGN[currency];
+}
+// Whole-unit rounding, matching formatRand's own whole-rand convention — cents-level precision on
+// an already-indicative conversion would be false accuracy.
+export function formatForeign(rand: number, currency: ForeignCurrency): string {
+  return CURRENCY_SYMBOLS[currency] + Math.round(convertRand(rand, currency)).toLocaleString('en-US');
+}
 
 // --- Rates page display model -----------------------------------------------------------------
 // One rate matrix (RatesTable.astro), not three marketing cards. The three cards it replaces
 // repeated the same day-of-week/group-size rules verbatim and each led with the single cheapest
-// cell in the matrix ("From R880 pp/night"), which anchored on a price most bookings never pay.
+// cell in the matrix ("From R2,640 per person sharing"), which anchored on a price most bookings
+// never pay.
 //
 // The matrix is deliberately TRANSPOSED relative to the operator's source spreadsheet: rate
 // types are rows and seasons are columns, so it is three columns wide instead of four and fits a
@@ -109,8 +154,12 @@ export const FROM_PP_NIGHT_DISPLAY = formatRand(LOWEST_PP_NIGHT);
 export interface RateRow {
   label: string; // "Catered"
   qualifier: string; // "any start day"
-  high: number; // rand pp/night, high season
-  low: number; // rand pp/night, low season
+  // Both fields hold the PER-NIGHT rand rate — the underlying model, kept here because that is
+  // the genuine unit season/day-of-week rules vary by. RatesTable.astro converts through
+  // ppSharingRand() before ever putting a number on the page; nothing may display `high`/`low`
+  // un-multiplied.
+  high: number; // rand per night, high season
+  low: number; // rand per night, low season
 }
 
 export const rateRows: RateRow[] = [
@@ -153,12 +202,12 @@ export interface BookingRule {
 export const bookingRules: BookingRule[] = [
   {
     days: 'Wednesday or Thursday',
-    title: 'The whole trail to yourselves',
+    title: 'Exclusive',
     body: `A private buyout for a group of exactly ${EXCLUSIVE_SIZE}. No other booking joins your dates.`,
   },
   {
     days: 'Friday to Tuesday',
-    title: 'Join a shared departure',
+    title: 'Join a shared group',
     body: `The first booking opens the date and sets its catering: ${SHARED_OPEN_MIN_CATERED} or more for catered, ${SHARED_OPEN_MIN_UNCATERED} or more for self-catered. Others then join in ${SHARED_TOPUP_MIN}s until the trail is full at ${MAX_GROUP_SIZE}.`,
   },
 ];
@@ -166,7 +215,7 @@ export const bookingRules: BookingRule[] = [
 // What the price includes / excludes. Single source shared by the Rates page and the homepage
 // so the two can never drift.
 export const inclusions = [
-  'A guided walk, with each safari lodge reserved for your departure alone overnight',
+  'A guided walk, with each safari lodge reserved for your group overnight',
   'Two experienced trail guides throughout',
   'Daily transport of your baggage and provisions between lodges',
   'Lodge staff for cleaning, kitchen prep and the barbeque',
