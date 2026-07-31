@@ -9,11 +9,14 @@ import {
   earliestBookableDate,
   latestBookableDate,
   isExclusiveDay,
+  minToOpen,
 } from '../lib/pricing';
 import {
   MAX_GROUP_SIZE,
   EXCLUSIVE_SIZE,
-  SHARED_OPEN_MIN,
+  MIN_PARTY_SIZE,
+  SHARED_OPEN_MIN_CATERED,
+  SHARED_OPEN_MIN_UNCATERED,
   SHARED_TOPUP_MIN,
 } from '../data/rates';
 import { getSupabaseAdmin } from '../lib/supabase';
@@ -52,7 +55,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
-      groupSize: z.number().int().min(1).max(MAX_GROUP_SIZE),
+      groupSize: z.number().int().min(MIN_PARTY_SIZE).max(MAX_GROUP_SIZE),
       catering: z.enum(['catered', 'uncatered']),
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
@@ -99,7 +102,7 @@ export const server = {
 
       // Booking type is derived from the DATE, never trusted from the client: Wednesday and
       // Thursday are exclusive buyout days (exactly EXCLUSIVE_SIZE guests); every other day is a
-      // shared/flexible departure (the first active booking needs SHARED_OPEN_MIN+, its catering
+      // shared/flexible departure (the first active booking needs minToOpen(catering)+, its catering
       // choice locks the day, later bookings need SHARED_TOPUP_MIN+ and must match, up to
       // MAX_GROUP_SIZE seats total).
       const bookingType = isExclusiveDay(input.startDate) ? 'exclusive' : 'shared';
@@ -131,10 +134,18 @@ export const server = {
         const lockedCatering = sharedRows && sharedRows.length > 0 ? sharedRows[0].catering : null;
 
         if (seatsTaken === 0) {
-          if (input.groupSize < SHARED_OPEN_MIN) {
+          // Opening minimum splits by catering: 4 self-catered, 2 catered. A party of 2 or 3 can
+          // therefore open a CATERED date but not a self-catered one, so the message points at
+          // the two genuine routes out rather than just refusing.
+          const openMin = minToOpen(input.catering);
+          if (input.groupSize < openMin) {
+            const alt =
+              input.catering === 'uncatered'
+                ? ` Catered dates open from ${minToOpen('catered')}, or join a self-catered date another group has already started.`
+                : ' Join a date another group has already started, or choose a Wednesday/Thursday exclusive buyout.';
             throw new ActionError({
               code: 'BAD_REQUEST',
-              message: `Opening a new shared date takes at least ${SHARED_OPEN_MIN} people. For a smaller group, choose a date that already has a group booked, or a Wednesday/Thursday exclusive buyout.`,
+              message: `Opening a new ${input.catering === 'catered' ? 'catered' : 'self-catered'} date takes at least ${openMin} people.${alt}`,
             });
           }
         } else {
@@ -256,10 +267,25 @@ export const server = {
             message: 'That date was just booked with a different catering choice. Please choose another date.',
           });
         }
-        if (msg.includes('RW_SHARED_OPEN_MIN_4') || msg.includes('RW_SHARED_TOPUP_MIN_2')) {
+        if (msg.includes('RW_SHARED_OPEN_MIN') || msg.includes('RW_SHARED_TOPUP_MIN')) {
           throw new ActionError({
             code: 'CONFLICT',
             message: 'That date no longer meets the minimum group size for this booking. Please choose another date.',
+          });
+        }
+        // Window guard (migration 0014). Reaching these means the date passed the check above and
+        // then fell outside the window before the insert landed, i.e. the day rolled over
+        // mid-checkout. Rare, but the trigger is the authority and the guest needs a reason.
+        if (msg.includes('RW_WINDOW_TOO_SOON')) {
+          throw new ActionError({
+            code: 'BAD_REQUEST',
+            message: 'That start date is now too close to departure. Please choose a later date, or contact us on WhatsApp.',
+          });
+        }
+        if (msg.includes('RW_WINDOW_TOO_FAR')) {
+          throw new ActionError({
+            code: 'BAD_REQUEST',
+            message: `${input.catering === 'catered' ? 'Catered' : 'Self-catered'} bookings do not open that far ahead yet. Please choose an earlier date.`,
           });
         }
         throw new ActionError({
@@ -926,13 +952,13 @@ export const server = {
             message: 'Shared departures cannot start on a Wednesday or Thursday; pick another date.',
           });
         }
-        if (msg.includes('RW_SHARED_OPEN_MIN_4')) {
+        if (msg.includes('RW_SHARED_OPEN_MIN')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `That date has no other booking yet, so it needs at least ${SHARED_OPEN_MIN} people to move here.`,
+            message: `That date has no other booking yet, so it needs at least ${SHARED_OPEN_MIN_CATERED} people to move here if catered, or ${SHARED_OPEN_MIN_UNCATERED} if self-catered.`,
           });
         }
-        if (msg.includes('RW_SHARED_TOPUP_MIN_2')) {
+        if (msg.includes('RW_SHARED_TOPUP_MIN')) {
           throw new ActionError({
             code: 'CONFLICT',
             message: `Joining that date needs at least ${SHARED_TOPUP_MIN} people.`,
@@ -1189,7 +1215,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
-      groupSize: z.number().int().min(1).max(MAX_GROUP_SIZE),
+      groupSize: z.number().int().min(MIN_PARTY_SIZE).max(MAX_GROUP_SIZE),
       catering: z.enum(['catered', 'uncatered']),
       leadName: z.string().trim().min(2, 'Please enter the guest\'s full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),

@@ -7,9 +7,9 @@
 --      exactly as before.
 --   2. WEDNESDAY and THURSDAY become EXCLUSIVE BUYOUT days: exactly 8 guests (min = max), one
 --      booking, either catering. Every OTHER day (Sun, Mon, Tue, Fri, Sat) is a SHARED/FLEXIBLE
---      departure day: the FIRST active booking on a date must be >= 4 people, and its catering
---      choice LOCKS the day's type; further bookings on that date must be >= 2 and match the
---      locked catering, up to 8 seats total per date.
+--      departure day: the FIRST active booking on a date LOCKS the day's catering, and its
+--      minimum SPLITS BY CATERING -- >= 4 self-catered, >= 2 catered. Further bookings on that
+--      date must be >= 2 (either product) and match the locked catering, up to 8 seats total.
 --   3/4 are frontend/policy stories (calendar UI, seasonal/day pricing, booking windows) — no
 --      schema impact beyond the views below.
 --
@@ -18,7 +18,8 @@
 --     or Thursday only (trigger); group_size must equal 8 exactly.
 --   shared bookings: any day except Wednesday/Thursday; multiple active rows may share a
 --     start_date; the first active row on a date sets that date's catering (a later row with a
---     different catering is rejected); total seats (sum of group_size) capped at 8 per date by
+--     different catering is rejected) and must meet the per-catering opening minimum (4
+--     self-catered / 2 catered); total seats (sum of group_size) capped at 8 per date by
 --     a trigger under an advisory lock (the DB is the last line of defence against concurrent
 --     seat-grabs; the server action checks first for UX).
 
@@ -52,9 +53,9 @@ comment on index public.bookings_unique_start_date is
 
 -- ---------------------------------------------------------------------------
 -- 3. Slot guard trigger — Wednesday/Thursday are exclusive-buyout-only (exactly 8 guests);
---    every other day is shared/flexible (first booking >= 4 and sets the day's catering,
---    later bookings >= 2 and must match, 8 seats total per date). BEFORE INSERT OR UPDATE so
---    admin date-moves are covered too.
+--    every other day is shared/flexible (the first booking sets the day's catering and must meet
+--    that catering's opening minimum — 4 self-catered / 2 catered — later bookings >= 2 and must
+--    match, 8 seats total per date). BEFORE INSERT OR UPDATE so admin date-moves are covered too.
 -- ---------------------------------------------------------------------------
 create or replace function public.bookings_slot_guard()
 returns trigger
@@ -64,6 +65,7 @@ declare
   v_seats int;
   v_dow int;
   v_existing_catering text;
+  v_min_open int;
 begin
   -- Only active rows occupy inventory; cancelled rows may move/exist freely.
   if new.status not in ('pending', 'confirmed') then
@@ -102,16 +104,20 @@ begin
       and id <> new.id;
 
   if v_seats = 0 then
-    -- Opening booking for this date: needs at least 4, and its catering sets the day's type
-    -- (nothing to check it against yet).
-    if new.group_size < 4 then
-      raise exception 'RW_SHARED_OPEN_MIN_4: the first booking on a shared date takes at least 4 people'
+    -- Opening booking for this date: its catering sets the day's type (nothing to check it
+    -- against yet), and the minimum SPLITS BY CATERING per the policy of 30 July 2026 --
+    -- 4 self-catered, 2 catered. This mirrors minToOpen() in src/lib/pricing.ts; the two are
+    -- independent implementations of one rule, so a change to either must change both.
+    v_min_open := case when new.catering = 'catered' then 2 else 4 end;
+    if new.group_size < v_min_open then
+      raise exception 'RW_SHARED_OPEN_MIN: the first % booking on a shared date takes at least % people', new.catering, v_min_open
         using errcode = 'P0001';
     end if;
   else
-    -- Top-up booking: needs at least 2, and must match the date's already-locked catering.
+    -- Top-up booking: needs at least 2 whichever the product, and must match the date's
+    -- already-locked catering.
     if new.group_size < 2 then
-      raise exception 'RW_SHARED_TOPUP_MIN_2: joining an open shared date takes at least 2 people'
+      raise exception 'RW_SHARED_TOPUP_MIN: joining an open shared date takes at least 2 people'
         using errcode = 'P0001';
     end if;
     if new.catering <> v_existing_catering then

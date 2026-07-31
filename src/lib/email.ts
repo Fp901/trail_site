@@ -2,6 +2,9 @@
 // stylesheets. Georgia heads (closest email-safe match to Fraunces); system-ui body (≈ Inter).
 // CR/LF stripped from any header-bound value (Part 11.9). Lazy key read; no-ops in dev without key.
 import { site } from '../data/site';
+import { routePins } from '../data/route';
+import { inclusions } from '../data/rates';
+import { BALANCE_LEAD_DAYS } from './pricing';
 
 export interface EmailMessage {
   to: string;
@@ -165,6 +168,43 @@ const small = (t: string) =>
 
 const alertBadge = `<p style="margin:0 0 20px;display:inline-block;padding:5px 12px;background-color:#c0422a;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#fff;">&#9888; Action required</p>`;
 
+// The trail as a line of stops, built from the same routePins the site map and the booking widget
+// use. A loop, so the hub appears at both ends. Tables rather than flex because Outlook.
+function trailStrip(): string {
+  const hub = routePins.find((pin) => pin.isHub) ?? routePins[0];
+  const stops = [
+    { name: hub.name, role: 'Day 1, arrive' },
+    ...routePins.filter((pin) => !pin.isHub).map((pin) => ({ name: pin.name, role: pin.role })),
+    { name: hub.name, role: 'Day 4, depart' },
+  ];
+  const cells = stops
+    .map(
+      (stop, i) =>
+        `<td style="padding:0 10px 0 0;vertical-align:top;">` +
+        `<p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;color:#3D2B1F;line-height:1.25;">${escapeHtml(stop.name)}</p>` +
+        `<p style="margin:2px 0 0;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#4A5D23;">${escapeHtml(stop.role)}</p>` +
+        `</td>` +
+        (i < stops.length - 1
+          ? `<td style="padding:0 10px 0 0;vertical-align:top;font-size:15px;color:#C19A6B;line-height:1.25;">&rsaquo;</td>`
+          : ''),
+    )
+    .join('');
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0 0 20px;"><tr>${cells}</tr></table>`;
+}
+
+// What every rate covers, from data/rates.ts — the same list the rates page and the booking form
+// render, so the confirmation cannot promise something the site does not.
+function inclusionsBlock(): string {
+  const items = inclusions
+    .map(
+      (item) =>
+        `<tr><td style="padding:0 8px 6px 0;vertical-align:top;font-size:14px;color:#4A5D23;line-height:1.6;">&#10003;</td>` +
+        `<td style="padding:0 0 6px;font-size:14px;line-height:1.6;color:#2C2C2C;">${escapeHtml(item)}</td></tr>`,
+    )
+    .join('');
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin:0 0 20px;">${items}</table>`;
+}
+
 // ---- sendEmail (base) ---------------------------------------------------------------
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
@@ -220,8 +260,8 @@ export async function sendBookingConfirmation(opts: {
     const balanceLine = opts.balanceLinkImminent
       ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due now. A separate email with a secure payment link is on its way.`
       : opts.balanceDueDate
-        ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due by <strong>${humanDate(opts.balanceDueDate)}</strong>. We'll email you a secure payment link about 45 days before your trip, so there is nothing to do right now.`
-        : `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> will be collected via a secure payment link we'll email you about 45 days before your trip.`;
+        ? `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> is due by <strong>${humanDate(opts.balanceDueDate)}</strong>. We'll email you a secure payment link about ${BALANCE_LEAD_DAYS} days before your trip, so there is nothing to do right now.`
+        : `Your remaining balance of <strong>${randFromCents(opts.balanceCents!)}</strong> will be collected via a secure payment link we'll email you about ${BALANCE_LEAD_DAYS} days before your trip.`;
 
     paymentBlock =
       infoTable([
@@ -249,6 +289,14 @@ export async function sendBookingConfirmation(opts: {
       ['Payment', opts.complimentary ? 'Complimentary' : isDeposit ? '50% deposit paid' : 'Paid in full'],
     ]) +
     paymentBlock +
+    hr +
+    `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Your trail</p>` +
+    trailStrip() +
+    `<p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">What your rate covers</p>` +
+    inclusionsBlock() +
+    (opts.catering === 'uncatered'
+      ? small('Food and drink are yours to bring on a self-catered trail. Lodge staff handle kitchen prep, the barbeque and the cleaning.')
+      : '') +
     hr +
     `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Next: complete your pre-trip details</p>` +
     p('We need a few details from your group before the trail. The short form takes about five minutes. Please complete it <strong>within 7 days</strong> of this email.') +

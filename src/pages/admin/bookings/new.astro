@@ -7,6 +7,7 @@ import Section from '../../../components/Section.astro';
 import AdminNav from '../../../components/AdminNav.astro';
 import { getAdminUser } from '../../../lib/auth';
 import { withBase } from '../../../data/site';
+import { EXCLUSIVE_SIZE } from '../../../data/rates';
 
 export const prerender = false;
 
@@ -56,7 +57,8 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
           </div>
           <div class="form-field">
             <label for="cb-group">Group size</label>
-            <input id="cb-group" type="text" value="8" readonly disabled />
+            <span class="form-hint">Fixed: a comp booking is always a full buyout</span>
+            <input id="cb-group" type="text" value={EXCLUSIVE_SIZE} readonly aria-readonly="true" />
           </div>
         </div>
 
@@ -72,7 +74,7 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
           </label>
         </fieldset>
         <p class="admin-card__hint">
-          Comp bookings are exclusive buyouts: exactly 8 guests, Wednesday or Thursday only,
+          Comp bookings are exclusive buyouts: exactly {EXCLUSIVE_SIZE} guests, Wednesday or Thursday only,
           self-catered or catered. Every other day is reserved for shared departures and cannot
           be comped.
         </p>
@@ -113,6 +115,7 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
 
 <script>
   import { actions } from 'astro:actions';
+  import { EXCLUSIVE_SIZE } from '../../../data/rates';
 
   function initCompForm() {
     const form = document.getElementById('comp-form') as HTMLFormElement | null;
@@ -164,7 +167,7 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
 
       const { data, error } = await actions.adminCreateCompBooking({
         startDate,
-        groupSize: Number(val('cb-group') || '8'),
+        groupSize: EXCLUSIVE_SIZE,
         catering,
         leadName,
         leadEmail,

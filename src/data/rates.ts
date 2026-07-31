@@ -7,7 +7,7 @@
 //     a date must be at least 4 people; its catering choice (catered or uncatered) locks the
 //     day's type. Further bookings on that date must be at least 2 people and match the locked
 //     catering, up to 8 seats total.
-// Every rate additionally varies by season (high/low, ±20%) and, for self-catered only, by
+// Every rate additionally varies by season (high/low, minus 20% in low) and, for self-catered only, by
 // weekday-vs-weekend (Thursday/Friday carry a premium; catered has no day-of-week premium).
 // The server-side price authority (lib/pricing.ts) reuses these constants — display and the
 // real charged amount can never drift. Never expose owner splits (Part 12).
@@ -42,10 +42,35 @@ export const CATERED_PP_NIGHT = { high: 4800, low: 3840 } as const; // 4,800 × 
 
 export const SEASON_DISCOUNT = 0.2; // low season = high season rate × (1 − 0.2)
 
+// The lowest rate anyone can actually be charged, DERIVED from the table above rather than
+// picked by hand. Every "from R…" on the site reads this, so a rate change moves the marketing
+// copy with it instead of leaving a figure we no longer honour. Deliberately excludes the
+// last-minute discount: that is a window a guest cannot choose to be in, so advertising it as
+// the entry price would be a rate we cannot offer on request.
+export const LOWEST_PP_NIGHT = Math.min(
+  UNCATERED_PP_NIGHT.week.high,
+  UNCATERED_PP_NIGHT.week.low,
+  UNCATERED_PP_NIGHT.weekend.high,
+  UNCATERED_PP_NIGHT.weekend.low,
+  CATERED_PP_NIGHT.high,
+  CATERED_PP_NIGHT.low,
+);
+
 // --- Group formation -------------------------------------------------------------------------
 export const EXCLUSIVE_SIZE = 8; // Wed/Thu buyout: exactly this many (min = max)
-export const SHARED_OPEN_MIN = 4; // first booking on a flexible date
-export const SHARED_TOPUP_MIN = 2; // later bookings on an already-open flexible date
+
+// The opening minimum SPLITS BY CATERING TYPE (policy, 30 July 2026): the first booking on an
+// open day needs 4 self-catered but only 2 catered. Every booking after the first needs 2,
+// whichever the product. Consequence worth knowing: for CATERED, opening and joining have the
+// same size floor, so a party of 2 can start a catered date but not a self-catered one. Whether
+// a guest is opening or joining therefore depends on party size AND catering, never size alone.
+export const SHARED_OPEN_MIN_UNCATERED = 4;
+export const SHARED_OPEN_MIN_CATERED = 2;
+export const SHARED_TOPUP_MIN = 2; // later bookings on an already-open flexible date, both products
+
+// The smallest party the policy has any route for: 2 to open catered, 4 to open self-catered,
+// 2 to join anything, 8 for exclusive. There is no solo route (flagged — see §12.4 of the brief).
+export const MIN_PARTY_SIZE = 2;
 
 // --- Booking windows (rolling from today, per catering) --------------------------------------
 // Replaces the earlier single fixed BOOKING_OPEN_DATE: catered departures can be booked much
@@ -53,8 +78,11 @@ export const SHARED_TOPUP_MIN = 2; // later bookings on an already-open flexible
 export const CATERED_WINDOW_MONTHS = 18;
 export const UNCATERED_WINDOW_MONTHS = 8;
 
-// --- Last-minute discount (self-catered only) -------------------------------------------------
-// "3 to 1 weeks before, not the last week" = more than 7 days out, up to 21 days out.
+// --- Last-minute discount (BOTH caterings) ----------------------------------------------------
+// 21 to 8 days before the start, inclusive. Applies to catered AND self-catered: the policy
+// wants locals taking discounted catered spots and states cannibalisation is not a concern, so
+// there is deliberately no eligibility condition beyond the window. The final 7 days are
+// excluded on purpose (that week is reserved for staffing), so full rate at T-7 is intended.
 export const LAST_MINUTE_MIN_DAYS = 8;
 export const LAST_MINUTE_MAX_DAYS = 21;
 export const LAST_MINUTE_DISCOUNT = 0.22;
@@ -63,6 +91,9 @@ export const LAST_MINUTE_DISCOUNT = 0.22;
 export function formatRand(amount: number): string {
   return 'R' + Math.round(amount).toLocaleString('en-US');
 }
+
+// The entry price as it appears in copy. One expression, so no page can carry a stale figure.
+export const FROM_PP_NIGHT_DISPLAY = formatRand(LOWEST_PP_NIGHT);
 
 // --- Rates page display model -----------------------------------------------------------------
 // One rate matrix (RatesTable.astro), not three marketing cards. The three cards it replaces
@@ -128,7 +159,7 @@ export const bookingRules: BookingRule[] = [
   {
     days: 'Friday to Tuesday',
     title: 'Join a shared departure',
-    body: `The first booking of ${SHARED_OPEN_MIN} or more opens a date and sets its catering. Others then join in ${SHARED_TOPUP_MIN}s until the trail is full at ${MAX_GROUP_SIZE}.`,
+    body: `The first booking opens the date and sets its catering: ${SHARED_OPEN_MIN_CATERED} or more for catered, ${SHARED_OPEN_MIN_UNCATERED} or more for self-catered. Others then join in ${SHARED_TOPUP_MIN}s until the trail is full at ${MAX_GROUP_SIZE}.`,
   },
 ];
 

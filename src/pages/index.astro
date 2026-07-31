@@ -10,7 +10,8 @@ import StatsBar from '../components/StatsBar.astro';
 import Testimonials from '../components/Testimonials.astro';
 import GoogleReview from '../components/GoogleReview.astro';
 import { withBase } from '../data/site';
-import { BOOKING_OPEN_DISPLAY } from '../data/rates';
+import { BOOKING_OPEN_DISPLAY, FROM_PP_NIGHT_DISPLAY } from '../data/rates';
+import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../lib/pricing';
 import { sanctuaries } from '../data/sanctuaries';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
 import panorama from '../assets/images/rooiberg-dusk-panorama.jpg';
@@ -40,7 +41,7 @@ const steps = [
   {
     n: '1',
     title: 'Choose your dates and book',
-    text: 'Pick a start date and pay securely online. Full payment is due 45 days before arrival; a 50% deposit holds dates booked 45 or more days ahead.',
+    text: `Pick a start date and pay securely online. Full payment is due ${BALANCE_LEAD_DAYS} days before arrival; a 50% deposit holds dates booked ${SPLIT_THRESHOLD_DAYS} or more days ahead.`,
   },
   {
     n: '2',
@@ -96,7 +97,9 @@ const lodgeContext: Record<string, string> = {
         significant discount, by enquiry or WhatsApp only.
       </p>
       <p class="mt-4">
-        <a href={withBase('/rates')} class="btn btn-primary">See rates and book</a>
+        <a href={withBase('/rates')} class="btn btn-primary">
+          See rates and book, from {FROM_PP_NIGHT_DISPLAY} per person per night
+        </a>
       </p>
     </div>
   </Section>
@@ -116,14 +119,17 @@ const lodgeContext: Record<string, string> = {
       <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         The Rooiberg Wander is a 3-night, 3-day walking trail through 15,000 hectares of
         malaria-free Big 5 reserve near Rooiberg in Limpopo, 2.5 hours from OR Tambo
-        International Airport. Self-catered or catered, priced per person per night.
+        International Airport. Self-catered or catered, priced per person per night from
+        {FROM_PP_NIGHT_DISPLAY}.
       </p>
       <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
         You walk from one private lodge to the next while your luggage and provisions are moved
         ahead each day. You carry only a daypack.
       </p>
       <p class="mt-10">
-        <a href={withBase('/rates')} class="btn btn-primary">View rates and book the trail</a>
+        <a href={withBase('/rates')} class="btn btn-primary">
+          View rates, from {FROM_PP_NIGHT_DISPLAY} per person per night
+        </a>
       </p>
     </div>
   </Section>
@@ -266,7 +272,8 @@ const lodgeContext: Record<string, string> = {
         Ready to walk the Rooiberg?
       </h2>
       <p class="mt-5 max-w-2xl font-body leading-relaxed text-cream/85">
-        Check available dates and book online, or read the full day-by-day trail first.
+        Rates start at {FROM_PP_NIGHT_DISPLAY} per person per night. Check available dates and
+        book online, or read the full day-by-day trail first.
       </p>
       <div class="mt-8 flex flex-wrap gap-4">
         <a href={withBase('/rates')} class="btn btn-primary">Check dates and book</a>

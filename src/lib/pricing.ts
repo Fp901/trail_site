@@ -12,10 +12,14 @@
 //               check requires a DB lookup and lives in actions/index.ts + the DB trigger, not
 //               here — this module is pure price/date math with no I/O.)
 // Rate also varies by season (high/low, ±20%) and, for self-catered only, by weekday vs the
-// Thursday/Friday "weekend" premium. A last-minute discount (self-catered only, 8-21 days out)
-// applies on top.
+// Thursday/Friday "weekend" premium. A 22% last-minute discount applies 21 to 8 days out to
+// BOTH caterings. The chain resolves in policy order — base → season → last-minute → round to
+// the nearest rand — and only then multiplies by NIGHTS and party size.
 import {
   NIGHTS,
+  SHARED_OPEN_MIN_CATERED,
+  SHARED_OPEN_MIN_UNCATERED,
+  SHARED_TOPUP_MIN,
   UNCATERED_PP_NIGHT,
   CATERED_PP_NIGHT,
   CATERED_WINDOW_MONTHS,
@@ -133,28 +137,65 @@ export function isHighSeason(isoDate: string): boolean {
   return false;
 }
 
-// Rounds a cents figure to the nearest WHOLE RAND (nearest 100 cents), not just the nearest
-// cent. Under today's rate constants every per-night figure is already a whole rand, so this is
-// a no-op in practice — it exists so a future non-whole rate (e.g. a runtime-computed seasonal
-// adjustment instead of a hardcoded constant) can never leave fractional cents to compound
-// through NIGHTS and the last-minute discount below.
+// Rounds a cents figure to the nearest WHOLE RAND (nearest 100 cents). Policy: no displayed or
+// charged price may contain cents, and the rounding happens on the resolved PER-NIGHT rate
+// BEFORE it is multiplied by NIGHTS and party size (see ppNightCentsFor below). Rounding after
+// the multiplication instead drifts by up to a rand per person: 880 × 3 × 0.78 rounds to
+// R2,059, whereas the policy's round-first chain gives R686 pppn → R2,058.
 const roundToRand = (cents: number) => Math.round(cents / 100) * 100;
 
-// The per-person-per-night rate (cents) for a given catering choice and start date, rounded to
-// the nearest rand BEFORE it gets multiplied out by NIGHTS/discounts (see roundToRand above).
-export function ppNightCentsFor(catering: Catering, startDate: string): number {
+// The BASE per-person-per-night rate (cents) — catering and start day resolved, seasonal
+// adjustment applied, but WITHOUT the last-minute discount. Exposed on the Quote so the booking
+// UI can show a named "base + season" line separately from the last-minute reduction.
+// The low-season values are stored explicitly in data/rates.ts rather than derived here; the
+// verification script asserts low === round(high × (1 − SEASON_DISCOUNT)) so the two cannot drift.
+export function basePpNightCentsFor(catering: Catering, startDate: string): number {
   const season = isHighSeason(startDate) ? 'high' : 'low';
   if (catering === 'catered') return roundToRand(toCents(CATERED_PP_NIGHT[season]));
   const bucket = isWeekendPricingDay(startDate) ? 'weekend' : 'week';
   return roundToRand(toCents(UNCATERED_PP_NIGHT[bucket][season]));
 }
 
-// Is a self-catered booking for this start date eligible for the last-minute discount (8 to 21
-// days out)? Catered is never eligible.
-export function isLastMinuteEligible(catering: Catering, startDate: string, now: Date = new Date()): boolean {
-  if (catering !== 'uncatered') return false;
+// Is this start date inside the last-minute window? 21 to 8 days before the start, inclusive.
+// Applies to BOTH catered and self-catered — there is deliberately NO catering condition. The
+// policy wants locals taking discounted catered spots and states cannibalisation is not a
+// concern. The final 7 days are excluded on purpose: that week is reserved for staffing, so full
+// rate at T-7 is intended, not an oversight.
+export function isWithinLastMinuteWindow(startDate: string, now: Date = new Date()): boolean {
   const gap = daysUntil(startDate, now);
   return gap >= LAST_MINUTE_MIN_DAYS && gap <= LAST_MINUTE_MAX_DAYS;
+}
+
+// The FULLY RESOLVED per-person-per-night rate (cents), in policy order:
+//   base → seasonal adjustment → last-minute discount → round to the nearest rand
+// This is the single value that NIGHTS and party size multiply. Nothing downstream rounds again.
+export function ppNightCentsFor(catering: Catering, startDate: string, now: Date = new Date()): number {
+  const season = isHighSeason(startDate) ? 'high' : 'low';
+  const baseRand =
+    catering === 'catered'
+      ? CATERED_PP_NIGHT[season]
+      : UNCATERED_PP_NIGHT[isWeekendPricingDay(startDate) ? 'weekend' : 'week'][season];
+  const finalRand = isWithinLastMinuteWindow(startDate, now)
+    ? baseRand * (1 - LAST_MINUTE_DISCOUNT)
+    : baseRand;
+  return roundToRand(toCents(finalRand));
+}
+
+// --- Group-formation minimums (policy, 30 July 2026) -------------------------------------------
+// The opening minimum splits by catering; the joining minimum does not. These are the single
+// definition the widget and createCheckout both use. The DB trigger re-implements the same rule
+// independently in SQL (it is the last line of defence and cannot import from here), so any
+// change to these numbers must be mirrored in the trigger migration.
+export function minToOpen(catering: Catering): number {
+  return catering === 'catered' ? SHARED_OPEN_MIN_CATERED : SHARED_OPEN_MIN_UNCATERED;
+}
+
+export const MIN_TO_JOIN = SHARED_TOPUP_MIN;
+
+// Can this party start a brand-new date with this catering, or must it join one already open?
+// Not a function of party size alone: 2 people can open catered, but need 4 for self-catered.
+export function canOpen(groupSize: number, catering: Catering): boolean {
+  return groupSize >= minToOpen(catering);
 }
 
 export type PaymentPlan = 'full' | 'deposit_balance';
@@ -167,9 +208,14 @@ export interface Quote {
   depositPercent: number;
   amountDueCents: number; // the FIRST charge: deposit (deposit_balance) or full total (full)
   currency: string;
-  ppNightCents: number; // per person per night, before the last-minute discount
-  ppTotalCents: number; // per person for the whole trail, AFTER the last-minute discount
+  // Named components so the booking UI can show the breakdown as separate lines (never one
+  // unexplained figure): basePpNightCents is after the seasonal adjustment but before the
+  // last-minute discount; ppNightCents is the final resolved rate that actually multiplies out.
+  basePpNightCents: number;
+  ppNightCents: number; // FINAL per person per night: base → season → last-minute → rounded
+  ppTotalCents: number; // ppNightCents × NIGHTS (no further rounding)
   lastMinuteDiscountApplied: boolean;
+  highSeason: boolean; // for the preview card's season label
   // Split payment. When no startDate is supplied (display contexts) the plan defaults to 'full'.
   paymentPlan: PaymentPlan;
   depositCents: number; // deposit portion of total (== totalCents when plan is 'full')
@@ -195,16 +241,20 @@ export function computeQuote(input: {
   const now = input.now ?? new Date();
   const catering = input.catering;
 
+  // Resolve the per-night rate COMPLETELY first (base → season → last-minute → round to the
+  // rand), then multiply. Nothing below this point rounds again, so no fractional cents can
+  // compound through NIGHTS or party size.
+  const fallbackRand = catering === 'catered' ? CATERED_PP_NIGHT.high : UNCATERED_PP_NIGHT.week.high;
+  const basePpNightCents = input.startDate
+    ? basePpNightCentsFor(catering, input.startDate)
+    : roundToRand(toCents(fallbackRand));
   const ppNightCents = input.startDate
-    ? ppNightCentsFor(catering, input.startDate)
-    : roundToRand(toCents(catering === 'catered' ? CATERED_PP_NIGHT.high : UNCATERED_PP_NIGHT.week.high));
+    ? ppNightCentsFor(catering, input.startDate, now)
+    : roundToRand(toCents(fallbackRand));
+  const lastMinuteDiscountApplied =
+    !!input.startDate && isWithinLastMinuteWindow(input.startDate, now);
 
-  let ppTotalCents = ppNightCents * NIGHTS;
-  const lastMinuteDiscountApplied = !!input.startDate && isLastMinuteEligible(catering, input.startDate, now);
-  if (lastMinuteDiscountApplied) {
-    ppTotalCents = Math.round(ppTotalCents * (1 - LAST_MINUTE_DISCOUNT));
-  }
-
+  const ppTotalCents = ppNightCents * NIGHTS;
   const totalCents = ppTotalCents * input.groupSize;
 
   // Split decision. Deposit is rounded; balance is the remainder so the two always reconcile
@@ -224,9 +274,11 @@ export function computeQuote(input: {
     depositPercent: totalCents > 0 ? Math.round((depositCents / totalCents) * 100) : 0,
     amountDueCents: depositCents,
     currency: CURRENCY,
+    basePpNightCents,
     ppNightCents,
     ppTotalCents,
     lastMinuteDiscountApplied,
+    highSeason: input.startDate ? isHighSeason(input.startDate) : true,
     paymentPlan,
     depositCents,
     balanceCents,

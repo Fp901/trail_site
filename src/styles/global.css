@@ -1164,6 +1164,251 @@
     color: var(--color-green);
   }
 
+  .bstep__subheading {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-green);
+  }
+
+  /* ---- Step 1: your group (walkers / style / private buyout) -------------------------------
+     Mobile-first. Every control is >= 44px tall at the 380px baseline; the walker chips wrap
+     rather than shrink below that, and the style cards stack to one column. */
+  .bwalkers,
+  .bstyle {
+    margin-top: 1.25rem;
+    border: 0;
+    padding: 0;
+  }
+  .bwalkers__legend,
+  .bstyle__legend {
+    padding: 0;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .bwalkers__row {
+    margin-top: 0.65rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .bwalkers__opt {
+    position: relative;
+  }
+  /* The radio itself is the accessible control (native arrow-key navigation within the group);
+     it is visually replaced by the chip, never removed from the accessibility tree. */
+  .bwalkers__opt input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .bwalkers__opt span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 22%, transparent);
+    border-radius: 0.7rem;
+    background-color: #fff;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-earth);
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  .bwalkers__opt input:checked + span {
+    border-color: var(--color-ochre);
+    background-color: color-mix(in srgb, var(--color-ochre) 18%, #fff);
+  }
+  .bwalkers__opt input:focus-visible + span {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 2px;
+  }
+  .bwalkers__solo {
+    margin-top: 0.75rem;
+  }
+  .blink {
+    background: none;
+    border: 0;
+    padding: 0;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-green);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .bsolo {
+    margin-top: 0.85rem;
+    padding: 1rem 1.1rem 1.2rem;
+    border: 1px dashed color-mix(in srgb, var(--color-earth) 28%, transparent);
+    border-radius: 0.85rem;
+    background-color: color-mix(in srgb, var(--color-cream) 70%, #fff);
+  }
+  .bsolo__lead {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--color-earth);
+  }
+
+  .bstyle__cards {
+    margin-top: 0.65rem;
+    display: grid;
+    gap: 0.65rem;
+  }
+  @media (min-width: 640px) {
+    .bstyle__cards {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .bstyle__card {
+    position: relative;
+    display: flex;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 18%, transparent);
+    border-radius: 0.85rem;
+    background-color: #fff;
+    padding: 0.9rem 1rem;
+    cursor: pointer;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  .bstyle__card input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .bstyle__card:has(input:checked) {
+    border-color: var(--color-ochre);
+    background-color: color-mix(in srgb, var(--color-ochre) 10%, #fff);
+  }
+  .bstyle__card:has(input:focus-visible) {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 1px;
+  }
+  .bstyle__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .bstyle__name {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .bstyle__desc {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--color-charcoal) 72%, transparent);
+  }
+  .bstyle__from {
+    margin-top: 0.15rem;
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-green);
+  }
+
+  .bexcl {
+    margin-top: 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--color-ochre) 40%, transparent);
+    border-radius: 0.85rem;
+    background-color: color-mix(in srgb, var(--color-ochre) 7%, var(--color-cream));
+    padding: 0.9rem 1rem;
+    cursor: pointer;
+  }
+  .bexcl input {
+    margin-top: 0.15rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    flex-shrink: 0;
+    accent-color: var(--color-ochre);
+  }
+  .bexcl__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .bexcl__name {
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .bexcl__desc {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--color-charcoal) 72%, transparent);
+  }
+
+  /* Two-way catering prompt under the calendar: only when "Show me both" meets an unopened date. */
+  .bcatchoice {
+    margin-top: 0.85rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--color-ochre);
+    border-radius: 0.85rem;
+    background-color: color-mix(in srgb, var(--color-ochre) 10%, #fff);
+  }
+  .bcatchoice__lead {
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .bcatchoice__opts {
+    margin-top: 0.6rem;
+    display: grid;
+    gap: 0.5rem;
+  }
+  @media (min-width: 480px) {
+    .bcatchoice__opts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .bcatchoice__opt {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.75rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 20%, transparent);
+    border-radius: 0.7rem;
+    background-color: #fff;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--color-earth);
+    cursor: pointer;
+  }
+  .bcatchoice__opt:has(input:checked) {
+    border-color: var(--color-ochre);
+    background-color: color-mix(in srgb, var(--color-ochre) 14%, #fff);
+  }
+  .bcatchoice__opt input {
+    accent-color: var(--color-ochre);
+    flex-shrink: 0;
+  }
+
   /* ---- Join-list: departures a party of 1-3 can join (Phase 1 party-size split) ------------ */
   .bjoin-list {
     margin-top: 1.1rem;
@@ -1209,21 +1454,6 @@
     font-size: 0.92rem;
     color: var(--color-earth);
   }
-  .bjoin-card__tag {
-    display: inline-block;
-    margin-left: 0.45rem;
-    padding: 0.08rem 0.4rem;
-    border-radius: 999px;
-    background-color: color-mix(in srgb, var(--color-green) 16%, transparent);
-    color: var(--color-green);
-    font-family: var(--font-body);
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    vertical-align: middle;
-    white-space: nowrap; /* the pill itself never breaks mid-word; it may wrap as a whole unit */
-  }
   .bjoin-card__meta {
     font-size: 0.8rem;
     color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
@@ -1260,6 +1490,185 @@
     margin-top: 0.9rem;
   }
 
+  /* ---- Step 3 review chrome -------------------------------------------------------------------
+     The trail as a strip: what the money buys, immediately before it is asked for. Wraps rather
+     than scrolls, because at 380px four short stops fit in two rows and a scroller would hide
+     half the trail behind a gesture nobody knows is there. */
+  .bstrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.85rem;
+    margin-top: 0.5rem;
+    list-style: none;
+    padding: 0;
+  }
+  .bstrip__stop {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding-right: 0.85rem;
+  }
+  /* The connector is drawn between stops, not after the last one, so the strip reads as a route
+     rather than a list with a stray mark on the end. */
+  .bstrip__stop:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0.55rem;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-top: 1.5px solid var(--color-ochre);
+    border-right: 1.5px solid var(--color-ochre);
+    transform: rotate(45deg);
+  }
+  .bstrip__name {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-earth);
+    line-height: 1.25;
+  }
+  .bstrip__role {
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-green);
+  }
+
+  .bincl {
+    display: grid;
+    gap: 0.3rem;
+    margin-top: 1.1rem;
+    list-style: none;
+    padding: 0;
+  }
+  @media (min-width: 640px) {
+    .bincl {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 1.25rem;
+    }
+  }
+  .bincl li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    font-family: var(--font-body);
+    font-size: 0.83rem;
+    line-height: 1.45;
+    color: var(--color-charcoal);
+  }
+  .bincl__icon {
+    flex: 0 0 auto;
+    margin-top: 0.1rem;
+    color: var(--color-green);
+  }
+
+  .bstep__terms {
+    margin-top: 0.9rem;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: color-mix(in srgb, var(--color-charcoal) 68%, transparent);
+  }
+
+  /* ---- Policy modal ---------------------------------------------------------------------------
+     A native <dialog>: the focus trap, Escape and backdrop are the browser's, not ours. Sized to
+     leave the viewport edges visible on a phone so it never reads as a full page navigation. */
+  .bmodal {
+    width: min(46rem, calc(100vw - 2rem));
+    max-height: min(80vh, 44rem);
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 22%, transparent);
+    border-radius: 0.9rem;
+    background-color: var(--color-cream);
+    color: var(--color-charcoal);
+    overflow: hidden;
+  }
+  .bmodal::backdrop {
+    background-color: color-mix(in srgb, var(--color-earth) 62%, transparent);
+  }
+  .bmodal[open] {
+    display: flex;
+    flex-direction: column;
+  }
+  .bmodal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+  .bmodal__title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .bmodal__close {
+    flex: 0 0 auto;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-hairline);
+    background-color: #fff;
+    color: var(--color-earth);
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .bmodal__close:hover {
+    background-color: color-mix(in srgb, var(--color-ochre) 22%, var(--color-cream));
+  }
+  .bmodal__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1rem;
+    font-family: var(--font-body);
+    font-size: 0.87rem;
+    line-height: 1.6;
+  }
+  .bmodal__intro {
+    color: var(--color-charcoal);
+  }
+  .bmodal__tiers {
+    width: 100%;
+    margin: 1rem 0;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  .bmodal__tiers th,
+  .bmodal__tiers td {
+    border-bottom: 1px solid var(--color-hairline);
+    padding: 0.45rem 0.5rem;
+    vertical-align: top;
+  }
+  .bmodal__tiers th {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-green);
+  }
+  .bmodal__clause {
+    margin-top: 0.9rem;
+  }
+  .bmodal__clause h4 {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--color-earth);
+  }
+  .bmodal__foot {
+    flex: 0 0 auto;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--color-hairline);
+    background-color: #fff;
+  }
+
   .bform__estimate {
     margin-top: 1.5rem;
     font-family: var(--font-body);
@@ -1270,11 +1679,18 @@
     font-family: var(--font-display);
     font-size: 1.25rem;
   }
-  .bform__total-formula {
-    font-family: var(--font-body);
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
+  /* The named breakdown reuses the date preview's row primitives verbatim, so the arithmetic a
+     guest reads before choosing and the one they pay from LOOK the same as well as compute the
+     same. Only the frame differs. */
+  .bform__breakdown {
+    border: 1px solid var(--color-hairline);
+    border-left: 3px solid var(--color-green);
+    border-radius: 0.6rem;
+    background-color: color-mix(in srgb, var(--color-cream) 55%, #fff);
+    padding: 0.6rem 0.75rem;
+  }
+  .bform__breakdown:empty {
+    display: none;
   }
   .bform__balance-note {
     margin-top: 0.4rem;
@@ -1313,6 +1729,19 @@
   .bform__status[data-kind='success'] {
     color: var(--color-green);
   }
+  .bform__fallback {
+    margin-top: 1rem;
+    font-family: var(--font-body);
+    font-size: 0.83rem;
+    line-height: 1.55;
+    color: color-mix(in srgb, var(--color-charcoal) 74%, transparent);
+  }
+  .bform__fallback a {
+    color: var(--color-green);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
   .bform__privacy {
     margin-top: 1rem;
     font-family: var(--font-body);
@@ -1360,17 +1789,83 @@
     gap: 0.5rem;
     margin-bottom: 0.6rem;
   }
-  .bcal__month {
+  /* The month title IS the jump control (§5). Styled as the heading it replaces so the calendar
+     still reads as a titled card, with a chevron marking it as tappable. */
+  .bcal__jump {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 2.75rem;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    background-color: transparent;
+    background-image: linear-gradient(45deg, transparent 50%, var(--color-earth) 50%),
+      linear-gradient(135deg, var(--color-earth) 50%, transparent 50%);
+    background-position: right 0.85rem center, right 0.5rem center;
+    background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+    background-repeat: no-repeat;
+    padding: 0.25rem 1.6rem 0.25rem 0.5rem;
     font-family: var(--font-display);
     font-size: 1.35rem;
     font-weight: 600;
     color: var(--color-earth);
-    white-space: nowrap;
+    text-align: center;
+    text-align-last: center;
+    cursor: pointer;
+  }
+  .bcal__jump:hover {
+    background-color: var(--color-cream);
   }
   @media (min-width: 480px) {
-    .bcal__month {
+    .bcal__jump {
       font-size: 1.5rem;
     }
+  }
+
+  /* Filter chips. Horizontally scrollable at 380px rather than wrapping to three rows and pushing
+     the grid below the fold. */
+  .bcal__filters {
+    display: flex;
+    gap: 0.35rem;
+    margin-bottom: 0.6rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .bcal__filters::-webkit-scrollbar {
+    display: none;
+  }
+  .bcal__chip {
+    flex: 0 0 auto;
+    min-height: 2.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-hairline);
+    background-color: var(--color-cream);
+    padding: 0 0.85rem;
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--color-earth);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .bcal__chip:hover {
+    border-color: var(--color-earth);
+  }
+  /* Pressed chips carry a check as well as the fill, so the on-state is never colour alone. */
+  .bcal__chip.is-on {
+    background-color: var(--color-earth);
+    border-color: var(--color-earth);
+    color: var(--color-cream);
+  }
+  .bcal__chip.is-on::before {
+    content: '\2713\00a0';
+  }
+  .bcal__chip--go {
+    background-color: color-mix(in srgb, var(--color-ochre) 26%, var(--color-cream));
+    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
   }
   .bcal__nav {
     display: inline-flex;
@@ -1450,15 +1945,10 @@
     line-height: 1.15;
     color: var(--color-green);
     text-align: center;
-  }
-  .bcal__cell--closed .bcal__seats,
-  .bcal__cell--buyout-only .bcal__seats,
-  .bcal__cell--needs-open .bcal__seats,
-  .bcal__cell--full .bcal__seats {
-    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
-  }
-  .bcal__cell--catering-locked .bcal__seats {
-    color: color-mix(in srgb, var(--color-earth) 85%, transparent);
+    /* Cells are ~45px wide at the 380px baseline. Badges are kept short, but a long word must
+       break rather than push the grid sideways. */
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
   .bcal__price {
     display: none;
@@ -1475,55 +1965,259 @@
   .bcal__cell--blank {
     border: 0;
   }
-  /* Sellable now: opening, topping up, or an exclusive buyout at exactly EXCLUSIVE_SIZE. */
-  .bcal__cell--joinable {
-    background-color: color-mix(in srgb, var(--color-green) 12%, #fff);
-    border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
+  /* ---- The five cell appearances of §5 -------------------------------------------------------
+     Palette is mapped from the existing tokens, no new hues: bush green (--color-green) for
+     sellable dates, gold (--color-ochre) for a buyout, warm sand (a pale cream/ochre mix with a
+     terracotta edge) for a date running as the other product, soft grey for everything closed.
+     Gold and sand are deliberately far apart in weight — sand is pale with a coloured edge, gold
+     is saturated — because they sit adjacent in the grid and previously read as the same colour.
+     STATE IS NEVER CONVEYED BY COLOUR ALONE: every cell carries badge text and a full aria-label. */
+
+  /* 1. Open, nobody has started it. */
+  .bcal__cell--open {
+    background-color: color-mix(in srgb, var(--color-green) 10%, #fff);
+    border-color: color-mix(in srgb, var(--color-green) 32%, transparent);
     color: var(--color-earth);
     font-weight: 600;
     cursor: pointer;
   }
-  .bcal__cell--joinable:hover {
-    background-color: var(--color-ochre);
+  /* 2. Started, and running as your style. Same green family, visibly denser so a part-full date
+        reads as "join this" rather than "start this". */
+  .bcal__cell--started {
+    background-color: color-mix(in srgb, var(--color-green) 22%, #fff);
+    border-color: color-mix(in srgb, var(--color-green) 52%, transparent);
+    color: var(--color-earth);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  /* 3. Wednesday/Thursday buyout. */
+  .bcal__cell--exclusive {
+    background-color: color-mix(in srgb, var(--color-ochre) 34%, #fff);
     border-color: var(--color-ochre);
     color: var(--color-earth);
-  }
-  .bcal__cell--joinable.is-selected {
-    background-color: var(--color-ochre);
-    border-color: var(--color-earth);
-    color: var(--color-earth);
     font-weight: 700;
+    cursor: pointer;
   }
-  .bcal__cell--joinable:focus-visible {
-    outline: 2px solid var(--color-ochre);
-    outline-offset: 1px;
-  }
-  /* Already open, locked to the OTHER catering — visible and actionable (click switches catering
-     and selects the date), never just greyed out as if sold out. */
-  .bcal__cell--catering-locked {
-    background-color: color-mix(in srgb, var(--color-ochre) 14%, #fff);
-    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
+  /* 4. Running as the OTHER product. Sand, with a terracotta edge to separate it from gold at a
+        glance. Actionable: one tap switches style and selects it. Never a wall. */
+  .bcal__cell--locked {
+    background-color: color-mix(in srgb, var(--color-cream) 78%, #fff);
+    border-color: color-mix(in srgb, #9c5b3b 45%, transparent);
+    border-style: dashed;
     color: var(--color-earth);
     font-weight: 600;
     cursor: pointer;
   }
-  .bcal__cell--catering-locked:hover {
-    background-color: color-mix(in srgb, var(--color-ochre) 30%, #fff);
-  }
-  .bcal__cell--catering-locked:focus-visible {
-    outline: 2px solid var(--color-ochre);
-    outline-offset: 1px;
-  }
-  /* Disabled states — buyout-only, needs-open, full, closed. Same muted treatment; the reason is
-     always carried in the badge text and aria-label, never bare grey with no explanation. */
-  .bcal__cell--buyout-only,
-  .bcal__cell--needs-open,
-  .bcal__cell--full,
-  .bcal__cell--closed {
+  /* 5. Everything closed. One appearance, four reasons, each written into the badge. */
+  .bcal__cell--unavailable {
     background-color: transparent;
-    color: color-mix(in srgb, var(--color-charcoal) 30%, transparent);
+    border-color: transparent;
+    color: color-mix(in srgb, var(--color-charcoal) 34%, transparent);
     cursor: not-allowed;
   }
+  /* These cells are aria-disabled rather than disabled, so that a keyboard user can focus them and
+     read WHY the date is closed. is-inert restores the look the disabled attribute used to give,
+     without removing them from the focus order. */
+  .bcal__cell.is-inert:hover {
+    border-color: transparent;
+  }
+
+  .bcal__cell--open:hover,
+  .bcal__cell--started:hover,
+  .bcal__cell--exclusive:hover,
+  .bcal__cell--locked:hover {
+    border-color: var(--color-earth);
+  }
+  .bcal__cell--open:focus-visible,
+  .bcal__cell--started:focus-visible,
+  .bcal__cell--exclusive:focus-visible,
+  .bcal__cell--locked:focus-visible {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 2px;
+  }
+  /* Selection is marked by weight and a ring as well as fill, so it survives a colour-blind or
+     high-contrast rendering of the fills above. */
+  .bcal__cell.is-selected {
+    background-color: var(--color-earth);
+    border-color: var(--color-earth);
+    color: var(--color-cream);
+    font-weight: 700;
+  }
+  .bcal__cell.is-selected .bcal__seats,
+  .bcal__cell.is-selected .bcal__price {
+    color: color-mix(in srgb, var(--color-cream) 85%, transparent);
+  }
+
+  /* Badge colour follows the state, but is never the only signal — the text differs too. */
+  .bcal__cell--open .bcal__seats,
+  .bcal__cell--started .bcal__seats {
+    color: var(--color-green);
+  }
+  .bcal__cell--exclusive .bcal__seats {
+    color: color-mix(in srgb, var(--color-earth) 80%, var(--color-ochre));
+  }
+  .bcal__cell--locked .bcal__seats {
+    color: #9c5b3b;
+  }
+  .bcal__cell--unavailable .bcal__seats {
+    color: color-mix(in srgb, var(--color-charcoal) 48%, transparent);
+    font-weight: 600;
+  }
+
+  /* The last-minute discount rides ON TOP of any state (§5), so it is positioned rather than
+     stacked: a corner tag that does not consume a row in an already-tight cell. */
+  .bcal__cell {
+    position: relative;
+  }
+  .bcal__lm {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    padding: 0 0.22rem;
+    border-radius: 0 0.5rem 0 0.4rem;
+    background-color: #9c5b3b;
+    color: var(--color-cream);
+    font-family: var(--font-body);
+    font-size: 0.5rem;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+  }
+  @media (min-width: 480px) {
+    .bcal__lm {
+      font-size: 0.56rem;
+      padding: 0 0.3rem;
+    }
+  }
+
+  /* ---- Date preview (§5) --------------------------------------------------------------------
+     Sits inline beneath the grid rather than floating over it: at 380px a popover has nowhere to
+     go, and an inline panel needs no positioning logic, no collision handling and no focus trap.
+     It is placed after the grid in the DOM so Tab from the focused cell lands on its action. */
+  .bpreview {
+    margin-top: 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 22%, transparent);
+    border-left: 3px solid var(--color-ochre);
+    border-radius: 0.65rem;
+    background-color: var(--color-cream);
+    padding: 0.85rem 0.9rem;
+  }
+  .bpreview__date {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-earth);
+    line-height: 1.2;
+  }
+  .bpreview__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+  }
+  .bpreview__tag {
+    border-radius: 999px;
+    border: 1px solid var(--color-hairline);
+    background-color: #fff;
+    padding: 0.12rem 0.5rem;
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--color-earth);
+  }
+  .bpreview__tag--lm {
+    background-color: color-mix(in srgb, #9c5b3b 16%, #fff);
+    border-color: color-mix(in srgb, #9c5b3b 40%, transparent);
+  }
+  .bpreview__tag--excl {
+    background-color: color-mix(in srgb, var(--color-ochre) 24%, #fff);
+    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
+  }
+  .bpreview__places,
+  .bpreview__note {
+    margin-top: 0.5rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-charcoal);
+  }
+  .bpreview__block {
+    margin-top: 0.7rem;
+    border-top: 1px solid var(--color-hairline);
+    padding-top: 0.55rem;
+  }
+  .bpreview__blockhead {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-green);
+    margin-bottom: 0.3rem;
+  }
+  /* Every line of the breakdown is a label/value pair, so the arithmetic reads as arithmetic and
+     no single figure ever appears unexplained. */
+  .bpreview__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.16rem 0;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--color-charcoal);
+  }
+  .bpreview__value {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .bpreview__row--credit .bpreview__value {
+    color: var(--color-green);
+    font-weight: 600;
+  }
+  .bpreview__row--rate {
+    border-top: 1px solid var(--color-hairline);
+    margin-top: 0.25rem;
+    padding-top: 0.35rem;
+    font-weight: 700;
+    color: var(--color-earth);
+  }
+  .bpreview__row--total {
+    font-weight: 700;
+    color: var(--color-earth);
+  }
+  .bpreview__row--due {
+    margin-top: 0.25rem;
+    border-top: 1px solid var(--color-hairline);
+    padding-top: 0.35rem;
+    font-weight: 700;
+    color: var(--color-earth);
+  }
+  .bpreview__fine {
+    margin-top: 0.25rem;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: color-mix(in srgb, var(--color-charcoal) 72%, transparent);
+  }
+  .bpreview__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.85rem;
+  }
+  .bpreview__go {
+    flex: 1 1 auto;
+    min-height: 2.75rem;
+  }
+  .bpreview__close {
+    min-height: 2.75rem;
+    padding: 0 0.35rem;
+  }
+
   .bcal__legend {
     display: flex;
     flex-wrap: wrap;
@@ -1545,13 +2239,22 @@
     border-radius: 0.2rem;
     border: 1px solid transparent;
   }
-  .bcal__key--joinable::before {
-    background-color: color-mix(in srgb, var(--color-green) 12%, #fff);
-    border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
+  .bcal__key--open::before {
+    background-color: color-mix(in srgb, var(--color-green) 10%, #fff);
+    border-color: color-mix(in srgb, var(--color-green) 32%, transparent);
   }
-  .bcal__key--switch::before {
-    background-color: color-mix(in srgb, var(--color-ochre) 14%, #fff);
-    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
+  .bcal__key--started::before {
+    background-color: color-mix(in srgb, var(--color-green) 22%, #fff);
+    border-color: color-mix(in srgb, var(--color-green) 52%, transparent);
+  }
+  .bcal__key--exclusive::before {
+    background-color: color-mix(in srgb, var(--color-ochre) 34%, #fff);
+    border-color: var(--color-ochre);
+  }
+  .bcal__key--locked::before {
+    background-color: color-mix(in srgb, var(--color-cream) 78%, #fff);
+    border-color: color-mix(in srgb, #9c5b3b 45%, transparent);
+    border-style: dashed;
   }
   .bcal__key--out::before {
     background-color: transparent;
@@ -1904,6 +2607,38 @@
   }
 
   /* Included / to-arrange lists */
+  /* Worked example on /how-pricing-works. A definition list, because each row genuinely is a
+     term and its value, and the label/amount pairing is the point of the block. */
+  .pricing-example {
+    margin-top: 1.25rem;
+    border-top: 1px solid color-mix(in srgb, var(--color-cream) 22%, transparent);
+  }
+  .pricing-example__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-cream) 18%, transparent);
+    padding: 0.55rem 0;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+  }
+  .pricing-example__row dt {
+    color: color-mix(in srgb, var(--color-cream) 82%, transparent);
+  }
+  .pricing-example__row dd {
+    margin: 0;
+    font-weight: 700;
+    color: var(--color-cream);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  /* The last two rows are the amounts that actually move money; weight them above the workings. */
+  .pricing-example__row:nth-last-child(2) dd,
+  .pricing-example__row:last-child dd {
+    color: var(--color-ochre);
+  }
+
   .incl-list {
     margin-top: 1.25rem;
     display: grid;

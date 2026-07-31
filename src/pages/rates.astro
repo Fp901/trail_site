@@ -21,9 +21,9 @@ import {
   inclusions,
   exclusions,
 } from '../data/rates';
-import { todaySast } from '../lib/pricing';
+import { todaySast, SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../lib/pricing';
 import { refundPolicy } from '../data/policies';
-import { site } from '../data/site';
+import { site, withBase } from '../data/site';
 import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
 // Official card-network marks (MIT-licensed set; see src/assets/payment/LICENSE.md).
 import visaMark from '../assets/payment/visa.svg';
@@ -116,8 +116,16 @@ const jsonLd = [
 
       <p class="mt-6 font-body text-sm leading-relaxed text-charcoal/70">
         Prices are in South African Rand. No VAT is charged. A payment receipt is issued on
-        confirmation of payment. Self-catered bookings made {LAST_MINUTE_MIN_DAYS} to{' '}
-        {LAST_MINUTE_MAX_DAYS} days before the start date get a further {lastMinutePercent}% off.
+        confirmation of payment. Bookings made {LAST_MINUTE_MIN_DAYS} to {LAST_MINUTE_MAX_DAYS}
+        days before the start date get a further {lastMinutePercent}% off, catered or
+        self-catered.
+      </p>
+
+      <p class="mt-5 font-body text-sm leading-relaxed text-charcoal/85">
+        <a href={withBase('/how-pricing-works')} class="underline decoration-ochre underline-offset-4">
+          How pricing works
+        </a>{' '}
+        explains each of these with a worked example.
       </p>
     </div>
 
@@ -160,7 +168,8 @@ const jsonLd = [
                 <span class="booking-assure__icon" aria-hidden="true">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v4m8-4v4M4 9h16M5 5h14a1 1 0 0 1 1 1v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1Z"/></svg>
                 </span>
-                50% deposit secures dates 45+ days out; full payment is due 45 days before arrival
+                50% deposit secures dates {SPLIT_THRESHOLD_DAYS}+ days out; full payment is due{' '}
+                {BALANCE_LEAD_DAYS} days before arrival
               </li>
               <li>
                 <span class="booking-assure__icon" aria-hidden="true">
@@ -236,8 +245,15 @@ const jsonLd = [
         Cancellations &amp; refunds
       </h2>
       <ul class="policy-summary">
-        <li>Full payment is due 45 days before arrival: bookings made 45 or more days out pay a 50% deposit, with the balance due at the 45-day mark; inside 45 days pays in full.</li>
-        <li>Cancel 45 or more days before arrival for a full refund, less a 5% admin fee.</li>
+        <li>
+          Full payment is due {BALANCE_LEAD_DAYS} days before arrival: bookings made{' '}
+          {SPLIT_THRESHOLD_DAYS} or more days out pay a 50% deposit, with the balance due at the{' '}
+          {BALANCE_LEAD_DAYS}-day mark; inside {SPLIT_THRESHOLD_DAYS} days pays in full.
+        </li>
+        <li>
+          Cancel {refundPolicy.tiers[0].window.toLowerCase()} for a{' '}
+          {refundPolicy.tiers[0].refund.charAt(0).toLowerCase() + refundPolicy.tiers[0].refund.slice(1)}.
+        </li>
       </ul>
 
       <details class="policy-accordion">

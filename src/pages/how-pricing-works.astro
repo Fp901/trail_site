@@ -1,0 +1,229 @@
+---
+// How pricing works (/how-pricing-works) — the explainer behind the rate matrix on /rates.
+//
+// The rates page answers "what does it cost". This page answers "why is it that", which is the
+// question that stalls a booking: four independent things move the per-person nightly rate, and
+// until a guest can see which one applies to them the matrix reads as arbitrary.
+//
+// EVERY figure here is computed from data/rates.ts and lib/pricing.ts. Nothing on this page is
+// typed by hand, because an explainer that disagrees with the calculator is worse than none.
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+import {
+  NIGHTS,
+  MAX_GROUP_SIZE,
+  EXCLUSIVE_SIZE,
+  MIN_PARTY_SIZE,
+  SHARED_OPEN_MIN_CATERED,
+  SHARED_OPEN_MIN_UNCATERED,
+  SHARED_TOPUP_MIN,
+  UNCATERED_PP_NIGHT,
+  CATERED_PP_NIGHT,
+  SEASON_DISCOUNT,
+  SEASON_HIGH_DATES,
+  LAST_MINUTE_DISCOUNT,
+  LAST_MINUTE_MIN_DAYS,
+  LAST_MINUTE_MAX_DAYS,
+  CATERED_WINDOW_MONTHS,
+  UNCATERED_WINDOW_MONTHS,
+  FROM_PP_NIGHT_DISPLAY,
+  formatRand,
+  inclusions,
+  exclusions,
+} from '../data/rates';
+import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS, ppNightCentsFor, isHighSeason } from '../lib/pricing';
+import { withBase } from '../data/site';
+import { webPageSchema, breadcrumbSchema, faqPageSchema } from '../data/schema';
+
+const title = 'How pricing works';
+const description = `Rates are per person, per night, from ${FROM_PP_NIGHT_DISPLAY}. Four things move the price: catering, season, start day, and how far ahead you book.`;
+
+const seasonPct = Math.round(SEASON_DISCOUNT * 100);
+const lastMinutePct = Math.round(LAST_MINUTE_DISCOUNT * 100);
+
+// The four factors, each with its own effect stated in the rates the table actually carries.
+const factors = [
+  {
+    q: 'Does catering change the price?',
+    lead: 'Yes, and it is the largest single factor.',
+    body: `Self-catered starts at ${formatRand(UNCATERED_PP_NIGHT.week.low)} per person per night and catered at ${formatRand(CATERED_PP_NIGHT.low)}. On a self-catered trail you bring and cook your own food, with lodge staff on hand for kitchen prep, the barbeque and cleaning. On a catered trail every meal is prepared for you.`,
+  },
+  {
+    q: 'What counts as high season?',
+    lead: `${SEASON_HIGH_DATES}. Everything outside those dates is low season and costs ${seasonPct}% less.`,
+    body: `The reduction applies to whichever rate you are already on, so a self-catered week-day start moves from ${formatRand(UNCATERED_PP_NIGHT.week.high)} to ${formatRand(UNCATERED_PP_NIGHT.week.low)}, and catered from ${formatRand(CATERED_PP_NIGHT.high)} to ${formatRand(CATERED_PP_NIGHT.low)}.`,
+  },
+  {
+    q: 'Why does my start day change the price?',
+    lead: 'Only on self-catered trails, and only for Thursday and Friday starts.',
+    body: `A self-catered trail beginning on a Thursday or Friday is ${formatRand(UNCATERED_PP_NIGHT.weekend.high)} per person per night in high season against ${formatRand(UNCATERED_PP_NIGHT.week.high)} for any other start day. Catered trails are one rate whatever day you start.`,
+  },
+  {
+    q: 'Is there a discount for booking late?',
+    lead: `Yes. Departures between ${LAST_MINUTE_MIN_DAYS} and ${LAST_MINUTE_MAX_DAYS} days away are ${lastMinutePct}% less.`,
+    body: `It applies to both catered and self-catered trails, and it is applied automatically: you will see it named on the date you pick and again on your total before you pay. Nothing needs to be asked for or entered.`,
+  },
+];
+
+// A worked example, computed rather than typed, so the arithmetic on this page is the arithmetic
+// in the calculator. Fixed "now" is deliberate: a far-future date so the example is never
+// silently altered by the last-minute window as the date approaches.
+//
+// The DESCRIPTION is derived too, not written alongside the date. Writing "low season" next to a
+// date is exactly how this page ends up contradicting itself: the first draft of this example was
+// labelled low season on a date inside 1 Apr to 31 Oct, and the label was wrong while every
+// number below it was right.
+const exampleIso = '2027-11-15';
+const exampleParty = 4;
+const exampleCatering = 'uncatered' as const;
+const exampleNow = new Date('2027-01-20T00:00:00Z');
+const exampleDate = new Date(exampleIso + 'T00:00:00Z');
+const exampleWeekday = exampleDate.toLocaleDateString('en-ZA', { timeZone: 'UTC', weekday: 'long' });
+const exampleSeason = isHighSeason(exampleIso) ? 'high season' : 'low season';
+const exampleStyle = exampleCatering === 'uncatered' ? 'Self-catered' : 'Catered';
+const examplePpNight = ppNightCentsFor(exampleCatering, exampleIso, exampleNow);
+const examplePpTotal = examplePpNight * NIGHTS;
+const exampleTotal = examplePpTotal * exampleParty;
+const exampleDeposit = Math.round(exampleTotal / 2);
+const asRand = (cents: number) => formatRand(cents / 100);
+
+const exampleLines: Array<[string, string]> = [
+  [`${exampleStyle}, ${exampleSeason}, ${exampleWeekday} start`, `${asRand(examplePpNight)} per person per night`],
+  [`${NIGHTS} nights`, `${asRand(examplePpTotal)} per person`],
+  [`${exampleParty} walkers`, asRand(exampleTotal)],
+  ['Paid today (50% deposit)', asRand(exampleDeposit)],
+  [`Balance, due ${BALANCE_LEAD_DAYS} days before arrival`, asRand(exampleTotal - exampleDeposit)],
+];
+
+const jsonLd = [
+  webPageSchema({ path: '/how-pricing-works', name: title, description }),
+  breadcrumbSchema([
+    { name: 'Home', path: '/' },
+    { name: 'Rates & Booking', path: '/rates' },
+    { name: 'How pricing works', path: '/how-pricing-works' },
+  ]),
+  faqPageSchema(factors.map((f) => ({ q: f.q, a: `${f.lead} ${f.body}` }))),
+];
+---
+
+<Layout title={title} description={description} path="/how-pricing-works" jsonLd={jsonLd}>
+  <Section bg="cream" labelledby="pricing-heading" space="lg">
+    <div class="max-w-3xl">
+      <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
+        Rates explained
+      </p>
+      <h1 id="pricing-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl md:text-6xl">
+        How pricing works
+      </h1>
+      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
+        Rates are per person, per night, from {FROM_PP_NIGHT_DISPLAY}. Four things move that
+        rate: whether you self-cater, the season, your start day, and how far ahead you book.
+        Nothing else is added at checkout.
+      </p>
+    </div>
+  </Section>
+
+  {/* Answer-first Q&A: each heading is a question a guest actually asks, answered in the first
+      sentence. Serves readers, search, and the generative engines that quote the first line. */}
+  <Section bg="cream" labelledby="factors-heading" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <h2 id="factors-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        What moves the price
+      </h2>
+      <div class="mt-6 grid gap-7">
+        {
+          factors.map((factor) => (
+            <div>
+              <h3 class="font-display text-xl text-earth">{factor.q}</h3>
+              <p class="mt-2 font-body leading-relaxed text-charcoal">
+                <strong>{factor.lead}</strong>
+              </p>
+              <p class="mt-2 font-body leading-relaxed text-charcoal/85">{factor.body}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </Section>
+
+  <Section bg="earth" labelledby="example-heading" space="md">
+    <div class="max-w-3xl">
+      <h2 id="example-heading" class="font-display text-2xl text-cream sm:text-3xl">
+        A worked example
+      </h2>
+      <p class="mt-4 font-body leading-relaxed text-cream/85">
+        {exampleParty} walkers, {exampleStyle.toLowerCase()}, starting on a {exampleWeekday} in
+        {exampleSeason}. Every line is the same calculation the booking form runs, so this is what
+        you would actually be charged.
+      </p>
+      <dl class="pricing-example">
+        {
+          exampleLines.map(([label, value]) => (
+            <div class="pricing-example__row">
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+      <p class="mt-5 font-body text-sm leading-relaxed text-cream/70">
+        Departures {SPLIT_THRESHOLD_DAYS} or more days away are secured with a 50% deposit, with
+        the balance due {BALANCE_LEAD_DAYS} days before arrival. Inside that, the full amount is
+        due at booking.
+      </p>
+    </div>
+  </Section>
+
+  <Section bg="cream" labelledby="group-heading" space="md">
+    <div class="max-w-3xl">
+      <h2 id="group-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        Do I pay for my whole group, or just myself?
+      </h2>
+      <p class="mt-4 font-body leading-relaxed text-charcoal">
+        <strong>Just the people you are booking for.</strong> The rate is per person, per night,
+        so a party of {MIN_PARTY_SIZE} pays for {MIN_PARTY_SIZE} even on a date where others join
+        later. A departure carries up to {MAX_GROUP_SIZE} walkers in total.
+      </p>
+      <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+        The first booking on a shared date needs at least {SHARED_OPEN_MIN_UNCATERED} people
+        self-catered or {SHARED_OPEN_MIN_CATERED} catered, and fixes the catering for everyone who
+        joins that date afterwards. Once a date is running, any party of {SHARED_TOPUP_MIN} or more
+        can join it while places last. Wednesday and Thursday departures are private buyouts of
+        exactly {EXCLUSIVE_SIZE} places, so nobody joins you.
+      </p>
+      <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+        Catered dates open for booking up to {CATERED_WINDOW_MONTHS} months ahead and self-catered
+        up to {UNCATERED_WINDOW_MONTHS} months.
+      </p>
+    </div>
+  </Section>
+
+  <Section bg="cream" labelledby="included-heading" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <h2 id="included-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        What is included in the rate?
+      </h2>
+      <div class="mt-5 grid gap-6 sm:grid-cols-2">
+        <div>
+          <h3 class="font-body text-sm font-bold uppercase tracking-[0.08em] text-green">
+            Included
+          </h3>
+          <ul class="incl-list incl-list--in mt-3">
+            {inclusions.map((item) => <li>{item}</li>)}
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-body text-sm font-bold uppercase tracking-[0.08em] text-earth/70">
+            Not included
+          </h3>
+          <ul class="incl-list incl-list--out mt-3">
+            {exclusions.map((item) => <li>{item}</li>)}
+          </ul>
+        </div>
+      </div>
+      <p class="mt-8">
+        <a href={withBase('/rates')} class="btn btn-primary">See the rate table and book</a>
+      </p>
+    </div>
+  </Section>
+</Layout>
