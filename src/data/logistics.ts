@@ -117,7 +117,7 @@ export const provisions = {
   kicker: 'Food & provisions',
   title: 'Stocking up before you arrive',
   intro:
-    'You are welcome to pre-order groceries and supplies before you arrive. The closest fully-stocked supermarket and liquor store is Checkers Bela Bela, at the Bela Mall off the N1, about 80 km from us.',
+    'Groceries and supplies can be pre-ordered before arrival. The closest fully-stocked supermarket and liquor store is Checkers Bela Bela, at the Bela Mall off the N1, about 80 km from us.',
   disclaimer:
     'Grocery orders and deliveries are strictly between you and Checkers; we cannot manage them on your behalf.',
 };
@@ -126,7 +126,7 @@ export const transfers = {
   kicker: 'Transfers & transport',
   title: 'Getting here',
   intro:
-    'If you are flying in or would rather be driven, we recommend EZ Shuttle, a local operator that knows the routes and access points to reach us.',
+    'If you require a transfer, we recommend EZ Shuttle, a local operator that knows the routes and access points to reach us.',
   linkText: 'Book a transfer with EZ Shuttle',
   linkUrl: 'https://www.ezshuttle.co.za/',
   booking:
@@ -155,6 +155,7 @@ export const kitList = {
     'Duct tape for blisters',
     'Sun protection',
     'Hat',
+    'Insect repellant',
     'A daypack',
     '2-litre water bottles',
     'A headlamp',

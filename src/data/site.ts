@@ -2,7 +2,7 @@
 // Single source for SEO, Nav and Footer. Page-specific copy lives in its own data file.
 
 export const site = {
-  name: 'The Rooiberg Wander',
+  name: 'Rooiberg Wander',
   // Display form used as the logo's alt text (nav + footer render the full logo lockup, no
   // text wordmark). `name` stays the formal/SEO form used in titles, schema, emails and body copy.
   brandName: 'Rooiberg Wander',
@@ -10,8 +10,8 @@ export const site = {
   // be formed to operate the trail and its name is not yet known. Using the trading name here
   // until the new entity is registered — OPERATOR: update with the formal company name + reg
   // number once available (site.ts, and re-check email.ts / privacy.astro for the same).
-  operator: 'The Rooiberg Wander',
-  operatorTradingAs: 'The Rooiberg Wander',
+  operator: 'Rooiberg Wander',
+  operatorTradingAs: 'Rooiberg Wander',
   // The operator is not VAT-registered — no VAT number, no VAT charged or shown anywhere.
   location: 'Rooiberg, Limpopo, South Africa',
   region: 'Waterberg, Limpopo',
@@ -41,8 +41,8 @@ export const site = {
   // Social profiles. Empty until the pages exist. Each footer icon renders only when its URL is
   // set, so no dead links are ever shown. Paste the full profile URL to switch each one on.
   social: {
-    instagram: '',
-    facebook: '',
+    instagram: 'https://www.instagram.com/rooibergwander/',
+    facebook: 'https://www.facebook.com/rooibergwander',
   },
 
   locale: 'en-ZA',
