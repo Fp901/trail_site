@@ -1172,6 +1172,17 @@
     text-transform: uppercase;
     color: var(--color-green);
   }
+  /* "Your details" now sits directly under the step heading (the itinerary strip and included
+     list that used to separate them are gone). Needs its own gap: two headings stacked with zero
+     space between them read as one run-on line, not a heading followed by a subsection. */
+  .bstep__heading + .bstep__subheading {
+    margin-top: 1rem;
+  }
+  /* Heading-to-content spacing, matching the ~0.5rem gap .bstep__heading already gets above its
+     own first block — .bform__grid has no margin-top of its own to supply this. */
+  .bstep__subheading + .bform__grid {
+    margin-top: 0.6rem;
+  }
 
   /* ---- Step 1: your group (walkers / style / private buyout) -------------------------------
      Mobile-first. Every control is >= 44px tall at the 380px baseline; the walker chips wrap
@@ -1326,42 +1337,6 @@
     color: var(--color-green);
   }
 
-  .bexcl {
-    margin-top: 1.25rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.7rem;
-    border: 1px solid color-mix(in srgb, var(--color-ochre) 40%, transparent);
-    border-radius: 0.85rem;
-    background-color: color-mix(in srgb, var(--color-ochre) 7%, var(--color-cream));
-    padding: 0.9rem 1rem;
-    cursor: pointer;
-  }
-  .bexcl input {
-    margin-top: 0.15rem;
-    width: 1.1rem;
-    height: 1.1rem;
-    flex-shrink: 0;
-    accent-color: var(--color-ochre);
-  }
-  .bexcl__body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-  .bexcl__name {
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: var(--color-earth);
-  }
-  .bexcl__desc {
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    line-height: 1.45;
-    color: color-mix(in srgb, var(--color-charcoal) 72%, transparent);
-  }
-
   /* Two-way catering prompt under the calendar: only when "Show me both" meets an unopened date. */
   .bcatchoice {
     margin-top: 0.85rem;
@@ -1490,88 +1465,6 @@
     margin-top: 0.9rem;
   }
 
-  /* ---- Step 3 review chrome -------------------------------------------------------------------
-     The trail as a strip: what the money buys, immediately before it is asked for. Wraps rather
-     than scrolls, because at 380px four short stops fit in two rows and a scroller would hide
-     half the trail behind a gesture nobody knows is there. */
-  .bstrip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem 0.85rem;
-    margin-top: 0.5rem;
-    list-style: none;
-    padding: 0;
-  }
-  .bstrip__stop {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding-right: 0.85rem;
-  }
-  /* The connector is drawn between stops, not after the last one, so the strip reads as a route
-     rather than a list with a stray mark on the end. */
-  .bstrip__stop:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    top: 0.55rem;
-    width: 0.45rem;
-    height: 0.45rem;
-    border-top: 1.5px solid var(--color-ochre);
-    border-right: 1.5px solid var(--color-ochre);
-    transform: rotate(45deg);
-  }
-  .bstrip__name {
-    font-family: var(--font-display);
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--color-earth);
-    line-height: 1.25;
-  }
-  .bstrip__role {
-    font-family: var(--font-body);
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--color-green);
-  }
-
-  .bincl {
-    display: grid;
-    gap: 0.3rem;
-    margin-top: 1.1rem;
-    list-style: none;
-    padding: 0;
-  }
-  @media (min-width: 640px) {
-    .bincl {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      column-gap: 1.25rem;
-    }
-  }
-  .bincl li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.45rem;
-    font-family: var(--font-body);
-    font-size: 0.83rem;
-    line-height: 1.45;
-    color: var(--color-charcoal);
-  }
-  .bincl__icon {
-    flex: 0 0 auto;
-    margin-top: 0.1rem;
-    color: var(--color-green);
-  }
-
-  .bstep__terms {
-    margin-top: 0.9rem;
-    font-family: var(--font-body);
-    font-size: 0.8rem;
-    line-height: 1.5;
-    color: color-mix(in srgb, var(--color-charcoal) 68%, transparent);
-  }
 
   /* ---- Policy modal ---------------------------------------------------------------------------
      A native <dialog>: the focus trap, Escape and backdrop are the browser's, not ours. Sized to
@@ -2371,17 +2264,20 @@
      the content box is ~332px, so the row-label column takes ~150px and the two season columns
      ~90px each. The overflow-x wrapper is a safety net for large-text/zoom users only, matching
      the convention already used by `.admin-tablewrap` and privacy's `.table-wrap`. */
-  /* Currency tabs above the price matrix — radio buttons styled as pill chips, same idiom as
-     .bstyle__card and the calendar's .bcal__chip: native, keyboard-operable, no custom widget.
-     ZAR stays the default AND the only charged currency; the other three are a display-only,
-     indicative conversion (data/rates.ts's ZAR_TO_FOREIGN). */
+  /* Currency tabs above the price matrix — ONE segmented control (a shared bordered track with
+     four radio "thumbs" inside), not four independent pill buttons. Four separate floating pills
+     read as unrelated buttons; grouping them in a track is the standard pattern for "one control,
+     several positions" (iOS segmented controls, most SaaS pricing-period toggles) and is what
+     actually reads as a single currency switcher. ZAR stays the default AND the only charged
+     currency; the other three are a display-only, indicative conversion (ZAR_TO_FOREIGN). */
   .ratetable__currency {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 0 0 0.85rem;
-    padding: 0;
-    border: 0;
+    display: inline-flex;
+    gap: 0.2rem;
+    margin: 0 0 1rem;
+    padding: 0.25rem;
+    border: 1px solid var(--color-hairline);
+    border-radius: 999px;
+    background-color: color-mix(in srgb, var(--color-earth) 5%, var(--color-cream));
   }
   .ratetable__curbtn {
     position: relative;
@@ -2390,17 +2286,17 @@
     justify-content: center;
     min-height: 2.75rem;
     min-width: 3.25rem;
-    padding: 0 1rem;
+    padding: 0 0.95rem;
     border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--color-earth) 18%, transparent);
-    background-color: #fff;
+    border: 0;
+    background-color: transparent;
     font-family: var(--font-body);
     font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.02em;
     color: var(--color-earth);
     cursor: pointer;
-    transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+    transition: background-color 150ms ease, color 150ms ease;
   }
   .ratetable__curbtn input {
     position: absolute;
@@ -2411,9 +2307,12 @@
     opacity: 0;
     cursor: pointer;
   }
+  /* Unselected segments get a faint hover cue since they no longer carry their own border. */
+  .ratetable__curbtn:hover:not(:has(input:checked)) {
+    background-color: color-mix(in srgb, var(--color-earth) 8%, transparent);
+  }
   .ratetable__curbtn:has(input:checked) {
     background-color: var(--color-earth);
-    border-color: var(--color-earth);
     color: var(--color-cream);
   }
   .ratetable__curbtn:has(input:focus-visible) {

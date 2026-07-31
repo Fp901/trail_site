@@ -108,9 +108,16 @@ assert(`walkers are radio BUTTONS, not a slider`, /input type="radio" name="grou
 assert(`range starts at MIN_PARTY_SIZE (${MIN_PARTY_SIZE}) and ends at MAX_GROUP_SIZE (${MAX_GROUP_SIZE})`,
   /MAX_GROUP_SIZE - MIN_PARTY_SIZE \+ 1/.test(widget) && /i \+ MIN_PARTY_SIZE/.test(widget));
 assert('no group-size <select> survives', !/<select[^>]*name="groupSize"/.test(widget));
-assert('three style cards exist', ['value="both"', 'value="catered"', 'value="uncatered"'].every((v) => widget.includes(v)));
-assert('"Show me both" is the DEFAULT (checked)', /name="style" value="both" checked/.test(widget));
-assert('neither named style is pre-checked', !/name="style" value="catered" checked/.test(widget) && !/name="style" value="uncatered" checked/.test(widget));
+// The "Show me both" card was removed on request: exactly two named style cards remain, and
+// neither is visually pre-checked. The 'both' MODE still exists — it is the JS default a guest
+// starts in before picking either card — so the truth table above stays entirely valid; only the
+// third radio input is gone from the markup.
+assert('exactly two style cards exist (both/catered/uncatered card removed)',
+  !widget.includes('value="both"') && widget.includes('value="catered"') && widget.includes('value="uncatered"'));
+assert('neither named style is pre-checked (no visible default; "both" is invisible/internal)',
+  !/name="style" value="catered" checked/.test(widget) && !/name="style" value="uncatered" checked/.test(widget));
+assert('"both" remains the internal JS default until a card is picked',
+  /let style: Style = 'both'/.test(widget));
 assert('style cards state their booking window', /CATERED_WINDOW_MONTHS\} months ahead/.test(widget) && /UNCATERED_WINDOW_MONTHS\} months ahead/.test(widget));
 assert('solo link present and wired to the existing createInquiry', /data-solo-toggle/.test(widget) && /data-solo-submit/.test(widget));
 // Comments are stripped first: the source deliberately SAYS "does not invent a single
@@ -123,8 +130,13 @@ const widgetCode = widget
   .join('\n');
 assert('no single supplement is offered anywhere in the markup or logic',
   !/single supplement|solo supplement|solo surcharge/i.test(widgetCode));
-assert('buyout toggle present', /data-exclusive-only/.test(widget));
-assert('buyout toggle forces exactly EXCLUSIVE_SIZE', /input\[name="groupSize"\]\[value="\$\{R\.exclusiveSize\}"\]/.test(widget));
+// The Step 1 "trail to ourselves" checkbox was removed on request. The calendar's "Only private
+// buyouts" filter chip is now the sole route to exclusiveOnly, per the eligibility rule above
+// (choosing EXCLUSIVE_SIZE walkers already reaches Wed/Thu regardless of this filter existing).
+assert('no orphaned Step 1 checkbox selector survives', !/data-exclusive-only/.test(widget));
+assert('the buyout FILTER CHIP still forces exactly EXCLUSIVE_SIZE when switched on',
+  /filterExclBtn\?\.addEventListener\('click'/.test(widget) &&
+  /input\[name="groupSize"\]\[value="\$\{R\.exclusiveSize\}"\]/.test(widget));
 assert('reach changes are announced via role="status"', /data-path-notice role="status"/.test(widget) && /function announceReach/.test(widget));
 
 section('8. The Path A/B split is gone; one flow with three steps');

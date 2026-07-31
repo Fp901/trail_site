@@ -21,12 +21,10 @@ import {
   NIGHTS,
   UNCATERED_PP_NIGHT,
   CATERED_PP_NIGHT,
-  inclusions,
   MIN_PARTY_SIZE,
   MAX_GROUP_SIZE,
 } from '../src/data/rates.ts';
 import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../src/lib/pricing.ts';
-import { routePins } from '../src/data/route.ts';
 import { refundPolicy } from '../src/data/policies.ts';
 
 let failed = 0;
@@ -44,32 +42,18 @@ const stepStart = widget.indexOf('==== Step 3');
 const stepEnd = widget.indexOf('data-policy-modal');
 const step = widget.slice(stepStart, stepEnd);
 
-section('1. The itinerary strip is DERIVED, never retyped');
+section('1. The step exists, and the itinerary strip + included list are gone (removed on request)');
 assert('the step exists and was located', stepStart > 0 && stepEnd > stepStart);
-assert('a strip is rendered', /<ol class="bstrip"/.test(step));
-assert('it reads routePins rather than hardcoding sanctuary names',
-  /import \{ routePins \} from '\.\.\/data\/route'/.test(widget));
-// The three names live in data/route.ts and data/sanctuaries.ts. A literal here is a name that
-// will silently disagree with the map and the sanctuaries page the first time one is corrected.
-for (const pin of routePins) {
-  assert(`"${pin.name}" is NOT hardcoded in the widget`, !widget.includes(`>${pin.name}<`));
-}
-assert('the hub is identified by its flag, not by index or name', /routePins\.find\(\(pin\) => pin\.isHub\)/.test(widget));
-assert('the loop returns to the start (the hub appears twice)',
-  /\{ name: hub\.name, role: 'Day 1, arrive' \}[\s\S]{0,300}\{ name: hub\.name, role: 'Day 4, depart' \}/.test(widget));
-assert('the strip is labelled for screen readers', /aria-label="The trail, start to finish"/.test(step));
-assert('the connector is decorative CSS, not a character in the text',
-  /\.bstrip__stop:not\(:last-child\)::after/.test(css) && !/&rarr;|→/.test(step));
-
-section('2. What is included, from the same list the rates page renders');
-assert('inclusions are imported from data/rates.ts',
-  /import \{[\s\S]{0,400}\n  inclusions,\n[\s\S]{0,200}\} from '\.\.\/data\/rates'/.test(widget));
-assert('the list is mapped, not transcribed', /\{inclusions\.map\(\(item\) => \(/.test(step));
-for (const item of inclusions) {
-  assert(`"${item.slice(0, 34)}..." is not duplicated as a literal`, !step.includes(item));
-}
-assert('the tick is decorative and hidden from screen readers', /class="bincl__icon" aria-hidden="true"/.test(step));
-assert('the row is labelled', /aria-label="Included in your rate"/.test(step));
+// Both were explicit step-8 deliverables, later removed deliberately as page clutter. Asserting
+// their absence catches an accidental re-add as clearly as a missing-feature bug would.
+assert('the itinerary strip (.bstrip) is gone', !/<ol class="bstrip"/.test(step) && !/routePins/.test(widget));
+assert('the included list (.bincl) is gone', !/<ul class="bincl"/.test(step) && !/inclusions\.map/.test(step));
+assert('"Your details" now follows the step heading directly, with its own spacing rule',
+  /<p class="bstep__heading" id="bf-details-label">/.test(step) &&
+  step.indexOf('bstep__heading') < step.indexOf('bstep__subheading') &&
+  /\.bstep__heading \+ \.bstep__subheading \{/.test(css));
+assert('the retired .bstrip*/.bincl* CSS is gone too (no dead rules left behind)',
+  !/\.bstrip\b|\.bincl\b/.test(css));
 
 section('3. NEVER one unexplained figure (§6)');
 assert('the single-line formula is gone', !/data-total-formula|bform__total-formula/.test(widget) && !/bform__total-formula/.test(css));
@@ -142,17 +126,16 @@ for (const iso of dates) {
 assert(`every named breakdown reconciles to the charged total (${checked} combinations)${bad ? ' — ' + bad : ''}`,
   bad === null && checked === dates.length * 2);
 
-section('5. The deposit rule is surfaced at STEP 1 as well as at payment');
-assert('step 1 states the payment terms', /class="bstep__terms"/.test(widget));
-assert('it appears BEFORE the calendar, not only at the end',
-  widget.indexOf('bstep__terms') < widget.indexOf('data-calendar'));
+section('5. The deposit rule is surfaced at payment (the Step 1 duplicate was removed on request)');
+// .bstep__terms (a duplicate mention of the deposit rule in Step 1) was deliberately deleted, so
+// this now checks only that the payment-time statement survives, still reading the constants.
+assert('the retired Step 1 duplicate is gone', !/class="bstep__terms"/.test(widget));
+assert('the deposit hint still exists at Step 3, near payment', /data-deposit-hint/.test(step));
 assert(`the ${SPLIT_THRESHOLD_DAYS}-day threshold is interpolated, not typed`,
   /Departures \{SPLIT_THRESHOLD_DAYS\} or more days away/.test(widget));
 assert(`the ${BALANCE_LEAD_DAYS}-day balance lead is interpolated, not typed`,
-  /balance is due \{BALANCE_LEAD_DAYS\} days before arrival/.test(widget));
+  /balance due \{BALANCE_LEAD_DAYS\} days before arrival/.test(widget));
 assert('no "45 day" literal survives anywhere in the widget copy', !/\b45 (or more )?days?\b/.test(widget));
-assert('the payment hint at step 3 also reads from the constants',
-  /Departures \{SPLIT_THRESHOLD_DAYS\} or more days away pay a 50% deposit today/.test(widget));
 
 section('6. ONE primary action in the step');
 const primaries = (step.match(/btn-primary/g) || []).length;
@@ -211,10 +194,10 @@ const userFacing = step
   .filter((l) => !/^\s*\/\//.test(l))
   .join('\n');
 assert('no em-dash in the step\'s user-facing copy', !/—/.test(userFacing.replace(/&mdash;/g, '')));
-// data/rates.ts EXCLUDES meals on self-catered bookings and travel to the trailhead. A claim to
-// the contrary in the step that takes the money would be a fabrication with a price attached.
-assert('no fabricated inclusion: nothing the exclusions list rules out is claimed here',
-  inclusions.length === 6 &&
+// The included list is gone from this step, but the guard stays: data/rates.ts EXCLUDES meals on
+// self-catered bookings and travel to the trailhead, so a claim to the contrary anywhere in the
+// step that takes the money would be a fabrication with a price attached.
+assert('no fabricated inclusion appears in the step\'s copy',
   !/\b(breakfast|braai|meals included|flights?|airport transfers?|insurance included)\b/i.test(userFacing));
 
 console.log(failed === 0 ? '\nALL REVIEW-STEP CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);

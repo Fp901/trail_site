@@ -52,10 +52,8 @@ import {
   LAST_MINUTE_MAX_DAYS,
   LAST_MINUTE_DISCOUNT,
   SEASON_DISCOUNT,
-  inclusions,
   ppSharingRand,
 } from '../data/rates';
-import { routePins } from '../data/route';
 import { site, withBase } from '../data/site';
 import { refundPolicy } from '../data/policies';
 import {
@@ -93,16 +91,6 @@ const clientRates = {
   cateredLatest: latestBookableDate('catered'),
   uncateredLatest: latestBookableDate('uncatered'),
 };
-
-// The trail as a strip: start, the two overnight sanctuaries, and back to the start. Derived from
-// the same routePins the conceptual map uses, so the names can never drift apart. The hub appears
-// twice because the trail is a loop, which is exactly the fact the strip exists to convey.
-const hub = routePins.find((pin) => pin.isHub) ?? routePins[0];
-const stops = [
-  { name: hub.name, role: 'Day 1, arrive' },
-  ...routePins.filter((pin) => !pin.isHub).map((pin) => ({ name: pin.name, role: pin.role })),
-  { name: hub.name, role: 'Day 4, depart' },
-];
 
 // Per-person SHARING (whole trail), never per night — see data/rates.ts's ppSharingRand.
 const uncateredFrom = fmt(ppSharingRand(UNCATERED_PP_NIGHT.week.low));
@@ -174,61 +162,32 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
       </div>
     </fieldset>
 
-    {/* Style. "Show me both" is the DEFAULT: it is the view with the most bookable dates, and it
-        removes the failure where filtering to one catering greys out perfectly available dates of
-        the other type and reads as sold out. The two named cards narrow from it. */}
+    {/* Style. No visible default is pre-selected: the guest picks catered or self-catered
+        explicitly. Internally `style` still starts at 'both' (the widest date range) until one
+        is chosen — see the script below — so nothing narrows before the guest asks it to. */}
     <fieldset class="bstyle">
-      <legend class="bstyle__legend">Your style</legend>
+      <legend class="bstyle__legend">Booking Type</legend>
       <div class="bstyle__cards">
-        <label class="bstyle__card">
-          <input type="radio" name="style" value="both" checked />
-          <span class="bstyle__body">
-            <span class="bstyle__name">Show me both</span>
-            <span class="bstyle__desc">The most choice of dates.</span>
-          </span>
-        </label>
         <label class="bstyle__card">
           <input type="radio" name="style" value="catered" />
           <span class="bstyle__body">
             <span class="bstyle__name">Fully catered</span>
             <span class="bstyle__desc">Meals handled throughout. Opens {CATERED_WINDOW_MONTHS} months ahead.</span>
-            <span class="bstyle__from">From {cateredFrom} per person sharing</span>
           </span>
         </label>
         <label class="bstyle__card">
           <input type="radio" name="style" value="uncatered" />
           <span class="bstyle__body">
             <span class="bstyle__name">Self-catered</span>
-            <span class="bstyle__desc">Kitchen, ice and braai at every lodge. Opens {UNCATERED_WINDOW_MONTHS} months ahead.</span>
-            <span class="bstyle__from">From {uncateredFrom} per person sharing</span>
+            <span class="bstyle__desc">Kitchen, ice and barbeque at every lodge. Opens {UNCATERED_WINDOW_MONTHS} months ahead.</span>
           </span>
         </label>
       </div>
     </fieldset>
 
-    {/* Shortcut, not the only route: choosing 8 walkers already unlocks Wed/Thu, and 8 guests can
-        equally fill a shared day. */}
-    <label class="bexcl">
-      <input type="checkbox" data-exclusive-only />
-      <span class="bexcl__body">
-        <span class="bexcl__name">We want the trail to ourselves</span>
-        <span class="bexcl__desc">
-          A private buyout for exactly {EXCLUSIVE_SIZE}, Wednesday or Thursday. Nobody else joins.
-        </span>
-      </span>
-    </label>
-
     {/* Style/size changes alter the reachable date range — announced in words, not only by the
         grid changing underneath the guest. */}
-    <p class="bstep__hint" data-size-hint></p>
     <p class="bstep__notice" data-path-notice role="status" aria-live="polite" hidden></p>
-
-    {/* The payment terms belong here as well as at the end. A guest deciding whether to start at
-        all should know a distant departure costs half today, not discover it three steps in. */}
-    <p class="bstep__terms">
-      Departures {SPLIT_THRESHOLD_DAYS} or more days away are secured with a 50% deposit; the
-      balance is due {BALANCE_LEAD_DAYS} days before arrival.
-    </p>
   </div>
 
   <div class="bstep">
@@ -344,29 +303,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
   {/* ==== Step 3 — review and pay. =========================================================== */}
   <div class="bstep">
     <p class="bstep__heading" id="bf-details-label"><span data-step-num>3</span>. Review and pay</p>
-
-    {/* What the money buys, before the money is asked for. The loop is the single most concrete
-        thing we can show at the point of payment, and it costs no JS. */}
-    <ol class="bstrip" aria-label="The trail, start to finish">
-      {stops.map((stop) => (
-        <li class="bstrip__stop">
-          <span class="bstrip__name">{stop.name}</span>
-          <span class="bstrip__role">{stop.role}</span>
-        </li>
-      ))}
-    </ol>
-
-    {/* Included in every rate. Same list the rates page renders, from data/rates.ts. */}
-    <ul class="bincl" aria-label="Included in your rate">
-      {inclusions.map((item) => (
-        <li>
-          <span class="bincl__icon" aria-hidden="true">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 5 5 10-11"/></svg>
-          </span>
-          {item}
-        </li>
-      ))}
-    </ul>
 
     <p class="bstep__subheading" id="bf-details-label-sub">Your details</p>
     <div class="bform__grid" aria-labelledby="bf-details-label-sub">
@@ -608,8 +544,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
 
     const R = JSON.parse(form.dataset.rates || '{}');
 
-    const exclusiveOnlyEl = form.querySelector<HTMLInputElement>('[data-exclusive-only]');
-    const sizeHint = form.querySelector<HTMLElement>('[data-size-hint]');
     const pathNotice = form.querySelector<HTMLElement>('[data-path-notice]');
 
     // Path A / Path B containers + step-number spans (renumbered as the path switches).
@@ -873,27 +807,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
     function cellRateCents(iso: string, cats: Catering[]): number | null {
       if (cats.length === 0) return null;
       return Math.min(...cats.map((c) => ppNightCents(c, iso)));
-    }
-
-    // ---- Step 1: dynamic hint on what this group size can book -------------
-    function renderSizeHint() {
-      const n = groupSize();
-      if (!sizeHint) return;
-      if (exclusiveOnly) {
-        sizeHint.textContent = `A buyout is exactly ${R.exclusiveSize} walkers on a Wednesday or Thursday. Untick to see shared departures too.`;
-        return;
-      }
-      const canOpenCatered = n >= R.sharedOpenMinCatered;
-      const canOpenSelf = n >= R.sharedOpenMinUncatered;
-      if (style === 'uncatered' && !canOpenSelf) {
-        sizeHint.textContent = `Self-catered dates need ${R.sharedOpenMinUncatered} walkers to start a new one. At ${n} you can join any that are already open, or switch to catered and start your own.`;
-      } else if (style === 'both' && !canOpenSelf && canOpenCatered) {
-        sizeHint.textContent = `At ${n} you can start a catered date, or join any open date of either kind. Starting a self-catered date takes ${R.sharedOpenMinUncatered}.`;
-      } else if (n === R.exclusiveSize) {
-        sizeHint.textContent = `At ${n} you can also take a Wednesday or Thursday buyout and have the trail to yourselves.`;
-      } else {
-        sizeHint.textContent = `At ${n} you can start a new date or join an open one.`;
-      }
     }
 
     // Shows or hides the two-way catering prompt, and keeps its labels priced for THIS date.
@@ -1798,17 +1711,27 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
       afterFilterChange(highSeasonOnly ? 'Showing high-season dates only.' : 'High-season filter off.');
     });
 
-    // The buyout chip and the Step 1 buyout toggle are ONE piece of state, kept in sync both ways.
-    // Two controls for one setting is a real risk; the alternative (a filter the guest cannot see
-    // from the calendar) is worse, so they are bound rather than duplicated.
+    // The Step 1 "trail to ourselves" checkbox is gone; this chip is now the only route to the
+    // buyout-only filter. It keeps the one convenience the checkbox used to provide: switching it
+    // on forces the walker count to exactly EXCLUSIVE_SIZE, since a buyout can never be anything
+    // else and a guest at some other group size would otherwise just see an empty, all-grey grid.
     filterExclBtn?.addEventListener('click', () => {
-      if (exclusiveOnlyEl) {
-        exclusiveOnlyEl.checked = !exclusiveOnlyEl.checked;
-        exclusiveOnlyEl.dispatchEvent(new Event('change', { bubbles: true }));
-      } else {
-        exclusiveOnly = !exclusiveOnly;
-        afterFilterChange(exclusiveOnly ? 'Showing private buyouts only.' : 'Buyout filter off.');
+      exclusiveOnly = !exclusiveOnly;
+      if (exclusiveOnly) {
+        const eight = form.querySelector<HTMLInputElement>(`input[name="groupSize"][value="${R.exclusiveSize}"]`);
+        // Setting .checked programmatically fires no 'change' event, so calGroupSize (tracked
+        // separately from the DOM for the calendar) would otherwise stay stale at the old walker
+        // count. renderAll() re-reads groupSize() and syncs it; only needed when we actually
+        // forced a change.
+        if (eight && !eight.checked) {
+          eight.checked = true;
+          // Mirrors the groupSize radio's own 'change' listener: a party-size change can
+          // invalidate an already-resolved catering, so re-resolve before repainting.
+          resolveCateringForSelection();
+          renderAll();
+        }
       }
+      afterFilterChange(exclusiveOnly ? 'Showing private buyouts only.' : 'Buyout filter off.');
     });
 
     // "Next available" is an action, not a toggle: it moves the view to the soonest bookable date
@@ -1893,7 +1816,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
 
     function renderAll() {
       const n = groupSize();
-      renderSizeHint();
       const prevStart = selectedStartIso;
 
       // Re-filter against whatever is already loaded for instant feedback; syncAvailability()
@@ -1943,20 +1865,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
         updateEstimate();
         hidePathNotice();
       });
-    });
-
-    // Private-group shortcut: forces exactly EXCLUSIVE_SIZE and filters to Wed/Thu.
-    exclusiveOnlyEl?.addEventListener('change', () => {
-      exclusiveOnly = !!exclusiveOnlyEl.checked;
-      if (exclusiveOnly) {
-        const eight = form.querySelector<HTMLInputElement>(`input[name="groupSize"][value="${R.exclusiveSize}"]`);
-        if (eight) eight.checked = true;
-      }
-      syncFilterChips();
-      closePreview();
-      resolveCateringForSelection();
-      renderAll();
-      showPathNotice(exclusiveOnly ? 'Showing private buyouts only.' : 'Buyout filter off.');
     });
 
     // ---- Cancellation-policy modal -------------------------------------------------------------

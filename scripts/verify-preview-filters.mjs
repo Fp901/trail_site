@@ -181,10 +181,17 @@ assert('the filtered reason has its own badge', /badgeText = 'Filtered'/.test(wi
 assert('filter changes are announced', /function afterFilterChange/.test(widget) && /showPathNotice\(na \?/.test(widget));
 assert('a filter change refreshes the soonest-available list too', /afterFilterChange[\s\S]{0,400}joinRefresh\(\)/.test(widget));
 
-section('7. The buyout chip and the Step 1 toggle are ONE state');
-assert('the chip drives the existing checkbox rather than a second variable',
-  /filterExclBtn\?\.addEventListener\('click'[\s\S]{0,260}exclusiveOnlyEl\.dispatchEvent\(new Event\('change'/.test(widget));
-assert('the checkbox handler syncs the chip back', /exclusiveOnlyEl\?\.addEventListener\('change'[\s\S]{0,400}syncFilterChips\(\)/.test(widget));
+section('7. The buyout filter is now the calendar chip alone (the Step 1 checkbox was removed)');
+// The Step 1 "trail to ourselves" checkbox is gone on request; exclusiveOnlyEl no longer exists,
+// so the chip owns exclusiveOnly directly rather than delegating to a second control.
+assert('no orphaned reference to the removed checkbox survives', !/exclusiveOnlyEl/.test(widget));
+assert('the chip toggles exclusiveOnly directly', /filterExclBtn\?\.addEventListener\('click', \(\) => \{\s*\n\s*exclusiveOnly = !exclusiveOnly;/.test(widget));
+// The one behaviour worth keeping from the old checkbox: switching the filter on still forces the
+// walker count to exactly EXCLUSIVE_SIZE, since a buyout can never be anything else.
+assert('switching it on still forces the walker count to EXCLUSIVE_SIZE',
+  /input\[name="groupSize"\]\[value="\$\{R\.exclusiveSize\}"\]/.test(widget));
+assert('forcing the walker count re-syncs calGroupSize (renderAll) rather than leaving it stale',
+  /eight\.checked = true;[\s\S]{0,250}renderAll\(\);/.test(widget));
 assert('chips are synced once at startup so markup and state cannot begin out of step',
   /syncFilterChips\(\);\s*\n\s*renderAll\(\);\s*\n\s*initialized = true;/.test(widget));
 
