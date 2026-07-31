@@ -130,13 +130,13 @@ const widgetCode = widget
   .join('\n');
 assert('no single supplement is offered anywhere in the markup or logic',
   !/single supplement|solo supplement|solo surcharge/i.test(widgetCode));
-// The Step 1 "trail to ourselves" checkbox was removed on request. The calendar's "Only private
-// buyouts" filter chip is now the sole route to exclusiveOnly, per the eligibility rule above
-// (choosing EXCLUSIVE_SIZE walkers already reaches Wed/Thu regardless of this filter existing).
+// The Step 1 "trail to ourselves" checkbox AND the calendar's "Only private buyouts" filter chip
+// were both removed on request. There is no dedicated buyout-only UI control left at all — the
+// only route to a Wed/Thu buyout is choosing EXCLUSIVE_SIZE walkers directly, which the truth
+// table in sections 1-6 above already exercises independently of any filter.
 assert('no orphaned Step 1 checkbox selector survives', !/data-exclusive-only/.test(widget));
-assert('the buyout FILTER CHIP still forces exactly EXCLUSIVE_SIZE when switched on',
-  /filterExclBtn\?\.addEventListener\('click'/.test(widget) &&
-  /input\[name="groupSize"\]\[value="\$\{R\.exclusiveSize\}"\]/.test(widget));
+assert('no orphaned calendar filter-chip wiring survives',
+  !/filterExclBtn|filterLmBtn|filterHsBtn|filterNextBtn|syncFilterChips|afterFilterChange/.test(widget));
 assert('reach changes are announced via role="status"', /data-path-notice role="status"/.test(widget) && /function announceReach/.test(widget));
 
 section('8. The Path A/B split is gone; one flow with three steps');

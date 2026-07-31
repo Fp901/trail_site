@@ -208,7 +208,7 @@ export const bookingRules: BookingRule[] = [
   {
     days: 'Friday to Tuesday',
     title: 'Join a shared group',
-    body: `The first booking opens the date and sets its catering: ${SHARED_OPEN_MIN_CATERED} or more for catered, ${SHARED_OPEN_MIN_UNCATERED} or more for self-catered. Others then join in ${SHARED_TOPUP_MIN}s until the trail is full at ${MAX_GROUP_SIZE}.`,
+    body: `The first booking opens the date and sets its catering: ${SHARED_OPEN_MIN_CATERED} or more for catered, ${SHARED_OPEN_MIN_UNCATERED} or more for self-catered.`,
   },
 ];
 

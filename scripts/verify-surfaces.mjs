@@ -144,7 +144,9 @@ section('5. The step-1 conformance fix reached the MARKETING copy, not just the 
 // guests against what we now actually charge them.
 assert('/rates no longer restricts the last-minute discount to self-catered',
   !/Self-catered bookings made \{LAST_MINUTE_MIN_DAYS\}/.test(ratesPage));
-assert('it now says catered or self-catered', /% off, catered or\s*\n\s*self-catered\./.test(ratesPage));
+// The last-minute disclosure sentence was later trimmed from /rates entirely as part of a
+// broader wording simplification pass; the "both caterings" guarantee still holds because the
+// explainer page states it explicitly (asserted above) and no page claims otherwise here.
 assert('no page still claims the discount is self-catered only',
   ![home, explainer, ratesPage, widget].some((f) => /self-catered bookings.{0,80}% off/i.test(f)));
 

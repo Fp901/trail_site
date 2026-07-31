@@ -1716,50 +1716,6 @@
     }
   }
 
-  /* Filter chips. Horizontally scrollable at 380px rather than wrapping to three rows and pushing
-     the grid below the fold. */
-  .bcal__filters {
-    display: flex;
-    gap: 0.35rem;
-    margin-bottom: 0.6rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .bcal__filters::-webkit-scrollbar {
-    display: none;
-  }
-  .bcal__chip {
-    flex: 0 0 auto;
-    min-height: 2.75rem;
-    border-radius: 999px;
-    border: 1px solid var(--color-hairline);
-    background-color: var(--color-cream);
-    padding: 0 0.85rem;
-    font-family: var(--font-body);
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--color-earth);
-    white-space: nowrap;
-    cursor: pointer;
-  }
-  .bcal__chip:hover {
-    border-color: var(--color-earth);
-  }
-  /* Pressed chips carry a check as well as the fill, so the on-state is never colour alone. */
-  .bcal__chip.is-on {
-    background-color: var(--color-earth);
-    border-color: var(--color-earth);
-    color: var(--color-cream);
-  }
-  .bcal__chip.is-on::before {
-    content: '\2713\00a0';
-  }
-  .bcal__chip--go {
-    background-color: color-mix(in srgb, var(--color-ochre) 26%, var(--color-cream));
-    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
-  }
   .bcal__nav {
     display: inline-flex;
     align-items: center;
@@ -1816,96 +1772,80 @@
     line-height: 1;
     color: var(--color-charcoal);
   }
-  /* Every cell carries a badge (seats/reason) under the day number, not just an aria-label — a
-     "3 left" or "Switch?" cell should read differently from a plain joinable one. Mobile-first:
-     at the 380px baseline, cells show day number + badge only (min-height 2.75rem = 44px, the
-     site's touch-target floor); the per-person price line only appears from 480px up, where
-     there's room for it without cramming a third line into a ~45px-wide column. The price is
-     always in the aria-label regardless of breakpoint, so screen-reader users never lose it. */
+  /* No badge or price on the cell face: colour (plus a non-colour cue per state — border width,
+     style or a hatch texture, so nothing relies on hue alone for a colour-blind viewer) carries
+     the state, explained once in the legend below the grid. Full detail always stays in the
+     aria-label, so a screen-reader user loses nothing by the visible text going away. */
   .bcal--shared .bcal__cell {
     aspect-ratio: auto;
     min-height: 2.75rem;
   }
-  @media (min-width: 480px) {
-    .bcal--shared .bcal__cell {
-      min-height: 3.4rem;
-    }
-  }
-  .bcal__seats {
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    line-height: 1.15;
-    color: var(--color-green);
-    text-align: center;
-    /* Cells are ~45px wide at the 380px baseline. Badges are kept short, but a long word must
-       break rather than push the grid sideways. */
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
-  .bcal__price {
-    display: none;
-    font-size: 0.56rem;
-    font-weight: 500;
-    line-height: 1.1;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
-  }
-  @media (min-width: 480px) {
-    .bcal__price {
-      display: block;
-    }
-  }
   .bcal__cell--blank {
     border: 0;
   }
-  /* ---- The five cell appearances of §5 -------------------------------------------------------
+  /* ---- The five cell appearances, colour-coded with a legend (no wording/price on the cell) ---
      Palette is mapped from the existing tokens, no new hues: bush green (--color-green) for
      sellable dates, gold (--color-ochre) for a buyout, warm sand (a pale cream/ochre mix with a
-     terracotta edge) for a date running as the other product, soft grey for everything closed.
-     Gold and sand are deliberately far apart in weight — sand is pale with a coloured edge, gold
-     is saturated — because they sit adjacent in the grid and previously read as the same colour.
-     STATE IS NEVER CONVEYED BY COLOUR ALONE: every cell carries badge text and a full aria-label. */
+     terracotta edge) for a date running as the other product, soft grey (hatched) for closed.
+     With the visible badge text gone, STATE IS NEVER CONVEYED BY COLOUR ALONE for a different
+     reason now: each state also carries a NON-COLOUR cue (border width, style, or a hatch
+     texture), so it still reads correctly for a colour-blind viewer, not just via aria-label. */
 
-  /* 1. Open, nobody has started it. */
+  /* 1. Open, nobody has started it. Thin border, the lightest fill. */
   .bcal__cell--open {
-    background-color: color-mix(in srgb, var(--color-green) 10%, #fff);
-    border-color: color-mix(in srgb, var(--color-green) 32%, transparent);
+    background-color: color-mix(in srgb, var(--color-green) 12%, #fff);
+    border-width: 1px;
+    border-color: color-mix(in srgb, var(--color-green) 38%, transparent);
     color: var(--color-earth);
     font-weight: 600;
     cursor: pointer;
   }
-  /* 2. Started, and running as your style. Same green family, visibly denser so a part-full date
-        reads as "join this" rather than "start this". */
+  /* 2. Started, and running as your style. Same green family, denser fill AND a visibly thicker
+        border — a shape/weight difference, not only a stronger tint of the same hue. */
   .bcal__cell--started {
-    background-color: color-mix(in srgb, var(--color-green) 22%, #fff);
-    border-color: color-mix(in srgb, var(--color-green) 52%, transparent);
+    background-color: color-mix(in srgb, var(--color-green) 26%, #fff);
+    border-width: 2px;
+    border-color: color-mix(in srgb, var(--color-green) 60%, transparent);
     color: var(--color-earth);
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
   }
-  /* 3. Wednesday/Thursday buyout. */
+  /* 3. Wednesday/Thursday buyout. Solid gold fill, bold 2px border — a different hue entirely
+        from the green family, so it stays distinct even under the common red-green colour
+        vision deficiencies (its hue angle is far closer to amber/yellow than to green). */
   .bcal__cell--exclusive {
-    background-color: color-mix(in srgb, var(--color-ochre) 34%, #fff);
+    background-color: color-mix(in srgb, var(--color-ochre) 40%, #fff);
+    border-width: 2px;
     border-color: var(--color-ochre);
     color: var(--color-earth);
     font-weight: 700;
     cursor: pointer;
   }
-  /* 4. Running as the OTHER product. Sand, with a terracotta edge to separate it from gold at a
-        glance. Actionable: one tap switches style and selects it. Never a wall. */
+  /* 4. Running as the OTHER product. Sand, with a DASHED terracotta edge — the dash pattern is a
+        non-colour cue on its own, deliberately different in both hue and pattern from gold.
+        Actionable: one tap switches style and selects it. Never a wall. */
   .bcal__cell--locked {
     background-color: color-mix(in srgb, var(--color-cream) 78%, #fff);
-    border-color: color-mix(in srgb, #9c5b3b 45%, transparent);
+    border-width: 2px;
+    border-color: color-mix(in srgb, #9c5b3b 55%, transparent);
     border-style: dashed;
     color: var(--color-earth);
     font-weight: 600;
     cursor: pointer;
   }
-  /* 5. Everything closed. One appearance, four reasons, each written into the badge. */
+  /* 5. Everything closed. A faint diagonal hatch (a texture, not a colour) over a muted, borderless
+     fill — reads as "not selectable" through pattern alone, independent of hue perception. */
   .bcal__cell--unavailable {
-    background-color: transparent;
+    background-color: color-mix(in srgb, var(--color-charcoal) 5%, transparent);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--color-charcoal) 12%, transparent) 0,
+      color-mix(in srgb, var(--color-charcoal) 12%, transparent) 1px,
+      transparent 1px,
+      transparent 6px
+    );
     border-color: transparent;
-    color: color-mix(in srgb, var(--color-charcoal) 34%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 40%, transparent);
     cursor: not-allowed;
   }
   /* These cells are aria-disabled rather than disabled, so that a keyboard user can focus them and
@@ -1932,55 +1872,10 @@
      high-contrast rendering of the fills above. */
   .bcal__cell.is-selected {
     background-color: var(--color-earth);
+    background-image: none;
     border-color: var(--color-earth);
     color: var(--color-cream);
     font-weight: 700;
-  }
-  .bcal__cell.is-selected .bcal__seats,
-  .bcal__cell.is-selected .bcal__price {
-    color: color-mix(in srgb, var(--color-cream) 85%, transparent);
-  }
-
-  /* Badge colour follows the state, but is never the only signal — the text differs too. */
-  .bcal__cell--open .bcal__seats,
-  .bcal__cell--started .bcal__seats {
-    color: var(--color-green);
-  }
-  .bcal__cell--exclusive .bcal__seats {
-    color: color-mix(in srgb, var(--color-earth) 80%, var(--color-ochre));
-  }
-  .bcal__cell--locked .bcal__seats {
-    color: #9c5b3b;
-  }
-  .bcal__cell--unavailable .bcal__seats {
-    color: color-mix(in srgb, var(--color-charcoal) 48%, transparent);
-    font-weight: 600;
-  }
-
-  /* The last-minute discount rides ON TOP of any state (§5), so it is positioned rather than
-     stacked: a corner tag that does not consume a row in an already-tight cell. */
-  .bcal__cell {
-    position: relative;
-  }
-  .bcal__lm {
-    position: absolute;
-    top: -1px;
-    right: -1px;
-    padding: 0 0.22rem;
-    border-radius: 0 0.5rem 0 0.4rem;
-    background-color: #9c5b3b;
-    color: var(--color-cream);
-    font-family: var(--font-body);
-    font-size: 0.5rem;
-    font-weight: 700;
-    line-height: 1.5;
-    letter-spacing: 0.01em;
-  }
-  @media (min-width: 480px) {
-    .bcal__lm {
-      font-size: 0.56rem;
-      padding: 0 0.3rem;
-    }
   }
 
   /* ---- Date preview (§5) --------------------------------------------------------------------
@@ -2111,46 +2006,62 @@
     padding: 0 0.35rem;
   }
 
+  /* The primary VISIBLE explanation of state now that cells show no text of their own — swatches
+     mirror each cell appearance exactly, border width and style included, so the key you read
+     here is the key you see on the grid, not just a colour sample. */
   .bcal__legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    margin-top: 0.7rem;
+    gap: 0.55rem 1.1rem;
+    margin-top: 0.85rem;
   }
   .bcal__key {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.4rem;
     font-family: var(--font-body);
-    font-size: 0.72rem;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-charcoal);
   }
   .bcal__key::before {
     content: '';
-    width: 0.8rem;
-    height: 0.8rem;
+    flex: 0 0 auto;
+    width: 0.9rem;
+    height: 0.9rem;
     border-radius: 0.2rem;
     border: 1px solid transparent;
   }
   .bcal__key--open::before {
-    background-color: color-mix(in srgb, var(--color-green) 10%, #fff);
-    border-color: color-mix(in srgb, var(--color-green) 32%, transparent);
+    background-color: color-mix(in srgb, var(--color-green) 12%, #fff);
+    border-width: 1px;
+    border-color: color-mix(in srgb, var(--color-green) 38%, transparent);
   }
   .bcal__key--started::before {
-    background-color: color-mix(in srgb, var(--color-green) 22%, #fff);
-    border-color: color-mix(in srgb, var(--color-green) 52%, transparent);
+    background-color: color-mix(in srgb, var(--color-green) 26%, #fff);
+    border-width: 2px;
+    border-color: color-mix(in srgb, var(--color-green) 60%, transparent);
   }
   .bcal__key--exclusive::before {
-    background-color: color-mix(in srgb, var(--color-ochre) 34%, #fff);
+    background-color: color-mix(in srgb, var(--color-ochre) 40%, #fff);
+    border-width: 2px;
     border-color: var(--color-ochre);
   }
   .bcal__key--locked::before {
     background-color: color-mix(in srgb, var(--color-cream) 78%, #fff);
-    border-color: color-mix(in srgb, #9c5b3b 45%, transparent);
+    border-width: 2px;
+    border-color: color-mix(in srgb, #9c5b3b 55%, transparent);
     border-style: dashed;
   }
   .bcal__key--out::before {
-    background-color: transparent;
+    background-color: color-mix(in srgb, var(--color-charcoal) 5%, transparent);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--color-charcoal) 12%, transparent) 0,
+      color-mix(in srgb, var(--color-charcoal) 12%, transparent) 1px,
+      transparent 1px,
+      transparent 6px
+    );
     border-color: var(--color-hairline);
   }
   .bform__windowlimit {
@@ -2285,8 +2196,11 @@
     align-items: center;
     justify-content: center;
     min-height: 2.75rem;
-    min-width: 3.25rem;
-    padding: 0 0.95rem;
+    /* Fixed, not min-width: all four codes are 3 characters, so an explicit width guarantees
+       identical geometry regardless of selected state — no risk of the filled/selected segment
+       measuring or reading differently from the unselected ones. */
+    width: 3.5rem;
+    padding: 0 0.5rem;
     border-radius: 999px;
     border: 0;
     background-color: transparent;
@@ -2321,6 +2235,9 @@
   }
   .ratetable__fxnote {
     margin: 0.85rem 0 0;
+    /* Constrains the line length so the paragraph wraps as a balanced multi-line block instead of
+       almost fitting one line and leaving one or two words orphaned on their own second line. */
+    max-width: 32em;
     font-family: var(--font-body);
     font-size: 0.75rem;
     line-height: 1.55;

@@ -36,7 +36,6 @@
 // The wire payload is unchanged: { startDate, groupSize, catering }. bookingType stays derived
 // server-side from the date, never sent.
 import {
-  formatRand,
   NIGHTS,
   MAX_GROUP_SIZE,
   EXCLUSIVE_SIZE,
@@ -52,7 +51,6 @@ import {
   LAST_MINUTE_MAX_DAYS,
   LAST_MINUTE_DISCOUNT,
   SEASON_DISCOUNT,
-  ppSharingRand,
 } from '../data/rates';
 import { site, withBase } from '../data/site';
 import { refundPolicy } from '../data/policies';
@@ -63,7 +61,6 @@ import {
   latestBookableDate,
 } from '../lib/pricing';
 
-const fmt = (rand: number) => formatRand(rand);
 const earliest = earliestBookableDate();
 
 // Everything the client needs to mirror the server's price/date math, as one JSON blob — the
@@ -92,9 +89,6 @@ const clientRates = {
   uncateredLatest: latestBookableDate('uncatered'),
 };
 
-// Per-person SHARING (whole trail), never per night — see data/rates.ts's ppSharingRand.
-const uncateredFrom = fmt(ppSharingRand(UNCATERED_PP_NIGHT.week.low));
-const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
 ---
 
 <div class="resume-prompt" data-resume-prompt hidden role="status" aria-live="polite">
@@ -195,15 +189,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
     <div class="form-field bform__datefield">
       <p class="bform__nextavail" data-nextavail hidden></p>
       <div class="bcal" data-calendar role="group" aria-labelledby="bf-cal-label">
-        {/* Filters (§5). "Next available" is an ACTION, not a toggle, so it carries no
-            aria-pressed: it jumps the view rather than narrowing it. The other three narrow what
-            the grid will offer and are pressed-state toggles. */}
-        <div class="bcal__filters" role="group" aria-label="Filter start dates">
-          <button type="button" class="bcal__chip bcal__chip--go" data-filter-next>Next available</button>
-          <button type="button" class="bcal__chip" data-filter-exclusive aria-pressed="false">Only private buyouts</button>
-          <button type="button" class="bcal__chip" data-filter-lastminute aria-pressed="false">Only last-minute</button>
-          <button type="button" class="bcal__chip" data-filter-highseason aria-pressed="false">High season only</button>
-        </div>
         <div class="bcal__head">
           <button type="button" class="bcal__nav" data-cal-prev aria-label="Previous month">
             <span aria-hidden="true">&lsaquo;</span>
@@ -568,10 +553,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
     const previewBody = cal?.querySelector<HTMLElement>('[data-preview-body]') ?? null;
     const previewSelectBtn = cal?.querySelector<HTMLButtonElement>('[data-preview-select]') ?? null;
     const previewCloseBtn = cal?.querySelector<HTMLButtonElement>('[data-preview-close]') ?? null;
-    const filterNextBtn = cal?.querySelector<HTMLButtonElement>('[data-filter-next]') ?? null;
-    const filterExclBtn = cal?.querySelector<HTMLButtonElement>('[data-filter-exclusive]') ?? null;
-    const filterLmBtn = cal?.querySelector<HTMLButtonElement>('[data-filter-lastminute]') ?? null;
-    const filterHsBtn = cal?.querySelector<HTMLButtonElement>('[data-filter-highseason]') ?? null;
     const calField = cal?.closest<HTMLElement>('.bform__datefield') ?? null;
     const calNextAvailEl = calField?.querySelector<HTMLElement>('[data-nextavail]') ?? null;
     const calSelectedEl = calField?.querySelector<HTMLElement>('[data-cal-selected]') ?? null;
@@ -1115,16 +1096,9 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
       return 'unavailable';
     }
 
-    // The last-minute discount is a BADGE ON TOP OF a state, never a state of its own — it can
-    // land on an open, started, exclusive or locked cell alike. The cell's price already carries
-    // the reduction (ppNightCents applies it), so the badge only has to say why it is lower.
-    function lastMinuteBadge(): HTMLElement {
-      const b = document.createElement('span');
-      b.className = 'bcal__lm';
-      b.setAttribute('aria-hidden', 'true'); // the spoken form is folded into the cell's aria-label
-      b.textContent = `-${Math.round(R.lastMinuteDiscount * 100)}%`;
-      return b;
-    }
+    // The grid shows no wording or price at all (colour + the legend carry the state); a
+    // last-minute discount is spoken in the cell's aria-label and shown in the date preview when
+    // opened, never as a visible mark on the cell face.
     function lastMinuteSpoken(): string {
       return `, last-minute rate, ${Math.round(R.lastMinuteDiscount * 100)} percent off`;
     }
@@ -1226,27 +1200,10 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
       h.textContent = cat === 'catered' ? 'Catered' : 'Self-catered';
       wrap.appendChild(h);
 
-      // Every figure below is rounded the same way the charged price is, so the lines the guest
-      // reads add up exactly to the total we take. §5 forbids one unexplained number. Every row
-      // is per person SHARING (the whole mandatory trail): the underlying per-night rate is
-      // multiplied by R.nights before it is ever shown, since there is no shorter stay to buy.
-      const baseSharing = highSeasonPpNightCents(cat, iso) * R.nights;
-      const afterSeasonSharing = basePpNightCents(cat, iso) * R.nights;
+      // Quoted as one resolved figure, not a standard-rate/season-discount comparison: the
+      // per-night rate (already reflecting season and any last-minute window) is multiplied by
+      // R.nights, per person, for the whole trail — see data/rates.ts's ppSharingRand.
       const finalSharing = ppNightCents(cat, iso) * R.nights;
-      const lowSeason = !isHighSeasonIso(iso);
-      const lm = withinLastMinuteWindow(iso);
-
-      wrap.appendChild(previewRow('Standard rate', `${fmtR(baseSharing)} per person sharing`));
-      if (lowSeason) {
-        wrap.appendChild(previewRow(
-          `Low season, ${Math.round(R.seasonDiscount * 100)}% less`,
-          `- ${fmtR(baseSharing - afterSeasonSharing)}`, 'credit'));
-      }
-      if (lm) {
-        wrap.appendChild(previewRow(
-          `Last-minute, ${Math.round(R.lastMinuteDiscount * 100)}% less`,
-          `- ${fmtR(afterSeasonSharing - finalSharing)}`, 'credit'));
-      }
       wrap.appendChild(previewRow('Your rate', `${fmtR(finalSharing)} per person sharing`, 'rate'));
 
       const people = isExcl ? R.exclusiveSize : n;
@@ -1439,31 +1396,14 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
         if (c.state === 'joinable') {
           const isExcl = isExclusiveDayIso(iso);
           const cats = c.eligible ?? [];
-          // Under "Show me both" an unopened date can be openable in two caterings at very
-          // different rates, so the lower one is shown and explicitly marked "from".
+          // No visible price or badge text on the cell face — colour + the legend carry the
+          // state; the figure below is still needed to build the spoken aria-label.
           const perNightRate = cellRateCents(iso, cats) ?? 0;
           const sharingRate = perNightRate * R.nights; // per person, whole trail — never per night
           const ambiguous = cats.length > 1;
-
-          const badge = document.createElement('span');
-          badge.className = 'bcal__seats';
-          badge.textContent = isExcl
-            ? `All ${R.exclusiveSize}`
-            : c.seatsLeft != null
-              ? `${c.seatsLeft} left`
-              : 'Start it';
-          cell.appendChild(badge);
-
-          // §5: a buyout cell shows the TOTAL FOR 8, because that is what is being bought. Every
-          // other cell shows the per-person SHARING rate (the whole trail, never per night).
           const shownCents = isExcl ? sharingRate * R.exclusiveSize : sharingRate;
-          const priceEl = document.createElement('span');
-          priceEl.className = 'bcal__price';
-          priceEl.textContent = `${ambiguous ? 'from ' : ''}${fmtR(shownCents)}${isExcl ? '' : 'pp'}`;
-          cell.appendChild(priceEl);
 
           const lm = withinLastMinuteWindow(iso);
-          if (lm) cell.appendChild(lastMinuteBadge());
 
           const what = isExcl
             ? `, private buyout for ${R.exclusiveSize}`
@@ -1485,18 +1425,9 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
           const otherCat = c.entryCatering!;
           const sharingOther = ppNightCents(otherCat, iso) * R.nights; // per person, whole trail
           const label = otherCat === 'catered' ? 'Catered' : 'Self-catered';
-          // §5 wants the TYPE named on the cell, not just implied by colour. Abbreviated because
-          // the cell is ~45px wide on a phone; the full words are in the aria-label and legend.
-          const badge = document.createElement('span');
-          badge.className = 'bcal__seats';
-          badge.textContent = otherCat === 'catered' ? 'Catered' : 'Self-cat.';
-          cell.appendChild(badge);
-          const priceEl = document.createElement('span');
-          priceEl.className = 'bcal__price';
-          priceEl.textContent = `${fmtR(sharingOther)}pp`;
-          cell.appendChild(priceEl);
+          // No visible badge or price: the sand fill + dashed border (colour AND shape, per §5's
+          // "never colour alone") mark this state; the full detail is in the aria-label.
           const lmLocked = withinLastMinuteWindow(iso);
-          if (lmLocked) cell.appendChild(lastMinuteBadge());
           cell.setAttribute(
             'aria-label',
             `${human}, already running as ${label.toLowerCase()}, ${fmtR(sharingOther)} per person sharing, ${c.seatsLeft} place(s) left${lmLocked ? lastMinuteSpoken() : ''}. Activate to switch to ${label.toLowerCase()} and choose this date.`,
@@ -1512,13 +1443,12 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
           // focus, which would make the reason §5 insists on unreadable for a keyboard user. It
           // has no click handler, so it is inert either way.
           cell.classList.add('is-inert');
-          // Defaults are deliberately non-empty: §5 forbids conveying state by colour alone, so
-          // every cell must carry a text cue even if a future state falls through unhandled.
+          // No visible text on a closed cell either: the reason still lives in the aria-label so
+          // a keyboard/screen-reader user always knows WHY, per §5 — only the visible badge that
+          // used to abbreviate it for sighted users is gone.
           let reason = 'not available for this group';
-          let badgeText = 'Unavailable';
           if (c.state === 'buyoutOnly') {
             reason = `exclusive buyout only, needs exactly ${R.exclusiveSize} people`;
-            badgeText = `Buyout ×${R.exclusiveSize}`;
           } else if (c.state === 'needsOpen') {
             const mins = stylePermits().map((cc) => minToOpenClient(cc));
             const lowest = Math.min(...mins);
@@ -1527,25 +1457,17 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
               c.seatsLeft != null
                 ? `open, but joining takes at least ${R.sharedTopupMin} people`
                 : `needs ${lowest} or more people to open as ${which === 'catered' ? 'catered' : 'self-catered'}`;
-            badgeText = c.seatsLeft != null ? `Needs ${R.sharedTopupMin}+` : `Needs ${lowest}+`;
           } else if (c.state === 'full') {
             reason = `only ${c.seatsLeft} place(s) left, your group needs ${calGroupSize}`;
-            // Not "N left" — that is the STARTED state's badge, and repeating it on a grey cell
-            // would read as available at a glance.
-            badgeText = 'Too few';
           } else if (c.state === 'closed') {
-            if (c.reason === 'blocked') { reason = 'not running that week'; badgeText = 'Closed'; }
-            else if (c.reason === 'taken') { reason = 'already taken by a private group'; badgeText = 'Taken'; }
-            else if (c.reason === 'tooSoon') { reason = 'too close to departure to book online'; badgeText = 'Too soon'; }
-            else if (c.reason === 'notExclusiveDay') { reason = 'a shared departure day; buyouts run Wednesday and Thursday'; badgeText = 'Shared'; }
-            else if (c.reason === 'notLastMinute') { reason = 'hidden by your last-minute filter'; badgeText = 'Filtered'; }
-            else if (c.reason === 'notHighSeason') { reason = 'hidden by your high-season filter'; badgeText = 'Filtered'; }
-            else { reason = 'beyond the dates open for booking'; badgeText = 'Later'; }
+            if (c.reason === 'blocked') reason = 'not running that week';
+            else if (c.reason === 'taken') reason = 'already taken by a private group';
+            else if (c.reason === 'tooSoon') reason = 'too close to departure to book online';
+            else if (c.reason === 'notExclusiveDay') reason = 'a shared departure day; buyouts run Wednesday and Thursday';
+            else if (c.reason === 'notLastMinute') reason = 'hidden by your last-minute filter';
+            else if (c.reason === 'notHighSeason') reason = 'hidden by your high-season filter';
+            else reason = 'beyond the dates open for booking';
           }
-          const badge = document.createElement('span');
-          badge.className = 'bcal__seats';
-          badge.textContent = badgeText;
-          cell.appendChild(badge);
           cell.setAttribute('aria-label', `${human}, ${reason}`);
           cell.setAttribute('aria-disabled', 'true');
         }
@@ -1678,73 +1600,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
       calView = { y: Math.floor(idx / 12), m: ((idx % 12) + 12) % 12 };
       closePreview();
       calRender();
-    });
-
-    // ---- Filter chips --------------------------------------------------------------------------
-    function syncFilterChips() {
-      filterExclBtn?.setAttribute('aria-pressed', String(exclusiveOnly));
-      filterLmBtn?.setAttribute('aria-pressed', String(lastMinuteOnly));
-      filterHsBtn?.setAttribute('aria-pressed', String(highSeasonOnly));
-      filterExclBtn?.classList.toggle('is-on', exclusiveOnly);
-      filterLmBtn?.classList.toggle('is-on', lastMinuteOnly);
-      filterHsBtn?.classList.toggle('is-on', highSeasonOnly);
-    }
-
-    function afterFilterChange(msg: string) {
-      syncFilterChips();
-      closePreview();
-      calApplyFilter(calGroupSize);
-      joinRefresh();
-      const na = calNextAvailable();
-      showPathNotice(na ? `${msg} Next available: ${humanDate(na, { day: 'numeric', month: 'long', year: 'numeric' })}.` : `${msg} Nothing matches right now.`);
-    }
-
-    filterLmBtn?.addEventListener('click', () => {
-      lastMinuteOnly = !lastMinuteOnly;
-      afterFilterChange(lastMinuteOnly
-        ? `Showing last-minute departures only, ${R.lastMinuteMaxDays} to ${R.lastMinuteMinDays} days out.`
-        : 'Last-minute filter off.');
-    });
-
-    filterHsBtn?.addEventListener('click', () => {
-      highSeasonOnly = !highSeasonOnly;
-      afterFilterChange(highSeasonOnly ? 'Showing high-season dates only.' : 'High-season filter off.');
-    });
-
-    // The Step 1 "trail to ourselves" checkbox is gone; this chip is now the only route to the
-    // buyout-only filter. It keeps the one convenience the checkbox used to provide: switching it
-    // on forces the walker count to exactly EXCLUSIVE_SIZE, since a buyout can never be anything
-    // else and a guest at some other group size would otherwise just see an empty, all-grey grid.
-    filterExclBtn?.addEventListener('click', () => {
-      exclusiveOnly = !exclusiveOnly;
-      if (exclusiveOnly) {
-        const eight = form.querySelector<HTMLInputElement>(`input[name="groupSize"][value="${R.exclusiveSize}"]`);
-        // Setting .checked programmatically fires no 'change' event, so calGroupSize (tracked
-        // separately from the DOM for the calendar) would otherwise stay stale at the old walker
-        // count. renderAll() re-reads groupSize() and syncs it; only needed when we actually
-        // forced a change.
-        if (eight && !eight.checked) {
-          eight.checked = true;
-          // Mirrors the groupSize radio's own 'change' listener: a party-size change can
-          // invalidate an already-resolved catering, so re-resolve before repainting.
-          resolveCateringForSelection();
-          renderAll();
-        }
-      }
-      afterFilterChange(exclusiveOnly ? 'Showing private buyouts only.' : 'Buyout filter off.');
-    });
-
-    // "Next available" is an action, not a toggle: it moves the view to the soonest bookable date
-    // and puts the roving focus on it, which is also the answer when the month on screen is empty.
-    filterNextBtn?.addEventListener('click', () => {
-      const na = calNextAvailable();
-      if (!na) {
-        showPathNotice('No dates match this group, style and filters yet. Tell us your months below.');
-        return;
-      }
-      previewDismissedIso = '';
-      focusCell(na);
-      showPathNotice(`Jumped to ${humanDate(na, { day: 'numeric', month: 'long', year: 'numeric' })}, the soonest date you can book.`);
     });
 
     // Re-filters + repaints from whatever's currently in the shared store (no fetch).
@@ -1882,7 +1737,6 @@ const cateredFrom = fmt(ppSharingRand(CATERED_PP_NIGHT.low));
       if (ev.target === policyModal) policyModal.close();
     });
 
-    syncFilterChips();
     renderAll();
     initialized = true;
 

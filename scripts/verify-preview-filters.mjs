@@ -1,13 +1,14 @@
-// Date preview + calendar filters contract (§5).
+// Date preview contract (§5). The calendar's four filter chips (Next available / Only private
+// buyouts / Only last-minute / High season only) were later removed on request — this file used
+// to also cover them; section 6 now just confirms they and their wiring are fully gone.
 // Run: npx tsx scripts/verify-preview-filters.mjs
 //
 // Two things here are worth asserting mechanically rather than reviewing by eye:
 //
-//   1. THE PREVIEW'S ARITHMETIC. §5 says the card shows the rate "with breakdown (base, season
-//      adjustment, last-minute)" and a total. If the displayed lines do not sum to the charged
-//      total, the card becomes a liability rather than a reassurance. Section 2 re-implements the
-//      breakdown against lib/pricing.ts and asserts it reconciles, for every catering, season,
-//      last-minute state and party size.
+//   1. THE PREVIEW'S ARITHMETIC. The card was later simplified to quote one resolved rate rather
+//      than a base/season/last-minute breakdown (that breakdown still exists at Step 3). Section
+//      5 still checks that the underlying engine reconciles, since Step 3's breakdown depends on
+//      exactly the same functions.
 //
 //   2. THE OPENING/DISMISSING CONTRACT. The document explicitly corrects hover to "tap AND
 //      keyboard focus, dismissable without a pointer". Hover is the easy thing to reach for and
@@ -74,12 +75,22 @@ assert('date with weekday', /bpreview__date[\s\S]{0,200}weekday: 'long'/.test(wi
 assert('season label', /isHighSeasonIso\(iso\) \? 'High season' : 'Low season'/.test(widget));
 assert('places left / opening state / buyout state are all distinguished',
   /The whole departure is yours[\s\S]{0,320}places left[\s\S]{0,200}You would be opening it/.test(widget));
-assert('breakdown line: base', /previewRow\('Standard rate'/.test(widget));
-assert('breakdown line: season adjustment, percentage from the constant',
-  /Low season, \$\{Math\.round\(R\.seasonDiscount \* 100\)\}% less/.test(widget));
-assert('breakdown line: last-minute, percentage from the constant',
-  /Last-minute, \$\{Math\.round\(R\.lastMinuteDiscount \* 100\)\}% less/.test(widget));
-assert('resolved rate line', /previewRow\('Your rate'/.test(widget));
+// The standard-rate/season-comparison breakdown was deliberately removed from THIS card on
+// request ("remove the low season/standard rate comparison ... when quoting prices"); the card
+// now quotes one resolved figure. The full breakdown still legitimately exists at Step 3
+// (updateEstimate, covered by verify-review-step.mjs) — sliced out here so this check is scoped
+// to previewCateringBlock() only, not a blanket sweep of the whole widget file.
+const previewBlockStart = widget.indexOf('function previewCateringBlock');
+const previewBlockEnd = widget.indexOf('function renderPreview');
+const previewBlockFn = widget.slice(previewBlockStart, previewBlockEnd);
+assert('previewCateringBlock() was located', previewBlockStart > 0 && previewBlockEnd > previewBlockStart);
+assert('the standard-rate/season-comparison lines are gone from this card',
+  !/previewRow\('Standard rate'/.test(previewBlockFn) &&
+  !/Low season, \$\{Math\.round\(R\.seasonDiscount \* 100\)\}% less/.test(previewBlockFn) &&
+  !/Last-minute, \$\{Math\.round\(R\.lastMinuteDiscount \* 100\)\}% less/.test(previewBlockFn));
+assert('resolved rate line', /previewRow\('Your rate'/.test(previewBlockFn));
+assert('the figure is still per person SHARING, computed from the real engine, not retyped',
+  /const finalSharing = ppNightCents\(cat, iso\) \* R\.nights/.test(previewBlockFn));
 assert('total for the party size', /walkers'\}` \+ ''|\$\{people\} \$\{people === 1 \? 'walker' : 'walkers'\}/.test(widget));
 assert('deposit due today', /previewRow\('Pay today \(50% deposit\)'/.test(widget) && /previewRow\('Pay today \(in full\)'/.test(widget));
 assert('the balance date is stated, not just the amount', /Balance of \$\{fmtR\(total - dep\)\} due/.test(widget));
@@ -89,10 +100,12 @@ assert('two eligible caterings each get their OWN priced block, not a "from" fig
 assert('closed dates still get a card stating the reason', /Not available: '/.test(widget));
 assert('the reason strings live in ONE place shared with the cells', /function cell_reason_text/.test(widget));
 
-section('5. The breakdown RECONCILES with what we actually charge');
-// Re-implementation of previewCateringBlock()'s arithmetic. Every displayed line is rounded the
-// same way the charged figure is, so base - seasonDelta - lmDelta must land exactly on the rate
-// lib/pricing.ts would charge, and rate x nights x people on the exact total.
+section('5. The pricing ENGINE reconciles internally (base - season - last-minute = final)');
+// This card no longer displays the breakdown (section 4), but Step 3's review step still does
+// (verify-review-step.mjs), and both read the exact same lib/pricing.ts functions checked here.
+// Every figure is rounded the same way the charged figure is, so base - seasonDelta - lmDelta
+// must land exactly on the rate lib/pricing.ts would charge, and rate x nights x people on the
+// exact total — an engine-level guarantee, independent of which surface displays how much of it.
 const roundToRand = (c) => Math.round(c / 100) * 100;
 const isWeekendPricingDay = (iso) => {
   const d = new Date(iso + 'T00:00:00Z').getUTCDay();
@@ -159,43 +172,25 @@ assert('a buyout card prices EXCLUSIVE_SIZE, not the selected party size',
 assert(`EXCLUSIVE_SIZE is ${EXCLUSIVE_SIZE} and comes from rates.ts, never retyped in the widget`,
   !/isExcl \? 8 :/.test(widget));
 
-section('6. Filters exist, and narrow OFFERS rather than hiding days');
-for (const [attr, name] of [
-  ['data-filter-next', 'Next available'],
-  ['data-filter-exclusive', 'Only private buyouts'],
-  ['data-filter-lastminute', 'Only last-minute'],
-  ['data-filter-highseason', 'High season only'],
-]) {
-  assert(`filter present: ${name}`, new RegExp(attr).test(widget));
+section('6. The four calendar filter chips are gone entirely (removed on request)');
+// "Next available", "Only private buyouts", "Only last-minute" and "High season only" were all
+// removed: "We do not need them." The underlying filter STATE (exclusiveOnly, lastMinuteOnly,
+// highSeasonOnly) is left declared-but-permanently-false inside eligibleCaterings()/classifyDate()
+// rather than torn out of that well-tested logic — see verify-eligibility.mjs's truth table, which
+// still exercises those branches and confirms they are safe, inert no-ops with nothing left to
+// ever set them true. This section only asserts the UI and its wiring are gone.
+for (const attr of ['data-filter-next', 'data-filter-exclusive', 'data-filter-lastminute', 'data-filter-highseason']) {
+  assert(`no orphaned markup for ${attr}`, !new RegExp(attr).test(widget));
 }
-assert('the three toggles carry aria-pressed', (widget.match(/data-filter-(exclusive|lastminute|highseason) aria-pressed="false"/g) || []).length === 3);
-assert('"Next available" is an ACTION, so it carries no aria-pressed', !/data-filter-next aria-pressed/.test(widget));
-assert('pressed chips are marked by a glyph as well as fill (not colour alone)', /\.bcal__chip\.is-on::before \{\s*\n\s*content:/.test(css));
-// Filters route through the eligibility core, so cells, prices, the preview, the soonest list and
-// submit can never disagree about what is bookable.
-assert('lastMinuteOnly is applied inside eligibleCaterings()', /if \(lastMinuteOnly && !withinLastMinuteWindow\(iso\)\) return \[\]/.test(widget));
-assert('highSeasonOnly is applied inside eligibleCaterings()', /if \(highSeasonOnly && !isHighSeasonIso\(iso\)\) return \[\]/.test(widget));
-assert('a filtered-out day states the FILTER as its reason, not "unavailable"',
-  /reason = 'hidden by your last-minute filter'/.test(widget) && /reason = 'hidden by your high-season filter'/.test(widget));
-assert('the filtered reason has its own badge', /badgeText = 'Filtered'/.test(widget));
-assert('filter changes are announced', /function afterFilterChange/.test(widget) && /showPathNotice\(na \?/.test(widget));
-assert('a filter change refreshes the soonest-available list too', /afterFilterChange[\s\S]{0,400}joinRefresh\(\)/.test(widget));
+assert('the retired chip DOM refs are gone', !/filterNextBtn|filterExclBtn|filterLmBtn|filterHsBtn/.test(widget));
+assert('the retired chip-sync/change-announce helpers are gone', !/function syncFilterChips|function afterFilterChange/.test(widget));
+assert('the retired .bcal__filters/.bcal__chip CSS is gone too', !/\.bcal__filters\b|\.bcal__chip\b/.test(css));
+// A buyout is still reachable exactly the way §4/§5 always intended: choosing EXCLUSIVE_SIZE
+// walkers unlocks Wed/Thu on its own, with no filter required — asserted in verify-eligibility.mjs.
+assert('the buyout-toggle force-group-size convenience is gone with its only caller',
+  !/eight\.checked = true/.test(widget));
 
-section('7. The buyout filter is now the calendar chip alone (the Step 1 checkbox was removed)');
-// The Step 1 "trail to ourselves" checkbox is gone on request; exclusiveOnlyEl no longer exists,
-// so the chip owns exclusiveOnly directly rather than delegating to a second control.
-assert('no orphaned reference to the removed checkbox survives', !/exclusiveOnlyEl/.test(widget));
-assert('the chip toggles exclusiveOnly directly', /filterExclBtn\?\.addEventListener\('click', \(\) => \{\s*\n\s*exclusiveOnly = !exclusiveOnly;/.test(widget));
-// The one behaviour worth keeping from the old checkbox: switching the filter on still forces the
-// walker count to exactly EXCLUSIVE_SIZE, since a buyout can never be anything else.
-assert('switching it on still forces the walker count to EXCLUSIVE_SIZE',
-  /input\[name="groupSize"\]\[value="\$\{R\.exclusiveSize\}"\]/.test(widget));
-assert('forcing the walker count re-syncs calGroupSize (renderAll) rather than leaving it stale',
-  /eight\.checked = true;[\s\S]{0,250}renderAll\(\);/.test(widget));
-assert('chips are synced once at startup so markup and state cannot begin out of step',
-  /syncFilterChips\(\);\s*\n\s*renderAll\(\);\s*\n\s*initialized = true;/.test(widget));
-
-section('8. Month/year jump (§5: "not optional")');
+section('7. Month/year jump (§5: "not optional")');
 assert('a jump control exists', /data-cal-jump/.test(widget));
 assert('it is a native select (best mobile date-jump affordance)', /<select class="bcal__jump"/.test(widget));
 assert('it has an accessible label', /for="bf-cal-jump">Jump to month/.test(widget));
@@ -205,14 +200,13 @@ assert('it tracks the view when paging with the arrows', /calJump\.value = Strin
 assert('the retired month <span> is gone', !/data-cal-month/.test(widget));
 assert('its target is ≥44px on touch', /\.bcal__jump \{[\s\S]{0,400}min-height: 2\.75rem/.test(css));
 
-section('9. Mobile-first: nothing new pushes the grid sideways');
-assert('chips scroll horizontally rather than wrapping to three rows', /\.bcal__filters \{[\s\S]{0,220}overflow-x: auto/.test(css));
+section('8. Mobile-first: nothing new pushes the grid sideways');
 assert('the card is inline under the grid, not a positioned popover', !/\.bpreview \{[\s\S]{0,300}position: (absolute|fixed)/.test(css));
 assert('card action is a full-width primary at 380px', /\.bpreview__go \{[\s\S]{0,120}flex: 1 1 auto/.test(css));
 assert('every new tap target is ≥44px', (css.match(/min-height: 2\.75rem/g) || []).length >= 4);
 assert('breakdown figures are tabular so the column aligns', /\.bpreview__value \{[\s\S]{0,120}font-variant-numeric: tabular-nums/.test(css));
 
-section('10. House rules');
+section('9. House rules');
 const userFacing = widget
   .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')  // JSX block comments
   .replace(/\/\*[\s\S]*?\*\//g, '')        // JS block comments
