@@ -23,7 +23,7 @@ export const routeViewBox = '0 0 800 560';
 export const routePins: RoutePin[] = [
   { id: 'rotavi', name: "Temminck's Lodge", role: 'Start & end', x: 158, y: 432, isHub: true },
   { id: 'oukraal', name: 'Oukraal', role: 'Night 2', x: 432, y: 120 },
-  { id: 'viervanacht', name: 'ViervanAcht', role: 'Night 3', x: 660, y: 360 },
+  { id: 'blackwood', name: 'Blackwood', role: 'Night 3', x: 660, y: 360 },
 ];
 
 export const routeSegments: RouteSegment[] = [
@@ -39,7 +39,7 @@ export const routeSegments: RouteSegment[] = [
     day: 3,
     colorVar: '--color-day3',
     from: 'Oukraal',
-    to: 'ViervanAcht',
+    to: 'Blackwood',
     path: 'M432 120 Q 632 162 660 360',
     landmarks: [
       'Entrance to L-Kloof',
@@ -51,7 +51,7 @@ export const routeSegments: RouteSegment[] = [
   {
     day: 4,
     colorVar: '--color-day4',
-    from: 'ViervanAcht',
+    from: 'Blackwood',
     to: "Temminck's Lodge",
     path: 'M660 360 Q 452 524 158 432',
     landmarks: [

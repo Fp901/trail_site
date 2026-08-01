@@ -68,17 +68,18 @@ assert('the display string is built from ppSharingRand, once',
   /export const FROM_PP_SHARING_DISPLAY = formatRand\(ppSharingRand\(LOWEST_PP_NIGHT\)\)/.test(rates));
 assert('the retired nightly display constant is gone', !/FROM_PP_NIGHT_DISPLAY/.test(rates));
 
-section('2. Homepage CTAs quote the SHARING total, and never a literal');
-assert('the homepage imports the computed figure', /FROM_PP_SHARING_DISPLAY \} from '\.\.\/data\/rates'/.test(home));
-const homeUses = (home.match(/FROM_PP_SHARING_DISPLAY/g) || []).length - 1; // minus the import
-assert(`it is used in the copy (${homeUses} places)`, homeUses >= 3);
-assert(`the literal "${FROM_PP_SHARING_DISPLAY}" appears nowhere on the homepage`,
-  !new RegExp(`\\b${FROM_PP_SHARING_DISPLAY}\\b`).test(home));
+section('2. Homepage shows NO visible pricing at all (removed on request)');
+// "Remove this from the home page, and also remove the text screenshotted in the buttons ... I
+// dont want any visible pricing on the home page." The CTAs and prose used to quote the computed
+// FROM_PP_SHARING_DISPLAY figure; that is deliberately gone now, not just swapped for a literal.
+assert('FROM_PP_SHARING_DISPLAY is not imported on the homepage at all', !/FROM_PP_SHARING_DISPLAY/.test(home));
+assert('the retired nightly display constant is not imported either', !/FROM_PP_NIGHT_DISPLAY/.test(home));
 assert('no rand figure at all is typed into the homepage', !/\bR\d[\d,]*\b/.test(home));
-assert('the primary CTA states the SHARING price', /See rates and book, from \{FROM_PP_SHARING_DISPLAY\} per person sharing/.test(home));
-assert('the closing CTA states it too', /Rates start at \{FROM_PP_SHARING_DISPLAY\} per person sharing/.test(home));
-assert('the retired nightly display constant is not imported anywhere on the homepage', !/FROM_PP_NIGHT_DISPLAY/.test(home));
-assert('the homepage never claims a per-night price', !/per person per night|pp\/night/.test(home));
+assert('no "per person sharing" pricing phrase survives on the homepage',
+  !/per person sharing/.test(home));
+assert('the homepage never claims a per-night price either', !/per person per night|pp\/night/.test(home));
+assert('the primary CTA button is plain, with no price appended',
+  /See rates and book<\/a>/.test(home) && /View rates and book the trail<\/a>/.test(home));
 
 section('3. The pricing explainer exists and computes everything it claims');
 assert('the page exists at /how-pricing-works', explainer.length > 500);

@@ -46,20 +46,20 @@ export const itinerary: ItineraryDay[] = [
     title: 'The High Ridge Traverse',
     distanceKm: 20,
     from: 'Oukraal',
-    to: 'ViervanAcht',
+    to: 'Blackwood',
     description:
-      'Climb the high ridges through the deeply-ravined Elandsberg L-Kloof to the lookout point with stunning views over the Marakele range. Drop into the Welgedacht Ravine, cut into the rock by thousands of years of rainstorms, and reach ViervanAcht, the mountain lodge. The view, the pool and the fire are waiting.',
+      'Climb the high ridges through the deeply-ravined Elandsberg L-Kloof to the lookout point with stunning views over the Marakele range. Drop into the Welgedacht Ravine, cut into the rock by thousands of years of rainstorms, and reach Blackwood, the mountain lodge. The view, the pool and the fire are waiting.',
     colorVar: '--color-day3',
     elevation: elevationDay3,
     elevationAlt:
-      'Day 3 elevation profile: 19.65 km, undulating up to about 1,414 m along the high ridge to ViervanAcht.',
+      'Day 3 elevation profile: 19.65 km, undulating up to about 1,414 m along the high ridge to Blackwood.',
     elevationCaption: 'Elevation profile · 19.7 km · up to ~1,414 m on the high ridge',
   },
   {
     day: 4,
     title: 'The Plains & Departure',
     distanceKm: 18,
-    from: 'ViervanAcht',
+    from: 'Blackwood',
     to: "Temminck's Lodge",
     description:
       'Cross the open grass plains where game is frequently seen grazing, follow the upper reaches of the Sand River, and circle the base of Groenkop back to Temminck\'s Lodge, where the trail concludes. Shower, share a final meal, collect your vehicles and depart.',

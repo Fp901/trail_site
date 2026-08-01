@@ -1,9 +1,9 @@
 // Sanctuaries — Part 8.3 + 2026 brief. Three distinct premium nodes under one trail standard.
-// Spelling: "ViervanAcht". Images supplied by the client.
+// Spelling: "Blackwood" (renamed from ViervanAcht). Images supplied by the client.
 import type { ImageMetadata } from 'astro';
 import rotaviImg from '../assets/images/rotavi-valley-plains.jpg';
 import oukraalImg from '../assets/images/oukraal-kudu-bushveld.jpg';
-import viervanachtImg from '../assets/images/viervanacht-giraffe-sunset.jpg';
+import blackwoodImg from '../assets/images/viervanacht-giraffe-sunset.jpg';
 
 export type AmenityIconName =
   | 'parking'
@@ -83,14 +83,14 @@ export const sanctuaries: Sanctuary[] = [
     ],
   },
   {
-    id: 'viervanacht',
-    name: 'ViervanAcht',
+    id: 'blackwood',
+    name: 'Blackwood',
     role: 'The Mountain Lodge · Night 3',
     description:
       'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range. Then watch the sun drop behind the mountains from the pool.',
-    alt: 'Giraffes at sunset on the ridges near ViervanAcht, the mountain lodge and the third night of the trail.',
+    alt: 'Giraffes at sunset on the ridges near Blackwood, the mountain lodge and the third night of the trail.',
     accentVar: '--color-day4',
-    image: viervanachtImg,
+    image: blackwoodImg,
     amenities: [
       { icon: 'view', label: 'Sunset mountain views' },
       { icon: 'pool', label: 'Swimming pool' },

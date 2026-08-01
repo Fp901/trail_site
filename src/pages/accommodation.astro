@@ -10,7 +10,7 @@ import { webPageSchema, breadcrumbSchema, touristAttractionSchema } from '../dat
 
 const title = 'The Safari Lodges | Three private trail lodges';
 const description =
-  "Temminck's Lodge, Oukraal and ViervanAcht: three private safari lodges on The Rooiberg Wander, each with a pool, equipped kitchen, barbeque and free WiFi. Each lodge exclusively yours for the night.";
+  "Temminck's Lodge, Oukraal and Blackwood: three private safari lodges on The Rooiberg Wander, each with a pool, equipped kitchen, barbeque and free WiFi. Each lodge exclusively yours for the night.";
 
 const jsonLd = [
   webPageSchema({ path: '/accommodation', name: title, description }),
@@ -22,11 +22,11 @@ const jsonLd = [
 ];
 
 // Trail context per lodge — grounded in the itinerary (Day 2 crosses Groenkop to Oukraal; Day 3
-// takes the Elandsberg L-Kloof to ViervanAcht; Temminck's is the Day 1 arrival and Day 4 return).
+// takes the Elandsberg L-Kloof to Blackwood; Temminck's is the Day 1 arrival and Day 4 return).
 const context: Record<string, string> = {
   rotavi: "Day 1 arrival & Day 4 return · the valley basecamp",
   oukraal: "Day 2 · Temminck's Lodge → Oukraal, over Groenkop",
-  viervanacht: 'Day 3 · Oukraal → ViervanAcht, via the Elandsberg L-Kloof',
+  blackwood: 'Day 3 · Oukraal → Blackwood, via the Elandsberg L-Kloof',
 };
 ---
 
@@ -46,13 +46,6 @@ const context: Record<string, string> = {
       </p>
     </div>
 
-    <div class="mt-8 max-w-3xl">
-      <p class="lodge-note">
-        Groups of up to 8, either way: book a Wednesday or Thursday exclusive buyout for exactly
-        8 and the trail and each lodge are reserved exclusively for your group, or join a shared
-        departure on any other day alongside other guests.
-      </p>
-    </div>
   </Section>
 
   <Section bg="cream" labelledby="amenities-heading" space="md" containerClass="!pt-0">

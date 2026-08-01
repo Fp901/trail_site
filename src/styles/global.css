@@ -419,11 +419,13 @@
     transform: translateY(1px);
   }
 
-  /* Secondary — understated outline/text on cream (Part 5.6). */
+  /* Secondary — understated outline on cream, but still a visibly bordered button: the previous
+     hairline border (10% opacity) was too faint to read as clickable next to the solid ochre
+     .btn-primary, which is what made buttons on the same page look inconsistent. */
   .btn-secondary {
     background-color: transparent;
     color: var(--color-earth);
-    border: 1px solid var(--color-hairline);
+    border: 1px solid color-mix(in srgb, var(--color-earth) 35%, transparent);
   }
   .btn-secondary:hover {
     border-color: var(--color-ochre);
@@ -2985,17 +2987,7 @@
     }
   }
 
-  /* --- Accommodation page: exclusivity note + amenities grid --------------- */
-  .lodge-note {
-    border: 1px solid color-mix(in srgb, var(--color-ochre) 45%, transparent);
-    border-radius: 1rem;
-    background-color: color-mix(in srgb, var(--color-ochre) 10%, var(--color-cream));
-    padding: 1.25rem 1.5rem;
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    line-height: 1.6;
-    color: var(--color-earth);
-  }
+  /* --- Accommodation page: amenities grid ----------------------------------- */
   .amenity-grid {
     margin-top: 1.75rem;
     display: grid;
