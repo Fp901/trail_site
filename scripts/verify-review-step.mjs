@@ -59,9 +59,14 @@ section('3. NEVER one unexplained figure (§6)');
 assert('the single-line formula is gone', !/data-total-formula|bform__total-formula/.test(widget) && !/bform__total-formula/.test(css));
 assert('a named breakdown container replaces it', /data-breakdown/.test(step));
 assert('the breakdown names the catering in the base line',
-  /\$\{catering === 'catered' \? 'Catered' : 'Self-catered'\} standard rate/.test(widget));
-assert('season adjustment is a named line with its percentage from the constant',
-  /Low season, \$\{Math\.round\(R\.seasonDiscount \* 100\)\}% less/.test(widget));
+  /\$\{catering === 'catered' \? 'Catered' : 'Self-catered'\} rate/.test(widget));
+// The season comparison ("Standard rate" + "Low season, X% less") was removed on request: "no
+// need to tell the customer how much discount they get off season, they can work out the
+// difference themselves." The base line now shows the season-adjusted rate directly — a low
+// season date just shows its own (lower) figure, with no percentage or high-season baseline.
+assert('the season-comparison line is gone; the base line already reflects the season',
+  !/Low season, \$\{Math\.round\(R\.seasonDiscount \* 100\)\}% less/.test(widget) &&
+  !/standard rate/.test(widget));
 assert('last-minute is a named line with its percentage from the constant',
   /Last-minute, \$\{Math\.round\(R\.lastMinuteDiscount \* 100\)\}% less/.test(widget));
 assert('the resolved rate is its own line, in PER PERSON SHARING terms',
@@ -72,8 +77,7 @@ assert('the resolved rate is its own line, in PER PERSON SHARING terms',
 // two-step (nightly, then x nights) format this replaced.
 assert('no separate nights-multiplication row survives (folded into "Your rate")',
   !/previewRow\(`\$\{R\.nights\} nights`/.test(widget));
-assert('the base and season-adjusted figures are pre-multiplied by nights before display',
-  /const baseSharing = highSeasonPpNightCents\(catering, iso\) \* R\.nights/.test(widget) &&
+assert('the season-adjusted figure is pre-multiplied by nights before display',
   /const afterSeasonSharing = basePpNightCents\(catering, iso\) \* R\.nights/.test(widget));
 assert('the party multiplication is shown', /walker' : 'walkers'\}`, fmtR\(totalCents\), 'total'\)/.test(widget));
 assert('no row in the breakdown states a bare per-night figure',

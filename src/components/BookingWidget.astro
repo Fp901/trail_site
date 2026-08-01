@@ -340,10 +340,11 @@ const clientRates = {
       <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
     </div>
 
-    {/* Every figure is a NAMED line. §6 forbids one unexplained number, so the rate is built up
-        in the open — standard rate, each adjustment, the resolved rate, the multiplication, then
-        what is actually taken today. Rendered from the same helper as the date preview, so the
-        card a guest reads before choosing and the one they pay from cannot disagree. */}
+    {/* Every figure is a NAMED line: the season-adjusted rate, any last-minute reduction, the
+        resolved rate, the multiplication, then what is actually taken today. No season comparison
+        or percentage (removed on request) — a low-season date just shows its own lower rate.
+        Rendered from the same helper as the date preview, so the card a guest reads before
+        choosing and the one they pay from cannot disagree. */}
     <div class="bform__pricing">
       <div class="bform__breakdown" data-breakdown></div>
       <p class="bform__estimate">
@@ -952,16 +953,12 @@ const clientRates = {
       // there is no shorter stay to choose, so a nightly figure would misstate what is on offer.
       if (breakdownEl) {
         const iso = selectedStartIso;
-        const baseSharing = highSeasonPpNightCents(catering, iso) * R.nights;
+        // The season-adjusted rate is shown directly, never alongside the high-season baseline or
+        // a "X% less" note — a low-season date just shows its own (lower) rate on this line.
         const afterSeasonSharing = basePpNightCents(catering, iso) * R.nights;
         breakdownEl.appendChild(previewRow(
-          `${catering === 'catered' ? 'Catered' : 'Self-catered'} standard rate`,
-          `${fmtR(baseSharing)} per person sharing`));
-        if (!isHighSeasonIso(iso)) {
-          breakdownEl.appendChild(previewRow(
-            `Low season, ${Math.round(R.seasonDiscount * 100)}% less`,
-            `- ${fmtR(baseSharing - afterSeasonSharing)}`, 'credit'));
-        }
+          `${catering === 'catered' ? 'Catered' : 'Self-catered'} rate`,
+          `${fmtR(afterSeasonSharing)} per person sharing`));
         if (withinLastMinuteWindow(iso)) {
           breakdownEl.appendChild(previewRow(
             `Last-minute, ${Math.round(R.lastMinuteDiscount * 100)}% less`,
@@ -1167,13 +1164,6 @@ const clientRates = {
     // approved direction is mobile-first. Escape dismisses it without a pointer.
     let previewIso = '';
     let previewDismissedIso = ''; // Escape suppresses re-opening for THAT cell only
-
-    // The un-discounted starting point: the high-season rate for this catering and start day.
-    // basePpNightCents() has already applied the season, so it cannot serve as the "base" line.
-    function highSeasonPpNightCents(cat: Catering, iso: string): number {
-      if (cat === 'catered') return roundToRand(R.catered.high * 100);
-      return roundToRand(R.uncatered[isWeekendPricingDayIso(iso) ? 'weekend' : 'week'].high * 100);
-    }
 
     function previewRow(label: string, value: string, mod = ''): HTMLElement {
       const row = document.createElement('div');

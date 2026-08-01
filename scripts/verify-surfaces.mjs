@@ -18,7 +18,6 @@ import {
   UNCATERED_PP_NIGHT,
   CATERED_PP_NIGHT,
   LAST_MINUTE_DISCOUNT,
-  SEASON_DISCOUNT,
   inclusions,
   exclusions,
   formatRand,
@@ -92,9 +91,16 @@ const questions = (explainer.match(/q: '[^']*\?'/g) || []).length;
 assert(`headings are question-shaped and answered first (${questions} questions)`, questions >= 4);
 assert('every question is fed to FAQ JSON-LD', /faqPageSchema\(factors\.map\(/.test(explainer));
 assert('NO rand figure is typed into the explainer', !/\bR\d[\d,]*\b/.test(explainer));
-assert('rates come through formatRand of the constants', (explainer.match(/formatRand\(/g) || []).length >= 6);
-assert(`the ${Math.round(SEASON_DISCOUNT * 100)}% season figure is computed`,
-  /Math\.round\(SEASON_DISCOUNT \* 100\)/.test(explainer) && !/\b20% less\b/.test(explainer.replace(/seasonPct/g, '')));
+assert('rates come through formatRand of the constants', (explainer.match(/formatRand\(/g) || []).length >= 3);
+// The season discount PERCENTAGE and the high-vs-low price comparison were removed on request:
+// "no need to tell the customer how much discount they get off season, they can work out the
+// difference themselves." The page now states only WHEN low season applies, never a percentage
+// or a high-season figure to compare against.
+assert('no season discount percentage is computed or shown anywhere on the page',
+  !/SEASON_DISCOUNT/.test(explainer) && !/seasonPct/.test(explainer));
+assert('the high-season Q&A states the DATES but not a percentage or a comparison price',
+  /Every other date is low season, at the lower rate/.test(explainer) &&
+  !/UNCATERED_PP_NIGHT\.week\.high/.test(explainer.slice(explainer.indexOf("q: 'What counts as high season?"), explainer.indexOf("q: 'Why does my start day"))));
 assert(`the ${Math.round(LAST_MINUTE_DISCOUNT * 100)}% last-minute figure is computed`,
   /Math\.round\(LAST_MINUTE_DISCOUNT \* 100\)/.test(explainer));
 assert('the last-minute discount is stated for BOTH caterings (the step-1 rule)',

@@ -13,9 +13,6 @@ import {
   EXCLUSIVE_SIZE,
   BOOKING_OPEN_DATE,
   NIGHTS,
-  LAST_MINUTE_MIN_DAYS,
-  LAST_MINUTE_MAX_DAYS,
-  LAST_MINUTE_DISCOUNT,
   bookingRules,
   formatRand,
   ppSharingRand,
@@ -41,8 +38,6 @@ const bookingEnabled = Boolean(
 // against the visitor's real date on load, so the page self-corrects after 15 Jan 2027 without
 // a redeploy.
 const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
-
-const lastMinutePercent = Math.round(LAST_MINUTE_DISCOUNT * 100);
 
 const title = 'Rates & Booking | The Rooiberg Wander';
 const description = `From ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.low))} per person sharing self-catered, or ${formatRand(ppSharingRand(CATERED_PP_NIGHT.low))} catered, for the whole ${NIGHTS}-night trail. Wednesday/Thursday exclusive buyouts for ${EXCLUSIVE_SIZE}, or join a shared departure on any other day. See what's included and book.`;
@@ -70,7 +65,7 @@ const jsonLd = [
 ---
 
 <Layout title={title} description={description} path="/rates" jsonLd={jsonLd}>
-  <Section bg="cream" labelledby="rates-heading" space="lg">
+  <Section bg="cream" labelledby="rates-heading" space="md">
     <div class="max-w-3xl">
       <p class="font-body text-sm font-medium uppercase tracking-[0.18em] text-green">
         Rates &amp; Booking
@@ -86,7 +81,7 @@ const jsonLd = [
     </div>
   </Section>
 
-  <Section bg="cream" space="md" containerClass="!pt-0">
+  <Section bg="cream" space="sm" containerClass="!pt-0">
     <BetaBanner />
   </Section>
 
@@ -99,11 +94,6 @@ const jsonLd = [
       <p class="rate-includes">
         <strong>Every rate includes</strong> two trail guides &middot; daily baggage transport
         &middot; lodge staff &middot; bedding, ice, wood and WiFi &middot; all conservation levies
-      </p>
-
-      <p class="mt-6 font-body text-sm leading-relaxed text-charcoal/70">
-        Payments are taken in South African Rand. No VAT is charged. A payment receipt is issued on
-        confirmation of payment.
       </p>
 
       <p class="mt-5 font-body text-sm leading-relaxed text-charcoal/85">

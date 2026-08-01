@@ -21,7 +21,6 @@ import {
   SHARED_TOPUP_MIN,
   UNCATERED_PP_NIGHT,
   CATERED_PP_NIGHT,
-  SEASON_DISCOUNT,
   SEASON_HIGH_DATES,
   LAST_MINUTE_DISCOUNT,
   LAST_MINUTE_MIN_DAYS,
@@ -41,7 +40,6 @@ import { webPageSchema, breadcrumbSchema, faqPageSchema } from '../data/schema';
 const title = 'How pricing works';
 const description = `Rates are per person sharing, for the whole trail, from ${FROM_PP_SHARING_DISPLAY}. Four things move the price: catering, season, start day, and how far ahead you book.`;
 
-const seasonPct = Math.round(SEASON_DISCOUNT * 100);
 const lastMinutePct = Math.round(LAST_MINUTE_DISCOUNT * 100);
 
 // The four factors, each with its own effect stated in the rates the table actually carries.
@@ -53,8 +51,8 @@ const factors = [
   },
   {
     q: 'What counts as high season?',
-    lead: `${SEASON_HIGH_DATES}. Everything outside those dates is low season and costs ${seasonPct}% less.`,
-    body: `The reduction applies to whichever rate you are already on, so a self-catered week-day start moves from ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.high))} to ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.low))} per person sharing, and catered from ${formatRand(ppSharingRand(CATERED_PP_NIGHT.high))} to ${formatRand(ppSharingRand(CATERED_PP_NIGHT.low))}.`,
+    lead: `${SEASON_HIGH_DATES}. Every other date is low season, at the lower rate.`,
+    body: `The season depends only on your start date. Catering, group size and everything else about the trail work exactly the same either way.`,
   },
   {
     q: 'Why does my start day change the price?',

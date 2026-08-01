@@ -187,7 +187,6 @@ export const rateRows: RateRow[] = [
 export const SEASON_HIGH_LABEL = 'High season';
 export const SEASON_HIGH_DATES = '1 Apr to 31 Oct, 15 Dec to 15 Jan';
 export const SEASON_LOW_LABEL = 'Low season';
-export const SEASON_LOW_NOTE = `${Math.round(SEASON_DISCOUNT * 100)}% less`;
 
 // The two booking rules, stated ONCE (the retired cards repeated them three times). These are
 // availability rules, deliberately kept separate from the price matrix above: what a trip costs

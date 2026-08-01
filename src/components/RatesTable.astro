@@ -22,7 +22,6 @@ import {
   SEASON_HIGH_LABEL,
   SEASON_HIGH_DATES,
   SEASON_LOW_LABEL,
-  SEASON_LOW_NOTE,
   FX_RATES_AS_OF,
   type ForeignCurrency,
 } from '../data/rates';
@@ -70,7 +69,6 @@ function priceSet(rand: number): Record<string, string> {
         </th>
         <th scope="col">
           {SEASON_LOW_LABEL}
-          <span class="ratetable__seasonnote">{SEASON_LOW_NOTE}</span>
         </th>
       </tr>
     </thead>
