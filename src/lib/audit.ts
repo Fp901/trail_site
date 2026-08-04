@@ -3,18 +3,11 @@
 // amount/type. A failed insert must never break the calling flow (e.g. the webhook).
 import { getSupabaseAdmin } from './supabase';
 
-export type PaymentEventType =
-  | 'confirmed'
-  | 'amount_mismatch'
-  | 'paid_but_cancelled'
-  | 'reference_not_found'
-  | 'duplicate_ignored'
-  // Split payment (balance / second transaction)
-  | 'balance_confirmed'
-  | 'balance_amount_mismatch'
-  | 'balance_inconsistent'
-  // Admin-recorded payment fact (e.g. balance settled by EFT outside Paystack)
-  | 'manual_balance_paid';
+// Canonical definition (and its runtime PAYMENT_EVENT_TYPES tuple) lives in lib/db.types.ts.
+// event_type has no SQL CHECK, so verify-admin.mjs instead asserts the tuple covers every
+// eventType literal passed to recordPaymentEvent() anywhere under src/.
+import type { PaymentEventType } from './db.types';
+export type { PaymentEventType };
 
 export async function recordPaymentEvent(e: {
   eventType: PaymentEventType;

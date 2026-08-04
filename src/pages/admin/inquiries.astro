@@ -6,6 +6,7 @@ import Section from '../../components/Section.astro';
 import AdminNav from '../../components/AdminNav.astro';
 import { getAdminUser } from '../../lib/auth';
 import { getSupabaseAdmin } from '../../lib/supabase';
+import { INQUIRY_COLUMNS, sel, type InquiryRow } from '../../lib/db.types';
 import { withBase } from '../../data/site';
 
 export const prerender = false;
@@ -15,17 +16,8 @@ if (!user) {
   return Astro.redirect(withBase('/admin/login'));
 }
 
-interface Inquiry {
-  id: string;
-  created_at: string;
-  name: string;
-  email: string;
-  group_size: string | null;
-  target_dates: string | null;
-  message: string | null;
-  handled_at: string | null;
-  handled_by: string | null;
-}
+// The page needs the whole row, so it reads the canonical column tuple straight from db.types.
+type Inquiry = InquiryRow;
 
 let inquiries: Inquiry[] = [];
 let loadError = false;
@@ -34,10 +26,10 @@ try {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('inquiries')
-    .select('id, created_at, name, email, group_size, target_dates, message, handled_at, handled_by')
+    .select(sel<InquiryRow, typeof INQUIRY_COLUMNS>(INQUIRY_COLUMNS))
     .order('created_at', { ascending: false });
   if (error) throw error;
-  inquiries = (data as Inquiry[]) ?? [];
+  inquiries = (data as unknown as Inquiry[]) ?? [];
 } catch {
   loadError = true;
 }

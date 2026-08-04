@@ -31,8 +31,11 @@ import {
 } from '../data/rates';
 
 export const CURRENCY = 'ZAR';
-export type BookingType = 'exclusive' | 'shared';
-export type Catering = 'catered' | 'uncatered';
+// Canonical definitions live in lib/db.types.ts (mirrored from the SQL CHECK constraints and
+// asserted against them by verify-admin.mjs). Imported for local use AND re-exported, so every
+// existing import path keeps working unchanged.
+import type { BookingType, Catering } from './db.types';
+export type { BookingType, Catering };
 
 const toCents = (rand: number) => Math.round(rand * 100);
 

@@ -28,9 +28,12 @@ state). To switch booking on:
 1. **Copy env:** `cp .env.example .env` and fill it in (see `.env.example` for every var).
    Set the same vars in your Vercel project. Decided defaults: full payment up front
    (`BOOKING_DEPOSIT_PERCENT=100`), cards only, Resend email, Supabase region **eu-west-2**.
-2. **Supabase:** create the project (region eu-west-2) and run `supabase/migrations/0001_init.sql`
-   (SQL editor or Supabase CLI). It creates `bookings`, `inquiries`, `blocked_dates`, the
-   `unavailable_windows` view, RLS (default-deny) and the double-booking exclusion constraint.
+2. **Supabase:** create the project (region eu-west-2) and run **every** file in
+   `supabase/migrations/` in filename order (SQL editor or Supabase CLI). They create `bookings`,
+   `inquiries`, `blocked_dates`, `pretrip_details`, `payment_events`, `admin_audit` and
+   `rate_limits`, RLS (default-deny) on all of them, the anon-readable `departure_inventory` view,
+   and the `bookings_slot_guard` / `bookings_window_guard` triggers that enforce the departure
+   rules. Double-booking is prevented by the partial unique index `bookings_unique_start_date`.
 3. **Paystack:** add **test** keys first; set the webhook URL to
    `https://<your-domain>/api/payments/webhook`. Test the flow end-to-end (initialize → hosted
    checkout → webhook verified + Verify Transaction → confirmed → email) before going live.

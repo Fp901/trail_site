@@ -9,6 +9,14 @@ import Section from '../../../components/Section.astro';
 import AdminNav from '../../../components/AdminNav.astro';
 import { getAdminUser } from '../../../lib/auth';
 import { getSupabaseAdmin } from '../../../lib/supabase';
+import type {
+  AdminAction,
+  AdminAuditRow,
+  BookingRow,
+  PaymentEventRow,
+  PaymentEventType,
+  PretripDetailRow,
+} from '../../../lib/db.types';
 import { withBase } from '../../../data/site';
 
 export const prerender = false;
@@ -22,32 +30,28 @@ const { id } = Astro.params;
 const isUuid =
   !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-interface PretripGuest {
-  name?: string;
-  idNumber?: string;
-  emergencyName?: string;
-  emergencyPhone?: string;
-}
-interface PretripDetails {
-  leadPhone?: string;
-  guests?: PretripGuest[];
-  medicalNotes?: string;
-  vehicleReg?: string;
-  arrivalTime?: string;
-  specialRequests?: string;
-  selfCateringAck?: boolean;
-}
+// Row shapes come from lib/db.types.ts, which verify-admin.mjs checks against the migrations.
+type PretripSummary = Pick<PretripDetailRow, 'submitted_at' | 'details'>;
+type TimelinePaymentEvent = Pick<PaymentEventRow, 'created_at' | 'event_type' | 'amount_cents'>;
+type TimelineAuditEvent = Pick<
+  AdminAuditRow,
+  'created_at' | 'admin_email' | 'action' | 'before' | 'after' | 'note'
+>;
 
-let booking: Record<string, any> | null = null;
-let pretrip: { submitted_at: string | null; details: PretripDetails | null } | null = null;
-let paymentEvents: Array<Record<string, any>> = [];
-let auditEvents: Array<Record<string, any>> = [];
+let booking: BookingRow | null = null;
+let pretrip: PretripSummary | null = null;
+let paymentEvents: TimelinePaymentEvent[] = [];
+let auditEvents: TimelineAuditEvent[] = [];
 
 if (isUuid) {
   try {
     const supabase = getSupabaseAdmin();
+    // select('*') deliberately, not an explicit column list: an explicit list turns a future
+    // dropped column into a Postgres error that the catch below would swallow into a misleading
+    // "Booking not found". The BookingRow cast gives the compile-time protection instead, and
+    // verify-admin.mjs is what detects drift from the migrations.
     const { data } = await supabase.from('bookings').select('*').eq('id', id).maybeSingle();
-    booking = data ?? null;
+    booking = (data as BookingRow | null) ?? null;
     if (booking) {
       const [pt, pe, ae] = await Promise.all([
         supabase
@@ -57,16 +61,16 @@ if (isUuid) {
           .maybeSingle(),
         supabase
           .from('payment_events')
-          .select('created_at, event_type, amount_cents, detail')
+          .select('created_at, event_type, amount_cents')
           .eq('booking_id', booking.id),
         supabase
           .from('admin_audit')
           .select('created_at, admin_email, action, before, after, note')
           .eq('booking_id', booking.id),
       ]);
-      pretrip = pt.data ?? null;
-      paymentEvents = pe.data ?? [];
-      auditEvents = ae.data ?? [];
+      pretrip = (pt.data as unknown as PretripSummary | null) ?? null;
+      paymentEvents = (pe.data as unknown as TimelinePaymentEvent[]) ?? [];
+      auditEvents = (ae.data as unknown as TimelineAuditEvent[]) ?? [];
     }
   } catch {
     booking = null;
@@ -87,8 +91,12 @@ const bookingRows: [string, string][] = booking
       ['Group size', String(booking.group_size)],
       ['Type', booking.booking_type === 'shared' ? 'Shared departure' : 'Exclusive departure'],
       ['Catering', booking.catering === 'catered' ? 'Fully catered' : 'Self-catered'],
-      // Legacy bookings (pre catering model) recorded residency; show it only when present.
-      ...(booking.residency ? ([['Residency (legacy)', booking.residency]] as [string, string][]) : []),
+      // Legacy bookings (pre catering model) recorded residency; 0013 dropped the NOT NULL, so
+      // show the row only when a value is actually present. `?? ''` keeps the tuple typed as
+      // string after narrowing is lost across the array-literal boundary.
+      ...(booking.residency
+        ? ([['Residency (legacy)', booking.residency ?? '']] as [string, string][])
+        : []),
       ['Lead guest', booking.lead_name],
       ['Lead email', booking.lead_email],
       ['Lead phone', booking.lead_phone ?? '—'],
@@ -115,6 +123,24 @@ const bookingRows: [string, string][] = booking
       ['Created', fmtDateTime(booking.created_at)],
       ['Confirmed', fmtDateTime(booking.confirmed_at)],
       ['Hold expires', fmtDateTime(booking.hold_expires_at)],
+    ]
+  : [];
+
+// What the system has actually sent. These five columns are written by the webhook and the
+// pre-trip/balance crons but were never surfaced, so "has the balance link gone out yet?" could
+// not be answered from the portal at all — the question that matters most when chasing a balance.
+const sentYesNo = (b: boolean) => (b ? 'Sent' : 'Not sent');
+const notificationRows: [string, string][] = booking
+  ? [
+      ...(booking.payment_plan === 'deposit_balance'
+        ? ([
+            ['Balance payment link', fmtDateTime(booking.balance_link_sent_at)],
+            ['Balance overdue alert', sentYesNo(booking.balance_overdue_alert_sent)],
+          ] as [string, string][])
+        : []),
+      ['Pre-trip reminder (day 3)', sentYesNo(booking.pretrip_reminder_day3_sent)],
+      ['Pre-trip reminder (day 6)', sentYesNo(booking.pretrip_reminder_day6_sent)],
+      ['Pre-trip overdue alert', sentYesNo(booking.pretrip_overdue_alert_sent)],
     ]
   : [];
 
@@ -145,7 +171,9 @@ interface TimelineItem {
   kind: 'system' | 'admin' | 'note';
 }
 
-const paymentLabels: Record<string, string> = {
+// Record<PaymentEventType, …> not Record<string, …>: adding an event type in lib/audit.ts now
+// breaks the build here until it is given a label, instead of silently rendering snake_case.
+const paymentLabels: Record<PaymentEventType, string> = {
   confirmed: 'Payment confirmed (webhook verified)',
   amount_mismatch: 'Payment amount mismatch flagged',
   paid_but_cancelled: 'Payment received on a cancelled hold (manual review)',
@@ -157,14 +185,21 @@ const paymentLabels: Record<string, string> = {
   manual_balance_paid: 'Balance recorded as paid manually',
 };
 
-function auditLabel(e: Record<string, any>): string {
-  switch (e.action) {
+// Exhaustive over AdminAction: the `never` assignment in the default branch makes a new action
+// added to lib/db.types.ts a compile error here, rather than falling through to raw snake_case.
+// block_dates / unblock_dates / inquiry_handled are only unreachable on this page because the
+// query filters on booking_id and those rows carry null; they are labelled anyway.
+function auditLabel(e: TimelineAuditEvent): string {
+  const action: AdminAction = e.action;
+  switch (action) {
     case 'note':
       return 'Note added';
     case 'update_contact': {
-      const changed = Object.keys(e.after ?? {})
-        .filter((k) => (e.before ?? {})[k] !== (e.after ?? {})[k])
-        .map((k) => `${k.replace('lead_', '')}: ${(e.before ?? {})[k] ?? '—'} → ${(e.after ?? {})[k]}`);
+      const before = e.before ?? {};
+      const after = e.after ?? {};
+      const changed = Object.keys(after)
+        .filter((k) => before[k] !== after[k])
+        .map((k) => `${k.replace('lead_', '')}: ${before[k] ?? '—'} → ${after[k]}`);
       return `Contact details updated${changed.length ? ` (${changed.join(' · ')})` : ''}`;
     }
     case 'move_dates':
@@ -177,8 +212,16 @@ function auditLabel(e: Record<string, any>): string {
       return 'Balance marked paid (manual)';
     case 'create_comp_booking':
       return 'Complimentary booking created (payment bypassed)';
-    default:
-      return e.action;
+    case 'block_dates':
+      return 'Dates blocked';
+    case 'unblock_dates':
+      return 'Dates unblocked';
+    case 'inquiry_handled':
+      return 'Enquiry marked handled';
+    default: {
+      const unhandled: never = action;
+      return unhandled;
+    }
   }
 }
 
@@ -211,7 +254,7 @@ const timeline: TimelineItem[] = [
     <AdminNav email={user.email ?? ''} active="bookings" />
 
     <p class="mt-6 font-body text-sm">
-      <a href={withBase('/admin')} class="admin-link">&larr; All bookings</a>
+      <a href={withBase('/admin')} class="admin-backlink">&larr; All bookings</a>
     </p>
 
     {
@@ -241,6 +284,18 @@ const timeline: TimelineItem[] = [
               <h2 class="font-display text-2xl text-earth">Booking record</h2>
               <dl class="admin-dl mt-5">
                 {bookingRows.map(([label, value]) => (
+                  <div>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {/* What the system has already sent this guest. Answers "has the balance link
+                  actually gone out?" without digging through the email provider. */}
+              <h2 class="mt-10 font-display text-2xl text-earth">Notifications sent</h2>
+              <dl class="admin-dl mt-5">
+                {notificationRows.map(([label, value]) => (
                   <div>
                     <dt>{label}</dt>
                     <dd>{value}</dd>

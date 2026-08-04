@@ -9,17 +9,10 @@ import { ActionError, type ActionAPIContext } from 'astro:actions';
 import { getAdminUser } from './auth';
 import { getSupabaseAdmin } from './supabase';
 
-export type AdminAction =
-  | 'note'
-  | 'update_contact'
-  | 'move_dates'
-  | 'cancel_booking'
-  | 'resend_email'
-  | 'mark_balance_paid'
-  | 'block_dates'
-  | 'unblock_dates'
-  | 'inquiry_handled'
-  | 'create_comp_booking';
+// Canonical definition (and its runtime ADMIN_ACTIONS tuple) lives in lib/db.types.ts, mirrored
+// from the admin_audit_action_check constraint and asserted against it by verify-admin.mjs.
+import type { AdminAction } from './db.types';
+export type { AdminAction };
 
 // Verify the calling request carries a valid admin session; return the admin's identity.
 export async function requireAdmin(ctx: ActionAPIContext): Promise<{ email: string }> {

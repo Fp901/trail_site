@@ -7,6 +7,7 @@ import Section from '../../components/Section.astro';
 import AdminNav from '../../components/AdminNav.astro';
 import { getAdminUser } from '../../lib/auth';
 import { getSupabaseAdmin } from '../../lib/supabase';
+import { sel, type BookingRow } from '../../lib/db.types';
 import { withBase } from '../../data/site';
 
 export const prerender = false;
@@ -30,23 +31,27 @@ const statusFilter: StatusFilter = (STATUSES as readonly string[]).includes(rawS
   : 'all';
 const q = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 120);
 
-interface Row {
-  id: string;
-  start_date: string;
-  end_date: string;
-  lead_name: string;
-  lead_email: string;
-  status: string;
-  group_size: number;
-  amount_paid_cents: number | null;
-  confirmed_at: string | null;
-  payment_plan: string;
-  balance_due_cents: number;
-  balance_paid_at: string | null;
-  hold_expires_at: string | null;
-  processor: string;
-  booking_type: string;
-}
+// The list's columns, declared once: this tuple builds the select string AND the row type, so
+// they cannot drift. Every name is checked against BookingRow at compile time.
+const LIST_COLS = [
+  'id',
+  'start_date',
+  'lead_name',
+  'lead_email',
+  'status',
+  'group_size',
+  'catering',
+  'amount_paid_cents',
+  'confirmed_at',
+  'payment_plan',
+  'balance_due_cents',
+  'balance_paid_at',
+  'hold_expires_at',
+  'processor',
+  'booking_type',
+] as const satisfies readonly (keyof BookingRow)[];
+
+type Row = Pick<BookingRow, (typeof LIST_COLS)[number]>;
 
 let rows: Row[] = [];
 let loadError = false;
@@ -58,9 +63,7 @@ try {
 
   let query = supabase
     .from('bookings')
-    .select(
-      'id, start_date, end_date, lead_name, lead_email, status, group_size, amount_paid_cents, confirmed_at, payment_plan, balance_due_cents, balance_paid_at, hold_expires_at, processor, booking_type',
-    )
+    .select(sel<BookingRow, typeof LIST_COLS>(LIST_COLS))
     .order('start_date', { ascending: true });
   if (statusFilter !== 'all') query = query.eq('status', statusFilter);
   if (q) {
@@ -70,7 +73,10 @@ try {
   }
   const { data, error } = await query;
   if (error) throw error;
-  rows = (data as Row[]) ?? [];
+  // Double cast: sel() returns a plain string, so supabase-js cannot infer the shape from a
+  // literal and widens to GenericStringError[]. LIST_COLS is the real guarantee here — it is
+  // checked against BookingRow above, and verify-admin.mjs checks BookingRow against the SQL.
+  rows = (data as unknown as Row[]) ?? [];
 
   if (rows.length) {
     const { data: subs } = await supabase
@@ -155,18 +161,21 @@ const filterHref = (s: StatusFilter) => {
     {
       !loadError && (
         <div class="admin-stats mt-8">
-          {stats.map((s) => (
-            <div class="admin-stat">
-              <p class="admin-stat__value">{s.value}</p>
-              {s.href ? (
-                <a href={withBase(s.href)} class="admin-stat__label admin-link">
-                  {s.label}
-                </a>
-              ) : (
+          {/* Linked stats make the WHOLE card the target, not the 12px label: a ~64px touch
+              target instead of ~19px, and the card already reads as clickable. */}
+          {stats.map((s) =>
+            s.href ? (
+              <a href={withBase(s.href)} class="admin-stat admin-stat--link">
+                <span class="admin-stat__value">{s.value}</span>
+                <span class="admin-stat__label">{s.label}</span>
+              </a>
+            ) : (
+              <div class="admin-stat">
+                <p class="admin-stat__value">{s.value}</p>
                 <p class="admin-stat__label">{s.label}</p>
-              )}
-            </div>
-          ))}
+              </div>
+            ),
+          )}
           {nextTrip && (
             <div class="admin-stat admin-stat--next">
               <p class="admin-stat__value">{nextTrip.start_date}</p>
@@ -205,7 +214,9 @@ const filterHref = (s: StatusFilter) => {
         />
         <button type="submit" class="btn btn-secondary">Search</button>
       </form>
-      <a href={withBase('/admin/bookings/new')} class="btn btn-secondary">+ Comp booking</a>
+      <a href={withBase('/admin/bookings/new')} class="btn btn-secondary admin-filters__new">
+        + Comp booking
+      </a>
     </div>
 
     {
@@ -218,14 +229,17 @@ const filterHref = (s: StatusFilter) => {
           {q || statusFilter !== 'all' ? 'No bookings match this filter.' : 'No bookings yet.'}
         </p>
       ) : (
-        <div class="admin-tablewrap mt-8">
-          <table class="admin-table">
+        <div class="admin-tablewrap admin-tablewrap--wide mt-8">
+          {/* --wide: 9 columns, so this one stays stacked until 1024px. The narrower tables on
+              /admin/dates un-stack at 640px on the base class. */}
+          <table class="admin-table admin-table--wide">
             <thead>
               <tr>
                 <th scope="col">Start date</th>
                 <th scope="col">Lead guest</th>
                 <th scope="col">Status</th>
                 <th scope="col">Group</th>
+                <th scope="col">Catering</th>
                 <th scope="col">Paid</th>
                 <th scope="col">Balance</th>
                 <th scope="col">Pre-trip</th>
@@ -248,6 +262,15 @@ const filterHref = (s: StatusFilter) => {
                     {r.booking_type === 'shared' && <span class="admin-badge admin-badge--shared">shared</span>}
                   </td>
                   <td data-label="Group">{r.group_size}</td>
+                  {/* Catered is the exception the operator must act on (someone has to cook), so
+                      only it gets a badge. Self-catered stays quiet text. */}
+                  <td data-label="Catering">
+                    {r.catering === 'catered' ? (
+                      <span class="admin-badge admin-badge--catered">catered</span>
+                    ) : (
+                      <span class="admin-sub">Self-catered</span>
+                    )}
+                  </td>
                   <td data-label="Paid">{fmtMoney(r.amount_paid_cents)}</td>
                   <td data-label="Balance">
                     {r.payment_plan !== 'deposit_balance' ? (
@@ -268,7 +291,7 @@ const filterHref = (s: StatusFilter) => {
                     )}
                   </td>
                   <td data-label="">
-                    <a href={withBase(`/admin/bookings/${r.id}`)} class="admin-link">
+                    <a href={withBase(`/admin/bookings/${r.id}`)} class="admin-rowlink">
                       View &rarr;
                     </a>
                   </td>

@@ -7,6 +7,7 @@ import Section from '../../components/Section.astro';
 import AdminNav from '../../components/AdminNav.astro';
 import { getAdminUser } from '../../lib/auth';
 import { getSupabaseAdmin } from '../../lib/supabase';
+import { BLOCKED_DATE_COLUMNS, sel, type BlockedDateRow } from '../../lib/db.types';
 import { withBase } from '../../data/site';
 
 export const prerender = false;
@@ -16,15 +17,8 @@ if (!user) {
   return Astro.redirect(withBase('/admin/login'));
 }
 
-interface Block {
-  id: string;
-  created_at: string;
-  start_date: string;
-  end_date: string;
-  reason: string | null;
-  created_by: string | null;
-  removed_at: string | null;
-}
+// The page needs the whole row, so it reads the canonical column tuple straight from db.types.
+type Block = BlockedDateRow;
 
 let blocks: Block[] = [];
 let loadError = false;
@@ -33,10 +27,10 @@ try {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('blocked_dates')
-    .select('id, created_at, start_date, end_date, reason, created_by, removed_at')
+    .select(sel<BlockedDateRow, typeof BLOCKED_DATE_COLUMNS>(BLOCKED_DATE_COLUMNS))
     .order('start_date', { ascending: true });
   if (error) throw error;
-  blocks = (data as Block[]) ?? [];
+  blocks = (data as unknown as Block[]) ?? [];
 } catch {
   loadError = true;
 }

@@ -3290,41 +3290,186 @@
     color: color-mix(in srgb, var(--color-cream) 78%, var(--color-ochre));
   }
 
-  /* Operator dashboard (Part 3) — internal, view-only. Uses the existing earth/ochre/cream tokens;
-     no new component library. Table collapses to stacked cards on narrow screens. */
+  /* === ADMIN: start ==========================================================================
+     Operator dashboard — internal, but MOBILE-FIRST like the rest of the site: the operator reads
+     this on a phone in the field far more often than at a desk.
+
+     THE TABLE. Base styles stack every row into a labelled card; `td::before` prints the cell's
+     `data-label`, so the column header travels with the value. Real table layout is restored at a
+     breakpoint chosen per table width:
+        base class      -> un-stacks at  640px (the 4-5 column tables on /admin/dates)
+        .admin-table--wide -> un-stacks at 1024px (the 9-column bookings list)
+     Un-stacked, the table also gets a `min-width` so `.admin-tablewrap`'s `overflow-x: auto` can
+     actually engage. Without one, `width: 100%` means the table can never overflow its own scroll
+     container, so the columns silently compress instead of scrolling — the bug this replaces.
+
+     A11Y: at mobile `thead` is display:none and rows/cells are display:block/grid, which drops
+     native table semantics in every engine. We deliberately do NOT re-add role="table"/"row"/
+     "cell": that pairing is unreliable in Safari/VoiceOver, and the ::before label already carries
+     the header text into the accessibility tree in reading order.
+
+     Every interactive element here is >=2.75rem (44px) and every input is >=1rem (below 16px,
+     iOS Safari zooms the page on focus). */
   .admin-tablewrap {
-    overflow-x: auto;
-    border: 1px solid var(--color-hairline);
+    /* Mobile: the rows ARE the cards, so the wrapper adds no chrome of its own. */
     border-radius: 1rem;
-    background: color-mix(in srgb, var(--color-cream) 92%, white);
   }
   .admin-table {
+    display: block;
     width: 100%;
-    border-collapse: collapse;
     font-family: var(--font-body);
     font-size: 0.9rem;
     color: var(--color-charcoal);
   }
-  .admin-table th,
-  .admin-table td {
-    padding: 0.75rem 1rem;
-    text-align: left;
-    vertical-align: top;
-    border-bottom: 1px solid var(--color-hairline);
+  .admin-table thead {
+    display: none;
   }
-  .admin-table thead th {
+  .admin-table tbody {
+    display: block;
+  }
+  .admin-table tr {
+    display: block;
+    padding: 0.35rem 0.95rem;
+    border: 1px solid var(--color-hairline);
+    border-radius: 0.9rem;
+    background: color-mix(in srgb, var(--color-cream) 92%, white);
+  }
+  .admin-table tr + tr {
+    margin-top: 0.75rem;
+  }
+  .admin-table td {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 40%) 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--color-hairline);
+    overflow-wrap: anywhere;
+  }
+  .admin-table td::before {
+    content: attr(data-label);
     font-size: 0.7rem;
     font-weight: 600;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: color-mix(in srgb, var(--color-earth) 70%, transparent);
   }
-  .admin-table tbody tr:last-child td {
+  .admin-table tr td:last-child {
     border-bottom: 0;
+  }
+  /* The unlabelled actions cell: no label column, just a full-width control. */
+  .admin-table td[data-label=''] {
+    display: block;
+  }
+  .admin-table td[data-label='']::before {
+    display: none;
   }
   .admin-row--overdue {
     background: color-mix(in srgb, var(--color-day4, #9c5b3b) 12%, transparent);
   }
+
+  /* Un-stack: narrow tables at 640px. */
+  @media (min-width: 640px) {
+    .admin-tablewrap:not(.admin-tablewrap--wide) {
+      overflow-x: auto;
+      border: 1px solid var(--color-hairline);
+      background: color-mix(in srgb, var(--color-cream) 92%, white);
+    }
+    .admin-table:not(.admin-table--wide) {
+      display: table;
+      min-width: 34rem;
+      border-collapse: collapse;
+    }
+    .admin-table:not(.admin-table--wide) thead {
+      display: table-header-group;
+    }
+    .admin-table:not(.admin-table--wide) tbody {
+      display: table-row-group;
+    }
+    .admin-table:not(.admin-table--wide) tr {
+      display: table-row;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: none;
+    }
+    .admin-table:not(.admin-table--wide) tr + tr {
+      margin-top: 0;
+    }
+    .admin-table:not(.admin-table--wide) th,
+    .admin-table:not(.admin-table--wide) td {
+      display: table-cell;
+      padding: 0.75rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--color-hairline);
+    }
+    .admin-table:not(.admin-table--wide) td::before {
+      display: none;
+    }
+    .admin-table:not(.admin-table--wide) tbody tr:last-child td {
+      border-bottom: 0;
+    }
+    .admin-table:not(.admin-table--wide) thead th {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: color-mix(in srgb, var(--color-earth) 70%, transparent);
+    }
+  }
+
+  /* Un-stack: the 9-column bookings list only at 1024px. */
+  @media (min-width: 1024px) {
+    .admin-tablewrap--wide {
+      overflow-x: auto;
+      border: 1px solid var(--color-hairline);
+      background: color-mix(in srgb, var(--color-cream) 92%, white);
+    }
+    .admin-table--wide {
+      display: table;
+      min-width: 56rem;
+      border-collapse: collapse;
+    }
+    .admin-table--wide thead {
+      display: table-header-group;
+    }
+    .admin-table--wide tbody {
+      display: table-row-group;
+    }
+    .admin-table--wide tr {
+      display: table-row;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: none;
+    }
+    .admin-table--wide tr + tr {
+      margin-top: 0;
+    }
+    .admin-table--wide th,
+    .admin-table--wide td {
+      display: table-cell;
+      padding: 0.75rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--color-hairline);
+    }
+    .admin-table--wide td::before {
+      display: none;
+    }
+    .admin-table--wide tbody tr:last-child td {
+      border-bottom: 0;
+    }
+    .admin-table--wide thead th {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: color-mix(in srgb, var(--color-earth) 70%, transparent);
+    }
+  }
+
   .admin-name {
     display: block;
     font-weight: 600;
@@ -3335,9 +3480,52 @@
     font-size: 0.8rem;
     color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
   }
+  /* Inline-in-a-sentence link only (the mailto on /admin/enquiries). Interactive elements that
+     stand alone use .admin-rowlink / .admin-backlink, which carry a real 44px target; WCAG 2.5.8
+     exempts links inside a line of text, and sizing this one would wreck the prose it sits in. */
   .admin-link {
     color: var(--color-green);
     font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  /* Row-level "View ->": a full-width tappable control on mobile, a plain link on desktop. */
+  .admin-rowlink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--color-hairline);
+    border-radius: 0.6rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+    color: var(--color-green);
+    text-decoration: none;
+  }
+  .admin-rowlink:hover {
+    background: color-mix(in srgb, var(--color-green) 8%, transparent);
+  }
+  @media (min-width: 1024px) {
+    .admin-rowlink {
+      width: auto;
+      padding: 0;
+      border: 0;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .admin-rowlink:hover {
+      background: none;
+    }
+  }
+  .admin-backlink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+    color: var(--color-green);
     text-decoration: underline;
     text-underline-offset: 3px;
   }
@@ -3380,6 +3568,15 @@
     border-color: color-mix(in srgb, var(--color-green) 45%, transparent);
     color: var(--color-green);
   }
+  /* Catered is the exception that needs operator action (someone has to cook), so only it is
+     badged; self-catered rows stay quiet. */
+  .admin-badge--catered {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: color-mix(in srgb, var(--color-ochre) 20%, transparent);
+    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
+    color: color-mix(in srgb, var(--color-earth) 80%, var(--color-ochre));
+  }
   .admin-ok {
     color: var(--color-green);
     font-weight: 600;
@@ -3395,10 +3592,11 @@
     border-radius: 1rem;
     overflow: hidden;
   }
+  /* Mobile: label above value. The two-column split arrives at 640px. */
   .admin-dl > div {
     display: grid;
-    grid-template-columns: minmax(9rem, 14rem) 1fr;
-    gap: 1rem;
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
     padding: 0.6rem 1rem;
     border-bottom: 1px solid var(--color-hairline);
   }
@@ -3419,6 +3617,12 @@
     word-break: break-word;
     white-space: pre-wrap;
   }
+  @media (min-width: 640px) {
+    .admin-dl > div {
+      grid-template-columns: minmax(9rem, 14rem) 1fr;
+      gap: 1rem;
+    }
+  }
   .admin-guests {
     display: grid;
     gap: 0.75rem;
@@ -3428,20 +3632,11 @@
     border: 1px solid var(--color-hairline);
     border-radius: 0.75rem;
   }
-  @media (max-width: 640px) {
-    .admin-dl > div {
-      grid-template-columns: 1fr;
-      gap: 0.15rem;
-    }
-  }
 
-  /* --- Admin overhaul v1: nav shell ---------------------------------------- */
+  /* --- Nav shell ------------------------------------------------------------ */
   .admin-nav {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem 1.5rem;
+    display: grid;
+    gap: 0.75rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--color-hairline);
   }
@@ -3454,7 +3649,9 @@
     padding: 0;
   }
   .admin-nav__link {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
     padding: 0.45rem 0.9rem;
     border-radius: 0.6rem;
     font-family: var(--font-body);
@@ -3474,18 +3671,39 @@
   .admin-nav__session {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.9rem;
     font-family: var(--font-body);
     font-size: 0.8rem;
     color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
   }
+  /* An email address is one long unbreakable token; without min-width:0 it forces the flex row
+     wider than the viewport. */
+  .admin-nav__email {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.8rem;
+  }
   .admin-nav__out {
-    min-height: 2.25rem;
+    flex: 0 0 auto;
+    min-height: 2.75rem;
     padding: 0.4rem 0.9rem;
     font-size: 0.8rem;
   }
+  @media (min-width: 768px) {
+    .admin-nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem 1.5rem;
+    }
+    .admin-nav__session {
+      justify-content: flex-end;
+    }
+  }
 
-  /* --- Admin overhaul v1: stat cards + filters ------------------------------ */
+  /* --- Stat cards + filters -------------------------------------------------- */
   .admin-stats {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3502,23 +3720,45 @@
     }
   }
   .admin-stat {
-    padding: 1rem 1.15rem;
+    padding: 0.8rem 0.9rem;
     border: 1px solid var(--color-hairline);
     border-radius: 0.9rem;
     background: color-mix(in srgb, var(--color-earth) 3%, transparent);
+  }
+  @media (min-width: 640px) {
+    .admin-stat {
+      padding: 1rem 1.15rem;
+    }
+  }
+  /* Linked stat: the WHOLE card is the target (~64px), not the 12px label it used to be. */
+  .admin-stat--link {
+    display: block;
+    text-decoration: none;
+  }
+  .admin-stat--link:hover {
+    border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
+    background: color-mix(in srgb, var(--color-ochre) 8%, transparent);
   }
   .admin-stat--next {
     border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
     background: color-mix(in srgb, var(--color-green) 7%, transparent);
   }
   .admin-stat__value {
+    display: block;
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     font-weight: 600;
     color: var(--color-earth);
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  @media (min-width: 640px) {
+    .admin-stat__value {
+      font-size: 1.5rem;
+    }
   }
   .admin-stat__label {
+    display: block;
     margin-top: 0.2rem;
     font-family: var(--font-body);
     font-size: 0.75rem;
@@ -3526,11 +3766,8 @@
     color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
   }
   .admin-filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.9rem 1.5rem;
+    display: grid;
+    gap: 0.75rem;
   }
   .admin-filters__tabs {
     display: flex;
@@ -3538,7 +3775,9 @@
     gap: 0.35rem;
   }
   .admin-filters__tab {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
     padding: 0.4rem 0.85rem;
     border: 1px solid var(--color-hairline);
     border-radius: 0.6rem;
@@ -3557,23 +3796,37 @@
     display: flex;
     gap: 0.5rem;
   }
+  /* No min-width floor: a 14rem (224px) minimum plus the button overflowed a 332px content box.
+     font-size must stay >=1rem or iOS Safari zooms the page when the field takes focus. */
   .admin-filters__search input[type='search'] {
-    min-width: 14rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 2.75rem;
     padding: 0.5rem 0.85rem;
     border: 1px solid var(--color-hairline);
     border-radius: 0.6rem;
     background: var(--color-cream);
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: 1rem;
     color: var(--color-charcoal);
   }
-  .admin-filters__search .btn {
-    min-height: 2.4rem;
-    padding: 0.45rem 1rem;
-    font-size: 0.85rem;
+  .admin-filters__new {
+    width: 100%;
+  }
+  @media (min-width: 768px) {
+    .admin-filters {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.9rem 1.5rem;
+    }
+    .admin-filters__new {
+      width: auto;
+    }
   }
 
-  /* --- Admin overhaul v1: action cards -------------------------------------- */
+  /* --- Action cards ---------------------------------------------------------- */
   .admin-actions {
     display: grid;
     gap: 1.25rem;
@@ -3585,10 +3838,15 @@
     }
   }
   .admin-card {
-    padding: 1.35rem 1.5rem;
+    padding: 1rem 1.1rem;
     border: 1px solid var(--color-hairline);
     border-radius: 1rem;
     background: color-mix(in srgb, var(--color-earth) 2.5%, transparent);
+  }
+  @media (min-width: 640px) {
+    .admin-card {
+      padding: 1.35rem 1.5rem;
+    }
   }
   .admin-card--danger {
     border-color: color-mix(in srgb, #9c2b1b 35%, transparent);
@@ -3605,6 +3863,7 @@
     font-size: 0.8rem;
     line-height: 1.55;
     color: color-mix(in srgb, var(--color-charcoal) 62%, transparent);
+    overflow-wrap: anywhere;
   }
   .admin-card .form-field {
     margin-top: 0.9rem;
@@ -3618,10 +3877,17 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  /* Grow to fill the row on mobile so two buttons split the width instead of leaving a stub. */
   .admin-card__row .btn {
-    min-height: 2.4rem;
+    flex: 1 1 8.5rem;
+    min-height: 2.75rem;
     padding: 0.45rem 0.9rem;
     font-size: 0.8rem;
+  }
+  @media (min-width: 640px) {
+    .admin-card__row .btn {
+      flex: 0 0 auto;
+    }
   }
   .admin-card__check {
     margin-top: 0.9rem;
@@ -3634,7 +3900,12 @@
     color: color-mix(in srgb, var(--color-charcoal) 80%, transparent);
   }
   .admin-card__check input {
-    margin-top: 0.2rem;
+    /* Native checkboxes default to ~13px; 1.15rem keeps the box itself comfortably tappable
+       without breaking the text baseline it sits against. */
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.15rem;
+    flex: 0 0 auto;
     accent-color: var(--color-green);
   }
   .admin-card__off {
@@ -3644,7 +3915,7 @@
     color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
   }
 
-  /* --- Admin overhaul v1: activity timeline --------------------------------- */
+  /* --- Activity timeline ----------------------------------------------------- */
   .admin-timeline {
     list-style: none;
     margin: 0;
@@ -3654,10 +3925,15 @@
     max-width: 46rem;
   }
   .admin-timeline__item {
-    padding: 0.85rem 1.1rem;
+    padding: 0.75rem 0.9rem;
     border-left: 3px solid var(--color-hairline);
     border-radius: 0 0.6rem 0.6rem 0;
     background: color-mix(in srgb, var(--color-earth) 2.5%, transparent);
+  }
+  @media (min-width: 640px) {
+    .admin-timeline__item {
+      padding: 0.85rem 1.1rem;
+    }
   }
   .admin-timeline__item--system {
     border-left-color: color-mix(in srgb, var(--color-green) 55%, transparent);
@@ -3675,13 +3951,17 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+    overflow-wrap: anywhere;
   }
+  /* The update_contact label interpolates two email addresses into one string, so this must be
+     allowed to break mid-token or it pushes the page sideways. */
   .admin-timeline__what {
     margin-top: 0.25rem;
     font-family: var(--font-body);
     font-size: 0.9rem;
     line-height: 1.5;
     color: var(--color-charcoal);
+    overflow-wrap: anywhere;
   }
   .admin-timeline__note {
     margin-top: 0.35rem;
@@ -3690,9 +3970,10 @@
     line-height: 1.55;
     color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
-  /* --- Admin overhaul v1: enquiries ------------------------------------------ */
+  /* --- Enquiries ------------------------------------------------------------- */
   .admin-inqs {
     list-style: none;
     margin: 0;
@@ -3702,34 +3983,47 @@
     max-width: 52rem;
   }
   .admin-inq {
-    padding: 1.15rem 1.35rem;
+    padding: 1rem 1.1rem;
     border: 1px solid var(--color-hairline);
     border-radius: 0.9rem;
+  }
+  @media (min-width: 640px) {
+    .admin-inq {
+      padding: 1.15rem 1.35rem;
+    }
   }
   .admin-inq--handled {
     opacity: 0.72;
   }
   .admin-inq__head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem 1.5rem;
+    display: grid;
+    gap: 0.6rem;
+  }
+  @media (min-width: 560px) {
+    .admin-inq__head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem 1.5rem;
+    }
   }
   .admin-inq__state {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.75rem;
     font-family: var(--font-body);
     font-size: 0.8rem;
   }
   .admin-inq__toggle {
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     padding: 0.4rem 0.85rem;
     font-size: 0.8rem;
   }
   .admin-inq__meta {
     margin-top: 0.6rem;
+    overflow-wrap: anywhere;
   }
   .admin-inq__msg {
     margin-top: 0.6rem;
@@ -3738,11 +4032,14 @@
     line-height: 1.6;
     color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
-  /* --- Blocked dates: inline remove-with-reason panel ----------------------- */
+  /* --- Blocked dates: inline remove-with-reason panel ------------------------- */
   .admin-remove__summary {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
     padding: 0.4rem 0.85rem;
     border: 1px solid var(--color-hairline);
     border-radius: 0.6rem;
@@ -3766,21 +4063,30 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  /* Full width on mobile: a 14rem flex-basis inside a stacked table cell overflowed. */
   .admin-remove__panel input {
-    flex: 1 1 14rem;
+    flex: 1 1 100%;
+    min-width: 0;
+    min-height: 2.75rem;
     padding: 0.45rem 0.75rem;
     border: 1px solid var(--color-hairline);
     border-radius: 0.6rem;
     background: var(--color-cream);
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: 1rem;
     color: var(--color-charcoal);
   }
+  @media (min-width: 640px) {
+    .admin-remove__panel input {
+      flex: 1 1 14rem;
+    }
+  }
   .admin-remove__panel .btn {
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     padding: 0.4rem 0.85rem;
     font-size: 0.8rem;
   }
+  /* === ADMIN: end ============================================================================ */
 
   /* --- Beta notice (Booking v2.1 go-live gating) -----------------------------
      Inline, non-dismissible, on the Rates & Booking page only — replaces the earlier modal
