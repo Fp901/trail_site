@@ -18,7 +18,7 @@ export const site = {
   terrainHa: 15000,
   // Sitewide tagline (footer + hero + llms.txt). Catering is optional (Booking v2), so the old
   // "Self-catering walking safari" tagline no longer describes every booking.
-  hook: 'A luxury malaria-free Big 5 walking safari in the Waterberg, ideal for families, friends or corporate groups',
+  hook: 'A luxury private walking safari, ideal for families, groups of friends or corporate team-building.',
 
   // Enquiries / bookings email.
   notifyEmail: 'hanlie@rooibergwander.co.za',
