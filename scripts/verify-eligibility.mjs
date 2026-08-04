@@ -144,11 +144,27 @@ assert('no pathFor()', !/function pathFor/.test(widget));
 assert('no switchPath()', !/function switchPath/.test(widget));
 assert('no renumberSteps()', !/function renumberSteps/.test(widget));
 assert('no data-path-a / data-path-b containers', !/data-path-a/.test(widget) && !/data-path-b/.test(widget));
-// Renamed in step 8: the step is now "Review and pay", because it shows the itinerary, the named
-// price breakdown and what is included, not only the lead-guest fields.
-assert('review step is numbered 3', /<span data-step-num>3<\/span>\. Review and pay/.test(widget));
-assert('the lead-guest fields are still inside it, as a subheading', /class="bstep__subheading" id="bf-details-label-sub">Your details/.test(widget));
-assert('calendar step is numbered 2', /<span data-step-num>2<\/span>\. Choose a start date/.test(widget));
+// The flow is now a 5-step guided accordion. Numbering is STATIC in the markup (there is no
+// renumbering function, asserted above), so the titles and their numbers are checked literally.
+const STEPS = [
+  [1, 'Your group'],
+  [2, 'Booking type'],
+  [3, 'Choose a start date'],
+  [4, 'Your details'],
+  [5, 'Review and pay'],
+];
+for (const [n, title] of STEPS) {
+  assert(`step ${n} is "${title}"`,
+    new RegExp(`<span class="bstep__num">${n}</span>\\. ${title}`).test(widget));
+}
+assert('every step carries a data-step index for the controller',
+  STEPS.every(([n]) => new RegExp(`data-step="${n}"`).test(widget)));
+// Progressive enhancement: the collapse CSS is keyed off a class the SCRIPT adds, so a script
+// failure leaves every step open rather than shut. The markup must never ship pre-collapsed.
+assert('the stepped class is added by script, not baked into the markup',
+  /form\.classList\.add\('bform--stepped'\)/.test(widget) &&
+  !/class="bform[^"]*bform--stepped/.test(widget));
+assert('no step body ships hidden', !/data-step-body[^>]*\shidden/.test(widget));
 
 section('9. Catering is RESOLVED, never assumed');
 assert('catering starts null (no silent default)', /let catering: Catering \| null = null/.test(widget));

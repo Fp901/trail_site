@@ -33,6 +33,12 @@ const bookingEnabled = Boolean(
   import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_PAYSTACK_PUBLIC_KEY,
 );
 
+// The enquiry form is gated SEPARATELY, on Supabase alone: createInquiry only writes a row and
+// emails the operator — it never touches Paystack. Gating it on bookingEnabled meant a missing or
+// broken payment key silently removed the enquiry form too, killing the only remaining way to make
+// contact in exactly the situation where it matters most.
+const inquiryEnabled = Boolean(import.meta.env.PUBLIC_SUPABASE_URL);
+
 // Best-effort default for the enquiry disclosure's initial open/closed state (a static build
 // can't know "today" at request time) — BetaBanner's own script corrects both it and the banner
 // against the visitor's real date on load, so the page self-corrects after 15 Jan 2027 without
@@ -173,14 +179,27 @@ const jsonLd = [
         ) : (
           <div class="booking-placeholder">
             <p class="font-body leading-relaxed text-charcoal/85">
-              Online booking is being finalised. For now, message us on WhatsApp to check dates and
-              reserve your group.
+              Online booking is being finalised. For now, send us an enquiry or message us on
+              WhatsApp to check dates and reserve your group.
             </p>
-            <p class="mt-6">
-              <a href={site.contact.whatsappUrl} target="_blank" rel="noopener" class="btn btn-primary">
+            {/* The enquiry form is still on this page when booking is off (it needs Supabase, not
+                Paystack), so point at it here — otherwise the one path that still works in this
+                state goes unsignposted. Guarded so it can never become a dead link. */}
+            <div class="mt-6 flex flex-wrap gap-4">
+              {inquiryEnabled && (
+                <a href="#enquire-heading" class="btn btn-primary">
+                  Send an enquiry
+                </a>
+              )}
+              <a
+                href={site.contact.whatsappUrl}
+                target="_blank"
+                rel="noopener"
+                class:list={['btn', inquiryEnabled ? 'btn-secondary' : 'btn-primary']}
+              >
                 Enquire on WhatsApp
               </a>
-            </p>
+            </div>
             <p class="mt-4 font-body text-sm text-charcoal/60">
               Secure online booking with instant confirmation is coming soon.
             </p>
@@ -276,7 +295,7 @@ const jsonLd = [
       script sets `open` on load using the visitor's real date, so this self-corrects without a
       deploy. The #enquire-heading anchor is linked from the beta banner and other pages. */}
   {
-    bookingEnabled && (
+    inquiryEnabled && (
       <Section bg="cream" labelledby="enquire-heading" space="md" containerClass="!pt-0">
         <details class="enquire-disclosure" data-enquire-disclosure data-until={BOOKING_OPEN_DATE} open={isBetaAtBuildTime}>
           <summary class="enquire-disclosure__summary">Prefer to talk to us first?</summary>

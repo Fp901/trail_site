@@ -54,6 +54,7 @@ import {
 } from '../data/rates';
 import { site, withBase } from '../data/site';
 import { refundPolicy } from '../data/policies';
+import { itinerary } from '../data/itinerary';
 import {
   SPLIT_THRESHOLD_DAYS,
   BALANCE_LEAD_DAYS,
@@ -62,6 +63,17 @@ import {
 } from '../lib/pricing';
 
 const earliest = earliestBookableDate();
+
+// Where each night is spent, DERIVED from the itinerary rather than retyped: night N is the
+// lodge you are at when day N ends, which the itinerary already states as day N's destination
+// (day 1 has no walk, so its lodge is day 2's `from`). Keeping it derived means a change to the
+// route updates the booking summary automatically instead of silently disagreeing with /the-trail.
+const nightLodges = [
+  itinerary[1]?.from ?? '',       // night 1 — arrival lodge
+  itinerary[1]?.to ?? '',         // night 2
+  itinerary[2]?.to ?? '',         // night 3
+].filter(Boolean);
+const departureLodge = itinerary[itinerary.length - 1]?.to ?? '';
 
 // Everything the client needs to mirror the server's price/date math, as one JSON blob — the
 // single source of truth for these numbers stays data/rates.ts + lib/pricing.ts; this is just a
@@ -87,6 +99,8 @@ const clientRates = {
   earliest,
   cateredLatest: latestBookableDate('catered'),
   uncateredLatest: latestBookableDate('uncatered'),
+  nightLodges,
+  departureLodge,
 };
 
 ---
@@ -103,9 +117,18 @@ const clientRates = {
 </div>
 
 <form id="booking-form" class="bform" data-rates={JSON.stringify(clientRates)} novalidate>
-  {/* ==== Step 1 — Your group. Walkers and style together on one screen (§4). ================ */}
-  <div class="bstep">
-    <p class="bstep__heading"><span data-step-num>1</span>. Your group</p>
+  {/* ==== Step 1 — Your group. ================================================================
+      The five steps below are a guided accordion: the current step is open, completed steps
+      collapse to a one-line summary with an Edit link, later steps are visible but locked. All
+      of that is added by JS at runtime — the markup ships with every step OPEN, so if the script
+      fails the form degrades to the plain long-scroll version rather than an unusable stub. */}
+  <div class="bstep" data-step="1">
+    <div class="bstep__bar">
+      <p class="bstep__heading"><span class="bstep__num">1</span>. Your group</p>
+      <p class="bstep__summary" data-step-summary hidden></p>
+      <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
+    </div>
+    <div class="bstep__body" data-step-body>
 
     {/* Discrete buttons, deliberately NOT a slider: seven values is a poor slider range and a
         slider is worse for keyboard and screen-reader users. Radio inputs give native arrow-key
@@ -155,12 +178,24 @@ const clientRates = {
         <p class="bform__status" data-solo-status role="status" aria-live="polite"></p>
       </div>
     </fieldset>
+      <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
+    </div>
+  </div>
+
+  {/* ==== Step 2 — Booking type (catering). ================================================== */}
+  <div class="bstep" data-step="2">
+    <div class="bstep__bar">
+      <p class="bstep__heading"><span class="bstep__num">2</span>. Booking type</p>
+      <p class="bstep__summary" data-step-summary hidden></p>
+      <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
+    </div>
+    <div class="bstep__body" data-step-body>
 
     {/* Style. No visible default is pre-selected: the guest picks catered or self-catered
         explicitly. Internally `style` still starts at 'both' (the widest date range) until one
         is chosen — see the script below — so nothing narrows before the guest asks it to. */}
     <fieldset class="bstyle">
-      <legend class="bstyle__legend">Booking Type</legend>
+      <legend class="bstyle__legend">Which would you like?</legend>
       <div class="bstyle__cards">
         <label class="bstyle__card">
           <input type="radio" name="style" value="catered" />
@@ -182,10 +217,19 @@ const clientRates = {
     {/* Style/size changes alter the reachable date range — announced in words, not only by the
         grid changing underneath the guest. */}
     <p class="bstep__notice" data-path-notice role="status" aria-live="polite" hidden></p>
+      <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
+    </div>
   </div>
 
-  <div class="bstep">
-    <p class="bstep__heading" id="bf-cal-label"><span data-step-num>2</span>. Choose a start date (Day 1, arrival)</p>
+  {/* ==== Step 3 — Choose a start date. ====================================================== */}
+  <div class="bstep" data-step="3">
+    <div class="bstep__bar">
+      <p class="bstep__heading" id="bf-cal-label"><span class="bstep__num">3</span>. Choose a start date</p>
+      <p class="bstep__summary" data-step-summary hidden></p>
+      <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
+    </div>
+    <div class="bstep__body" data-step-body>
+    <p class="bstep__sub">Day 1 is your arrival day.</p>
     <div class="form-field bform__datefield">
       <p class="bform__nextavail" data-nextavail hidden></p>
       <div class="bcal" data-calendar role="group" aria-labelledby="bf-cal-label">
@@ -247,13 +291,12 @@ const clientRates = {
       </div>
       <p class="bform__windowlimit" data-window-limit role="status" aria-live="polite" hidden></p>
     </div>
-  </div>
 
-  {/* Sparse-availability helper. Not a step: a short list of the soonest actionable departures,
-      shown beneath the calendar so a guest facing a mostly-grey month gets a handful of concrete
-      options instead of having to page. A few options is list territory; hundreds is grid
-      territory — one component, both jobs (§5). */}
-  <div class="bstep" data-open-list>
+  {/* Sparse-availability helper, INSIDE step 3 rather than a step of its own: a short list of the
+      soonest actionable departures, shown beneath the calendar so a guest facing a mostly-grey
+      month gets a handful of concrete options instead of having to page. A few options is list
+      territory; hundreds is grid territory — one component, both jobs (§5). */}
+  <div data-open-list>
     <p class="bstep__subheading">Soonest available</p>
     <div class="bjoin-list" data-join-list aria-live="polite"></div>
     <div class="bjoin-empty" data-join-empty hidden>
@@ -284,12 +327,19 @@ const clientRates = {
       <p class="bform__status" data-notify-status role="status" aria-live="polite"></p>
     </div>
   </div>
+      <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
+    </div>
+  </div>
 
-  {/* ==== Step 3 — review and pay. =========================================================== */}
-  <div class="bstep">
-    <p class="bstep__heading" id="bf-details-label"><span data-step-num>3</span>. Review and pay</p>
-
-    <p class="bstep__subheading" id="bf-details-label-sub">Your details</p>
+  {/* ==== Step 4 — Your details. ============================================================= */}
+  <div class="bstep" data-step="4">
+    <div class="bstep__bar">
+      <p class="bstep__heading" id="bf-details-label"><span class="bstep__num">4</span>. Your details</p>
+      <p class="bstep__summary" data-step-summary hidden></p>
+      <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
+    </div>
+    <div class="bstep__body" data-step-body>
+    <p class="bstep__sub" id="bf-details-label-sub">Who is the booking for?</p>
     <div class="bform__grid" aria-labelledby="bf-details-label-sub">
       <div class="form-field">
         <label for="bf-name">Lead guest name</label>
@@ -339,6 +389,25 @@ const clientRates = {
     <div class="hp" aria-hidden="true">
       <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
     </div>
+      <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
+    </div>
+  </div>
+
+  {/* ==== Step 5 — Review and pay. =========================================================== */}
+  <div class="bstep" data-step="5">
+    <div class="bstep__bar">
+      <p class="bstep__heading"><span class="bstep__num">5</span>. Review and pay</p>
+    </div>
+    <div class="bstep__body" data-step-body>
+
+    {/* Trip shape at a glance: one line per night with its lodge and date, plus the departure day.
+        Deliberately NOT the full itinerary strip that used to sit here (removed as clutter) — no
+        route pins, no distances, no descriptions. Rendered from the chosen start date, so it is
+        blank until a date exists. */}
+    <div class="btrip" data-trip-summary hidden>
+      <p class="btrip__title">Your trip</p>
+      <ol class="btrip__nights" data-trip-nights></ol>
+    </div>
 
     {/* Every figure is a NAMED line: the season-adjusted rate, any last-minute reduction, the
         resolved rate, the multiplication, then what is actually taken today. No season comparison
@@ -386,6 +455,7 @@ const clientRates = {
       <a href="/privacy">Privacy Policy</a>, or
       <button type="button" class="blink" data-policy-open>view the cancellation policy</button>.
     </p>
+    </div>
   </div>
 
   {/* The policy is read at the moment of hesitation, so it opens in place rather than navigating
@@ -917,7 +987,10 @@ const clientRates = {
     }
 
     // ---- Step "Your details": definite total + deposit/balance --------------------------
-    function updateEstimate() {
+    // Repaints the price block only. Callers use updateEstimate() below, which also refreshes the
+    // step summaries — this one has two early returns, so refreshing from inside it would skip
+    // them and leave a collapsed step showing a date or price that has since been invalidated.
+    function paintEstimate() {
       const n = groupSize();
       if (lastMinuteNote) lastMinuteNote.hidden = true;
 
@@ -995,6 +1068,159 @@ const clientRates = {
         if (submit) submit.textContent = 'Continue to secure payment';
       }
     }
+
+    // The single entry point every caller uses: price and step state always move together.
+    function updateEstimate() {
+      paintEstimate();
+      refreshSteps();
+    }
+
+    // ---- Guided accordion (5 steps) ----------------------------------------------------------
+    // The form's markup ships with every step open and unclassed. Everything below is additive:
+    // the `bform--stepped` class is what switches the collapse CSS on, so if this script throws
+    // before that line the guest still gets the full long-scroll form rather than a stuck one.
+    //
+    // State is derived, never stored twice: completeness is recomputed from the same variables the
+    // submit handler reads (groupSize/style/selectedStartIso/catering/the three inputs), so a step
+    // cannot show a tick while the value behind it is missing.
+    const stepEls = Array.from(form.querySelectorAll<HTMLElement>('.bstep[data-step]'));
+    const LAST_STEP = stepEls.length;
+    const tripSummary = form.querySelector<HTMLElement>('[data-trip-summary]');
+    const tripNights = form.querySelector<HTMLElement>('[data-trip-nights]');
+    let currentStep = 1;
+
+    const stepEl = (n: number) => stepEls.find((el) => el.dataset.step === String(n)) ?? null;
+
+    function detailsValid(): boolean {
+      return (
+        !firstErr(nameInput.value, nameRules) &&
+        !firstErr(emailInput.value, emailRules) &&
+        !firstErr(phoneInput.value, phoneRules)
+      );
+    }
+
+    function stepComplete(n: number): boolean {
+      if (n === 1) return true;                                  // a size is always pre-selected
+      if (n === 2) return style === 'catered' || style === 'uncatered';
+      if (n === 3) return !!selectedStartIso && !!catering;
+      if (n === 4) return detailsValid();
+      return true;
+    }
+
+    // One short line per collapsed step: enough to confirm the choice without reopening it.
+    function stepSummaryText(n: number): string {
+      if (n === 1) {
+        const g = groupSize();
+        return `${g} ${g === 1 ? 'walker' : 'walkers'}`;
+      }
+      if (n === 2) return style === 'catered' ? 'Fully catered' : style === 'uncatered' ? 'Self-catered' : '';
+      if (n === 3) {
+        if (!selectedStartIso) return '';
+        return humanDate(selectedStartIso, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+      }
+      if (n === 4) return [nameInput.value.trim(), emailInput.value.trim()].filter(Boolean).join(' · ');
+      return '';
+    }
+
+    // Night N is spent at nightLodges[N-1] and starts on startDate + (N-1); the trip ends the
+    // morning after the last night. Built with createElement/textContent, never innerHTML.
+    function renderTripSummary(): void {
+      if (!tripSummary || !tripNights) return;
+      const lodges: string[] = Array.isArray(R.nightLodges) ? R.nightLodges.slice(0, R.nights) : [];
+      if (!selectedStartIso || lodges.length === 0) {
+        tripSummary.hidden = true;
+        return;
+      }
+      tripNights.textContent = '';
+      const row = (label: string, iso: string, where: string, depart = false) => {
+        const li = document.createElement('li');
+        if (depart) li.className = 'btrip__depart';
+        const l = document.createElement('span');
+        l.className = 'btrip__label';
+        l.textContent = label;
+        const d = document.createElement('span');
+        d.className = 'btrip__date';
+        d.textContent = humanDate(iso, { weekday: 'short', day: 'numeric', month: 'short' });
+        const w = document.createElement('span');
+        w.className = 'btrip__where';
+        w.textContent = where;
+        li.append(l, d, w);
+        tripNights.appendChild(li);
+      };
+      lodges.forEach((lodge, i) => row(`Night ${i + 1}`, addDaysIso(selectedStartIso, i), lodge));
+      row('Depart', addDaysIso(selectedStartIso, lodges.length), `After the final walk back to ${R.departureLodge}`, true);
+      tripSummary.hidden = false;
+    }
+
+    function refreshSteps(): void {
+      for (const el of stepEls) {
+        const n = Number(el.dataset.step);
+        const done = n < currentStep && stepComplete(n);
+        el.classList.toggle('is-current', n === currentStep);
+        el.classList.toggle('is-done', done);
+        el.classList.toggle('is-locked', n > currentStep);
+
+        const sum = el.querySelector<HTMLElement>('[data-step-summary]');
+        const edit = el.querySelector<HTMLButtonElement>('[data-step-edit]');
+        const text = done ? stepSummaryText(n) : '';
+        if (sum) {
+          sum.textContent = text;
+          sum.hidden = !text;
+        }
+        if (edit) edit.hidden = !done;
+      }
+      renderTripSummary();
+    }
+
+    // `reveal` is false for the initial call only: moving focus and scrolling the page on load
+    // would yank the visitor down to the widget before they have asked for it. Every subsequent
+    // move is guest-initiated, and those SHOULD take focus so keyboard and screen-reader users
+    // land on the step that just opened rather than being left where they clicked.
+    function goToStep(n: number, reveal = true): void {
+      currentStep = Math.min(Math.max(n, 1), LAST_STEP);
+      refreshSteps();
+      if (!reveal) return;
+      const el = stepEl(currentStep);
+      const heading = el?.querySelector<HTMLElement>('.bstep__heading');
+      if (heading) {
+        heading.setAttribute('tabindex', '-1');
+        heading.focus({ preventScroll: true });
+      }
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Continue: block the advance and say why, rather than moving on to a step that cannot be
+    // completed. The messages name the missing thing; they never just refuse.
+    const BLOCKED: Record<number, string> = {
+      2: 'Choose catered or self-catered to continue.',
+      3: 'Choose a start date to continue.',
+      4: 'Please complete your details to continue.',
+    };
+    for (const el of stepEls) {
+      const n = Number(el.dataset.step);
+      el.querySelector<HTMLButtonElement>('[data-step-continue]')?.addEventListener('click', () => {
+        if (!stepComplete(n)) {
+          if (n === 4) {
+            // Surface the per-field errors the guest has not seen yet.
+            markField(nameInput.closest('.form-field'), firstErr(nameInput.value, nameRules));
+            markField(emailInput.closest('.form-field'), firstErr(emailInput.value, emailRules));
+            markField(phoneInput.closest('.form-field'), firstErr(phoneInput.value, phoneRules));
+          }
+          showPathNotice(BLOCKED[n] ?? 'Please complete this step to continue.');
+          return;
+        }
+        goToStep(n + 1);
+      });
+      el.querySelector<HTMLButtonElement>('[data-step-edit]')?.addEventListener('click', () => goToStep(n));
+    }
+
+    // Keep the collapsed summaries honest as the guest types in step 4.
+    for (const input of [nameInput, emailInput, phoneInput]) {
+      input.addEventListener('input', refreshSteps);
+    }
+
+    form.classList.add('bform--stepped');
+    goToStep(1, false);
 
     // ---- Calendar — the cell states of §5 ---------------------------------------------------
     // joinable: actionable now (opening, joining, or a buyout at exactly EXCLUSIVE_SIZE).

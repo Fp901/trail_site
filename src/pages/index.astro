@@ -96,9 +96,12 @@ const lodgeContext: Record<string, string> = {
         {BOOKING_OPEN_DISPLAY}. Beta testing dates available to family and friends at a
         significant discount from 31/10/2026, by enquiry form or WhatsApp.
       </p>
-      <p class="mt-4">
+      {/* Two doors, because the banner describes two paths: book online for dates from the open
+          date, or enquire for the earlier beta dates it mentions in the same breath. */}
+      <div class="mt-4 flex flex-wrap gap-4">
         <a href={withBase('/rates')} class="btn btn-primary">See rates and book</a>
-      </p>
+        <a href={withBase('/rates#enquire-heading')} class="btn btn-secondary">Send an enquiry</a>
+      </div>
     </div>
   </Section>
 

@@ -38,9 +38,13 @@ const widget = readFileSync(new URL('../src/components/BookingWidget.astro', imp
 const css = readFileSync(new URL('../src/styles/global.css', import.meta.url), 'utf8');
 
 // The step, sliced so counts below measure THIS step and not the whole widget.
-const stepStart = widget.indexOf('==== Step 3');
+// The widget became a 5-step guided accordion: "Review and pay" is now step 5, and the
+// lead-guest fields moved out to their own step 4. Section 1 below checks that split.
+const stepStart = widget.indexOf('==== Step 5');
 const stepEnd = widget.indexOf('data-policy-modal');
 const step = widget.slice(stepStart, stepEnd);
+const detailsStart = widget.indexOf('==== Step 4');
+const detailsStep = widget.slice(detailsStart, stepStart);
 
 section('1. The step exists, and the itinerary strip + included list are gone (removed on request)');
 assert('the step exists and was located', stepStart > 0 && stepEnd > stepStart);
@@ -48,10 +52,54 @@ assert('the step exists and was located', stepStart > 0 && stepEnd > stepStart);
 // their absence catches an accidental re-add as clearly as a missing-feature bug would.
 assert('the itinerary strip (.bstrip) is gone', !/<ol class="bstrip"/.test(step) && !/routePins/.test(widget));
 assert('the included list (.bincl) is gone', !/<ul class="bincl"/.test(step) && !/inclusions\.map/.test(step));
-assert('"Your details" now follows the step heading directly, with its own spacing rule',
-  /<p class="bstep__heading" id="bf-details-label">/.test(step) &&
-  step.indexOf('bstep__heading') < step.indexOf('bstep__subheading') &&
-  /\.bstep__heading \+ \.bstep__subheading \{/.test(css));
+// The lead-guest fields now have their own step (4), so the review step is purely review + pay.
+assert('"Your details" is its own step, headed as such', /<p class="bstep__heading" id="bf-details-label"><span class="bstep__num">4<\/span>\. Your details/.test(widget));
+assert('the three lead-guest fields live in step 4, not the review step',
+  ['id="bf-name"', 'id="bf-email"', 'id="bf-phone"'].every((f) => detailsStep.includes(f)) &&
+  !['id="bf-name"', 'id="bf-email"', 'id="bf-phone"'].some((f) => step.includes(f)));
+
+section('1b. The trip summary: the shape of the stay, NOT a second itinerary');
+// Requested addition. The line it must not cross is the one drawn above: a per-night confirmation
+// of dates and lodges is fine; reviving route pins, distances or day prose is not.
+assert('a trip summary exists on the review step', /data-trip-summary/.test(step) && /data-trip-nights/.test(step));
+assert('it starts hidden and is only shown once a date is chosen',
+  /<div class="btrip" data-trip-summary hidden>/.test(step) &&
+  /if \(!selectedStartIso \|\| lodges\.length === 0\) \{[\s\S]{0,80}tripSummary\.hidden = true/.test(widget));
+// Derived from the itinerary, never retyped: a route change must not silently desync the two.
+assert('the night lodges are derived from itinerary.ts, not hardcoded',
+  /import \{ itinerary \} from '\.\.\/data\/itinerary'/.test(widget) &&
+  /itinerary\[1\]\?\.from/.test(widget) && /itinerary\[1\]\?\.to/.test(widget) && /itinerary\[2\]\?\.to/.test(widget));
+assert('no lodge name is typed as a literal in the widget',
+  !/Temminck|Oukraal|Blackwood/.test(widget));
+assert('it is capped at NIGHTS rows plus one departure row',
+  /R\.nightLodges\.slice\(0, R\.nights\)/.test(widget));
+assert('it renders with createElement/textContent, never innerHTML',
+  !/tripNights\.innerHTML\s*=/.test(widget) && /tripNights\.textContent = ''/.test(widget));
+assert('no distances, route pins or day descriptions came back with it',
+  !/distanceKm/.test(widget) && !/routePins/.test(widget) && !/elevation/i.test(widget));
+
+section('1c. The guided accordion degrades safely');
+assert('the review step is terminal: no Continue button of its own',
+  !/data-step-continue/.test(step));
+assert('the submit button is still the only primary action there',
+  /btn btn-primary bform__submit/.test(step));
+assert('advancing is blocked until the step is genuinely complete',
+  /function stepComplete/.test(widget) && /if \(!stepComplete\(n\)\)/.test(widget));
+assert('a blocked Continue says WHY rather than silently refusing',
+  /showPathNotice\(BLOCKED\[n\]/.test(widget));
+// paintEstimate() returns early when there is no date or no resolved catering. Refreshing the
+// step summaries from inside it would skip those paths and leave a collapsed step advertising a
+// date that has just been invalidated, so the refresh lives in the wrapper every caller uses.
+assert('step state refreshes on EVERY estimate path, not just the priced one',
+  /function updateEstimate\(\) \{\s*\n\s*paintEstimate\(\);\s*\n\s*refreshSteps\(\);/.test(widget) &&
+  !/refreshSteps\(\);\s*\n\s*\}\s*\n\s*\/\/ The single entry point/.test(widget));
+assert('no caller reaches paintEstimate() directly',
+  (widget.match(/(?<!function )paintEstimate\(\)/g) || []).length === 1);
+// Focusing/scrolling on the initial call would drag the visitor to the widget on page load.
+assert('the first step is opened WITHOUT stealing focus or scrolling',
+  /goToStep\(1, false\)/.test(widget) &&
+  /function goToStep\(n: number, reveal = true\)/.test(widget) &&
+  /if \(!reveal\) return;/.test(widget));
 assert('the retired .bstrip*/.bincl* CSS is gone too (no dead rules left behind)',
   !/\.bstrip\b|\.bincl\b/.test(css));
 
@@ -174,16 +222,16 @@ assert('no policy sentence is duplicated as a literal in the widget',
 assert('the tiers table has a caption for screen readers', /<caption class="sr-only">Refund by notice given before arrival<\/caption>/.test(widget));
 
 section('9. Existing protections survived the rewrite');
-assert('honeypot still present', /<label>Company<input name="company" tabindex="-1"/.test(step));
+// The lead-guest fields and their honeypot moved to step 4 in the accordion split, so these are
+// checked against THAT slice. The POPIA note and privacy link stay with the payment action.
+assert('honeypot still present', /<label>Company<input name="company" tabindex="-1"/.test(detailsStep));
 assert('POPIA note still adjacent to the action', /By continuing you agree we may use your details/.test(step));
 assert('the privacy page is still linked', /<a href="\/privacy">Privacy Policy<\/a>/.test(step));
 assert('lead name, email and phone all still required',
-  (step.match(/required/g) || []).length >= 3);
-assert('each field still has an error region', (step.match(/class="form-error"/g) || []).length >= 3);
-// The step heading now covers the itinerary and the breakdown too, so the field group must be
-// labelled by the subheading that actually describes it.
-assert('the field group is labelled "Your details", not the whole step',
-  /<div class="bform__grid" aria-labelledby="bf-details-label-sub">/.test(step));
+  (detailsStep.match(/required/g) || []).length >= 3);
+assert('each field still has an error region', (detailsStep.match(/class="form-error"/g) || []).length >= 3);
+assert('the field group is labelled by the prompt that describes it',
+  /<div class="bform__grid" aria-labelledby="bf-details-label-sub">/.test(detailsStep));
 assert('inline validation is still bound to all three',
   /bindField\(nameInput,\s+nameRules\)/.test(widget) &&
   /bindField\(emailInput, emailRules\)/.test(widget) &&

@@ -1174,16 +1174,136 @@
     text-transform: uppercase;
     color: var(--color-green);
   }
-  /* "Your details" now sits directly under the step heading (the itinerary strip and included
-     list that used to separate them are gone). Needs its own gap: two headings stacked with zero
-     space between them read as one run-on line, not a heading followed by a subsection. */
-  .bstep__heading + .bstep__subheading {
-    margin-top: 1rem;
-  }
   /* Heading-to-content spacing, matching the ~0.5rem gap .bstep__heading already gets above its
      own first block — .bform__grid has no margin-top of its own to supply this. */
   .bstep__subheading + .bform__grid {
     margin-top: 0.6rem;
+  }
+
+  /* ---- Guided accordion (5 steps) ----------------------------------------------------------
+     Progressive enhancement: this markup ships with every step open and no state classes, so
+     without JS it renders as the plain long-scroll form it was before. The script adds
+     `.bform--stepped` to the form, and only then do the collapse rules below apply. That way a
+     script failure can never leave a payment form with its steps stuck shut.
+
+     Three states, set by the controller: is-current (open), is-done (collapsed to a summary +
+     Edit), is-locked (visible but not yet reachable, so the guest can see what is still to come
+     without being able to skip ahead into it). */
+  .bstep__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.75rem;
+  }
+  .bstep__num {
+    font-variant-numeric: tabular-nums;
+  }
+  .bstep__sub {
+    margin-top: 0.35rem;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+  }
+  .bstep__summary {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--color-green);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .bstep__edit {
+    margin-left: auto;
+    flex: 0 0 auto;
+    /* .blink is an inline text button; give it a real target without changing its look. */
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+  }
+  .bstep__continue {
+    margin-top: 1.5rem;
+  }
+  /* Only the stepped (JS-enhanced) form collapses anything. */
+  .bform--stepped .bstep.is-done > .bstep__body,
+  .bform--stepped .bstep.is-locked > .bstep__body {
+    display: none;
+  }
+  .bform--stepped .bstep.is-done .bstep__heading,
+  .bform--stepped .bstep.is-locked .bstep__heading {
+    font-size: 1rem;
+  }
+  .bform--stepped .bstep.is-locked {
+    opacity: 0.5;
+  }
+  /* A locked step is inert-looking AND inert: pointer-events off stops a click landing on a
+     control the guest has not reached yet, without needing to disable each one individually. */
+  .bform--stepped .bstep.is-locked .bstep__bar {
+    pointer-events: none;
+  }
+  .bform--stepped .bstep.is-current > .bstep__bar .bstep__heading {
+    color: var(--color-earth);
+  }
+  /* The done marker is a pseudo-element, so no icon font or inline SVG per step. */
+  .bform--stepped .bstep.is-done .bstep__num::after {
+    content: ' \2713';
+    color: var(--color-green);
+  }
+
+  /* ---- Step 5 trip summary ------------------------------------------------------------------
+     One line per night: night number, date, lodge. Deliberately NOT a revival of the full
+     itinerary strip that was removed from this step as clutter — no route pins, no distances, no
+     prose. It confirms the shape of what is being bought at the moment of payment, nothing more.
+     (The retired class names are not written here: a verify script greps this file for them.) */
+  .btrip {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--color-hairline);
+    border-radius: 0.75rem;
+    background-color: color-mix(in srgb, var(--color-green) 5%, transparent);
+  }
+  .btrip__title {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-green);
+  }
+  .btrip__nights {
+    margin: 0.6rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.3rem;
+  }
+  .btrip__nights li {
+    display: grid;
+    grid-template-columns: 4.5rem 1fr;
+    gap: 0.25rem 0.75rem;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--color-charcoal);
+  }
+  .btrip__label {
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .btrip__where {
+    overflow-wrap: anywhere;
+  }
+  .btrip__date {
+    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+  }
+  /* The final row is a departure, not a night — set apart with a rule rather than a fourth
+     night-numbered line, which would misstate the trip as 4 nights. */
+  .btrip__nights li.btrip__depart {
+    margin-top: 0.35rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid var(--color-hairline);
+  }
+  @media (min-width: 560px) {
+    .btrip__nights li {
+      grid-template-columns: 4.5rem 9rem 1fr;
+    }
   }
 
   /* ---- Step 1: your group (walkers / style / private buyout) -------------------------------
