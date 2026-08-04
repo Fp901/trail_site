@@ -202,7 +202,7 @@ export const bookingRules: BookingRule[] = [
   {
     days: 'Wednesday or Thursday',
     title: 'Exclusive',
-    body: `A private buyout for a group of exactly ${EXCLUSIVE_SIZE}. No other booking joins your dates.`,
+    body: `The whole trail, for a group of exactly ${EXCLUSIVE_SIZE}. No other booking joins your dates.`,
   },
   {
     days: 'Friday to Tuesday',

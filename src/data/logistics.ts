@@ -95,7 +95,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How big is the group?',
-    a: 'Up to 8 guests, either way. Book a Wednesday or Thursday exclusive buyout for exactly 8, with the trail and each lodge to yourselves, or join a shared departure on any other day, where the first booking needs 4 or more people and later bookings can top up to 8 in total.',
+    a: 'Up to 8 guests, either way. Book a Wednesday or Thursday exclusive departure for exactly 8, with the trail and each lodge to yourselves, or join a shared departure on any other day, where the first booking needs 4 or more people and later bookings can top up to 8 in total.',
   },
   {
     q: 'Where can I stay before or after my visit?',

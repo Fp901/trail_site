@@ -68,7 +68,7 @@ export const stats = [
   { value: '3', label: 'Nights' },
   { value: '3', label: 'Days Walking' },
   { value: '3', label: 'Private Dedicated Lodges' },
-  { value: '8', label: 'Max Guests, Exclusive Buyout or Shared' },
+  { value: '8', label: 'Max Guests, Exclusive or Shared' },
 ] as const;
 
 // Prefix a root-relative path with the configured base (Astro `base`), so internal links work

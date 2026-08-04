@@ -57,7 +57,7 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
           </div>
           <div class="form-field">
             <label for="cb-group">Group size</label>
-            <span class="form-hint">Fixed: a comp booking is always a full buyout</span>
+            <span class="form-hint">Fixed: a comp booking is always exclusive</span>
             <input id="cb-group" type="text" value={EXCLUSIVE_SIZE} readonly aria-readonly="true" />
           </div>
         </div>
@@ -74,7 +74,7 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
           </label>
         </fieldset>
         <p class="admin-card__hint">
-          Comp bookings are exclusive buyouts: exactly {EXCLUSIVE_SIZE} guests, Wednesday or Thursday only,
+          Comp bookings are exclusive: exactly {EXCLUSIVE_SIZE} guests, Wednesday or Thursday only,
           self-catered or catered. Every other day is reserved for shared departures and cannot
           be comped.
         </p>

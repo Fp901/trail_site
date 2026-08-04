@@ -40,7 +40,7 @@ const bookingEnabled = Boolean(
 const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
 
 const title = 'Rates & Booking | The Rooiberg Wander';
-const description = `From ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.low))} per person sharing self-catered, or ${formatRand(ppSharingRand(CATERED_PP_NIGHT.low))} catered, for the whole ${NIGHTS}-night trail. Wednesday/Thursday exclusive buyouts for ${EXCLUSIVE_SIZE}, or join a shared departure on any other day. See what's included and book.`;
+const description = `From ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.low))} per person sharing self-catered, or ${formatRand(ppSharingRand(CATERED_PP_NIGHT.low))} catered, for the whole ${NIGHTS}-night trail. Wednesday/Thursday exclusive departures for ${EXCLUSIVE_SIZE}, or join a shared departure on any other day. See what's included and book.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -54,12 +54,12 @@ const jsonLd = [
   offerSchema({
     price: ppSharingRand(UNCATERED_PP_NIGHT.week.low),
     name: 'The Rooiberg Wander: self-catered, per person sharing',
-    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail, self-catered, incl. conservation levies. Wednesday/Thursday exclusive buyout for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
+    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail, self-catered, incl. conservation levies. Wednesday/Thursday exclusive departure for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
   }),
   offerSchema({
     price: ppSharingRand(CATERED_PP_NIGHT.low),
     name: 'The Rooiberg Wander: catered, per person sharing',
-    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail, fully catered, incl. conservation levies. Wednesday/Thursday exclusive buyout for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
+    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail, fully catered, incl. conservation levies. Wednesday/Thursday exclusive departure for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
   }),
 ];
 ---

@@ -223,8 +223,8 @@ const clientRates = {
         <div class="bcal__legend" aria-hidden="true">
           <span class="bcal__key bcal__key--open">Open, start it</span>
           <span class="bcal__key bcal__key--started">Running, join it</span>
-          <span class="bcal__key bcal__key--exclusive">Buyout for {EXCLUSIVE_SIZE}</span>
-          <span class="bcal__key bcal__key--locked">Other catering, tap to switch</span>
+          <span class="bcal__key bcal__key--exclusive">Exclusive for {EXCLUSIVE_SIZE}</span>
+          <span class="bcal__key bcal__key--locked">Running, other catering: tap to switch</span>
           <span class="bcal__key bcal__key--out">Unavailable</span>
         </div>
       </div>
@@ -852,7 +852,7 @@ const clientRates = {
         const metaEl = document.createElement('span');
         metaEl.className = 'bjoin-card__meta';
         metaEl.textContent = row.isExclusive
-          ? `Private buyout · ${cateringLabel}`
+          ? `Exclusive · ${cateringLabel}`
           : `${cateringLabel} · ${row.seatsLeft} place(s) left`;
         body.append(dateEl, metaEl);
 
@@ -1137,7 +1137,7 @@ const clientRates = {
       if (calSelectedEl) {
         const dateStr = humanDate(iso, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         if (isExclusiveDayIso(iso)) {
-          calSelectedEl.textContent = `Selected start: ${dateStr}. Exclusive buyout for your group of ${R.exclusiveSize}.`;
+          calSelectedEl.textContent = `Selected start: ${dateStr}. Exclusive for your group of ${R.exclusiveSize}.`;
         } else {
           const dep = departureFor(iso);
           calSelectedEl.textContent =
@@ -1244,7 +1244,7 @@ const clientRates = {
       if (isExcl) {
         const t = document.createElement('span');
         t.className = 'bpreview__tag bpreview__tag--excl';
-        t.textContent = `Private buyout, ${R.exclusiveSize} places`;
+        t.textContent = `Exclusive, ${R.exclusiveSize} places`;
         tags.appendChild(t);
       }
       previewBody.appendChild(tags);
@@ -1291,7 +1291,7 @@ const clientRates = {
     // The same reason strings the grey cells speak, in one place so the cell and the preview can
     // never disagree.
     function cell_reason_text(c: Classification): string {
-      if (c.state === 'buyoutOnly') return `exclusive buyout only, needs exactly ${R.exclusiveSize} people`;
+      if (c.state === 'buyoutOnly') return `exclusive only, needs exactly ${R.exclusiveSize} people`;
       if (c.state === 'needsOpen') {
         const mins = stylePermits().map((cc) => minToOpenClient(cc));
         const lowest = Math.min(...mins);
@@ -1304,7 +1304,7 @@ const clientRates = {
       if (c.reason === 'blocked') return 'not running that week';
       if (c.reason === 'taken') return 'already taken by a private group';
       if (c.reason === 'tooSoon') return 'too close to departure to book online';
-      if (c.reason === 'notExclusiveDay') return 'a shared departure day; buyouts run Wednesday and Thursday';
+      if (c.reason === 'notExclusiveDay') return 'a shared departure day; exclusive departures run Wednesday and Thursday';
       if (c.reason === 'notLastMinute') return 'hidden by your last-minute filter';
       if (c.reason === 'notHighSeason') return 'hidden by your high-season filter';
       return 'beyond the dates open for booking';
@@ -1396,7 +1396,7 @@ const clientRates = {
           const lm = withinLastMinuteWindow(iso);
 
           const what = isExcl
-            ? `, private buyout for ${R.exclusiveSize}`
+            ? `, exclusive for ${R.exclusiveSize}`
             : c.seatsLeft != null
               ? `, ${c.seatsLeft} place(s) left`
               : ', open, nobody has started it';
@@ -1438,7 +1438,7 @@ const clientRates = {
           // used to abbreviate it for sighted users is gone.
           let reason = 'not available for this group';
           if (c.state === 'buyoutOnly') {
-            reason = `exclusive buyout only, needs exactly ${R.exclusiveSize} people`;
+            reason = `exclusive only, needs exactly ${R.exclusiveSize} people`;
           } else if (c.state === 'needsOpen') {
             const mins = stylePermits().map((cc) => minToOpenClient(cc));
             const lowest = Math.min(...mins);
@@ -1453,7 +1453,7 @@ const clientRates = {
             if (c.reason === 'blocked') reason = 'not running that week';
             else if (c.reason === 'taken') reason = 'already taken by a private group';
             else if (c.reason === 'tooSoon') reason = 'too close to departure to book online';
-            else if (c.reason === 'notExclusiveDay') reason = 'a shared departure day; buyouts run Wednesday and Thursday';
+            else if (c.reason === 'notExclusiveDay') reason = 'a shared departure day; exclusive departures run Wednesday and Thursday';
             else if (c.reason === 'notLastMinute') reason = 'hidden by your last-minute filter';
             else if (c.reason === 'notHighSeason') reason = 'hidden by your high-season filter';
             else reason = 'beyond the dates open for booking';
@@ -1636,12 +1636,6 @@ const clientRates = {
     function announceReach() {
       if (!initialized) return;
       const n = groupSize();
-      if (exclusiveOnly) {
-        showPathNotice(
-          `Showing Wednesday and Thursday buyouts only, for a group of exactly ${R.exclusiveSize}.`,
-        );
-        return;
-      }
       const permitted = stylePermits();
       const ceiling =
         style === 'catered'

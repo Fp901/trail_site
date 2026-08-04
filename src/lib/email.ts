@@ -281,7 +281,7 @@ export async function sendBookingConfirmation(opts: {
       ['Trail', 'The Rooiberg Wander'],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ...(opts.bookingType
-        ? ([['Departure', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive buyout']] as Array<[string, string]>)
+        ? ([['Departure', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive departure']] as Array<[string, string]>)
         : []),
       ...(opts.catering
         ? ([['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered']] as Array<[string, string]>)
@@ -420,7 +420,7 @@ export async function sendBookingOperatorNotification(opts: {
       ['Email', escapeHtml(opts.leadEmail)],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ['Group size', String(opts.groupSize)],
-      ['Type', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive buyout'],
+      ['Type', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive departure'],
       ['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered'],
       ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
       ['Plan', opts.paymentPlan],
@@ -560,7 +560,7 @@ export async function sendPaymentReceipt(opts: {
   const productLabel =
     opts.bookingType === 'shared'
       ? `shared departure (${guestsLabel})${cateringLabel}`
-      : `exclusive buyout (${guestsLabel})${cateringLabel}`;
+      : `exclusive departure (${guestsLabel})${cateringLabel}`;
   const descriptionLine =
     opts.receiptType === 'deposit'
       ? `The Rooiberg Wander: 50% deposit. 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`

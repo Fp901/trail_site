@@ -111,7 +111,7 @@ export const server = {
         if (input.groupSize !== EXCLUSIVE_SIZE) {
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: `A Wednesday or Thursday departure is an exclusive buyout for exactly ${EXCLUSIVE_SIZE} guests.`,
+            message: `A Wednesday or Thursday departure is exclusive, for exactly ${EXCLUSIVE_SIZE} guests.`,
           });
         }
       } else {
@@ -142,7 +142,7 @@ export const server = {
             const alt =
               input.catering === 'uncatered'
                 ? ` Catered dates open from ${minToOpen('catered')}, or join a self-catered date another group has already started.`
-                : ' Join a date another group has already started, or choose a Wednesday/Thursday exclusive buyout.';
+                : ' Join a date another group has already started, or choose a Wednesday/Thursday exclusive departure.';
             throw new ActionError({
               code: 'BAD_REQUEST',
               message: `Opening a new ${input.catering === 'catered' ? 'catered' : 'self-catered'} date takes at least ${openMin} people.${alt}`,
@@ -937,13 +937,13 @@ export const server = {
         if (msg.includes('RW_EXCLUSIVE_WED_THU_ONLY')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Exclusive buyouts run Wednesday or Thursday only; this booking cannot move to that date.',
+            message: 'Exclusive departures run Wednesday or Thursday only; this booking cannot move to that date.',
           });
         }
         if (msg.includes('RW_EXCLUSIVE_SIZE_8')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `An exclusive buyout must be exactly ${EXCLUSIVE_SIZE} guests.`,
+            message: `An exclusive departure must be exactly ${EXCLUSIVE_SIZE} guests.`,
           });
         }
         if (msg.includes('RW_SHARED_NOT_WED_THU')) {
@@ -1251,13 +1251,13 @@ export const server = {
       if (!isExclusiveDay(input.startDate)) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: 'Exclusive buyouts run Wednesday or Thursday only; choose such a date.',
+          message: 'Exclusive departures run Wednesday or Thursday only; choose such a date.',
         });
       }
       if (input.groupSize !== EXCLUSIVE_SIZE) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `Comp bookings are exclusive buyouts of exactly ${EXCLUSIVE_SIZE} guests.`,
+          message: `Comp bookings are exclusive departures of exactly ${EXCLUSIVE_SIZE} guests.`,
         });
       }
 
@@ -1300,13 +1300,13 @@ export const server = {
         if (msg.includes('RW_EXCLUSIVE_WED_THU_ONLY')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Exclusive buyouts run Wednesday or Thursday only; pick such a date.',
+            message: 'Exclusive departures run Wednesday or Thursday only; pick such a date.',
           });
         }
         if (msg.includes('RW_EXCLUSIVE_SIZE_8')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `An exclusive buyout must be exactly ${EXCLUSIVE_SIZE} guests.`,
+            message: `An exclusive departure must be exactly ${EXCLUSIVE_SIZE} guests.`,
           });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not create the booking.' });
