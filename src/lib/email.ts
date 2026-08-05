@@ -388,13 +388,13 @@ export async function sendBalancePaidConfirmation(opts: {
     h1(`You're paid in full, ${name}.`) +
     p(`We've received your balance payment. Your Rooiberg Wander trip is now <strong>fully paid</strong>. There is nothing further to take care of on the payment side.`) +
     infoTable([['Arrival (Day 1)', humanDate(opts.startDate)]]) +
-    p('We look forward to welcoming your group to the Rooiberg.') +
+    p('We look forward to welcoming your group to the Waterberg.') +
     small('A receipt accompanies your payment confirmation from Paystack.');
 
   await sendEmail({
     to: opts.to,
     subject: 'Your Rooiberg Wander trip is paid in full',
-    html: layout('guest', `Trip paid in full. See you in the Rooiberg!`, body),
+    html: layout('guest', `Trip paid in full. See you in the Waterberg!`, body),
   });
 }
 

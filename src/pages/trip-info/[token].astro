@@ -37,9 +37,9 @@ if (isUuid) {
 }
 
 // Gate location — PRIVATE. Lives only here, never on a public page.
-const GATE_LAT = -24.6740333;
-const GATE_LNG = 27.8515837;
-const W3W = 'trademarked.actor.clambers';
+const GATE_LAT = -24.674994;
+const GATE_LNG = 27.851112;
+const W3W = 'advertisement.spasm.dabbled';
 const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${GATE_LAT},${GATE_LNG}`;
 const w3wUrl = `https://what3words.com/${W3W}`;
 
@@ -68,7 +68,7 @@ const season = booking ? seasonForDate(booking.start_date) : null;
             Your trip
           </p>
           <h1 id="tripinfo-heading" class="mt-4 font-display text-4xl text-earth sm:text-5xl">
-            See you in the Rooiberg{booking.lead_name ? `, ${booking.lead_name}` : ''}
+            See you in the Waterberg{booking.lead_name ? `, ${booking.lead_name}` : ''}
           </h1>
           <p class="mt-5 font-body text-lg leading-relaxed text-charcoal">
             Your booking is confirmed. You arrive on <strong>{booking.start_date}</strong> (Day 1)
