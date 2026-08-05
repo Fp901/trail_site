@@ -97,9 +97,9 @@ function layout(variant: Variant, preheader: string, body: string): string {
 
   <!-- HEADER -->
   <tr>
-    <td style="background-color:${hBg};border-radius:14px 14px 0 0;padding:32px 40px 28px;">
-      <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:21px;font-weight:bold;color:#F5F0E6;letter-spacing:0.2px;line-height:1.2;">The Rooiberg Wander</p>
-      <p style="margin:8px 0 0;font-size:10px;font-weight:700;letter-spacing:2.8px;text-transform:uppercase;color:${accent};">RoiSan Reserve &middot; Limpopo Waterberg</p>
+    <td style="background-color:${hBg};border-radius:14px 14px 0 0;padding:28px 40px 24px;">
+      <img src="${siteUrl}/images/email-logo.png" width="176" height="91" alt="Rooiberg Wander" style="display:block;border:0;outline:none;text-decoration:none;">
+      <p style="margin:14px 0 0;font-size:10px;font-weight:700;letter-spacing:2.8px;text-transform:uppercase;color:${accent};">RoiSan Reserve &middot; Limpopo Waterberg</p>
     </td>
   </tr>
   <!-- Accent rule -->
@@ -116,7 +116,7 @@ function layout(variant: Variant, preheader: string, body: string): string {
   <tr>
     <td style="background-color:#2e2016;border-radius:0 0 14px 14px;padding:24px 40px;text-align:center;">
       <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#C19A6B;">${siteUrl.replace(/^https?:\/\//, '')}</p>
-      <p style="margin:10px 0 0;font-size:11px;color:rgba(245,240,230,0.45);line-height:1.6;">The Rooiberg Wander &middot; Limpopo Waterberg, South Africa</p>
+      <p style="margin:10px 0 0;font-size:11px;color:rgba(245,240,230,0.45);line-height:1.6;">Limpopo Waterberg, South Africa</p>
     </td>
   </tr>
 
@@ -209,7 +209,7 @@ function inclusionsBlock(): string {
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {
   const key = import.meta.env.EMAIL_API_KEY;
-  const from = import.meta.env.EMAIL_FROM ?? 'The Rooiberg Wander <hanlie@rooibergwander.co.za>';
+  const from = import.meta.env.EMAIL_FROM ?? 'Rooiberg Wander <no-reply@rooibergwander.co.za>';
   if (!key) {
     console.warn('[email] EMAIL_API_KEY not set — email not sent, subject:', msg.subject);
     return;
@@ -222,7 +222,11 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
       to: [stripHeader(msg.to)],
       subject: stripHeader(msg.subject),
       html: msg.html,
-      reply_to: msg.replyTo ? stripHeader(msg.replyTo) : undefined,
+      // Sent 'from' no-reply@; a caller with something better to reply to (e.g. the enquiry
+      // notification, which routes back to the enquirer) sets msg.replyTo explicitly and wins.
+      // Everything else defaults here, so a guest hitting "reply" on any transactional email
+      // reaches the operator instead of a dead address.
+      reply_to: stripHeader(msg.replyTo || (import.meta.env.BOOKINGS_NOTIFY_TO ?? site.notifyEmail)),
     }),
   });
   if (!res.ok) {
@@ -278,7 +282,7 @@ export async function sendBookingConfirmation(opts: {
     eyebrow('Booking confirmation') +
     h1(`You're confirmed, ${name}.`) +
     infoTable([
-      ['Trail', 'The Rooiberg Wander'],
+      ['Trail', 'Rooiberg Wander'],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ...(opts.bookingType
         ? ([['Departure', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive departure']] as Array<[string, string]>)
@@ -330,8 +334,8 @@ export async function sendPretripReminder(opts: {
     h1(isLate ? `Still waiting on your details, ${name}.` : `Quick reminder, ${name}.`) +
     p(
       isLate
-        ? `We haven't received your pre-trip details for The Rooiberg Wander (arrival <strong>${humanDate(opts.startDate)}</strong>). Please complete the form as soon as possible so we can prepare for your group.`
-        : `We're still waiting on your pre-trip details for The Rooiberg Wander (arrival <strong>${humanDate(opts.startDate)}</strong>). The form only takes a few minutes.`,
+        ? `We haven't received your pre-trip details for Rooiberg Wander (arrival <strong>${humanDate(opts.startDate)}</strong>). Please complete the form as soon as possible so we can prepare for your group.`
+        : `We're still waiting on your pre-trip details for Rooiberg Wander (arrival <strong>${humanDate(opts.startDate)}</strong>). The form only takes a few minutes.`,
     ) +
     btn(url, 'Complete pre-trip details') +
     small('If you have already submitted your details, please disregard this reminder.');
@@ -563,10 +567,10 @@ export async function sendPaymentReceipt(opts: {
       : `exclusive departure (${guestsLabel})${cateringLabel}`;
   const descriptionLine =
     opts.receiptType === 'deposit'
-      ? `The Rooiberg Wander: 50% deposit. 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`
+      ? `Rooiberg Wander: 50% deposit. 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`
       : opts.receiptType === 'balance'
-        ? `The Rooiberg Wander: balance payment (50%). ${productLabel.charAt(0).toUpperCase() + productLabel.slice(1)}. Arrival: ${humanDate(opts.startDate)}.`
-        : `The Rooiberg Wander: 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`;
+        ? `Rooiberg Wander: balance payment (50%). ${productLabel.charAt(0).toUpperCase() + productLabel.slice(1)}. Arrival: ${humanDate(opts.startDate)}.`
+        : `Rooiberg Wander: 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`;
 
   // Receipt keeps 2 decimals (money document) but matches the site's no-space "R54,000.00" style.
   const fmt = (c: number) => 'R' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -583,7 +587,7 @@ export async function sendPaymentReceipt(opts: {
     <td style="width:50%;padding-right:20px;">
       <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:#8a7868;">From</p>
       <p style="margin:0;font-size:13px;line-height:1.7;color:#2C2C2C;">
-        <strong>The Rooiberg Wander</strong><br>
+        <strong>Rooiberg Wander</strong><br>
         Rooiberg, Waterberg, Limpopo, South Africa
       </p>
     </td>
@@ -630,7 +634,7 @@ export async function sendPaymentReceipt(opts: {
 
   await sendEmail({
     to: opts.to,
-    subject: `Receipt ${receiptNo} from The Rooiberg Wander`,
+    subject: `Receipt ${receiptNo} from Rooiberg Wander`,
     html: layout('guest', `Payment receipt ${receiptNo} for your Rooiberg Wander booking`, body),
   });
 }

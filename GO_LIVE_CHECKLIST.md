@@ -9,7 +9,7 @@ Two lists:
 Status today (2026-07-02): the booking engine is **code-complete** and all commits are on `main`.
 External accounts now live: **Paystack** (SA business verification submitted, test keys available),
 **Resend** (domain verified, EMAIL_API_KEY + EMAIL_FROM + BOOKINGS_NOTIFY_TO set in Vercel),
-**Supabase** project created (eu-west-2), migrations `0001`–`0009` applied, pg_cron enabled, Hanlie's
+**Supabase** project created (eu-west-2), migrations `0001`–`0015` applied, pg_cron enabled, Hanlie's
 auth user created, **Vercel** project live with SSR adapter. **Next:** fill remaining Vercel env vars
 (Supabase keys, Paystack test keys, CRON_SECRET, ADMIN_EMAIL), then run the E2E test (Phase 6).
 
@@ -33,9 +33,10 @@ auth user created, **Vercel** project live with SSR adapter. **Next:** fill rema
 ### Phase 2 — Supabase (database)
 - [x] Supabase project created, region **eu-west-2 (London)**.
 - [x] `pg_cron` extension enabled.
-- [x] Migrations `0001`–`0009` applied in order.
-- [ ] **Verify:** RLS is on + default-deny; anon can read **only** `unavailable_windows`; the
-      `expire-stale-holds` cron is scheduled (`select * from cron.job;`).
+- [x] Migrations `0001`–`0015` applied in order (confirmed by the operator, 2026-08-05).
+- [ ] **Verify:** RLS is on + default-deny; anon can read **only** `departure_inventory` (0015
+      dropped `unavailable_windows` and `shared_slot_availability`); the `expire-stale-holds`
+      cron is scheduled. Run `scripts/db-survey.sql` §0 and §6 — they check exactly this.
 - [x] Hanlie's operator user created in Supabase → Authentication → Users.
 - [ ] Copy the **Project URL**, **anon key**, and **service-role key**.
 
@@ -190,13 +191,14 @@ Catered/uncatered pricing, shared/mixed departures, and 2027 go-live gating. See
 entries "Booking v2", "VAT/Franili removal" and "Booking v2.2" for the full design. Code is
 written; these are the remaining go-live steps:
 
-- [ ] **Apply migration `0013_booking_v2.sql`** in Supabase (adds `booking_type`/`catering`
-      columns, the `bookings_slot_guard` trigger, redefines `unavailable_windows`, adds
-      `shared_slot_availability`). Not yet applied anywhere. **Rewritten 2026-07-28** for the
-      per-person-per-night commercial model: exclusive bookings now require Wednesday or
-      Thursday and exactly 8 guests (not the old Tue-Sat / catered-8-uncatered-10 split); shared
-      bookings now require any OTHER day, an opening booking of 4+ that locks the date's catering,
-      and top-up bookings of 2+ matching that catering, up to 8 seats total.
+- [x] **Apply migration `0013_booking_v2.sql`** in Supabase (adds `booking_type`/`catering`
+      columns and the `bookings_slot_guard` trigger). Applied — confirmed by the operator
+      2026-08-05, along with `0010`–`0012`, `0014` (booking-window guard) and `0015`
+      (`departure_inventory`, which replaced and dropped `unavailable_windows` and
+      `shared_slot_availability`). The model it enforces: exclusive bookings require Wednesday
+      or Thursday and exactly 8 guests; shared bookings require any OTHER day, an opening
+      booking of 4+ that locks the date's catering, and top-up bookings of 2+ matching that
+      catering, up to 8 seats total.
 - [ ] **Confirm the pricing (2026-07-28 revision — "Rooiberg Wander Booking & Pricing Policy"
       brief)**: every departure is now priced **per person per night**, self-catered or catered,
       replacing the flat R54,000/R105,000/R5,000pp figures entirely. Self-catered: R1,100

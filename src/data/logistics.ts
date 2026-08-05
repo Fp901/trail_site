@@ -59,7 +59,7 @@ export function faqAnswerText(a: Faq['a']): string {
 export const faqs: Faq[] = [
   {
     q: 'What is slackpacking?',
-    a: 'Slackpacking is multi-day hiking without a heavy pack. You walk the trail while your luggage and food are carried ahead. On The Rooiberg Wander, support vehicles move everything between lodges each day, kept cool and dry, so you walk with only a daypack.',
+    a: 'Slackpacking is multi-day hiking without a heavy pack. You walk the trail while your luggage and food are carried ahead. On Rooiberg Wander, support vehicles move everything between lodges each day, kept cool and dry, so you walk with only a daypack.',
   },
   {
     q: 'What are the conservation levies?',
@@ -138,7 +138,7 @@ export const transfers = {
   mapUrl: 'https://maps.app.goo.gl/q513JEGNSY3ZhbUk8',
   mapLinkText: 'View the reserve access gate on Google Maps',
   disclaimer:
-    'All transport arrangements, bookings, payments and itineraries are strictly between you and EZ Shuttle. The Rooiberg Wander operates independently of all transit providers and takes no responsibility for scheduling, delays, vehicle safety, service quality, cancellations, or any incident on your way to or from the trail.',
+    'All transport arrangements, bookings, payments and itineraries are strictly between you and EZ Shuttle. Rooiberg Wander operates independently of all transit providers and takes no responsibility for scheduling, delays, vehicle safety, service quality, cancellations, or any incident on your way to or from the trail.',
 };
 
 // Day-pack kit list. Items grounded in the brief.
