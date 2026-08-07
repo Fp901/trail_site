@@ -32,7 +32,7 @@ const accent = colorVar ?? '--color-green';
 const noWalking = distanceKm === null;
 ---
 
-<li class="daycard" style={`--accent: var(${accent});`}>
+<li class="daycard" style={`--accent: var(${accent}); --accent-ink: var(${accent}-ink, var(${accent}));`}>
   <div class="daycard__marker">
     <span class="daycard__daylabel">Day</span>
     <span class="daycard__num">{day}</span>

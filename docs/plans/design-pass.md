@@ -90,10 +90,22 @@ The `<body>` root is a correct 16px; the problem is that **the secondary tier �
 **Work:**
 - Raise body/secondary prose to `--text-base` (1rem). Primary call sites: `.teaser__text`, `.howit__text` (0.9rem), `.daycard__desc`, `.bstyle__desc` (0.8rem), `.bsolo__lead`, `.bjoin-card__meta`, plus the 34 non-admin `text-sm` markup usages.
 - **Legitimately staying at `--text-sm`, with justification (out of scope per the brief):** the rate matrix (`:2299`) and availability calendar (`:1784`) — dense tabular UI where 16px would force horizontal scroll or a 7-column month grid to wrap. Also justified: `.form-hint` (raise to `--text-sm` 0.875rem from 0.78rem — it must clear the contrast floor per §A3, but need not reach 1rem), `.bstep__num`/table numerics, and legal/footnote text.
+
+**Considered, held — rate-matrix density trade-off.** Two declarations stay below the scale's floor by decision, not oversight:
+- `.ratetable__unit` @ 0.68rem (10.88px) — the "per person sharing" unit label sitting under each price. Raising it competes with the price it qualifies and widens the cell.
+- `.bcal__dow span` @ 0.65rem (10.4px) — the calendar's day-of-week header letters (M T W T F S S). Raising it forces the 7-column month grid wider than the form column at 390px.
+Both clear AA at their current size (they were raised to the 70% tint floor in step 1 and re-verified after the resize). `.ratetable__seasonnote` was lifted 0.62rem → `--text-2xs` as instructed — it is prose, not a column constraint, and 9.92px was indefensible.
 - Collapse the clusters onto the scale: `0.83/0.85/0.87/0.875/0.88/0.9/0.92/0.95` → `--text-sm` or `--text-base`; `0.7/0.72/0.75/0.78` → `--text-2xs`/`--text-xs`; `1.05/1.1/1.125/1.15` → `--text-lg`.
 - Replace raw `22px` and `14px` with rem values (`--text-xl`, `--text-sm`).
 
 ---
+
+### Found during step 4 — two things the plan did not anticipate
+
+**1. The accent set had one illegible member, and it was a systemic defect, not three stray bugs.**
+`--accent` is used both as a graphic (map segment, swatch, border) and as text (day numeral, distance badge, arrow, lodge role, legend head). On cream the set measures green 6.42:1, terracotta 4.65:1, **ochre 2.28:1** — so every accent-driven *text* element failed for exactly the ochre member, in 5 places. Part 5.4 names ochre as the accent *and* requires "WCAG AA minimum … verify ochre-on-cream explicitly", so this is resolved without touching the documented hues: graphics keep the exact Part 5.4 colours, text uses a new ink variant (`#7f6345` = ochre 50% + earth 50%, 4.92:1). Consumers read `var(--accent-ink, var(--accent))`, so green and terracotta fall through unchanged and need no ink of their own.
+
+**2. Tailwind v4 tree-shakes `@theme` variables it cannot see referenced.** The ink variants were first declared in `@theme` and were **silently dropped from the build** — their only references are inside inline `style=""` attributes in `DayCard`/`SanctuaryCard`/`RouteMap`, which Tailwind's scanner does not parse. Every `var()` fell through to the failing accent and the contrast numbers did not move. They now live in a plain `:root` block in `@layer base`, which is always emitted. Any future token referenced *only* from inline styles or component markup must do the same (or use `@theme static`). `--color-ochre-deep` from step 1 was unaffected because it is referenced directly in `global.css`.
 
 ## §C. Clamp ordering — and a correction to the proposed tokens
 

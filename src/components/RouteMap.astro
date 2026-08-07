@@ -75,7 +75,9 @@ const { class: cls } = Astro.props;
     {
       routeSegments.map((s) => (
         <div class="routemap__keygroup">
-          <p class="routemap__keyhead" style={`color: var(${s.colorVar});`}>
+          {/* Ink variant for the label text — the ochre Day 2 accent is only 2.28:1 on cream.
+              The adjacent swatch still carries the exact Part 5.4 hue. */}
+          <p class="routemap__keyhead" style={`color: var(${s.colorVar}-ink, var(${s.colorVar}));`}>
             Day {s.day}
           </p>
           <p class="routemap__keylist">{s.landmarks.join(' · ')}</p>
