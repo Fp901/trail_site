@@ -30,6 +30,11 @@ export const MAX_GROUP_SIZE = 8; // universal cap — 2 guides : 8 walkers
 export const BOOKING_OPEN_DATE = '2027-01-15';
 export const BOOKING_OPEN_DISPLAY = '15 January 2027';
 
+// The earlier family-and-friends beta window opens here. Kept beside BOOKING_OPEN_DISPLAY and in
+// the same long form on purpose: the two dates are quoted in a single sentence on the homepage,
+// where one was previously written "31/10/2026" and the other "15 January 2027".
+export const BETA_OPEN_DISPLAY = '31 October 2026';
+
 // --- Per-person-per-night rates (Rand), before the seasonal adjustment ---------------------
 // Self-catered: Thursday/Friday start dates are the premium "weekend" rate; every other start
 // day is the "week" rate.

@@ -70,9 +70,8 @@ const hasSocial = Boolean(site.social.instagram || site.social.facebook);
         <p class="mt-3 font-body text-sm text-cream/70">
           Office hours {site.contact.officeHours}
         </p>
-        <p class="mt-3">
-          <a href={withBase('/privacy')} class="footer-link font-body text-sm text-cream/85">Privacy</a>
-        </p>
+        {/* Privacy lives once, in the legal row beside the copyright — it was previously linked
+            both here and there, giving the footer two identical links to the same page. */}
 
         {
           hasSocial && (

@@ -65,6 +65,7 @@ const context: Record<string, string> = {
     {
       sanctuaries.map((s, i) => (
         <SanctuaryCard
+          id={s.id}
           name={s.name}
           role={s.role}
           description={s.description}

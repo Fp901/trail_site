@@ -78,8 +78,19 @@ assert('no rand figure at all is typed into the homepage', !/\bR\d[\d,]*\b/.test
 assert('no "per person sharing" pricing phrase survives on the homepage',
   !/per person sharing/.test(home));
 assert('the homepage never claims a per-night price either', !/per person per night|pp\/night/.test(home));
-assert('the primary CTA button is plain, with no price appended',
-  /See rates and book<\/a>/.test(home) && /View rates and book the trail<\/a>/.test(home));
+// This used to name two exact button labels. One of them, "See rates and book", belonged to the
+// beta banner that the design pass replaced with a slim button-less bar (the homepage was carrying
+// four CTAs above the first content section). Asserting the PROPERTY instead of the literal labels
+// keeps the original intent — no price may ride along on a CTA — without re-breaking on every copy
+// edit, and covers every primary CTA rather than the two that happened to exist when it was written.
+const homePrimaryCtas = [...home.matchAll(/class="btn btn-primary"[^>]*>([^<]*)</g)].map((m) =>
+  m[1].trim(),
+);
+assert('the homepage still has at least one primary CTA', homePrimaryCtas.length > 0);
+assert(
+  'every primary CTA is plain, with no price appended',
+  homePrimaryCtas.every((t) => t.length > 0 && !/R\s?\d/.test(t) && !/per person|per night/i.test(t)),
+);
 
 section('3. The pricing explainer exists and computes everything it claims');
 assert('the page exists at /how-pricing-works', explainer.length > 500);

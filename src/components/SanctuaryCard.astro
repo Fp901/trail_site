@@ -8,6 +8,7 @@ import AmenityIcon from './AmenityIcon.astro';
 import type { LodgeAmenity } from '../data/sanctuaries';
 
 interface Props {
+  id?: string; // anchor target, so /accommodation#rotavi etc. resolve from the homepage teasers
   name: string;
   role: string;
   description: string;
@@ -19,6 +20,7 @@ interface Props {
   amenities?: LodgeAmenity[]; // optional per-lodge amenity list rendered with icons
 }
 const {
+  id,
   name,
   role,
   description,
@@ -32,6 +34,7 @@ const {
 ---
 
 <article
+  id={id}
   class:list={['sanctuary', reverse && 'sanctuary--reverse']}
   style={`--accent: var(${accentVar}); --accent-ink: var(${accentVar}-ink, var(${accentVar}));`}
 >

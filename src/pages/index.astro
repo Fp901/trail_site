@@ -10,7 +10,7 @@ import StatsBar from '../components/StatsBar.astro';
 import Testimonials from '../components/Testimonials.astro';
 import GoogleReview from '../components/GoogleReview.astro';
 import { withBase } from '../data/site';
-import { BOOKING_OPEN_DISPLAY } from '../data/rates';
+import { BOOKING_OPEN_DISPLAY, BETA_OPEN_DISPLAY } from '../data/rates';
 import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../lib/pricing';
 import { sanctuaries } from '../data/sanctuaries';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
@@ -81,29 +81,25 @@ const lodgeContext: Record<string, string> = {
   />
   <StatsBar />
 
-  {/* Trust signals — slim band of proof points directly below the hero/stats. */}
+  {/* Trust signals close the same dark band the stats open, so the two read as ONE metadata block
+      rather than two stacked ones competing under the hero. */}
   <div class="trust-bar">
     <ul class="trust-bar__list">
       {trustSignals.map((s) => <li>{s}</li>)}
     </ul>
   </div>
 
-  <Section bg="cream" space="md">
-    <div class="launch-banner">
-      <p class="launch-banner__eyebrow">We're in beta &middot; Booking opens {BOOKING_OPEN_DISPLAY}</p>
-      <p class="launch-banner__lead">
-        Online bookings are open for start dates from
-        {BOOKING_OPEN_DISPLAY}. Beta testing dates available to family and friends at a
-        significant discount from 31/10/2026, by enquiry form or WhatsApp.
-      </p>
-      {/* Two doors, because the banner describes two paths: book online for dates from the open
-          date, or enquire for the earlier beta dates it mentions in the same breath. */}
-      <div class="mt-4 flex flex-wrap gap-4">
-        <a href={withBase('/rates')} class="btn btn-primary">See rates and book</a>
-        <a href={withBase('/rates#enquire-heading')} class="btn btn-secondary">Send an enquiry</a>
-      </div>
-    </div>
-  </Section>
+  {/* Beta notice, demoted to a slim one-line bar. It previously sat in a full section with its own
+      primary + secondary buttons, which put four CTAs above the first content section and let the
+      banner outcompete the hero's own call to action. The information stays; the buttons go, because
+      the hero already routes to /rates and the enquiry path is reachable from there. */}
+  <div class="launch-bar">
+    <p class="launch-bar__text">
+      <strong>We're in beta.</strong> Online booking opens for start dates from {BOOKING_OPEN_DISPLAY}.
+      Earlier dates are available to family and friends at a discount from {BETA_OPEN_DISPLAY}, by
+      enquiry or WhatsApp.
+    </p>
+  </div>
 
   {/* Intro — short and factual. Detail lives on /the-trail. */}
   <Section bg="cream" labelledby="promise-heading">
@@ -118,7 +114,10 @@ const lodgeContext: Record<string, string> = {
         A three-day walking safari in the Waterberg
       </h2>
       <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        Rooiberg Wander is a 3-night, 3-day slackpacking trail across 15,000 hectares of malaria-free Big 5 reserve near Rooiberg in Limpopo, located just 2.5 hours from OR Tambo International Airport. This experience is ideal for families, groups of friends, or corporate team-building. Both self-catered and fully catered options are available to suit your group’s needs.
+        Rooiberg Wander is a 3-night, 3-day slackpacking trail across 15,000 hectares of Big 5
+        reserve near Rooiberg in Limpopo, located just 2.5 hours from OR Tambo International
+        Airport. Both self-catered and fully catered options are available to suit your group’s
+        needs.
       </p>
       <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
         You walk from one private lodge to the next while your luggage and provisions are moved
@@ -142,8 +141,11 @@ const lodgeContext: Record<string, string> = {
     />
     <div class="statement-band__scrim"></div>
     <div class="statement-band__inner">
+      {/* 9 words. Was 21, which read as an over-long kicker set in display type and pushed the
+          band to six lines at 390px. It also carried the site's only mention of "RoiSan", an
+          entity name that appears nowhere else and is never explained. */}
       <p class="statement-band__text">
-        A guided trail in the exclusive RoiSan reserve. Ideal city escape or holiday bolt-on for families, friends and corporate groups
+        Big 5 wilderness on foot, walked with two armed guides
       </p>
     </div>
   </section>
@@ -154,7 +156,9 @@ const lodgeContext: Record<string, string> = {
       Why walk the Rooiberg Wander
     </h2>
     <p class="mt-5 max-w-2xl font-body leading-relaxed text-charcoal/85">
-      A true point-to-point Big 5 slackpacking trail: walk from one private safari lodge to the next and sleep somewhere new every night, with a pool, ice, wood, fire and a luxurious bed waiting at the end of the day. Ideal for family trips, groups of friends or corporate team-building adventures in the malaria-free Waterberg.
+      A true point-to-point Big 5 slackpacking trail: walk from one private safari lodge to the
+      next and sleep somewhere new every night, with a pool, ice, wood, fire and a luxurious bed
+      waiting at the end of the day.
     </p>
     <div class="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
       <div class="border-t-2 border-ochre pt-4">
@@ -226,12 +230,18 @@ const lodgeContext: Record<string, string> = {
       {
         sanctuaries.map((s) => (
           <li>
-            <a href={withBase('/accommodation')} class="home-lodge group">
+            {/* Deep-links to the lodge's own section rather than the top of /accommodation.
+                alt="" is deliberate: the image is decorative HERE because the anchor's own text
+                already names the lodge and its role. With the real alt in place the link's
+                accessible name ran to ~170 characters, opening with a scene description before
+                ever saying which lodge it went to. The full alt still ships on /accommodation,
+                where the image is the content rather than a thumbnail. */}
+            <a href={withBase(`/accommodation#${s.id}`)} class="home-lodge group">
               <div class="home-lodge__media">
                 {s.image && (
                   <Image
                     src={s.image}
-                    alt={s.alt}
+                    alt=""
                     class="home-lodge__img"
                     widths={[400, 600]}
                     sizes="(min-width: 768px) 33vw, 100vw"
@@ -265,7 +275,7 @@ const lodgeContext: Record<string, string> = {
         Ready to walk the Rooiberg Wander?
       </h2>
       <p class="mt-5 max-w-2xl font-body leading-relaxed text-cream/85">
-        Whether you’re planning a family adventure, a friends’ getaway or a corporate team-building trail, check available dates and book online, or explore the full day-by-day itinerary first.
+        Check available dates and book online, or explore the full day-by-day itinerary first.
       </p>
       <div class="mt-8 flex flex-wrap gap-4">
         <a href={withBase('/rates')} class="btn btn-primary">Check dates and book</a>
