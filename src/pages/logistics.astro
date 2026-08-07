@@ -61,7 +61,12 @@ const jsonLd = [
     />
   </figure>
 
-  <Section bg="cream" space="md" containerClass="!pt-0">
+  {/* !pb-0 as well as !pt-0: this section and the next are one continuous ruled list of .logblocks
+      (each carries its own top hairline + 1.75rem padding), split across two <Section>s only for
+      markup grouping. They share a background and have no divider, so the section's 64px
+      padding-bottom landed INSIDE the list as a rule followed by dead space — the one 64px gap in a
+      run that is otherwise 0. The .logblock rhythm governs the whole run now. */}
+  <Section bg="cream" space="md" containerClass="!pt-0 !pb-0">
     <div class="max-w-3xl">
       {
         logisticsBlocks.map((b) => (
