@@ -148,6 +148,28 @@ Tailwind v4 ships `--spacing: 0.25rem` with `gap-*` utilities the project doesn'
 
 Map every mix onto `--tint-subtle/soft/medium/muted/strong`. The recurring 55/60/65/70/75% values become `--tint-muted` **where the base is charcoal or earth**; green-based text goes solid (§0.5). Mixes that cannot map without a visible change — notably `.bcal__cell--open` (green 12% on #fff) and `.bcal__cell--started` (green 26%), where the fill steps encode calendar state — will be listed in the implementation notes rather than forced.
 
+### Outcome (step 7)
+
+**65 of 221 `color-mix()` percentages sit exactly on a tint step and were tokenised** — 8% ×6, 16% ×4, 40% ×5, **70% ×42**, 85% ×8. Zero visual change by construction; verified in-browser that `color-mix(… var(--tint-muted) …)` resolves (`.form-hint` still computes to alpha 0.7) and that the full contrast sweep stays at 0 failures. The 70% count is high because step 1 moved every sub-floor muted-text mix onto exactly that value.
+
+**156 percentages were left as literals rather than forced onto a step.** Snapping them would have moved real pixels for no correctness gain. The largest off-step groups:
+
+| % | count | why it stays |
+|---|---|---|
+| 55 | 14 | borders/scrims tuned per component; 40→70 is too coarse a jump |
+| 12 | 10 | `.bcal__cell--open` fill and kin — the calendar's fill steps *encode state*, and 12/18/26/40 must stay visually ordered |
+| 80, 88, 90, 92 | 24 | text mixes already above the floor; snapping to 85 would shift several body tiers |
+| 22, 18, 45, 10, 78, 60, 35, 50 | ~50 | one-off borders and hover tints |
+| 2.5, 3, 4, 5, 6, 7, 9 | 18 | very light background washes where a jump to 8% is visible |
+
+The implicit-but-unenforced scale the census flagged is now *partly* enforced: the muted-text tier is a single token, and the four other steps have names. Full enforcement would require redesigning the calendar's state fills, which is out of scope for this pass.
+
+### Raw hexes deliberately left (§F)
+
+Three remain after `#9c5b3b` (6 sites) and `#9c2b1b` (7 sites) were tokenised, and two redundant `var(--color-day4, #9c5b3b)` fallbacks were dropped:
+- `#5a4636` and `#241811` — gradient stops in `.hero__placeholder` / `.sanctuary__placeholder`, a lighten/darken pair around earth used only when an image is missing. Not palette members.
+- `#7d4227` — `.admin-badge--comp`, a deliberately darkened terracotta (6.90:1 on cream). Admin-only; expressing it as a `color-mix` of `--color-day4` would change the exact value.
+
 ---
 
 ## §H. Content and markup

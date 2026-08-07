@@ -20,7 +20,7 @@
   --color-charcoal: #2c2c2c; /* body text */
   --color-cream: #f5f0e6; /* backgrounds / cards */
   --color-hairline: rgba(61, 43, 31, 0.1); /* hairline borders over heavy shadow */
-  /* Deepened ochre = color-mix(ochre 70%, earth), resolved to a literal so @theme can generate
+  /* Deepened ochre = color-mix(ochre var(--tint-muted), earth), resolved to a literal so @theme can generate
      utilities from it. Ochre itself is only 2.59:1 on white and 2.28:1 on cream, so it cannot
      carry SELECTION STATE or a checked-control indicator (WCAG 1.4.11 wants 3:1). This clears it
      on every ground it is used against: white 4.03:1, cream 3.55:1, ochre-10% fill 3.71:1,
@@ -774,7 +774,7 @@
   }
   .testimonial__loc {
     font-weight: 400;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
 
   /* --- Homepage: Google review band (only when URL set) ------------------- */
@@ -879,7 +879,7 @@
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .daycard__num {
     font-family: var(--font-display);
@@ -931,7 +931,7 @@
     padding: 0.25rem 0.55rem;
   }
   .daycard__distance--rest {
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
     border-color: var(--color-hairline);
   }
   .daycard__route {
@@ -978,7 +978,7 @@
     font-family: var(--font-body);
     font-size: var(--text-2xs);
     letter-spacing: 0.01em;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
 
   /* --- Abandoned-checkout resume prompt (Booking v3.0) ---------------------- */
@@ -1100,12 +1100,12 @@
   /* ---- Inline hints and validation errors --------------------------------- */
   .form-hint {
     font-size: var(--text-xs);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
     line-height: 1.4;
   }
   .form-error {
     font-size: var(--text-xs);
-    color: #9c2b1b;
+    color: var(--color-error);
     line-height: 1.4;
     display: none;
   }
@@ -1115,7 +1115,7 @@
   .form-field.has-error input:not([type='radio']):not([type='checkbox']),
   .form-field.has-error textarea,
   .form-field.has-error select {
-    border-color: #9c2b1b;
+    border-color: var(--color-error);
   }
   /* ---- Step markers (Booking v2.1) ----------------------------------------- */
   .bstep + .bstep {
@@ -1161,7 +1161,7 @@
     margin-top: 0.75rem;
     font-family: var(--font-body);
     font-size: var(--text-2xs);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
 
   /* ---- Radios (still used by the admin comp-booking form) ------------------ */
@@ -1283,7 +1283,7 @@
     margin-top: 0.35rem;
     font-family: var(--font-body);
     font-size: var(--text-base);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .bstep__summary {
     font-family: var(--font-body);
@@ -1372,7 +1372,7 @@
     overflow-wrap: anywhere;
   }
   .btrip__date {
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   /* The final row is a departure, not a night — set apart with a rule rather than a fourth
      night-numbered line, which would misstate the trip as 4 nights. */
@@ -1471,7 +1471,7 @@
     padding: 1rem 1.1rem 1.2rem;
     border: 1px dashed color-mix(in srgb, var(--color-earth) 28%, transparent);
     border-radius: var(--radius-lg);
-    background-color: color-mix(in srgb, var(--color-cream) 70%, #fff);
+    background-color: color-mix(in srgb, var(--color-cream) var(--tint-muted), #fff);
   }
   .bsolo__lead {
     font-family: var(--font-body);
@@ -1656,14 +1656,14 @@
     font-family: var(--font-body);
     font-size: var(--text-2xs);
     font-weight: 500;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .bjoin-empty {
     margin-top: 1.1rem;
     padding: 1rem 1.1rem 1.2rem;
     border: 1px dashed color-mix(in srgb, var(--color-earth) 28%, transparent);
     border-radius: var(--radius-lg);
-    background-color: color-mix(in srgb, var(--color-cream) 70%, #fff);
+    background-color: color-mix(in srgb, var(--color-cream) var(--tint-muted), #fff);
   }
   .bjoin-empty__lead {
     font-family: var(--font-body);
@@ -1807,7 +1807,7 @@
   .bform__deposit-hint {
     margin-top: 0.5rem;
     font-size: var(--text-xs);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
     font-family: var(--font-body);
     line-height: 1.5;
   }
@@ -1827,7 +1827,7 @@
     min-height: 1.2em;
   }
   .bform__status[data-kind='error'] {
-    color: #9c2b1b;
+    color: var(--color-error);
   }
   .bform__status[data-kind='success'] {
     color: var(--color-green);
@@ -1850,7 +1850,7 @@
     font-family: var(--font-body);
     font-size: var(--text-xs);
     line-height: 1.5;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .bform__privacy a {
     color: var(--color-earth);
@@ -1962,7 +1962,7 @@
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .bcal__cell {
     aspect-ratio: 1 / 1;
@@ -2024,7 +2024,7 @@
         from the green family, so it stays distinct even under the common red-green colour
         vision deficiencies (its hue angle is far closer to amber/yellow than to green). */
   .bcal__cell--exclusive {
-    background-color: color-mix(in srgb, var(--color-ochre) 40%, #fff);
+    background-color: color-mix(in srgb, var(--color-ochre) var(--tint-medium), #fff);
     border-width: 2px;
     border-color: var(--color-ochre);
     color: var(--color-earth);
@@ -2037,7 +2037,7 @@
   .bcal__cell--locked {
     background-color: color-mix(in srgb, var(--color-cream) 78%, #fff);
     border-width: 2px;
-    border-color: color-mix(in srgb, #9c5b3b 55%, transparent);
+    border-color: color-mix(in srgb, var(--color-day4) 55%, transparent);
     border-style: dashed;
     color: var(--color-earth);
     font-weight: 600;
@@ -2055,7 +2055,7 @@
       transparent 6px
     );
     border-color: transparent;
-    color: color-mix(in srgb, var(--color-charcoal) 40%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-medium), transparent);
     cursor: not-allowed;
   }
   /* These cells are aria-disabled rather than disabled, so that a keyboard user can focus them and
@@ -2126,8 +2126,8 @@
     color: var(--color-earth);
   }
   .bpreview__tag--lm {
-    background-color: color-mix(in srgb, #9c5b3b 16%, #fff);
-    border-color: color-mix(in srgb, #9c5b3b 40%, transparent);
+    background-color: color-mix(in srgb, var(--color-day4) var(--tint-soft), #fff);
+    border-color: color-mix(in srgb, var(--color-day4) var(--tint-medium), transparent);
   }
   .bpreview__tag--excl {
     background-color: color-mix(in srgb, var(--color-ochre) 24%, #fff);
@@ -2253,14 +2253,14 @@
     border-color: color-mix(in srgb, var(--color-green) 60%, transparent);
   }
   .bcal__key--exclusive::before {
-    background-color: color-mix(in srgb, var(--color-ochre) 40%, #fff);
+    background-color: color-mix(in srgb, var(--color-ochre) var(--tint-medium), #fff);
     border-width: 2px;
     border-color: var(--color-ochre);
   }
   .bcal__key--locked::before {
     background-color: color-mix(in srgb, var(--color-cream) 78%, #fff);
     border-width: 2px;
-    border-color: color-mix(in srgb, #9c5b3b 55%, transparent);
+    border-color: color-mix(in srgb, var(--color-day4) 55%, transparent);
     border-style: dashed;
   }
   .bcal__key--out::before {
@@ -2314,12 +2314,12 @@
     margin-top: 0.4rem;
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .pretrip-note {
     border-left: 3px solid var(--color-ochre);
     border-radius: 0 0.5rem 0.5rem 0;
-    background-color: color-mix(in srgb, var(--color-ochre) 8%, var(--color-cream));
+    background-color: color-mix(in srgb, var(--color-ochre) var(--tint-subtle), var(--color-cream));
     padding: 0.8rem 1rem;
     font-family: var(--font-body);
     font-size: var(--text-base);
@@ -2361,13 +2361,13 @@
     accent-color: var(--color-ochre-deep);
   }
   .pretrip-check em {
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .pretrip-success {
     border: 1px solid color-mix(in srgb, var(--color-green) 35%, transparent);
     border-left: 4px solid var(--color-green);
     border-radius: 0 1rem 1rem 0;
-    background-color: color-mix(in srgb, var(--color-green) 8%, var(--color-cream));
+    background-color: color-mix(in srgb, var(--color-green) var(--tint-subtle), var(--color-cream));
     padding: 1.5rem 1.75rem;
     font-family: var(--font-body);
     line-height: 1.6;
@@ -2433,7 +2433,7 @@
   }
   /* Unselected segments get a faint hover cue since they no longer carry their own border. */
   .ratetable__curbtn:hover:not(:has(input:checked)) {
-    background-color: color-mix(in srgb, var(--color-earth) 8%, transparent);
+    background-color: color-mix(in srgb, var(--color-earth) var(--tint-subtle), transparent);
   }
   .ratetable__curbtn:has(input:checked) {
     background-color: var(--color-earth);
@@ -2451,7 +2451,7 @@
     font-family: var(--font-body);
     font-size: var(--text-2xs);
     line-height: 1.55;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
 
   /* Padding on the WRAP itself, not just the table cells: the currency tabs and the FX disclaimer
@@ -2527,7 +2527,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .ratetable__seasonnote {
     display: block;
@@ -2537,7 +2537,7 @@
     letter-spacing: 0.01em;
     text-transform: none;
     line-height: 1.3;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .ratetable__label {
     display: block;
@@ -2551,7 +2551,7 @@
     font-size: var(--text-2xs);
     font-weight: 500;
     line-height: 1.3;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .ratetable__price {
     display: block;
@@ -2571,7 +2571,7 @@
     margin-top: 0.15rem;
     font-size: 0.68rem;
     font-weight: 500;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
 
   /* Worked example + inclusions strip beneath the matrix. */
@@ -2590,7 +2590,7 @@
     font-family: var(--font-body);
     font-size: var(--text-sm);
     line-height: 1.6;
-    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-strong), transparent);
   }
   .rate-includes strong {
     color: var(--color-green);
@@ -2680,7 +2680,7 @@
     font-family: var(--font-body);
     font-size: var(--text-base);
     line-height: 1.55;
-    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-strong), transparent);
   }
   .booking-assure__icon {
     flex-shrink: 0;
@@ -2695,7 +2695,7 @@
     gap: 0.5rem;
     font-family: var(--font-body);
     font-size: var(--text-xs);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .payment-trust__lock {
     display: inline-flex;
@@ -2788,7 +2788,7 @@
   }
   .incl-list--out li::before {
     content: '–';
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
     font-weight: 700;
   }
 
@@ -2824,7 +2824,7 @@
     font-size: var(--text-2xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .policy-table tbody th {
     font-weight: 500;
@@ -2849,7 +2849,7 @@
     font-family: var(--font-body);
     font-size: var(--text-base);
     line-height: 1.6;
-    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-strong), transparent);
   }
 
   /* --- Logistics blocks (Part 8.4) — safety emphasised ---------------------- */
@@ -2934,7 +2934,7 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-earth) 70%, var(--color-ochre));
+    color: color-mix(in srgb, var(--color-earth) var(--tint-muted), var(--color-ochre));
   }
   .notice__body {
     margin-top: 0.35rem;
@@ -2962,7 +2962,7 @@
     font-family: var(--font-body);
     font-size: var(--text-base);
     line-height: 1.55;
-    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-strong), transparent);
   }
   .wildlife-card__list {
     margin-top: 0.9rem;
@@ -3020,7 +3020,7 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-earth) 70%, var(--color-ochre));
+    color: color-mix(in srgb, var(--color-earth) var(--tint-muted), var(--color-ochre));
     margin-top: 0.85rem;
   }
   .season-card__detail dd {
@@ -3170,7 +3170,7 @@
     font-family: var(--font-body);
     font-size: var(--text-base);
     line-height: 1.4;
-    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-strong), transparent);
   }
   /* Veld-green chips, uniform across all three lodges (not the per-card accent). */
   .sanctuary__amenity-icon {
@@ -3342,14 +3342,14 @@
     font-family: var(--font-body);
     font-size: var(--text-sm);
     line-height: 1.55;
-    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-strong), transparent);
   }
   .routemap__note {
     margin-top: 1.25rem;
     font-family: var(--font-body);
     font-size: var(--text-xs);
     font-style: italic;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
 
   /* --- Hero (Part 5.6 / 8.1) ----------------------------------------------- */
@@ -3411,7 +3411,7 @@
     font-weight: 500;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-cream) 85%, var(--color-ochre));
+    color: color-mix(in srgb, var(--color-cream) var(--tint-strong), var(--color-ochre));
   }
   /* The hero pair keeps bespoke clamps — the only two left in the file. The shared ramps top out
      at --text-4xl (2.875rem); putting the hero title on one would cut it from 80px to 46px and
@@ -3561,7 +3561,7 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-earth) 70%, transparent);
+    color: color-mix(in srgb, var(--color-earth) var(--tint-muted), transparent);
   }
   .admin-table tr td:last-child {
     border-bottom: 0;
@@ -3574,7 +3574,7 @@
     display: none;
   }
   .admin-row--overdue {
-    background: color-mix(in srgb, var(--color-day4, #9c5b3b) 12%, transparent);
+    background: color-mix(in srgb, var(--color-day4) 12%, transparent);
   }
 
   /* Un-stack: narrow tables at 640px. */
@@ -3624,7 +3624,7 @@
       font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: color-mix(in srgb, var(--color-earth) 70%, transparent);
+      color: color-mix(in srgb, var(--color-earth) var(--tint-muted), transparent);
     }
   }
 
@@ -3675,7 +3675,7 @@
       font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: color-mix(in srgb, var(--color-earth) 70%, transparent);
+      color: color-mix(in srgb, var(--color-earth) var(--tint-muted), transparent);
     }
   }
 
@@ -3687,7 +3687,7 @@
   .admin-sub {
     display: block;
     font-size: var(--text-xs);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   /* Inline-in-a-sentence link only (the mailto on /admin/enquiries). Interactive elements that
      stand alone use .admin-rowlink / .admin-backlink, which carry a real 44px target; WCAG 2.5.8
@@ -3714,7 +3714,7 @@
     text-decoration: none;
   }
   .admin-rowlink:hover {
-    background: color-mix(in srgb, var(--color-green) 8%, transparent);
+    background: color-mix(in srgb, var(--color-green) var(--tint-subtle), transparent);
   }
   @media (min-width: 1024px) {
     .admin-rowlink {
@@ -3757,15 +3757,15 @@
   }
   .admin-badge--cancelled {
     background: color-mix(in srgb, var(--color-charcoal) 10%, transparent);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   /* Complimentary (gift) booking — payment bypassed; shown alongside the status badge. */
   .admin-badge--comp {
     margin-left: 0.35rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    background: color-mix(in srgb, #9c5b3b 16%, transparent);
-    border-color: color-mix(in srgb, #9c5b3b 45%, transparent);
+    background: color-mix(in srgb, var(--color-day4) var(--tint-soft), transparent);
+    border-color: color-mix(in srgb, var(--color-day4) 45%, transparent);
     color: #7d4227;
   }
   /* Shared/flexible departure — shown alongside the status badge. */
@@ -3773,7 +3773,7 @@
     margin-left: 0.35rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    background: color-mix(in srgb, var(--color-green) 16%, transparent);
+    background: color-mix(in srgb, var(--color-green) var(--tint-soft), transparent);
     border-color: color-mix(in srgb, var(--color-green) 45%, transparent);
     color: var(--color-green);
   }
@@ -3791,7 +3791,7 @@
     font-weight: 600;
   }
   .admin-flag {
-    color: var(--color-day4, #9c5b3b);
+    color: var(--color-day4);
     font-weight: 700;
   }
   .admin-dl {
@@ -3818,7 +3818,7 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-earth) 70%, transparent);
+    color: color-mix(in srgb, var(--color-earth) var(--tint-muted), transparent);
   }
   .admin-dl dd {
     font-family: var(--font-body);
@@ -3884,7 +3884,7 @@
     gap: 1rem;
     font-family: var(--font-body);
     font-size: var(--text-xs);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   /* An email address is one long unbreakable token; without min-width:0 it forces the flex row
      wider than the viewport. */
@@ -3946,7 +3946,7 @@
   }
   .admin-stat--link:hover {
     border-color: color-mix(in srgb, var(--color-ochre) 55%, transparent);
-    background: color-mix(in srgb, var(--color-ochre) 8%, transparent);
+    background: color-mix(in srgb, var(--color-ochre) var(--tint-subtle), transparent);
   }
   .admin-stat--next {
     border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
@@ -3972,7 +3972,7 @@
     font-family: var(--font-body);
     font-size: var(--text-2xs);
     line-height: 1.35;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
   .admin-filters {
     display: grid;
@@ -3993,12 +3993,12 @@
     font-family: var(--font-body);
     font-size: var(--text-xs);
     font-weight: 600;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
     text-decoration: none;
   }
   .admin-filters__tab[aria-current='page'] {
     border-color: color-mix(in srgb, var(--color-ochre) 60%, transparent);
-    background: color-mix(in srgb, var(--color-ochre) 16%, transparent);
+    background: color-mix(in srgb, var(--color-ochre) var(--tint-soft), transparent);
     color: var(--color-earth);
   }
   .admin-filters__search {
@@ -4058,8 +4058,8 @@
     }
   }
   .admin-card--danger {
-    border-color: color-mix(in srgb, #9c2b1b 35%, transparent);
-    background: color-mix(in srgb, #9c2b1b 4%, transparent);
+    border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
+    background: color-mix(in srgb, var(--color-error) 4%, transparent);
   }
   .admin-card__title {
     font-family: var(--font-display);
@@ -4071,7 +4071,7 @@
     font-family: var(--font-body);
     font-size: var(--text-xs);
     line-height: 1.55;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
     overflow-wrap: anywhere;
   }
   .admin-card .form-field {
@@ -4121,7 +4121,7 @@
     margin-top: 0.75rem;
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
 
   /* --- Activity timeline ----------------------------------------------------- */
@@ -4148,7 +4148,7 @@
     border-left-color: color-mix(in srgb, var(--color-green) 55%, transparent);
   }
   .admin-timeline__item--admin {
-    border-left-color: color-mix(in srgb, var(--color-ochre) 70%, transparent);
+    border-left-color: color-mix(in srgb, var(--color-ochre) var(--tint-muted), transparent);
   }
   .admin-timeline__item--note {
     border-left-color: color-mix(in srgb, var(--color-earth) 45%, transparent);
@@ -4159,7 +4159,7 @@
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
     overflow-wrap: anywhere;
   }
   /* The update_contact label interpolates two email addresses into one string, so this must be
@@ -4239,7 +4239,7 @@
     font-family: var(--font-body);
     font-size: var(--text-sm);
     line-height: 1.6;
-    color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-strong), transparent);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
@@ -4255,7 +4255,7 @@
     font-family: var(--font-body);
     font-size: var(--text-xs);
     font-weight: 600;
-    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
     cursor: pointer;
     list-style: none;
   }
@@ -4263,8 +4263,8 @@
     display: none;
   }
   .admin-remove[open] .admin-remove__summary {
-    border-color: color-mix(in srgb, #9c2b1b 40%, transparent);
-    color: #9c2b1b;
+    border-color: color-mix(in srgb, var(--color-error) var(--tint-medium), transparent);
+    color: var(--color-error);
   }
   .admin-remove__panel {
     margin-top: 0.6rem;
@@ -4304,7 +4304,7 @@
     border: 1px solid color-mix(in srgb, var(--color-ochre) 45%, transparent);
     border-left: 4px solid var(--color-ochre);
     border-radius: 0 1rem 1rem 0;
-    background-color: color-mix(in srgb, var(--color-ochre) 8%, var(--color-cream));
+    background-color: color-mix(in srgb, var(--color-ochre) var(--tint-subtle), var(--color-cream));
     padding: 1.1rem 1.35rem;
   }
   .beta-notice__eyebrow {
