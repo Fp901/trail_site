@@ -209,6 +209,28 @@ Three remain after `#9c5b3b` (6 sites) and `#9c2b1b` (7 sites) were tokenised, a
 
 **Verdict: proceed, but fix the dependency first** — raise `.admin-inq__toggle` to `.admin-inq .admin-inq__toggle` (0,2,0) in the same commit that moves it. Order then stops mattering and the split is safe. **Do this last (step 9)**, and confirm in the built output that no `.admin-` selector appears in the public route bundles.
 
+### Outcome (step 9)
+
+**The plan under-counted the order-dependencies: there were two, not one.** The first pass looked for property overlap between admin rules and shared classes, which over-reports (it flags `.admin-table` vs `.btn`, which never share an element). Re-derived from the markup instead — elements literally carrying both a shared class and an `.admin-*` class — gives five candidates, of which **two** genuinely contest `.btn` at equal specificity and were winning on source order alone:
+
+| element | contested properties | fix |
+|---|---|---|
+| `.admin-inq__toggle` | `min-height`, `padding`, `font-size` | → `.admin-inq .admin-inq__toggle` |
+| `.admin-nav__out` | `flex`, `min-height`, `padding`, `font-size` | → `.admin-nav__session .admin-nav__out` |
+| `.admin-card__btn` | `margin-top` only — `.btn` doesn't set it | safe, untouched |
+| `.admin-filters__new` | `width` — no equal-specificity `.btn` rule sets it | safe, untouched |
+| `.admin-unblock` | no single-class rule at all | safe, untouched |
+
+**The ordering risk was real, not theoretical.** The built SSR route manifest lists the stylesheets for `/admin/*` as `admin.css` **first**, then `Section.css` (global) — i.e. Astro emits the page-level sheet *before* the layout-level one, the opposite of what source order would suggest. Both defences were therefore load-bearing: the two rules now win on specificity, and `admin.css` opens with an explicit `@layer properties, theme, base, components, utilities;` so it cannot re-establish layer order when it loads first. Both verified present in the minified output.
+
+**Result:** `global.css` 4,430 → 3,632 lines; `admin.css` 828 lines (15,309 bytes minified) no longer ships to public visitors. Verified per-page: all six public routes link only the public bundle and contain **zero** `.admin-` selectors, while the admin routes link both.
+
+`scripts/verify-admin.mjs` had 24 assertions reading `src/styles/global.css`; only the path changed, and the `ADMIN: start/end` sentinels moved with the block so the assertions still bracket it.
+
+### Screenshot harness note
+
+The step-8→9 comparison initially showed two mobile pages differing, which looked like a regression: the footer logo was missing and the page was 1px shorter. It was a **lazy-load capture artifact**, not a code change — the DOM showed the logo present, `complete`, `naturalWidth: 160`. The same class of false positive appeared at the very start of this pass (blank lodge cards). The capture script now forces `loading="eager"`, awaits every image's `load`/`error`, and awaits `document.fonts.ready` before shooting, so screenshot diffs can be trusted as evidence rather than re-investigated each time.
+
 ---
 
 ## Phase 3 — Token block

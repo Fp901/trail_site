@@ -3,6 +3,7 @@
 // prerender=false; gated server-side. Bypasses payment deliberately: the reason is required,
 // the action is audit-logged in the admin's name, and every admin receives an alert email.
 import Layout from '../../../layouts/Layout.astro';
+import '../../../styles/admin.css';
 import Section from '../../../components/Section.astro';
 import AdminNav from '../../../components/AdminNav.astro';
 import { getAdminUser } from '../../../lib/auth';

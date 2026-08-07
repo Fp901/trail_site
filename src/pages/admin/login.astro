@@ -4,6 +4,7 @@
 // The form submits via the typed adminLogin Action, which sets the httpOnly session cookies
 // server-side; the real gate is the server-side getAdminUser() check on every other admin page.
 import Layout from '../../layouts/Layout.astro';
+import '../../styles/admin.css';
 import Section from '../../components/Section.astro';
 import { getAdminUser } from '../../lib/auth';
 import { withBase } from '../../data/site';

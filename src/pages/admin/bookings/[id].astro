@@ -5,6 +5,7 @@
 // (payment_events + admin_audit). All mutations go through zod-validated admin actions that
 // re-verify the session and write the append-only audit log. Nothing here can delete a record.
 import Layout from '../../../layouts/Layout.astro';
+import '../../../styles/admin.css';
 import Section from '../../../components/Section.astro';
 import AdminNav from '../../../components/AdminNav.astro';
 import { getAdminUser } from '../../../lib/auth';

@@ -259,7 +259,10 @@ assert('auditLabel has a never-typed default (a new action breaks the build)', /
 // ---------------------------------------------------------------------------------------------
 section('6. The data-label contract that the mobile cards depend on');
 
-const css = read('src/styles/global.css');
+// The admin rules moved out of global.css into their own stylesheet so ~15 KB of dashboard CSS
+// stops shipping to every public visitor. Every assertion below is unchanged — only the file it
+// reads. The ADMIN: start/end sentinels came along with the block and still bracket it.
+const css = read('src/styles/admin.css');
 assert('the CSS actually prints the label', /content:\s*attr\(data-label\)/.test(css));
 
 const tablePages = ['src/pages/admin/index.astro', 'src/pages/admin/dates.astro'];
