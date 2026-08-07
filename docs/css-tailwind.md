@@ -60,13 +60,14 @@ Grouped by area, with the line each section banner starts at (`global.css:N`) so
 - `.resume-prompt*` — abandoned-checkout resume banner (`:903`)
 - `.bform*`, `.form-field*`, `.form-hint`/`.form-error` — shared form primitives (`:927`)
 - `.bstep*` — the 5-step guided accordion; `is-current`/`is-done`/`is-locked` state classes only apply once JS adds `.bform--stepped`, so the form degrades to a plain long-scroll form without JS (`:1039`, `:1183`)
-- `.boption*` — Step 1 option-comparison cards (`:1101`)
-- `.btrip*` — Step 5 trip summary, one line per night (`:1251`)
-- `.bwalkers*`, `.bstyle*`, `.bsolo*`, `.blink` — Step 1 group-size/catering-style pickers (`:1309`)
-- `.bjoin-list`, `.bjoin-card*`, `.bjoin-empty*` — party-of-1-3 "join a departure" list (`:1513`)
+- ⚠️ `.boption*` — option-comparison cards (`:1101`). **Dead CSS: 12 rules with no markup anywhere in the repo** (not in `BookingWidget.astro`, not generated in JS). Verified by searching the whole tree; the only surviving reference was this document. Candidate for deletion.
+- `.btrip*` — **step 5** trip summary, one line per night (`:1251`)
+- `.bwalkers*`, `.bsolo*`, `.blink` — **step 1**, "Your group" (walker-count chips + the solo path) (`:1309`)
+- `.bstyle*` — **step 2**, "Booking type" (catered / self-catered cards). Note the `/* --- Step 1: your group (walkers / style / private buyout) --- */` banner above this block in `global.css` is stale — the style cards moved to step 2 in the markup and the banner was never updated.
+- `.bjoin-list`, `.bjoin-card*`, `.bjoin-empty*` — **step 3**, party-of-1-3 "join a departure" list (`:1513`)
 - `.bmodal*` — native `<dialog>`-based policy modal (`:1595`)
-- `.bcatchoice*` — two-way catering prompt under the calendar (`:1466`)
-- Availability calendar (`:1784`) and its 5 cell-state colour codings (`:1912`)
+- `.bcatchoice*` — **step 3**, two-way catering prompt under the calendar (`:1466`)
+- Availability calendar — **step 3** (`:1784`) and its 5 cell-state colour codings (`:1912`)
 - Date preview panel (`:2007`), pre-trip details form (`:2216`)
 
 **Rates & trust**
