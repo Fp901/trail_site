@@ -3,6 +3,8 @@ dist/
 .vercel/
 # generated types
 .astro/
+# design-pass before/after screenshots (large binaries, regenerate with Playwright)
+.design-pass/
 
 # dependencies
 node_modules/

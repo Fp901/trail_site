@@ -20,6 +20,13 @@
   --color-charcoal: #2c2c2c; /* body text */
   --color-cream: #f5f0e6; /* backgrounds / cards */
   --color-hairline: rgba(61, 43, 31, 0.1); /* hairline borders over heavy shadow */
+  /* Deepened ochre = color-mix(ochre 70%, earth), resolved to a literal so @theme can generate
+     utilities from it. Ochre itself is only 2.59:1 on white and 2.28:1 on cream, so it cannot
+     carry SELECTION STATE or a checked-control indicator (WCAG 1.4.11 wants 3:1). This clears it
+     on every ground it is used against: white 4.03:1, cream 3.55:1, ochre-10% fill 3.71:1,
+     ochre-18% fill 3.47:1 — while still reading as the same warm gold. Decorative ochre (rules,
+     scrims, backgrounds, hover) keeps using --color-ochre. */
+  --color-ochre-deep: #997954;
 
   /* Route-map day colours (Part 5.4 / Part 8.6) */
   --color-day2: #c19a6b; /* Day 2 — ochre */
@@ -98,11 +105,28 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Elegant, clearly-visible OCHRE focus everywhere (Part 5.7 / Definition of Done #3). */
+  /* Focus ring (Part 5.7 / Definition of Done #3). Ochre was the ring until this pass, but ochre
+     on cream is 2.28:1 and on white 2.59:1 — under the 3:1 WCAG minimum for a non-text indicator,
+     on the site's two dominant grounds. No single brand colour clears 3:1 on BOTH cream and earth
+     (they sit near opposite ends of the lightness range), so the ring is context-aware instead:
+     earth by default, cream on dark surfaces. Earth on cream = 11.82:1, cream on earth = 11.82:1.
+     Ochre is now reserved for hover, never for focus. */
   :focus-visible {
-    outline: 2px solid var(--color-ochre);
+    outline: 2px solid var(--color-earth);
     outline-offset: 3px;
     border-radius: 2px;
+  }
+  /* Dark surfaces — every container that paints earth (or an image + earth scrim) behind its own
+     focusable children. Listed explicitly rather than inherited, because the ring colour has to
+     flip on the CONTAINER, not the focused element. */
+  .hero :focus-visible,
+  .mobile-menu :focus-visible,
+  .statement-band :focus-visible,
+  .logblock--safety :focus-visible,
+  .bg-earth :focus-visible,
+  footer :focus-visible,
+  .site-header[data-over-hero='true']:not([data-scrolled='true']) :focus-visible {
+    outline-color: var(--color-cream);
   }
 
   ::selection {
@@ -186,10 +210,8 @@
     background-color: color-mix(in srgb, var(--color-ochre) 88%, var(--color-earth));
     transform: translateY(-1px);
   }
-  .nav-cta:focus-visible {
-    outline: 2px solid var(--color-ochre);
-    outline-offset: 3px;
-  }
+  /* No .nav-cta:focus-visible rule: it was byte-identical to the base ring, and the header's
+     over-hero (dark) state is already handled by the context rule in @layer base. */
 
   /* Mobile-menu booking CTA (sits between the links and the contact block). */
   .mobile-menu__cta {
@@ -694,7 +716,7 @@
   }
   .testimonial__loc {
     font-weight: 400;
-    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
 
   /* --- Homepage: Google review band (only when URL set) ------------------- */
@@ -706,7 +728,8 @@
   .greview__stars {
     display: inline-flex;
     gap: 0.2rem;
-    color: var(--color-ochre);
+    /* A graphic conveying a rating, on cream — 1.4.11 applies, and plain ochre is 2.28:1 here. */
+    color: var(--color-ochre-deep);
   }
   .greview__title {
     margin-top: 1rem;
@@ -798,7 +821,7 @@
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .daycard__num {
     font-family: var(--font-display);
@@ -850,7 +873,7 @@
     padding: 0.25rem 0.55rem;
   }
   .daycard__distance--rest {
-    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
     border-color: var(--color-hairline);
   }
   .daycard__route {
@@ -897,7 +920,7 @@
     font-family: var(--font-body);
     font-size: 0.75rem;
     letter-spacing: 0.01em;
-    color: color-mix(in srgb, var(--color-charcoal) 62%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
 
   /* --- Abandoned-checkout resume prompt (Booking v3.0) ---------------------- */
@@ -1012,14 +1035,14 @@
   .form-field input:focus-visible,
   .form-field select:focus-visible,
   .form-field textarea:focus-visible {
-    outline: 2px solid var(--color-ochre);
+    outline: 2px solid var(--color-earth);
     outline-offset: 1px;
     border-color: var(--color-ochre);
   }
   /* ---- Inline hints and validation errors --------------------------------- */
   .form-hint {
     font-size: 0.78rem;
-    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
     line-height: 1.4;
   }
   .form-error {
@@ -1080,7 +1103,7 @@
     margin-top: 0.75rem;
     font-family: var(--font-body);
     font-size: 0.78rem;
-    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
 
   /* ---- Radios (still used by the admin comp-booking form) ------------------ */
@@ -1125,7 +1148,7 @@
     background-color: color-mix(in srgb, var(--color-ochre) 10%, #fff);
   }
   .boption:has(input:focus-visible) {
-    outline: 2px solid var(--color-ochre);
+    outline: 2px solid var(--color-earth);
     outline-offset: 1px;
   }
   .boption--lowest {
@@ -1137,7 +1160,7 @@
   }
   .boption input[type='radio'] {
     margin-top: 0.2rem;
-    accent-color: var(--color-ochre);
+    accent-color: var(--color-ochre-deep);
     flex-shrink: 0;
   }
   .boption__body {
@@ -1291,7 +1314,7 @@
     overflow-wrap: anywhere;
   }
   .btrip__date {
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   /* The final row is a departure, not a night — set apart with a rule rather than a fourth
      night-numbered line, which would misstate the trip as 4 nights. */
@@ -1361,11 +1384,13 @@
     transition: border-color 150ms ease, background-color 150ms ease;
   }
   .bwalkers__opt input:checked + span {
-    border-color: var(--color-ochre);
+    /* The radio itself is opacity:0 here, so this border + fill ARE the selected state — it has to
+       clear 3:1 (ochre alone is 2.59:1 on white). Deepened; the fill stays ochre. */
+    border-color: var(--color-ochre-deep);
     background-color: color-mix(in srgb, var(--color-ochre) 18%, #fff);
   }
   .bwalkers__opt input:focus-visible + span {
-    outline: 2px solid var(--color-ochre);
+    outline: 2px solid var(--color-earth);
     outline-offset: 2px;
   }
   .bwalkers__solo {
@@ -1427,7 +1452,7 @@
     width: 1.15rem;
     height: 1.15rem;
     margin: 0;
-    accent-color: var(--color-ochre);
+    accent-color: var(--color-ochre-deep);
     cursor: pointer;
   }
   .bstyle__card:has(input:checked) {
@@ -1435,7 +1460,7 @@
     background-color: color-mix(in srgb, var(--color-ochre) 10%, #fff);
   }
   .bstyle__card:has(input:focus-visible) {
-    outline: 2px solid var(--color-ochre);
+    outline: 2px solid var(--color-earth);
     outline-offset: 1px;
   }
   .bstyle__body {
@@ -1506,7 +1531,7 @@
     background-color: color-mix(in srgb, var(--color-ochre) 14%, #fff);
   }
   .bcatchoice__opt input {
-    accent-color: var(--color-ochre);
+    accent-color: var(--color-ochre-deep);
     flex-shrink: 0;
   }
 
@@ -1537,11 +1562,12 @@
     background-color: color-mix(in srgb, var(--color-ochre) 10%, #fff);
   }
   .bjoin-card:focus-visible {
-    outline: 2px solid var(--color-ochre);
+    outline: 2px solid var(--color-earth);
     outline-offset: 1px;
   }
   .bjoin-card.is-selected {
-    border-color: var(--color-ochre);
+    /* A <button> with no radio: border + fill are the only selected-state cues, so 3:1 applies. */
+    border-color: var(--color-ochre-deep);
     background-color: color-mix(in srgb, var(--color-ochre) 12%, #fff);
   }
   .bjoin-card__body {
@@ -1572,7 +1598,7 @@
     font-family: var(--font-body);
     font-size: 0.68rem;
     font-weight: 500;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .bjoin-empty {
     margin-top: 1.1rem;
@@ -1723,7 +1749,7 @@
   .bform__deposit-hint {
     margin-top: 0.5rem;
     font-size: 0.8rem;
-    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
     font-family: var(--font-body);
     line-height: 1.5;
   }
@@ -1766,7 +1792,7 @@
     font-family: var(--font-body);
     font-size: 0.8rem;
     line-height: 1.5;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .bform__privacy a {
     color: var(--color-earth);
@@ -1878,7 +1904,7 @@
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .bcal__cell {
     aspect-ratio: 1 / 1;
@@ -1991,7 +2017,7 @@
   .bcal__cell--started:focus-visible,
   .bcal__cell--exclusive:focus-visible,
   .bcal__cell--locked:focus-visible {
-    outline: 2px solid var(--color-ochre);
+    outline: 2px solid var(--color-earth);
     outline-offset: 2px;
   }
   /* Selection is marked by weight and a ring as well as fill, so it survives a colour-blind or
@@ -2274,10 +2300,10 @@
     width: 1.15rem;
     height: 1.15rem;
     margin-top: 0.15rem;
-    accent-color: var(--color-ochre);
+    accent-color: var(--color-ochre-deep);
   }
   .pretrip-check em {
-    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .pretrip-success {
     border: 1px solid color-mix(in srgb, var(--color-green) 35%, transparent);
@@ -2356,7 +2382,7 @@
     color: var(--color-cream);
   }
   .ratetable__curbtn:has(input:focus-visible) {
-    outline: 2px solid var(--color-ochre);
+    outline: 2px solid var(--color-earth);
     outline-offset: 2px;
   }
   .ratetable__fxnote {
@@ -2367,7 +2393,7 @@
     font-family: var(--font-body);
     font-size: 0.75rem;
     line-height: 1.55;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
 
   /* Padding on the WRAP itself, not just the table cells: the currency tabs and the FX disclaimer
@@ -2443,7 +2469,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .ratetable__seasonnote {
     display: block;
@@ -2453,7 +2479,7 @@
     letter-spacing: 0.01em;
     text-transform: none;
     line-height: 1.3;
-    color: color-mix(in srgb, var(--color-charcoal) 50%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .ratetable__label {
     display: block;
@@ -2467,7 +2493,7 @@
     font-size: 0.72rem;
     font-weight: 500;
     line-height: 1.3;
-    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .ratetable__price {
     display: block;
@@ -2487,7 +2513,7 @@
     margin-top: 0.15rem;
     font-size: 0.68rem;
     font-weight: 500;
-    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
 
   /* Worked example + inclusions strip beneath the matrix. */
@@ -2611,7 +2637,7 @@
     gap: 0.5rem;
     font-family: var(--font-body);
     font-size: 0.8rem;
-    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .payment-trust__lock {
     display: inline-flex;
@@ -2704,7 +2730,7 @@
   }
   .incl-list--out li::before {
     content: '–';
-    color: color-mix(in srgb, var(--color-charcoal) 50%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
     font-weight: 700;
   }
 
@@ -2740,7 +2766,7 @@
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .policy-table tbody th {
     font-weight: 500;
@@ -3265,7 +3291,7 @@
     font-family: var(--font-body);
     font-size: 0.8125rem;
     font-style: italic;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
 
   /* --- Hero (Part 5.6 / 8.1) ----------------------------------------------- */
@@ -3598,7 +3624,7 @@
   .admin-sub {
     display: block;
     font-size: 0.8rem;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   /* Inline-in-a-sentence link only (the mailto on /admin/enquiries). Interactive elements that
      stand alone use .admin-rowlink / .admin-backlink, which carry a real 44px target; WCAG 2.5.8
@@ -3795,7 +3821,7 @@
     gap: 0.9rem;
     font-family: var(--font-body);
     font-size: 0.8rem;
-    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   /* An email address is one long unbreakable token; without min-width:0 it forces the flex row
      wider than the viewport. */
@@ -3883,7 +3909,7 @@
     font-family: var(--font-body);
     font-size: 0.75rem;
     line-height: 1.35;
-    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .admin-filters {
     display: grid;
@@ -3982,7 +4008,7 @@
     font-family: var(--font-body);
     font-size: 0.8rem;
     line-height: 1.55;
-    color: color-mix(in srgb, var(--color-charcoal) 62%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
     overflow-wrap: anywhere;
   }
   .admin-card .form-field {
@@ -4032,7 +4058,7 @@
     margin-top: 0.75rem;
     font-family: var(--font-body);
     font-size: 0.875rem;
-    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
 
   /* --- Activity timeline ----------------------------------------------------- */
@@ -4070,7 +4096,7 @@
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-charcoal) 55%, transparent);
+    color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
     overflow-wrap: anywhere;
   }
   /* The update_contact label interpolates two email addresses into one string, so this must be
