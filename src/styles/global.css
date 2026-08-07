@@ -412,7 +412,7 @@
     display: block;
     padding: 0.75rem 0;
     font-family: var(--font-display);
-    font-size: clamp(1.75rem, 8vw, 2.5rem);
+    font-size: var(--text-3xl);
     color: var(--color-cream);
     text-decoration: none;
     transition: color 200ms ease;
@@ -555,7 +555,7 @@
   .teaser__title {
     margin-top: 0.5rem;
     font-family: var(--font-display);
-    font-size: clamp(1.5rem, 3.5vw, 1.875rem);
+    font-size: var(--text-2xl);
     color: var(--color-earth);
     transition: color 200ms ease;
   }
@@ -621,7 +621,7 @@
     max-width: 32ch;
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(1.5rem, 3.4vw, 2.4rem);
+    font-size: var(--text-3xl);
     line-height: 1.25;
     letter-spacing: -0.01em;
     color: var(--color-cream);
@@ -792,7 +792,7 @@
   .greview__title {
     margin-top: 1rem;
     font-family: var(--font-display);
-    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-size: var(--text-2xl);
     color: var(--color-earth);
   }
   .greview__body {
@@ -884,7 +884,7 @@
   .daycard__num {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(2rem, 6vw, 3rem);
+    font-size: var(--text-4xl);
     line-height: 1;
     color: var(--accent-ink, var(--accent));
     /* cream backing breaks the rail at each numeral (the "strung" look) */
@@ -915,7 +915,7 @@
   }
   .daycard__title {
     font-family: var(--font-display);
-    font-size: clamp(1.35rem, 4vw, 1.75rem);
+    font-size: var(--text-2xl);
     color: var(--color-earth);
   }
   .daycard__distance {
@@ -2658,7 +2658,7 @@
   .launch-banner__lead {
     margin-top: 0.5rem;
     font-family: var(--font-display);
-    font-size: clamp(1.25rem, 3vw, 1.6rem);
+    font-size: var(--text-xl);
     line-height: 1.25;
     color: var(--color-earth);
   }
@@ -2868,7 +2868,7 @@
   .logblock__title {
     margin-top: 0.5rem;
     font-family: var(--font-display);
-    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-size: var(--text-2xl);
     color: var(--color-earth);
   }
   .logblock__body {
@@ -3126,7 +3126,7 @@
   .sanctuary__name {
     margin-top: 0.5rem;
     font-family: var(--font-display);
-    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-size: var(--text-4xl);
     color: var(--color-earth);
   }
   .sanctuary__context {
@@ -3413,6 +3413,11 @@
     text-transform: uppercase;
     color: color-mix(in srgb, var(--color-cream) 85%, var(--color-ochre));
   }
+  /* The hero pair keeps bespoke clamps — the only two left in the file. The shared ramps top out
+     at --text-4xl (2.875rem); putting the hero title on one would cut it from 80px to 46px and
+     flatten the single strongest focal point on the site, which is the opposite of what this pass
+     is for (Part 5.6: "large distinctive type"). It sits above every ramp at every width, so it
+     cannot participate in an ordering inversion. Verified across 390-1440px. */
   .hero__title {
     margin-top: 1rem;
     max-width: 18ch;
@@ -3481,7 +3486,7 @@
   .statsbar__value {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    font-size: var(--text-3xl);
     line-height: 1;
     color: var(--color-cream);
   }
