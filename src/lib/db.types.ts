@@ -60,6 +60,10 @@ export const PAYMENT_EVENT_TYPES = [
   'balance_amount_mismatch',
   'balance_inconsistent',
   'manual_balance_paid',
+  // The payment succeeded and the booking is confirmed, but the operator-notification email
+  // failed to send — durable, queryable evidence of a real confirmed booking the operator was
+  // never told about (nothing else retries or surfaces this failure; see webhook.ts).
+  'operator_notification_failed',
 ] as const;
 export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
 

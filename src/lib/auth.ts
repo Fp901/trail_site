@@ -4,8 +4,10 @@
 //
 // Session is stored in two httpOnly, SameSite=Lax cookies (never readable by JS, so XSS cannot
 // exfiltrate them). Every admin page calls getAdminUser() server-side — there is NO client-side-only
-// gate. If ADMIN_EMAIL is set, only that address may sign in (defence-in-depth: even a stray
-// Supabase Auth user cannot reach the dashboard).
+// gate. ADMIN_EMAILS (or the legacy singular ADMIN_EMAIL) gates who may sign in — a comma-separated
+// allowlist, case-insensitive. FAILS CLOSED: if neither is set, nobody may sign in, matching the
+// same fail-closed convention CRON_SECRET already uses in the two cron routes. An empty allowlist
+// must never mean "any Supabase Auth user is an admin."
 import type { AstroCookies } from 'astro';
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 
@@ -48,14 +50,13 @@ export function clearSessionCookies(cookies: AstroCookies): void {
   cookies.delete(REFRESH, { path: '/' });
 }
 
-// Returns true only if no ADMIN_EMAIL(S) is set (any auth user allowed) or the signed-in email is
-// in the comma-separated allow-list (case-insensitive). Supports both ADMIN_EMAILS (preferred) and
-// the legacy ADMIN_EMAIL single-value variable.
+// FAIL CLOSED: an unset or empty allowlist rejects every sign-in, never admits one. Supports both
+// ADMIN_EMAILS (preferred, comma-separated) and the legacy single-value ADMIN_EMAIL.
 function isAllowedAdmin(email: string | undefined): boolean {
   const raw = (import.meta.env.ADMIN_EMAILS ?? import.meta.env.ADMIN_EMAIL ?? '').trim();
-  if (!raw) return true;
+  if (!raw) return false;
   const allowed = raw.split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean);
-  if (allowed.length === 0) return true;
+  if (allowed.length === 0) return false;
   return !!email && allowed.includes(email.trim().toLowerCase());
 }
 

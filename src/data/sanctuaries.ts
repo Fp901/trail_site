@@ -33,17 +33,6 @@ export interface Sanctuary {
   amenities: LodgeAmenity[];
 }
 
-// Shared across all three sanctuaries (2026 brief).
-export const sanctuaryAmenities = [
-  'Swimming pool',
-  'Fully equipped kitchen & refrigeration',
-  'Barbeque facilities',
-  'Safe drinking water',
-  'Ice',
-  'Wood',
-  'Bedding',
-  'Free WiFi',
-];
 
 export const sanctuaries: Sanctuary[] = [
   {

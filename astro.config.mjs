@@ -61,15 +61,13 @@ export default defineConfig({
 
   integrations: [
     sitemap({
-      // Exclude transactional API + booking routes (Part 10.1). /privacy is excluded only
-      // while it is a noindex stub — re-include it once the real policy lands.
+      // Exclude transactional API + booking routes (Part 10.1).
       filter: (page) =>
         !page.includes('/api/') &&
         !page.includes('/booking/') &&
         !page.includes('/pretrip') &&
         !page.includes('/trip-info') &&
-        !page.includes('/admin') &&
-        !page.includes('/privacy'),
+        !page.includes('/admin'),
     }),
   ],
 

@@ -320,6 +320,18 @@ export const POST: APIRoute = async ({ request }) => {
       });
     } catch (err) {
       console.error('[webhook] operator notification email failed', err);
+      // Nothing else ever retries this email or surfaces its failure — unlike the balance-link
+      // and pre-trip-reminder flows, there's no _sent column and no cron sweep for it. Without
+      // this, a Resend outage at exactly the wrong moment means a real confirmed, paying booking
+      // could go completely unnoticed by the operator with zero trace beyond a serverless log
+      // line. This leaves a durable, queryable record instead — visible on the booking's own
+      // admin timeline, which already renders payment_events.
+      await recordPaymentEvent({
+        eventType: 'operator_notification_failed',
+        bookingId: booking.id,
+        processorReference: reference,
+        detail: { error: (err as Error).message },
+      });
     }
 
     // Payment receipt — sent after the confirmation so the guest receives confirmation first.

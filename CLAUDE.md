@@ -276,7 +276,7 @@ Reusable, typed (TS interfaces). Treatment per Part 5.
 
 Source of truth for the website = the 13 June memo. Reproduce given strings **verbatim**. Bulk data lives typed in `src/data/*.ts`.
 
-**Global strings (`site.ts`):** name "The Rooiberg Wander"; operator "RoiSan Reserve NPC"; location "RoiSan Reserve, Limpopo Waterberg, South Africa"; terrain ~8,000 ha; hook **"Bring your own flavor; we take care of the rest."**; max 10 guests; operator notify email `hanlie@rooibergwander.co.za` *(corrected from original brief)*.
+**Global strings (`site.ts`):** name "Rooiberg Wander"; operator "Rooiberg Wander"; location "Rooiberg, Limpopo, South Africa"; terrain ~15,000 ha; hook **"A luxury private walking safari, ideal for families, groups of friends or corporate team-building."**; max 10 guests; operator notify email `hanlie@rooibergwander.co.za` *(corrected from original brief)*.
 **Nav:** Home · The Trail · The Sanctuaries · Trail Logistics &amp; FAQ · Rates &amp; Booking.
 
 ### 8.1 Home (`/`)

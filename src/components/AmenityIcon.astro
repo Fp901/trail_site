@@ -1,18 +1,10 @@
 ---
 // AmenityIcon — small inline-SVG icon set for lodge amenities (Part 5.2: no generic icon
 // libraries; hand-drawn 24px strokes that inherit currentColor so each card's accent applies).
+import type { AmenityIconName } from '../data/sanctuaries';
+
 interface Props {
-  name:
-    | 'parking'
-    | 'pool'
-    | 'suite'
-    | 'kitchen'
-    | 'barbeque'
-    | 'water'
-    | 'ice'
-    | 'wood'
-    | 'wifi'
-    | 'view';
+  name: AmenityIconName;
   size?: number;
 }
 const { name, size = 20 } = Astro.props;

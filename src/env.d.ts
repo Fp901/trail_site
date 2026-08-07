@@ -22,7 +22,9 @@ interface ImportMetaEnv {
   readonly BOOKING_DEPOSIT_PERCENT?: string;
   readonly HOLD_MINUTES?: string;
   readonly CRON_SECRET?: string;
-  // Operator dashboard (Part 3): if set, only this email may sign in.
+  // Operator dashboard (Part 3): comma-separated allowlist (preferred) — only these emails may sign in.
+  readonly ADMIN_EMAILS?: string;
+  // Legacy single-value form of the above; still read as a fallback.
   readonly ADMIN_EMAIL?: string;
 }
 interface ImportMeta {

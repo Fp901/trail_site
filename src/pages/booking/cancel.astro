@@ -1,29 +1,92 @@
 ---
 // Booking cancel / abandoned checkout (Part 9.2). prerender=false. Releases the hold by marking
 // a still-pending booking cancelled. Resilient when Supabase isn't configured yet.
+//
+// This page is reached from two genuinely different situations, and used to show the same
+// message for both — which was FALSE for the second one:
+//   1. A guest abandons/declines their ORIGINAL (deposit/full) checkout. The booking is still
+//      `pending`; this page cancels it and releases the hold. "Not completed, dates released"
+//      is correct here.
+//   2. A guest abandons/declines a BALANCE payment (the second, later payment on an already
+//      CONFIRMED booking). Nothing about their trip has changed — the booking stays confirmed,
+//      dates stay reserved — only the balance top-up didn't go through. The old code looked up
+//      only `processor_reference` (never matching a balance reference) and unconditionally
+//      rendered "not completed, dates released" regardless, which told a guest with a fully
+//      intact confirmed trip that they'd lost it.
 import Layout from '../../layouts/Layout.astro';
 import Section from '../../components/Section.astro';
 import { getSupabaseAdmin } from '../../lib/supabase';
+import { site } from '../../data/site';
+import { rateLimit, clientIp } from '../../lib/ratelimit';
 
 export const prerender = false;
 
 const reference = Astro.url.searchParams.get('reference') ?? Astro.url.searchParams.get('trxref');
-if (reference) {
+
+type Outcome = 'cancelled' | 'still-confirmed' | 'unknown';
+let outcome: Outcome = 'unknown';
+
+// Same key/budget the now-removed cancelPendingCheckout action used (10/min) — this GET page is
+// the one actually reachable from a real checkout abandonment, so the limit belongs here.
+const withinLimit = reference
+  ? await rateLimit(`cancel:min:${clientIp(Astro.request)}`, 10, 60)
+  : true;
+
+if (reference && withinLimit) {
   try {
     const supabase = getSupabaseAdmin();
-    await supabase
+
+    // Only ever cancel a still-PENDING booking matched by the ORIGINAL reference. A confirmed
+    // booking (found only via balance_processor_reference, or already flipped by the webhook)
+    // must never be touched by this page.
+    const { data: updated } = await supabase
       .from('bookings')
       .update({ status: 'cancelled', hold_expires_at: null })
       .eq('processor_reference', reference)
-      .eq('status', 'pending');
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
+
+    if (updated) {
+      outcome = 'cancelled';
+    } else {
+      // Not a pending original booking — either it's a balance reference, or the row is in some
+      // other state (already cancelled, already confirmed by the webhook in the meantime). Look
+      // up read-only, by either column, to say something true rather than assume.
+      let data: { status: string } | null = null;
+      const byDeposit = await supabase
+        .from('bookings')
+        .select('status')
+        .eq('processor_reference', reference)
+        .maybeSingle();
+      data = byDeposit.data;
+      if (!data) {
+        const byBalance = await supabase
+          .from('bookings')
+          .select('status')
+          .eq('balance_processor_reference', reference)
+          .maybeSingle();
+        data = byBalance.data;
+      }
+      if (data?.status === 'confirmed') {
+        outcome = 'still-confirmed';
+      } else if (data?.status === 'cancelled') {
+        outcome = 'cancelled';
+      }
+      // Otherwise leave 'unknown' — an unrecognised reference, or a race. Render the neutral
+      // fallback below rather than assert something we can't confirm.
+    }
   } catch {
-    // Not configured yet, or already handled — nothing to surface to the user.
+    // Not configured yet, or a transient error — leave 'unknown', render the neutral fallback.
   }
 }
+
+const heading =
+  outcome === 'still-confirmed' ? 'Your booking is still confirmed' : 'Your booking was not completed';
 ---
 
 <Layout
-  title="Booking cancelled | Rooiberg Wander"
+  title={`${heading} | Rooiberg Wander`}
   description="Your Rooiberg Wander booking was not completed."
   path="/booking/cancel"
   noindex={true}
@@ -31,16 +94,41 @@ if (reference) {
   <Section bg="cream" labelledby="cancel-heading" space="lg">
     <div class="max-w-2xl">
       <h1 id="cancel-heading" class="font-display text-4xl text-earth sm:text-5xl">
-        Your booking was not completed
+        {heading}
       </h1>
-      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
-        No payment was taken and the dates have been released. You’re welcome to try again
-        whenever you’re ready.
-      </p>
-      <p class="mt-8 flex flex-wrap gap-4">
-        <a href="/rates" class="btn btn-primary">Back to rates &amp; booking</a>
-        <a href="/" class="btn btn-secondary">Return home</a>
-      </p>
+      {
+        outcome === 'still-confirmed' ? (
+          <>
+            <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+              Your trip is still booked — nothing about your confirmed dates has changed. It looks
+              like the balance payment wasn’t completed. You can use the secure payment link we
+              emailed you to try again whenever you’re ready.
+            </p>
+            <p class="mt-8 flex flex-wrap gap-4">
+              <a
+                href={site.contact.whatsappUrl}
+                target="_blank"
+                rel="noopener"
+                class="btn btn-primary"
+              >
+                Message us on WhatsApp
+              </a>
+              <a href="/" class="btn btn-secondary">Return home</a>
+            </p>
+          </>
+        ) : (
+          <>
+            <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+              No payment was taken and the dates have been released. You’re welcome to try again
+              whenever you’re ready.
+            </p>
+            <p class="mt-8 flex flex-wrap gap-4">
+              <a href="/rates" class="btn btn-primary">Back to rates &amp; booking</a>
+              <a href="/" class="btn btn-secondary">Return home</a>
+            </p>
+          </>
+        )
+      }
     </div>
   </Section>
 </Layout>

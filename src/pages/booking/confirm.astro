@@ -18,6 +18,7 @@ import Section from '../../components/Section.astro';
 import { payments } from '../../lib/payments';
 import { getSupabaseAdmin } from '../../lib/supabase';
 import { withBase } from '../../data/site';
+import { rateLimit, clientIp } from '../../lib/ratelimit';
 
 export const prerender = false;
 
@@ -26,7 +27,15 @@ const reference = Astro.url.searchParams.get('reference') ?? Astro.url.searchPar
 let state: 'confirmed' | 'awaiting' = 'awaiting';
 let pretripToken: string | null = null;
 
-if (reference) {
+// Every render with a reference triggers a live outbound Paystack API call below; rate-limit it
+// (generous — this page is a legitimate redirect target hit multiple times during a normal
+// checkout) so it can't be used as an unlimited trigger for outbound calls against the Paystack
+// relationship. Fails open on limiter errors, same as every other caller of rateLimit().
+const withinLimit = reference
+  ? await rateLimit(`confirm:min:${clientIp(Astro.request)}`, 20, 60)
+  : true;
+
+if (reference && withinLimit) {
   try {
     const result = await payments.verifyTransaction(reference);
     if (result.status !== 'success') {
@@ -42,11 +51,34 @@ if (reference) {
 
   try {
     const supabase = getSupabaseAdmin();
-    const { data } = await supabase
+    // A reference here is either the ORIGINAL deposit/full-payment reference (processor_reference)
+    // or a BALANCE payment's reference (balance_processor_reference) — sendBalancePaymentLink()
+    // sends guests to this same callback URL. Checking only the first column meant a guest who
+    // paid their balance online saw a permanently-stuck "still confirming" page even though the
+    // webhook had already confirmed the payment and sent their emails: the booking is by then
+    // already `confirmed` (set at the ORIGINAL payment), so a balance reference would never
+    // resolve here.
+    //
+    // Two sequential .eq() queries, deliberately NOT a single .or() with the reference
+    // interpolated into the filter string: reference is raw, attacker-controlled user input, and
+    // PostgREST's .or() syntax uses commas to separate conditions — an unescaped comma in the
+    // value could inject additional clauses into the filter. Mirrors the exact pattern
+    // webhook.ts:61-78 already uses (audited, safe) for this same two-column lookup.
+    let data: { status: string; pretrip_token: string | null } | null = null;
+    const byDeposit = await supabase
       .from('bookings')
       .select('status, pretrip_token')
       .eq('processor_reference', reference)
       .maybeSingle();
+    data = byDeposit.data;
+    if (!data) {
+      const byBalance = await supabase
+        .from('bookings')
+        .select('status, pretrip_token')
+        .eq('balance_processor_reference', reference)
+        .maybeSingle();
+      data = byBalance.data;
+    }
     if (data?.status === 'confirmed') {
       state = 'confirmed';
       pretripToken = data.pretrip_token ?? null;

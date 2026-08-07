@@ -307,29 +307,6 @@ export const server = {
     },
   }),
 
-  // Cancel a pending (not-yet-paid) booking by its processor reference — called client-side when
-  // the user returns from an abandoned Paystack checkout. Only cancels pending rows; confirmed
-  // bookings are unaffected. Rate-limited to prevent abuse.
-  cancelPendingCheckout: defineAction({
-    accept: 'json',
-    input: z.object({
-      reference: z.string().max(100),
-    }),
-    handler: async (input, ctx) => {
-      const ip = clientIp(ctx.request);
-      if (!(await rateLimit(`cancel:min:${ip}`, 10, 60))) {
-        throw new ActionError({ code: 'TOO_MANY_REQUESTS', message: 'Too many requests.' });
-      }
-      const supabase = getSupabaseAdmin();
-      await supabase
-        .from('bookings')
-        .update({ status: 'cancelled', hold_expires_at: null })
-        .eq('processor_reference', input.reference)
-        .eq('status', 'pending');
-      return { ok: true };
-    },
-  }),
-
   // Read-only status check for /booking/confirm's client-side poll (Part 9.2 / Phase 4). The
   // redirect back from Paystack usually beats the webhook, so the callback page can't yet know
   // whether OUR booking is actually confirmed — only that Paystack itself accepted the charge.
@@ -349,11 +326,29 @@ export const server = {
         throw new ActionError({ code: 'TOO_MANY_REQUESTS', message: 'Too many requests.' });
       }
       const supabase = getSupabaseAdmin();
-      const { data } = await supabase
+      // Checked against BOTH reference columns: this reference may be the original deposit/full
+      // payment (processor_reference) or a balance payment (balance_processor_reference) — the
+      // guest-facing confirm page polls this action, and a balance-payment reference previously
+      // never matched here, leaving that page stuck on "still confirming" forever even though the
+      // webhook had already confirmed everything. Two sequential .eq() queries, mirroring
+      // webhook.ts's own lookup — never a single .or() with input.reference interpolated into the
+      // filter string, since PostgREST's .or() syntax is comma-delimited and this value is raw
+      // user input.
+      let data: { status: string; pretrip_token: string | null } | null = null;
+      const byDeposit = await supabase
         .from('bookings')
         .select('status, pretrip_token')
         .eq('processor_reference', input.reference)
         .maybeSingle();
+      data = byDeposit.data;
+      if (!data) {
+        const byBalance = await supabase
+          .from('bookings')
+          .select('status, pretrip_token')
+          .eq('balance_processor_reference', input.reference)
+          .maybeSingle();
+        data = byBalance.data;
+      }
       if (!data) return { status: 'not_found' as const, pretripToken: null };
       return { status: data.status as 'pending' | 'confirmed' | 'cancelled', pretripToken: data.pretrip_token as string | null };
     },

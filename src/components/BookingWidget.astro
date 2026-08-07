@@ -648,7 +648,12 @@ const clientRates = {
     const phoneInput = form.querySelector<HTMLInputElement>('#bf-phone')!;
 
     const fmtR = (cents: number) => 'R' + Math.round(cents / 100).toLocaleString('en-US');
-    const todayIso = new Date().toISOString().slice(0, 10); // UTC — display only, server re-validates
+    // SAST (UTC+2, no DST), matching the server's todaySast() in lib/pricing.ts exactly — NOT
+    // toISOString(), which is UTC and runs a calendar day behind between 00:00-02:00 SAST. This
+    // is display-only (the server always re-validates and is the price authority), but a UTC
+    // "today" could show a different last-minute/deposit-split classification here than what
+    // createCheckout actually charges a few seconds later at submit, right at the boundary days.
+    const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
 
     // `style` is what the guest picked in Step 1 and defaults to 'both'. `catering` is the
     // RESOLVED value actually sent to the server, which for 'both' is only knowable once a date is
