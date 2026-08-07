@@ -408,7 +408,7 @@
     padding-top: 1.25rem;
     border-top: 1px solid color-mix(in srgb, var(--color-cream) 20%, transparent);
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
     color: color-mix(in srgb, var(--color-cream) 80%, transparent);
   }
   .mobile-menu__contact a {
@@ -655,7 +655,7 @@
   .howit__text {
     margin-top: 0.5rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.6;
     color: color-mix(in srgb, var(--color-charcoal) 82%, transparent);
   }
@@ -716,7 +716,7 @@
   .home-lodge__role {
     margin-top: 0.25rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.5;
     color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
   }
@@ -972,7 +972,7 @@
   }
   .resume-prompt__text {
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.5;
     color: var(--color-earth);
   }
@@ -1116,7 +1116,7 @@
   .bstep__hint {
     margin-top: 0.75rem;
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: var(--text-base);
     font-weight: 500;
     color: var(--color-green);
     min-height: 1.2em; /* reserves space so the crossover message never shifts the layout */
@@ -1128,14 +1128,14 @@
     border-radius: 0.6rem;
     background-color: color-mix(in srgb, var(--color-ochre) 10%, #fff);
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: var(--text-base);
     line-height: 1.45;
     color: var(--color-earth);
   }
   .bstep__static {
     margin-top: 1.1rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
   }
   .bstep__deposit-note {
@@ -1209,7 +1209,7 @@
   }
   .boption__name {
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     font-weight: 600;
     color: var(--color-earth);
   }
@@ -1263,12 +1263,12 @@
   .bstep__sub {
     margin-top: 0.35rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     color: color-mix(in srgb, var(--color-charcoal) 70%, transparent);
   }
   .bstep__summary {
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     color: var(--color-green);
     font-weight: 600;
     overflow-wrap: anywhere;
@@ -1456,7 +1456,7 @@
   }
   .bsolo__lead {
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.6;
     color: var(--color-earth);
   }
@@ -1509,13 +1509,13 @@
   }
   .bstyle__name {
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
     font-weight: 600;
     color: var(--color-earth);
   }
   .bstyle__desc {
     font-family: var(--font-body);
-    font-size: 0.8rem;
+    font-size: var(--text-base);
     line-height: 1.45;
     color: color-mix(in srgb, var(--color-charcoal) 72%, transparent);
   }
@@ -1537,7 +1537,7 @@
   }
   .bcatchoice__lead {
     font-family: var(--font-body);
-    font-size: 0.88rem;
+    font-size: var(--text-base);
     font-weight: 600;
     color: var(--color-earth);
   }
@@ -1617,11 +1617,11 @@
   }
   .bjoin-card__date {
     font-weight: 600;
-    font-size: 0.92rem;
+    font-size: var(--text-base);
     color: var(--color-earth);
   }
   .bjoin-card__meta {
-    font-size: 0.8rem;
+    font-size: var(--text-base);
     color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
   }
   .bjoin-card__price {
@@ -1648,7 +1648,7 @@
   }
   .bjoin-empty__lead {
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     color: var(--color-earth);
     font-weight: 500;
   }
@@ -1711,7 +1711,7 @@
     overflow-y: auto;
     padding: 1rem;
     font-family: var(--font-body);
-    font-size: 0.87rem;
+    font-size: var(--text-base);
     line-height: 1.6;
   }
   .bmodal__intro {
@@ -1778,7 +1778,7 @@
   }
   .bform__balance-note {
     margin-top: 0.4rem;
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     color: var(--color-earth);
     font-family: var(--font-body);
   }
@@ -1804,7 +1804,7 @@
   .bform__status {
     margin-top: 1rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     min-height: 1.2em;
   }
   .bform__status[data-kind='error'] {
@@ -2145,7 +2145,7 @@
     gap: 0.75rem;
     padding: 0.16rem 0;
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: var(--text-base);
     color: var(--color-charcoal);
   }
   .bpreview__value {
@@ -2303,7 +2303,7 @@
     background-color: color-mix(in srgb, var(--color-ochre) 8%, var(--color-cream));
     padding: 0.8rem 1rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     color: var(--color-charcoal);
   }
   .pretrip-guest {
@@ -2330,7 +2330,7 @@
     align-items: flex-start;
     gap: 0.6rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.5;
     color: var(--color-charcoal);
   }
@@ -2559,7 +2559,7 @@
   .rate-example {
     margin-top: 1.25rem;
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
     line-height: 1.6;
     color: var(--color-earth);
   }
@@ -2615,7 +2615,7 @@
   .bookrules__body {
     margin-top: 0.4rem;
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     line-height: 1.55;
     color: color-mix(in srgb, var(--color-charcoal) 80%, transparent);
   }
@@ -2659,7 +2659,7 @@
     align-items: flex-start;
     gap: 0.65rem;
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     line-height: 1.55;
     color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
   }
@@ -2725,7 +2725,7 @@
     border-bottom: 1px solid color-mix(in srgb, var(--color-cream) 18%, transparent);
     padding: 0.55rem 0;
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
   }
   .pricing-example__row dt {
     color: color-mix(in srgb, var(--color-cream) 82%, transparent);
@@ -2828,7 +2828,7 @@
   .policy-clauses dd {
     margin: 0.25rem 0 0;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.6;
     color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
   }
@@ -2920,7 +2920,7 @@
   .notice__body {
     margin-top: 0.35rem;
     font-family: var(--font-body);
-    font-size: 0.8125rem;
+    font-size: var(--text-base);
     line-height: 1.6;
     color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
   }
@@ -2941,7 +2941,7 @@
   .wildlife-card__blurb {
     margin-top: 0.4rem;
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     line-height: 1.55;
     color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
   }
@@ -2988,7 +2988,7 @@
   .season-card__lead {
     margin-top: 0.65rem;
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
     line-height: 1.55;
     color: var(--color-charcoal);
   }
@@ -3007,7 +3007,7 @@
   .season-card__detail dd {
     margin-top: 0.25rem;
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     line-height: 1.55;
     color: color-mix(in srgb, var(--color-charcoal) 88%, transparent);
   }
@@ -3149,7 +3149,7 @@
     align-items: center;
     gap: 0.6rem;
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: var(--text-base);
     line-height: 1.4;
     color: color-mix(in srgb, var(--color-charcoal) 85%, transparent);
   }
@@ -3193,7 +3193,7 @@
     background-color: color-mix(in srgb, var(--color-cream) 55%, #fff);
     padding: 0.75rem 0.9rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     color: var(--color-charcoal);
   }
   .amenity-item::before {
@@ -4294,7 +4294,7 @@
   .beta-notice__body {
     margin-top: 0.4rem;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     line-height: 1.6;
     color: color-mix(in srgb, var(--color-charcoal) 88%, transparent);
     max-width: 60ch;
@@ -4307,7 +4307,7 @@
     cursor: pointer;
     list-style: none;
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
     font-weight: 600;
     color: var(--color-earth);
   }
@@ -4353,7 +4353,7 @@
     position: relative;
     padding-left: 1.25rem;
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
     line-height: 1.55;
     color: var(--color-earth);
   }
@@ -4376,7 +4376,7 @@
     cursor: pointer;
     list-style: none;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     font-weight: 600;
     color: var(--color-green);
     text-decoration: underline;
