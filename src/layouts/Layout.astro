@@ -64,7 +64,7 @@ const {
     <a href="#main" class="skip-link">Skip to content</a>
     <Nav overHero={navOverHero} />
     {/* Interior pages reserve the fixed-nav height; over-hero pages let the hero sit beneath it. */}
-    <main id="main" style={navOverHero ? undefined : 'padding-top: var(--nav-h);'}>
+    <main id="main" class:list={[!navOverHero && 'pt-nav']}>
       <slot />
     </main>
     <WhatsAppButton />

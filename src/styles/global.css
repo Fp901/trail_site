@@ -107,6 +107,41 @@
     --color-ochre-ink: #7f6345;
   }
 
+  /* Accent selection by ATTRIBUTE, not inline style. The accent used to be set with
+     style="--accent: var(--color-day2); …" on each card, but the emitted CSP is
+     style-src 'self' 'unsafe-inline' 'sha256-…' 'sha256-…' — and per CSP2+, the presence of ANY
+     hash or nonce makes browsers ignore 'unsafe-inline'. Every inline style attribute on the site
+     was therefore blocked in production: --accent resolved to an empty string and every day
+     numeral, distance badge, arrow, lodge role and map legend head fell back to inherited
+     charcoal. The whole per-day colour language was invisible in the built site while looking
+     correct in dev, which emits no CSP at all.
+     Driving it from [data-accent] needs neither 'unsafe-inline' nor a per-element hash. */
+  [data-accent='day2'] {
+    --accent: var(--color-day2);
+    --accent-ink: var(--color-day2-ink);
+  }
+  [data-accent='day3'] {
+    --accent: var(--color-day3);
+    --accent-ink: var(--color-day3); /* 6.42:1 on cream — legible as text, needs no ink variant */
+  }
+  [data-accent='day4'] {
+    --accent: var(--color-day4);
+    --accent-ink: var(--color-day4); /* 4.65:1 — clears AA */
+  }
+  [data-accent='ochre'] {
+    --accent: var(--color-ochre);
+    --accent-ink: var(--color-ochre-ink); /* ochre is 2.28:1 on cream — text needs the ink */
+  }
+  [data-accent='green'] {
+    --accent: var(--color-green);
+    --accent-ink: var(--color-green);
+  }
+
+  /* Replaces style="padding-top: var(--nav-h)" on <main> (same CSP problem). */
+  .pt-nav {
+    padding-top: var(--nav-h);
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -2336,6 +2371,13 @@
     font-size: var(--text-base);
     color: var(--color-charcoal);
   }
+  /* Was an inline style (blocked by CSP in production). Note the old inline value was 55%
+     charcoal = 3.29:1 on cream, below the AA floor; as a class it takes the same --tint-muted
+     the rest of the muted text uses. */
+  .pretrip-note--fine {
+    font-size: var(--text-xs);
+    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
+  }
   .pretrip-guest {
     margin-top: 1rem;
     border: 1px solid var(--color-hairline);
@@ -3328,6 +3370,8 @@
     height: 0.4rem;
     border-radius: var(--radius-full);
     flex: none;
+    /* Was an inline background; [data-accent] on the element now supplies --accent. */
+    background: var(--accent);
   }
   .routemap__key {
     margin-top: 1.5rem;
@@ -3345,6 +3389,9 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+    /* Ink variant: the ochre Day 2 accent is only 2.28:1 on cream as text. The adjacent swatch
+       still carries the exact Part 5.4 hue via --accent. */
+    color: var(--accent-ink, var(--accent));
   }
   .routemap__keylist {
     margin-top: 0.35rem;

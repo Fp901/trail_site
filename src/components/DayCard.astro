@@ -28,11 +28,14 @@ const {
   elevationAlt,
   elevationCaption,
 } = Astro.props;
-const accent = colorVar ?? '--color-green';
+// Accent is selected by data attribute, not inline style: the emitted CSP carries style hashes,
+// which makes browsers ignore 'unsafe-inline', so inline style="" is blocked in production.
+// `--color-day2` -> `day2`; see the [data-accent] rules in global.css.
+const accentKey = (colorVar ?? '--color-green').replace('--color-', '');
 const noWalking = distanceKm === null;
 ---
 
-<li class="daycard" style={`--accent: var(${accent}); --accent-ink: var(${accent}-ink, var(${accent}));`}>
+<li class="daycard" data-accent={accentKey}>
   <div class="daycard__marker">
     <span class="daycard__daylabel">Day</span>
     <span class="daycard__num">{day}</span>

@@ -36,7 +36,7 @@ const {
 <article
   id={id}
   class:list={['sanctuary', reverse && 'sanctuary--reverse']}
-  style={`--accent: var(${accentVar}); --accent-ink: var(${accentVar}-ink, var(${accentVar}));`}
+  data-accent={accentVar.replace('--color-', '')}
 >
   <div class="sanctuary__media">
     {

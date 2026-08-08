@@ -30,10 +30,20 @@ export default defineConfig({
   },
 
   // Content-Security-Policy (Part 11.2). Astro auto-hashes the inline <script>/<style> it emits and
-  // writes a <meta http-equiv> CSP — so script-src stays STRICT ('self' + per-build hashes, no
-  // 'unsafe-inline'), which is the security-critical directive. style-src allows 'unsafe-inline'
-  // because the pages use inline style="" attributes (nav offset, route-map day colours) which
-  // cannot be hashed; style injection cannot execute JS, so this is a low-risk trade-off.
+  // writes a <meta http-equiv> CSP.
+  //
+  // style-src no longer lists 'unsafe-inline', and this is a FIX rather than a tightening: Astro
+  // always appends its own 'sha256-…' style hashes, and per CSP2+ the presence of any hash or nonce
+  // makes browsers IGNORE 'unsafe-inline' entirely. So the previous
+  //   style-src 'self' 'unsafe-inline' 'sha256-…' 'sha256-…'
+  // did not permit inline styles at all — every style="" attribute on the site was blocked in
+  // production while working fine in dev (which emits no CSP). That silently killed the --accent
+  // custom property on day cards, sanctuary cards and the route-map legend. All six inline style
+  // attributes are now driven by [data-accent] / utility classes instead, so nothing needs
+  // 'unsafe-inline' and listing it only made the policy look more permissive than it was.
+  // (Runtime CSSOM writes like el.style.overflow in MobileMenu are unaffected — CSP governs style
+  // ATTRIBUTES and <style> elements, not CSSOM property assignment.)
+  //
   // NB: <meta> CSP cannot set frame-ancestors — clickjacking is covered by X-Frame-Options: DENY
   // (vercel.json). Paystack is a full-page REDIRECT (not an iframe/inline script), so it needs no
   // script-src/frame-src entry; connect-src allows Supabase (availability read) + 'self' (Actions).
@@ -49,7 +59,7 @@ export default defineConfig({
         "form-action 'self'",
       ],
       styleDirective: {
-        resources: ["'self'", "'unsafe-inline'"],
+        resources: ["'self'"],
       },
     },
   },
