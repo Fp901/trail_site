@@ -37,6 +37,14 @@ const isActive = (href: string) => {
       </span>
     </a>
 
+    {/* Desktop nav appears at lg (1024px), NOT md (768px), and that is deliberate rather than an
+        oversight. Measured with the horizontal nav forced on: at 768px and 820px four of the five
+        labels ("The Trail", "The Safari Lodges", "Trail Logistics & FAQ", "Rates & Booking") wrap
+        to two lines, and the link group sits flush against the logo with zero gap. They only stay
+        single-line from ~880px. lg is the nearest standard step above that with breathing room,
+        and it covers iPad landscape (1024px). The 880-1023px band still gets the hamburger; that
+        is a real but narrow gap, and the alternative — shortening the labels — would cost more in
+        clarity than it buys. Nothing below 768px is affected either way. */}
     <div class="hidden items-center gap-6 lg:flex xl:gap-8">
       <ul class="flex items-center gap-6 xl:gap-8">
         {
