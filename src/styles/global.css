@@ -105,6 +105,13 @@
        were silently dropped from the build and every var() fell through to the failing accent. */
     --color-day2-ink: #7f6345;
     --color-ochre-ink: #7f6345;
+
+    /* Site container width. Three rules read var(--container, 96rem) and it was never defined
+       anywhere, so all three silently fell back to 96rem. That value is right for the full-bleed
+       band inners (it matches max-w-screen-2xl, i.e. Tailwind's --breakpoint-2xl: 96rem) but it is
+       defined explicitly now so the match is intentional rather than accidental. Tailwind v4
+       tree-shakes unreferenced @theme vars, so this lives in :root, not @theme. */
+    --container: 96rem;
   }
 
   /* Accent selection by ATTRIBUTE, not inline style. The accent used to be set with
@@ -2702,7 +2709,10 @@
     border-bottom: 1px solid color-mix(in srgb, var(--color-ochre) 40%, transparent);
   }
   .launch-bar__text {
-    max-width: var(--container, 96rem);
+    /* A reading measure, NOT the container width. This inherited var(--container, 96rem) from the
+       band inners, which made the line 163ch at 1440px and 174ch at 1920px — roughly twice the
+       comfortable upper bound. The bar itself stays full-bleed; only the text is constrained. */
+    max-width: 75ch;
     margin: 0 auto;
     padding: 0.85rem 1.5rem;
     font-family: var(--font-body);
