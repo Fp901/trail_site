@@ -1084,6 +1084,12 @@
     display: grid;
     gap: 1.25rem;
   }
+  /* 560px, deliberately off Tailwind's 640px step. These booking/enquiry breakpoints are driven by
+     the CONTENT's minimum comfortable width, not by device class: the form pairs two fields as soon
+     as each can hold ~220px. Measured at 560-639px: 2 columns with 221-261px inputs. Forcing this
+     to 640 was tested and stacks the pair in that range, leaving a 541px-wide name field and a
+     taller form — a regression, so the breakpoint stays where the content wants it.
+     Same reasoning for the 480px rules on .bcatchoice__opts and the calendar's padding. */
   @media (min-width: 560px) {
     .bform__grid {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -3477,7 +3483,10 @@
       linear-gradient(0deg, rgba(36, 24, 17, 0.9) 0%, rgba(36, 24, 17, 0.18) 60%);
   }
   /* On mobile the heading rises into the brighter sky — extend a stronger base scrim higher. */
-  @media (max-width: 640px) {
+  /* 639.98px, not 640px: the file has 15 (min-width: 640px) rules, and at exactly 640px a
+     max-width: 640px query fires alongside all of them. Nothing visibly conflicts today — no
+     min-width:640 rule targets .hero__scrim — but the overlap is a trap for the next edit. */
+  @media (max-width: 639.98px) {
     .hero__scrim {
       background: linear-gradient(
         0deg,
