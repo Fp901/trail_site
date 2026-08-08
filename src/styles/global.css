@@ -114,6 +114,21 @@
     --container: 96rem;
   }
 
+  /* Desktop container width. Below 1024px --container stays 96rem, which never binds because the
+     viewport is narrower — so this is desktop-only by construction and mobile cannot move.
+     Why narrow rather than centre the prose column on its own: at 1440px EVERY block on every
+     route shares left=24px — the 768px prose blocks and the 1392px grids/sanctuary rows sit on one
+     left rail. Adding mx-auto to .max-w-3xl alone would put a heading at x=336 while the grid it
+     labels stayed at x=24, breaking that rail. Narrowing the shared container moves the whole rail
+     inward instead, so every alignment relationship is preserved and the block centres as a unit.
+     Widening the prose column instead was measured and rejected: 896px puts body copy at 89ch,
+     past the 75ch upper bound. */
+  @media (min-width: 1024px) {
+    :root {
+      --container: 75rem;
+    }
+  }
+
   /* Accent selection by ATTRIBUTE, not inline style. The accent used to be set with
      style="--accent: var(--color-day2); …" on each card, but the emitted CSP is
      style-src 'self' 'unsafe-inline' 'sha256-…' 'sha256-…' — and per CSP2+, the presence of ANY
@@ -142,6 +157,12 @@
   [data-accent='green'] {
     --accent: var(--color-green);
     --accent-ink: var(--color-green);
+  }
+
+  /* The one page container. Replaces Tailwind's max-w-screen-2xl so the width lives in a single
+     token that the full-bleed band inners (.statement-band__inner, .trust-bar__list) already read. */
+  .page-container {
+    max-width: var(--container);
   }
 
   /* Replaces style="padding-top: var(--nav-h)" on <main> (same CSP problem). */
