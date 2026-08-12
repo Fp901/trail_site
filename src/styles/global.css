@@ -3355,15 +3355,97 @@
     margin: 0;
   }
   .routemap__panel {
+    /* Named so the label halo below can knock out against the exact panel fill. */
+    --routemap-panel: color-mix(in srgb, var(--color-earth) 6%, var(--color-cream));
     border: 1px solid var(--color-hairline);
     border-radius: var(--radius-xl);
-    background-color: color-mix(in srgb, var(--color-earth) 6%, var(--color-cream));
+    background-color: var(--routemap-panel);
     padding: 1rem;
   }
   .routemap__svg {
     display: block;
     width: 100%;
     height: auto;
+  }
+  /* Board swap. Landscape from 640px up; the portrait board is capped so it cannot grow into
+     a 700px-tall column on a wide phone / small tablet. 639.98 not 640 — the file has 15
+     (min-width: 640px) rules and an exact 640 max-width query fires alongside all of them. */
+  .routemap__svg--tall {
+    display: none;
+  }
+  @media (max-width: 639.98px) {
+    .routemap__svg--wide {
+      display: none;
+    }
+    .routemap__svg--tall {
+      display: block;
+      max-width: 26rem;
+      margin-inline: auto;
+    }
+  }
+
+  /* Terrain — filled silhouettes only, no outlines (Part 5.2: no heavy borders). Tones read
+     as depth: far ridges recede toward the panel, near ground advances. */
+  .routemap__terrain--far {
+    fill: color-mix(in srgb, var(--color-green) 11%, transparent);
+  }
+  .routemap__terrain--mid {
+    fill: color-mix(in srgb, var(--color-green) 30%, transparent);
+  }
+  .routemap__terrain--plain {
+    fill: color-mix(in srgb, var(--color-ochre) 18%, transparent);
+  }
+  /* Water in veld green, not blue — Part 5.2 rules blue out of the palette entirely. */
+  .routemap__water--river {
+    fill: none;
+    /* Wide and pale: it sits beneath the Day 4 dots as a bed for them, so it must not read
+       as a line of its own. A thin saturated stroke looked like a fourth route. */
+    stroke: color-mix(in srgb, var(--color-green) 30%, transparent);
+    stroke-width: 7;
+    stroke-linecap: round;
+  }
+  .routemap__water--dam {
+    fill: color-mix(in srgb, var(--color-green) 32%, transparent);
+  }
+
+  /* Terrain names — display serif, quieter than the lodge pins so hierarchy stays
+     Lodge > place > distance. The halo keeps them readable over ridge fills. */
+  .routemap__place {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 18px;
+    fill: color-mix(in srgb, var(--color-earth) 72%, transparent);
+    /* Narrow halo. At 5px the knockout bit a visible notch out of any ridge a label crossed;
+       3px is enough to hold the text off the terrain fills without carving them. */
+    paint-order: stroke fill;
+    stroke: var(--routemap-panel);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+  .routemap__dist {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    fill: color-mix(in srgb, var(--color-charcoal) var(--tint-strong), transparent);
+    paint-order: stroke fill;
+    stroke: var(--routemap-panel);
+    stroke-width: 5px;
+    stroke-linejoin: round;
+  }
+  /* The portrait board is ~40% the user-unit width of the landscape one, so every text size
+     is scaled up to land at roughly the same rendered px on a phone. */
+  .routemap__svg--tall .routemap__place {
+    font-size: 22px;
+  }
+  .routemap__svg--tall .routemap__dist {
+    font-size: 18px;
+  }
+  .routemap__svg--tall .routemap__pinlabel {
+    font-size: 26px;
+  }
+  .routemap__svg--tall .routemap__pinrole {
+    font-size: 17px;
   }
   .routemap__pin circle {
     fill: var(--color-earth);
@@ -3378,6 +3460,11 @@
     font-size: var(--text-xl);
     font-weight: 700;
     fill: var(--color-earth);
+    /* Halo: the pins now sit over ridge and plain fills, not a flat panel. */
+    paint-order: stroke fill;
+    stroke: var(--routemap-panel);
+    stroke-width: 6px;
+    stroke-linejoin: round;
   }
   .routemap__pinrole {
     font-family: var(--font-body);
@@ -3385,6 +3472,10 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     fill: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    paint-order: stroke fill;
+    stroke: var(--routemap-panel);
+    stroke-width: 5px;
+    stroke-linejoin: round;
   }
   .routemap__legend {
     list-style: none;

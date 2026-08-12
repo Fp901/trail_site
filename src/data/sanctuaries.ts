@@ -3,7 +3,7 @@
 import type { ImageMetadata } from 'astro';
 import rotaviImg from '../assets/images/rotavi-valley-plains.jpg';
 import oukraalImg from '../assets/images/oukraal-kudu-bushveld.jpg';
-import blackwoodImg from '../assets/images/viervanacht-giraffe-sunset.jpg';
+import blackwoodImg from '../assets/images/blackwood-giraffe-sunset.jpg';
 
 export type AmenityIconName =
   | 'parking'

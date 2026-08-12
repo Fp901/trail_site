@@ -2,58 +2,109 @@
 // RouteMap — Part 7 / 8.6. Styled STATIC SVG of the conceptual loop. No mapping library,
 // no GPS. role="img" + <title>/<desc> for SR; a visible legend + landmark key carry the
 // text equivalent (good for a11y and LLM extraction). Day colours match the timeline.
-import { routeViewBox, routePins, routeSegments } from '../data/route';
+//
+// Two boards are emitted and swapped by media query (see .routemap__svg--wide/--tall in
+// global.css): a landscape composition for >=640px and a portrait one for phones, because a
+// single landscape board rendered at ~300px inside the panel put the pin labels at ~7px.
+// The hidden board is display:none, so it leaves the a11y tree and only one <title> is read.
+//
+// Deliberately NO north arrow and NO scale bar. The line work is stylised, so both would
+// assert a precision this data doesn't have (Part 12). Real per-day distances are carried in
+// the legend below instead of as chips on the board — they read straight off itinerary.ts so
+// they cannot drift, and as HTML they are available to screen readers and extraction in a way
+// SVG <text> is not.
+import { routeLayouts, routePins, routeSegments } from '../data/route';
+import { itinerary } from '../data/itinerary';
 
 interface Props {
   class?: string;
 }
 const { class: cls } = Astro.props;
+
+const distanceForDay = (day: number) => itinerary.find((d) => d.day === day)?.distanceKm ?? null;
 ---
 
 <figure class:list={['routemap', cls]}>
   <div class="routemap__panel">
-    <svg
-      class="routemap__svg"
-      viewBox={routeViewBox}
-      role="img"
-      aria-labelledby="routemap-title routemap-desc"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <title id="routemap-title">Route map of Rooiberg Wander</title>
-      <desc id="routemap-desc">
-        A circuitous walking route that begins and ends at Temminck's Lodge. Day 2 climbs from
-        Temminck's Lodge over Groenkop to Oukraal; Day 3 traverses from Oukraal to Blackwood via
-        the Welgedacht lookout; Day 4 returns across the plains from Blackwood to Temminck's
-        Lodge. Illustrative and not drawn to scale.
-      </desc>
+    {
+      routeLayouts.map((layout) => (
+        <svg
+          class:list={['routemap__svg', `routemap__svg--${layout.id}`]}
+          viewBox={layout.viewBox}
+          role="img"
+          aria-labelledby={`routemap-title-${layout.id} routemap-desc-${layout.id}`}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <title id={`routemap-title-${layout.id}`}>Route map of the Rooiberg Wander</title>
+          <desc id={`routemap-desc-${layout.id}`}>
+            A circuitous walking route that begins and ends at Temminck's Lodge. Day 2 climbs 15
+            km from Temminck's Lodge over Groenkop to Oukraal; Day 3 traverses 20 km from Oukraal
+            along the Elandsberg L-Kloof ridges to Blackwood, passing the Welgedacht lookout over
+            the Marakele range; Day 4 returns 18 km across the Welgedacht plains and along the
+            Sand River to Temminck's Lodge. Illustrative and not drawn to scale.
+          </desc>
 
-      {
-        routeSegments.map((s) => (
-          <path
-            d={s.path}
-            fill="none"
-            stroke={`var(${s.colorVar})`}
-            stroke-width="5"
-            stroke-linecap="round"
-            stroke-dasharray="1 16"
-          />
-        ))
-      }
+          {/* Terrain sits behind everything — filled silhouettes, no outlines. */}
+          {layout.terrain.map((shape) => (
+            <path d={shape.d} class:list={['routemap__terrain', `routemap__terrain--${shape.tone}`]} />
+          ))}
 
-      {
-        routePins.map((p) => (
-          <g class:list={['routemap__pin', p.isHub && 'routemap__pin--hub']}>
-            <circle cx={p.x} cy={p.y} r={p.isHub ? 11 : 8} />
-            <text x={p.x} y={p.y - 18} text-anchor="middle" class="routemap__pinlabel">
-              {p.name}
+          {layout.water.map((shape) => (
+            <path d={shape.d} class:list={['routemap__water', `routemap__water--${shape.kind}`]} />
+          ))}
+
+          {layout.places.map((label) => (
+            <text x={label.x} y={label.y} text-anchor={label.anchor} class="routemap__place">
+              {label.text}
             </text>
-            <text x={p.x} y={p.y + 30} text-anchor="middle" class="routemap__pinrole">
-              {p.role}
-            </text>
-          </g>
-        ))
-      }
-    </svg>
+          ))}
+
+          {routeSegments.map((s) => (
+            <path
+              d={layout.paths[s.day]}
+              fill="none"
+              stroke={`var(${s.colorVar})`}
+              stroke-width="5"
+              stroke-linecap="round"
+              stroke-dasharray="1 16"
+            />
+          ))}
+
+          {routePins.map((p) => {
+            const at = layout.pins[p.id];
+            const lines = at.lines ?? [p.name];
+            // Line advance must clear the glyph box (~27 units at 22px, ~32 at 26px) or the
+            // two rows of "Temminck's / Lodge" collide.
+            const step = layout.id === 'tall' ? 34 : 30;
+            // "above": name rows stack upward from the dot, role sits under it. "right": the
+            // whole block sits east of the dot, for pins a route passes directly over.
+            const toRight = at.place === 'right';
+            const nameX = toRight ? at.x + 26 : at.x;
+            const anchor = toRight ? 'start' : 'middle';
+            // Right-placed blocks put the role *above* the name, as an eyebrow: below it would
+            // land on whichever route leaves the pin southward, which is all three of them.
+            const nameY = (i: number) =>
+              toRight ? at.y - 2 + i * step : at.y - 20 - (lines.length - 1 - i) * step;
+            // 32 left only ~5 units between the dot and the role cap-height on the tall board,
+            // which reads as the dot sitting inside the word at phone scale.
+            const roleY = toRight ? at.y - 2 - step : at.y + (layout.id === 'tall' ? 46 : 32);
+            return (
+              <g class:list={['routemap__pin', p.isHub && 'routemap__pin--hub']}>
+                <circle cx={at.x} cy={at.y} r={p.isHub ? 11 : 8} />
+                {lines.map((line, i) => (
+                  <text x={nameX} y={nameY(i)} text-anchor={anchor} class="routemap__pinlabel">
+                    {line}
+                  </text>
+                ))}
+                <text x={nameX} y={roleY} text-anchor={anchor} class="routemap__pinrole">
+                  {p.role}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      ))
+    }
   </div>
 
   {/* Legend — day-coloured segments */}
@@ -64,6 +115,7 @@ const { class: cls } = Astro.props;
           <span class="routemap__swatch" data-accent={s.colorVar.replace('--color-', '')} aria-hidden="true" />
           <span>
             <strong>Day {s.day}</strong> · {s.from} &rarr; {s.to}
+            {distanceForDay(s.day) !== null && <> &middot; {distanceForDay(s.day)} km</>}
           </span>
         </li>
       ))
@@ -87,6 +139,6 @@ const { class: cls } = Astro.props;
   </div>
 
   <figcaption class="routemap__note">
-    Illustrative route, not to scale or GPS-accurate.
+    Illustrative route, not to scale or GPS-accurate. Daily distances are approximate.
   </figcaption>
 </figure>
