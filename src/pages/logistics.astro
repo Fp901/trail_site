@@ -9,7 +9,6 @@ import {
   logisticsBlocks,
   faqs,
   faqAnswerText,
-  provisions,
   transfers,
   kitList,
   seasons,
@@ -20,7 +19,7 @@ import lion from '../assets/images/big5-lion-rooiberg.jpg';
 
 const title = 'Trail Logistics, Safety & FAQ';
 const description =
-  'Self-catered or catered, with daily porterage and lodge staff; two experienced trail guides under the Two-Man Rule; moderate-to-challenging grading; 100% malaria-free.';
+  'All-inclusive dining, with daily luggage portage; two experienced trail guides under the Two-Man Rule; moderate-to-challenging grading; 100% malaria-free.';
 
 const jsonLd = [
   webPageSchema({ path: '/logistics', name: title, description }),
@@ -45,7 +44,7 @@ const jsonLd = [
         Trail logistics &amp; safety
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        How catering, porterage, fitness and safety work on the trail, in a 100% malaria-free
+        How dining, luggage portage, fitness and safety work on the trail, in a 100% malaria-free
         Big 5 reserve.
       </p>
     </div>
@@ -86,17 +85,6 @@ const jsonLd = [
 
   <Section bg="cream" space="md" containerClass="!pt-0">
     <div class="max-w-3xl">
-      {/* Food & provisions */}
-      <div class="logblock">
-        <p class="logblock__kicker">{provisions.kicker}</p>
-        <h2 class="logblock__title">{provisions.title}</h2>
-        <p class="logblock__body">{provisions.intro}</p>
-        <div class="notice">
-          <p class="notice__label">Please note</p>
-          <p class="notice__body">{provisions.disclaimer}</p>
-        </div>
-      </div>
-
       {/* Transfers & transport */}
       <div class="logblock">
         <p class="logblock__kicker">{transfers.kicker}</p>
@@ -121,7 +109,7 @@ const jsonLd = [
     </div>
   </Section>
 
-  {/* What to pack — day-pack kit list (doubles as SEO: "what to pack for a slackpacking trail"). */}
+  {/* What to pack — day-pack kit list (doubles as SEO: "what to pack for a walking safari"). */}
   <Section bg="cream" space="md" labelledby="pack-heading" containerClass="!pt-0">
     <div class="max-w-3xl">
       <p class="logblock__kicker">{kitList.kicker}</p>

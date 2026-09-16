@@ -1,0 +1,181 @@
+---
+// SADC self-catered slackpacking option — UNLISTED (memo 15 Sep 2026, item 3).
+//
+// This page is deliberately not part of the website's navigation, sitemap or llms.txt. It is the
+// target of a QR code printed on the direct-marketing PDF sent to South African walking clubs,
+// and it is the only place the self-catered product can be booked. The main site sells the
+// all-inclusive catered flagship only, because (business plan 5.3) mixing a self-catering version
+// into the public offer confuses the DMCs the inbound bookings depend on.
+//
+// It is `noindex` and excluded from the sitemap, but it is NOT listed in robots.txt: a Disallow
+// line would publish the URL to anyone who reads robots.txt, which is the opposite of unlisted.
+// It carries no secret, so an unguessable token would be security theatre; the protection is that
+// nothing links to it.
+import Layout from '../layouts/Layout.astro';
+import Section from '../components/Section.astro';
+import BookingWidget from '../components/BookingWidget.astro';
+import InquiryForm from '../components/InquiryForm.astro';
+import {
+  NIGHTS,
+  MAX_GROUP_SIZE,
+  MIN_PARTY_UNCATERED,
+  RATE_BASE_YEAR,
+  SADC_WINDOW_MONTHS,
+  START_DAYS_DISPLAY,
+  TAPER_END_DISPLAY,
+  BOOKING_OPEN_DISPLAY,
+  SEASON_HIGH_DATES,
+  LAST_MINUTE_DISCOUNT,
+  formatRand,
+  rateFor,
+  sadcSelfCateredRates,
+  uncateredInclusions,
+  uncateredExclusions,
+} from '../data/rates';
+import { site, withBase } from '../data/site';
+
+const bookingEnabled = Boolean(
+  import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_PAYSTACK_PUBLIC_KEY,
+);
+const inquiryEnabled = Boolean(import.meta.env.PUBLIC_SUPABASE_URL);
+
+const baseHigh = rateFor({ catering: 'uncatered', residency: 'sadc', year: RATE_BASE_YEAR, highSeason: true });
+const baseLow = rateFor({ catering: 'uncatered', residency: 'sadc', year: RATE_BASE_YEAR, highSeason: false });
+
+const title = 'SADC Self-catered Slackpacking Option | Rooiberg Wander';
+const description =
+  'A traditional self-catering slackpacking trail across a 15,000-hectare private Big 5 reserve in the Waterberg, opened to SADC residents at an accessible regional rate.';
+---
+
+<Layout title={title} description={description} path="/sadc-slackpacking" noindex={true}>
+  <Section bg="cream" labelledby="sadc-heading">
+    <div class="max-w-3xl">
+      <p class="eyebrow">By direct invitation</p>
+      <h1 id="sadc-heading" class="mt-3 font-display text-4xl text-earth sm:text-5xl md:text-6xl">
+        SADC Self-catered Slackpacking Option
+      </h1>
+
+      <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
+        In support of local conservation access, unreserved trail departures are opened exclusively
+        to SADC residents 12 months prior to departure on a traditional self-catering slackpacking
+        basis for a minimum of {MIN_PARTY_UNCATERED} people per group. We provide bedding, ice,
+        wood, cleaning staff and Wi-Fi.
+      </p>
+
+      <p class="mt-5 font-body leading-relaxed text-charcoal/85">
+        This initiative offers local hiking clubs, corporate groups, and wilderness walkers the
+        opportunity to traverse a 15,000-hectare private Big 5 reserve in the Waterberg at an
+        accessible regional rate. Every resident booking directly funds the reserve's continuous
+        anti-poaching operations, fence maintenance, and ecological monitoring programs.
+      </p>
+
+      <p class="mt-5 font-body leading-relaxed text-charcoal/85">
+        We provide full access to the 3 private safari lodges, free ice, wood, WiFi, two armed
+        FGASA field guides, and daily luggage and cooler-box portage between lodges. Guests bring
+        their own food and beverages to cook in the fully equipped lodge kitchens.
+      </p>
+
+      <p class="mt-5 font-body leading-relaxed text-charcoal">
+        <strong>
+          A valid South African ID or SADC passport number is required at check-in. Guests unable
+          to provide such proof will be charged at international rates.
+        </strong>
+      </p>
+    </div>
+  </Section>
+
+  <Section bg="cream" labelledby="sadc-rates-heading" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <h2 id="sadc-rates-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        The rate
+      </h2>
+      <p class="mt-4 font-body leading-relaxed text-charcoal">
+        {formatRand(baseHigh)} per person sharing in high season and {formatRand(baseLow)} in low
+        season, for the whole {NIGHTS}-night trail, VAT and all conservation levies included.
+        High season is {SEASON_HIGH_DATES}.
+      </p>
+      <ul class="mt-5 font-body leading-relaxed text-charcoal/85">
+        {
+          sadcSelfCateredRates.map((r) => (
+            <li>
+              {r.year}: {formatRand(r.high)} high season &middot; {formatRand(r.low)} low season,
+              per person sharing
+            </li>
+          ))
+        }
+      </ul>
+      <p class="mt-5 font-body leading-relaxed text-charcoal/85">
+        Groups of exactly {MIN_PARTY_UNCATERED}, which is also the maximum any departure takes
+        ({MAX_GROUP_SIZE} walkers to two guides), so the trail and each lodge are yours alone.
+        Departures run {START_DAYS_DISPLAY} until {TAPER_END_DISPLAY}, bookable up to{' '}
+        {SADC_WINDOW_MONTHS} months ahead, for start dates from {BOOKING_OPEN_DISPLAY}. A booking
+        made 8 to 21 days before arrival gets a further {Math.round(LAST_MINUTE_DISCOUNT * 100)}%
+        off.
+      </p>
+
+      <div class="mt-8 grid gap-6 sm:grid-cols-2">
+        <div>
+          <h3 class="font-body text-sm font-bold uppercase tracking-[0.08em] text-green">
+            Included
+          </h3>
+          <ul class="incl-list incl-list--in mt-3">
+            {uncateredInclusions.map((item) => <li>{item}</li>)}
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-body text-sm font-bold uppercase tracking-[0.08em] text-earth/70">
+            Not included
+          </h3>
+          <ul class="incl-list incl-list--out mt-3">
+            {uncateredExclusions.map((item) => <li>{item}</li>)}
+          </ul>
+        </div>
+      </div>
+
+      <p class="mt-6 font-body text-base leading-relaxed text-charcoal/85">
+        The itinerary, the terrain and the guiding are identical to the all-inclusive safari:
+        see <a href={withBase('/the-trail')} class="underline decoration-ochre underline-offset-4">the day-by-day trail</a>
+        and <a href={withBase('/logistics')} class="underline decoration-ochre underline-offset-4">trail logistics and safety</a>.
+        Dining is the one difference: on this option you bring and cook your own food.
+      </p>
+    </div>
+  </Section>
+
+  <Section bg="cream" labelledby="sadc-book-heading" space="md" containerClass="!pt-0">
+    <div id="book" class="max-w-3xl">
+      <h2 id="sadc-book-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        Book your group
+      </h2>
+      {
+        bookingEnabled ? (
+          <Fragment>
+            <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+              Choose a start date and pay securely by card. Your booking is confirmed once payment
+              is received, and a receipt is issued by email.
+            </p>
+            <div class="mt-8">
+              <BookingWidget catering="uncatered" />
+            </div>
+          </Fragment>
+        ) : (
+          <Fragment>
+            <p class="mt-4 font-body leading-relaxed text-charcoal/85">
+              Online booking is being finalised. For now, send us an enquiry or message us on
+              WhatsApp to check dates and reserve your group.
+            </p>
+            <p class="mt-6">
+              <a href={site.contact.whatsappUrl} class="btn btn-primary" target="_blank" rel="noopener">
+                Enquire on WhatsApp
+              </a>
+            </p>
+            {inquiryEnabled && (
+              <div class="mt-8">
+                <InquiryForm />
+              </div>
+            )}
+          </Fragment>
+        )
+      }
+    </div>
+  </Section>
+</Layout>

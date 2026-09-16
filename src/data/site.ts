@@ -18,7 +18,7 @@ export const site = {
   terrainHa: 15000,
   // Sitewide tagline (footer + hero + llms.txt). Catering is optional (Booking v2), so the old
   // "Self-catering walking safari" tagline no longer describes every booking.
-  hook: 'A luxury private walking safari, ideal for families, groups of friends or corporate team-building.',
+  hook: 'An all-inclusive, point-to-point walking expedition with private trail guides connecting three private safari lodges.',
 
   // Enquiries / bookings email.
   notifyEmail: 'hanlie@rooibergwander.co.za',
@@ -57,7 +57,7 @@ export const site = {
 
   // Sitewide SEO fallback description (pages pass their own per Part 8.8).
   defaultDescription:
-    'A walking safari in the Waterberg, self-catered or catered. A 3-night, 3-day slackpacking trail through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from OR Tambo International Airport.',
+    'An all-inclusive walking safari in the Waterberg. A 3-night, 3-day point-to-point wilderness walking trail through 15,000 ha of malaria-free Big 5 reserve near Rooiberg, Limpopo, 2.5 hours from OR Tambo International Airport, connecting three private safari lodges.',
 
   // Social-card fallback.
   ogImage: '/images/og-default.jpg',
@@ -68,7 +68,7 @@ export const stats = [
   { value: '3', label: 'Nights' },
   { value: '3', label: 'Days Walking' },
   { value: '3', label: 'Private Dedicated Lodges' },
-  { value: '8', label: 'Max Guests, Exclusive or Shared' },
+  { value: '8', label: 'Max Guests per Departure' },
 ] as const;
 
 // Prefix a root-relative path with the configured base (Astro `base`), so internal links work

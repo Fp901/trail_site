@@ -250,9 +250,10 @@ export async function sendBookingConfirmation(opts: {
   // Complimentary (gift) booking: no payment occurred, so the payment row reads
   // "Complimentary" and no receipt line is shown.
   complimentary?: boolean;
-  // Booking v2: shown as extra rows when provided.
+  // Shown as extra rows when provided.
   bookingType?: string; // 'exclusive' | 'shared'
   catering?: string; // 'catered' | 'uncatered'
+  residency?: string; // 'sadc' | 'international'
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
   const tripInfo = tripInfoUrl(opts.pretripToken);
@@ -282,13 +283,16 @@ export async function sendBookingConfirmation(opts: {
     eyebrow('Booking confirmation') +
     h1(`You're confirmed, ${name}.`) +
     infoTable([
-      ['Trail', 'Rooiberg Wander'],
+      ['Booking', 'Rooiberg Wander'],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ...(opts.bookingType
         ? ([['Departure', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive departure']] as Array<[string, string]>)
         : []),
       ...(opts.catering
-        ? ([['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered']] as Array<[string, string]>)
+        ? ([['Trail', opts.catering === 'catered' ? 'All-inclusive catered' : 'Self-catered slackpacking']] as Array<[string, string]>)
+        : []),
+      ...(opts.residency === 'sadc'
+        ? ([['Rate', 'SADC resident rate']] as Array<[string, string]>)
         : []),
       ['Payment', opts.complimentary ? 'Complimentary' : isDeposit ? '50% deposit paid' : 'Paid in full'],
     ]) +
@@ -300,6 +304,9 @@ export async function sendBookingConfirmation(opts: {
     inclusionsBlock() +
     (opts.catering === 'uncatered'
       ? small('Food and drink are yours to bring on a self-catered trail. Lodge staff handle kitchen prep, the barbeque and the cleaning.')
+      : '') +
+    (opts.residency === 'sadc'
+      ? small('You booked at the SADC resident rate. Please bring a valid South African ID or SADC passport for every guest: we check these at registration on Day 1.')
       : '') +
     hr +
     `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Next: complete your pre-trip details</p>` +
@@ -408,6 +415,7 @@ export async function sendBookingOperatorNotification(opts: {
   groupSize: number;
   bookingType: string; // 'exclusive' | 'shared'
   catering: string; // 'catered' | 'uncatered'
+  residency?: string; // 'sadc' | 'international'
   bookingId: string;
   paymentPlan: string;
   totalCents: number;
@@ -424,8 +432,9 @@ export async function sendBookingOperatorNotification(opts: {
       ['Email', escapeHtml(opts.leadEmail)],
       ['Arrival (Day 1)', humanDate(opts.startDate)],
       ['Group size', String(opts.groupSize)],
-      ['Type', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive departure'],
-      ['Catering', opts.catering === 'catered' ? 'Fully catered' : 'Self-catered'],
+      ['Type', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive use'],
+      ['Product', opts.catering === 'catered' ? 'All-inclusive catered' : 'Self-catered slackpacking'],
+      ['Rate', opts.residency === 'sadc' ? 'SADC resident' : 'International'],
       ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
       ['Plan', opts.paymentPlan],
       ['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`],
@@ -530,10 +539,16 @@ export async function sendBalanceOverdueAlert(opts: {
   });
 }
 
-// ---- Payment receipt (not a tax invoice — the operator is not VAT-registered) --------
+// ---- Payment receipt ---------------------------------------------------------------------
 // Sent as a separate email after every confirmed payment (deposit, balance, or full).
-// Receipt number: RW-YYYYMM-{first8charsOfBookingId}. No VAT is charged or shown; the amount
-// shown is the full payment received.
+// Receipt number: RW-YYYYMM-{first8charsOfBookingId}. The amount shown is the full payment
+// received, VAT and conservation levies included (commercial model v4 prices are VAT-inclusive).
+//
+// NOT YET A TAX INVOICE. A SARS-compliant tax invoice must show the supplier's VAT registration
+// number and the VAT portion separately. The operating company is being re-registered and has not
+// supplied a VAT number, and Part 12 forbids inventing one, so this stays a receipt. When the VAT
+// number arrives, add it to the "From" block, add a VAT line to the totals table, and retitle the
+// document; nothing else here needs to change.
 
 export async function sendPaymentReceipt(opts: {
   to: string;
@@ -546,6 +561,7 @@ export async function sendPaymentReceipt(opts: {
   groupSize: number;
   bookingType?: string; // 'exclusive' (default) | 'shared'
   catering?: string; // 'catered' | 'uncatered'
+  residency?: string; // 'sadc' | 'international'
 }): Promise<void> {
   const issued = new Date(opts.issuedAt);
   const ym = issued.toISOString().slice(0, 7).replace('-', '');
@@ -558,13 +574,13 @@ export async function sendPaymentReceipt(opts: {
   });
 
   const guestsLabel = `${opts.groupSize} ${opts.groupSize === 1 ? 'guest' : 'guests'}`;
-  // Product wording per booking type + catering (Booking v3.1: both departure types are priced
-  // per person per night and either catering is available on either type).
-  const cateringLabel = opts.catering === 'catered' ? ', fully catered' : opts.catering === 'uncatered' ? ', self-catered' : '';
-  const productLabel =
-    opts.bookingType === 'shared'
-      ? `shared departure (${guestsLabel})${cateringLabel}`
-      : `exclusive departure (${guestsLabel})${cateringLabel}`;
+  // Product wording (commercial model v4): catering names the product, residency names the rate,
+  // and "exclusive" is simply a group that booked all 8 places.
+  const cateringLabel =
+    opts.catering === 'uncatered' ? 'self-catered slackpacking' : 'all-inclusive catered safari';
+  const rateLabel = opts.residency === 'sadc' ? ', SADC resident rate' : '';
+  const occupancyLabel = opts.bookingType === 'exclusive' ? ', exclusive use' : '';
+  const productLabel = `${cateringLabel} (${guestsLabel})${occupancyLabel}${rateLabel}`;
   const descriptionLine =
     opts.receiptType === 'deposit'
       ? `Rooiberg Wander: 50% deposit. 3-night guided walking trail, ${productLabel}. Arrival: ${humanDate(opts.startDate)}.`
@@ -629,7 +645,7 @@ export async function sendPaymentReceipt(opts: {
   </tr>
 </table>
 
-<p style="margin:20px 0 0;font-size:11px;line-height:1.6;color:#9a8e83;">No VAT is charged on this amount. Payment has been received via Paystack. Please retain this document for your records.</p>
+<p style="margin:20px 0 0;font-size:11px;line-height:1.6;color:#9a8e83;">Prices include VAT at 15% and all reserve conservation levies. Payment has been received via Paystack. Please retain this document for your records.</p>
 `;
 
   await sendEmail({

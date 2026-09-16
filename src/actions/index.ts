@@ -8,16 +8,19 @@ import {
   BALANCE_LEAD_DAYS,
   earliestBookableDate,
   latestBookableDate,
-  isExclusiveDay,
-  minToOpen,
+  isAllowedStartDay,
+  bookingTypeFor,
+  windowMonthsFor,
 } from '../lib/pricing';
+import { isCountryCode, countryName, residencyForCountry } from '../data/countries';
 import {
   MAX_GROUP_SIZE,
-  EXCLUSIVE_SIZE,
   MIN_PARTY_SIZE,
-  SHARED_OPEN_MIN_CATERED,
-  SHARED_OPEN_MIN_UNCATERED,
-  SHARED_TOPUP_MIN,
+  MIN_TO_JOIN,
+  minPartySize,
+  productLabel,
+  START_DAYS_DISPLAY,
+  TAPER_END_DISPLAY,
 } from '../data/rates';
 import { getSupabaseAdmin } from '../lib/supabase';
 import { payments } from '../lib/payments';
@@ -57,6 +60,14 @@ export const server = {
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
       groupSize: z.number().int().min(MIN_PARTY_SIZE).max(MAX_GROUP_SIZE),
       catering: z.enum(['catered', 'uncatered']),
+      // The guest picks a COUNTRY; the rate band is derived from it server-side. The browser never
+      // sends the band, so a tampered payload cannot buy the resident rate by asserting one.
+      country: z.string().trim().length(2).toUpperCase(),
+      // Ticked by a guest booking at a resident rate: they confirm everyone in the party lives
+      // there and can show ID at check-in. Proof is checked in person; this records the term was
+      // accepted. Named neutrally because the field name is readable in the page source, and the
+      // public site does not disclose that a resident band exists.
+      residencyDeclaration: z.boolean().optional(),
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
       leadPhone: z.string().trim().min(7, 'Please enter a mobile number.').max(40),
@@ -80,12 +91,45 @@ export const server = {
       const supabase = getSupabaseAdmin();
       const now = new Date().toISOString();
 
-      // Booking window (server-authoritative): earliest is a flat 7-day lead time; latest is a
-      // rolling per-catering ceiling (18 months for catered, 8 for self-catered — matches the
-      // longer international trip-planning cycle). ISO YYYY-MM-DD strings compare
+      // THE RATE BAND IS DERIVED HERE, from the country, and nowhere else. data/countries.ts holds
+      // the single mapping; the widget uses it only to show an estimate.
+      if (!isCountryCode(input.country)) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Please choose a country from the list.' });
+      }
+      const residency = residencyForCountry(input.country);
+
+      // Product validity (commercial model v4): the site sells catered to anyone and self-catered
+      // to SADC residents only. There is no international self-catered rate to fall back to — a
+      // guest who cannot show proof of residence at check-in is charged at international rates on
+      // the day, which is an operator matter, not something the booking engine can price.
+      if (input.catering === 'uncatered' && residency !== 'sadc') {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: 'This option is open to residents of the SADC region only.',
+        });
+      }
+      if (residency === 'sadc' && input.residencyDeclaration !== true) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: `Please confirm that every guest lives in ${countryName(input.country)} and can show a valid ID or passport at registration.`,
+        });
+      }
+
+      // Tapered start (server-authoritative): departures run Sunday, Monday, Thursday and Friday
+      // until TAPER_END_DATE; every weekday opens after that.
+      if (!isAllowedStartDay(input.startDate)) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: `Departures run ${START_DAYS_DISPLAY} until ${TAPER_END_DISPLAY}. Please choose one of those days.`,
+        });
+      }
+
+      // Booking window (server-authoritative): earliest is a flat 7-day lead time behind the
+      // 1 April 2027 opening gate; latest is a rolling per-product ceiling (24 months for
+      // international catered, 12 for every SADC product). ISO YYYY-MM-DD strings compare
       // lexicographically, so string comparison is safe.
       const earliest = earliestBookableDate();
-      const latest = latestBookableDate(input.catering);
+      const latest = latestBookableDate(input.catering, residency);
       if (input.startDate < earliest) {
         throw new ActionError({
           code: 'BAD_REQUEST',
@@ -93,88 +137,69 @@ export const server = {
         });
       }
       if (input.startDate > latest) {
-        const windowLabel = input.catering === 'catered' ? '18 months' : '8 months';
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `${input.catering === 'catered' ? 'Catered' : 'Self-catered'} bookings open up to ${windowLabel} ahead. Choose an earlier date.`,
+          message: `Bookings open up to ${windowMonthsFor(input.catering, residency)} months ahead. Please choose an earlier date.`,
         });
       }
 
-      // Booking type is derived from the DATE, never trusted from the client: Wednesday and
-      // Thursday are exclusive buyout days (exactly EXCLUSIVE_SIZE guests); every other day is a
-      // shared/flexible departure (the first active booking needs minToOpen(catering)+, its catering
-      // choice locks the day, later bookings need SHARED_TOPUP_MIN+ and must match, up to
-      // MAX_GROUP_SIZE seats total).
-      const bookingType = isExclusiveDay(input.startDate) ? 'exclusive' : 'shared';
+      // Every open start day now works the same way: 8 places, the first booking opens the date
+      // and locks its catering, later bookings join in 2s. Check what is already held so we can
+      // give a specific message before even trying the insert; the DB slot guard is the final
+      // authority against a concurrent race between this check and the insert below.
+      const { data: activeRows } = await supabase
+        .from('bookings')
+        .select('group_size, catering')
+        .eq('start_date', input.startDate)
+        .or(`status.eq.confirmed,and(status.eq.pending,hold_expires_at.gt.${now})`);
+      const seatsTaken = (activeRows ?? []).reduce((sum, r) => sum + r.group_size, 0);
+      const lockedCatering = activeRows && activeRows.length > 0 ? activeRows[0].catering : null;
 
-      if (bookingType === 'exclusive') {
-        if (input.groupSize !== EXCLUSIVE_SIZE) {
+      if (seatsTaken === 0) {
+        // Opening a date: the minimum is a property of the product (2 catered, 8 self-catered).
+        const openMin = minPartySize(input.catering);
+        if (input.groupSize < openMin) {
+          const alt =
+            input.catering === 'uncatered'
+              ? ' The self-catered option runs as a full group of 8.'
+              : '';
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: `A Wednesday or Thursday departure is exclusive, for exactly ${EXCLUSIVE_SIZE} guests.`,
+            message: `Opening a new date takes at least ${openMin} people.${alt}`,
           });
         }
       } else {
-        if (input.groupSize > MAX_GROUP_SIZE) {
+        if (input.groupSize < MIN_TO_JOIN) {
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: `Shared departures take up to ${MAX_GROUP_SIZE} guests in total.`,
+            message: `Joining a departure that has already started takes at least ${MIN_TO_JOIN} people.`,
           });
         }
-        // Check what (if anything) is already booked on this shared date, so we can give a
-        // specific message before even trying the insert. The DB trigger is the final guard
-        // against a concurrent race between this check and the insert below.
-        const { data: sharedRows } = await supabase
-          .from('bookings')
-          .select('group_size, catering')
-          .eq('booking_type', 'shared')
-          .eq('start_date', input.startDate)
-          .or(`status.eq.confirmed,and(status.eq.pending,hold_expires_at.gt.${now})`);
-        const seatsTaken = (sharedRows ?? []).reduce((sum, r) => sum + r.group_size, 0);
-        const lockedCatering = sharedRows && sharedRows.length > 0 ? sharedRows[0].catering : null;
-
-        if (seatsTaken === 0) {
-          // Opening minimum splits by catering: 4 self-catered, 2 catered. A party of 2 or 3 can
-          // therefore open a CATERED date but not a self-catered one, so the message points at
-          // the two genuine routes out rather than just refusing.
-          const openMin = minToOpen(input.catering);
-          if (input.groupSize < openMin) {
-            const alt =
-              input.catering === 'uncatered'
-                ? ` Catered dates open from ${minToOpen('catered')}, or join a self-catered date another group has already started.`
-                : ' Join a date another group has already started, or choose a Wednesday/Thursday exclusive departure.';
-            throw new ActionError({
-              code: 'BAD_REQUEST',
-              message: `Opening a new ${input.catering === 'catered' ? 'catered' : 'self-catered'} date takes at least ${openMin} people.${alt}`,
-            });
-          }
-        } else {
-          if (input.groupSize < SHARED_TOPUP_MIN) {
-            throw new ActionError({
-              code: 'BAD_REQUEST',
-              message: `Joining an open shared date takes at least ${SHARED_TOPUP_MIN} people.`,
-            });
-          }
-          if (lockedCatering && input.catering !== lockedCatering) {
-            throw new ActionError({
-              code: 'CONFLICT',
-              message: `That date is already booked ${lockedCatering === 'catered' ? 'catered' : 'self-catered'}. Choose a matching option, or pick another date.`,
-            });
-          }
-        }
-        if (seatsTaken + input.groupSize > MAX_GROUP_SIZE) {
+        if (lockedCatering && input.catering !== lockedCatering) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `Only ${MAX_GROUP_SIZE - seatsTaken} place(s) left on that date.`,
+            message: `That date is already booked ${lockedCatering === 'catered' ? 'catered' : 'self-catered'}. Choose a matching option, or pick another date.`,
           });
         }
       }
+      if (seatsTaken + input.groupSize > MAX_GROUP_SIZE) {
+        throw new ActionError({
+          code: 'CONFLICT',
+          message: `Only ${MAX_GROUP_SIZE - seatsTaken} place(s) left on that date.`,
+        });
+      }
 
-      // SERVER is the price authority (Part 11.4). startDate drives the split-payment rule: a trip
-      // 45+ days out pays a 50% deposit now + 50% balance later; inside 45 days pays in full.
+      // Exclusivity is derived, not sold: a party that opens a date with all 8 places has the
+      // trail to itself. The DB trigger derives the same value and is authoritative.
+      const bookingType = bookingTypeFor(input.groupSize, seatsTaken);
+
+      // SERVER is the price authority (Part 11.4). startDate drives the rate year, the season and
+      // the split-payment rule: a trip 45+ days out pays a 50% deposit now + 50% balance later;
+      // inside 45 days pays in full.
       const quote = computeQuote({
         bookingType,
         catering: input.catering,
+        residency,
         groupSize: input.groupSize,
         startDate: input.startDate,
       });
@@ -219,9 +244,9 @@ export const server = {
       const startDate = input.startDate;
       const endDate = addDays(startDate, 3);
 
-      // Insert pending booking. Exclusive: the DB unique-start-date index (active exclusive rows)
-      // + the hold prevent two private groups starting the same day. Shared: the DB slot-guard
-      // trigger serializes concurrent seat-grabs and caps each date at 8 seats. The server is
+      // Insert pending booking. The DB slot-guard trigger serializes concurrent seat-grabs under
+      // an advisory lock, caps each date at 8 seats, enforces the catering lock and DERIVES
+      // booking_type; the window guard enforces the taper and the booking windows. The server is
       // the authority; a violation fails the insert here. amount_due_cents is the FIRST charge;
       // balance_due_date is computed at confirmation in the webhook, so it is left null here.
       const { data, error } = await supabase
@@ -232,6 +257,9 @@ export const server = {
           group_size: input.groupSize,
           booking_type: bookingType,
           catering: quote.catering,
+          residency: quote.residency,
+          lead_country: input.country,
+          residency_declared_at: residency === 'sadc' ? now : null,
           lead_name: leadName,
           lead_email: leadEmail,
           lead_phone: leadPhone,
@@ -252,7 +280,7 @@ export const server = {
       if (error || !data) {
         // Friendly messages for the inventory guards; generic conflict otherwise.
         const msg = (error?.message ?? '') as string;
-        if (msg.includes('RW_SHARED_FULL')) {
+        if (msg.includes('RW_FULL') || msg.includes('RW_GROUP_TOO_LARGE')) {
           const left = msg.match(/only (\d+)/)?.[1];
           throw new ActionError({
             code: 'CONFLICT',
@@ -261,19 +289,25 @@ export const server = {
               : 'Not enough places left on that date. Please choose another date, or reduce your group.',
           });
         }
-        if (msg.includes('RW_SHARED_CATERING_LOCKED')) {
+        if (msg.includes('RW_CATERING_LOCKED')) {
           throw new ActionError({
             code: 'CONFLICT',
             message: 'That date was just booked with a different catering choice. Please choose another date.',
           });
         }
-        if (msg.includes('RW_SHARED_OPEN_MIN') || msg.includes('RW_SHARED_TOPUP_MIN')) {
+        if (msg.includes('RW_OPEN_MIN') || msg.includes('RW_TOPUP_MIN')) {
           throw new ActionError({
             code: 'CONFLICT',
             message: 'That date no longer meets the minimum group size for this booking. Please choose another date.',
           });
         }
-        // Window guard (migration 0014). Reaching these means the date passed the check above and
+        if (msg.includes('RW_TAPER_DAY')) {
+          throw new ActionError({
+            code: 'BAD_REQUEST',
+            message: `Departures run ${START_DAYS_DISPLAY} until ${TAPER_END_DISPLAY}. Please choose one of those days.`,
+          });
+        }
+        // Window guard (migration 0016). Reaching these means the date passed the check above and
         // then fell outside the window before the insert landed, i.e. the day rolled over
         // mid-checkout. Rare, but the trigger is the authority and the guest needs a reason.
         if (msg.includes('RW_WINDOW_TOO_SOON')) {
@@ -285,7 +319,7 @@ export const server = {
         if (msg.includes('RW_WINDOW_TOO_FAR')) {
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: `${input.catering === 'catered' ? 'Catered' : 'Self-catered'} bookings do not open that far ahead yet. Please choose an earlier date.`,
+            message: 'That date does not open for booking yet. Please choose an earlier date.',
           });
         }
         throw new ActionError({
@@ -922,50 +956,34 @@ export const server = {
 
       const { error } = await supabase.from('bookings').update(patch).eq('id', b.id);
       if (error) {
-        // 23505 = unique violation on bookings_unique_start_date: another active booking starts then.
+        // 23505 = any surviving unique violation (the v3 one-exclusive-per-date index is dropped
+        // by 0016; capacity is enforced by the slot guard instead).
         if ((error as { code?: string }).code === '23505') {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
         }
-        // Slot-guard trigger: Wed/Thu are exclusive-only (and vice versa), shared capacity is 8
-        // with a catering lock, and exclusive group size must stay exactly EXCLUSIVE_SIZE.
+        // Slot-guard trigger (0016): capacity is 8 per start date, the first booking locks the
+        // date's catering, and booking_type is re-derived on the move. The window guard exempts
+        // UPDATEs, so an admin may move a booking to a taper day or outside the public window.
         const msg = error.message ?? '';
-        if (msg.includes('RW_EXCLUSIVE_WED_THU_ONLY')) {
+        if (msg.includes('RW_OPEN_MIN')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Exclusive departures run Wednesday or Thursday only; this booking cannot move to that date.',
+            message: `That date has no other booking yet, so it needs at least ${minPartySize('catered')} people to move here if catered, or ${minPartySize('uncatered')} if self-catered.`,
           });
         }
-        if (msg.includes('RW_EXCLUSIVE_SIZE_8')) {
+        if (msg.includes('RW_TOPUP_MIN')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `An exclusive departure must be exactly ${EXCLUSIVE_SIZE} guests.`,
+            message: `Joining that date needs at least ${MIN_TO_JOIN} people.`,
           });
         }
-        if (msg.includes('RW_SHARED_NOT_WED_THU')) {
-          throw new ActionError({
-            code: 'CONFLICT',
-            message: 'Shared departures cannot start on a Wednesday or Thursday; pick another date.',
-          });
-        }
-        if (msg.includes('RW_SHARED_OPEN_MIN')) {
-          throw new ActionError({
-            code: 'CONFLICT',
-            message: `That date has no other booking yet, so it needs at least ${SHARED_OPEN_MIN_CATERED} people to move here if catered, or ${SHARED_OPEN_MIN_UNCATERED} if self-catered.`,
-          });
-        }
-        if (msg.includes('RW_SHARED_TOPUP_MIN')) {
-          throw new ActionError({
-            code: 'CONFLICT',
-            message: `Joining that date needs at least ${SHARED_TOPUP_MIN} people.`,
-          });
-        }
-        if (msg.includes('RW_SHARED_CATERING_LOCKED')) {
+        if (msg.includes('RW_CATERING_LOCKED')) {
           throw new ActionError({
             code: 'CONFLICT',
             message: 'That date is already booked with a different catering choice.',
           });
         }
-        if (msg.includes('RW_SHARED_FULL')) {
+        if (msg.includes('RW_FULL') || msg.includes('RW_GROUP_TOO_LARGE')) {
           throw new ActionError({
             code: 'CONFLICT',
             message: 'Not enough places left on that date for this group.',
@@ -1212,6 +1230,7 @@ export const server = {
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
       groupSize: z.number().int().min(MIN_PARTY_SIZE).max(MAX_GROUP_SIZE),
       catering: z.enum(['catered', 'uncatered']),
+      residency: z.enum(['sadc', 'international']).default('sadc'),
       leadName: z.string().trim().min(2, 'Please enter the guest\'s full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
       leadPhone: z.string().trim().min(7, 'Please enter a valid phone number.').max(40).optional(),
@@ -1241,18 +1260,15 @@ export const server = {
         throw new ActionError({ code: 'CONFLICT', message: 'That date falls in a blocked window. Unblock it first or pick another date.' });
       }
 
-      // Comp bookings are always an exclusive buyout: Wednesday or Thursday, exactly
-      // EXCLUSIVE_SIZE guests, same as a paid exclusive booking.
-      if (!isExclusiveDay(input.startDate)) {
+      // Comp bookings follow the same product minimums as a paid booking (2 catered, 8
+      // self-catered) but are deliberately exempt from the taper and the booking windows: a
+      // training or marketing walk is an operator decision, already audit-logged. The slot guard
+      // still applies, so a comp cannot overbook a date a paying group is already on.
+      const compMin = minPartySize(input.catering);
+      if (input.groupSize < compMin) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: 'Exclusive departures run Wednesday or Thursday only; choose such a date.',
-        });
-      }
-      if (input.groupSize !== EXCLUSIVE_SIZE) {
-        throw new ActionError({
-          code: 'BAD_REQUEST',
-          message: `Comp bookings are exclusive departures of exactly ${EXCLUSIVE_SIZE} guests.`,
+          message: `A ${input.catering === 'catered' ? 'catered' : 'self-catered'} booking takes at least ${compMin} guests.`,
         });
       }
 
@@ -1268,8 +1284,11 @@ export const server = {
           start_date: input.startDate,
           end_date: endDate,
           group_size: input.groupSize,
-          booking_type: 'exclusive',
+          // Derived by the slot guard; this value is only a sensible default for the insert.
+          booking_type: bookingTypeFor(input.groupSize, 0),
           catering: input.catering,
+          residency: input.residency,
+          residency_declared_at: input.residency === 'sadc' ? nowIso : null,
           lead_name: leadName,
           lead_email: leadEmail,
           lead_phone: input.leadPhone?.trim() || null,
@@ -1292,16 +1311,22 @@ export const server = {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
         }
         const msg = error?.message ?? '';
-        if (msg.includes('RW_EXCLUSIVE_WED_THU_ONLY')) {
+        if (msg.includes('RW_CATERING_LOCKED')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Exclusive departures run Wednesday or Thursday only; pick such a date.',
+            message: 'That date is already booked with a different catering choice.',
           });
         }
-        if (msg.includes('RW_EXCLUSIVE_SIZE_8')) {
+        if (msg.includes('RW_FULL') || msg.includes('RW_GROUP_TOO_LARGE')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `An exclusive departure must be exactly ${EXCLUSIVE_SIZE} guests.`,
+            message: 'Not enough places left on that date for this group.',
+          });
+        }
+        if (msg.includes('RW_OPEN_MIN') || msg.includes('RW_TOPUP_MIN')) {
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: 'That date does not meet the minimum group size for this booking.',
           });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not create the booking.' });

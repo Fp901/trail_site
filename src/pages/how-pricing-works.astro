@@ -2,10 +2,9 @@
 // How pricing works (/how-pricing-works) — the explainer behind the rate matrix on /rates.
 //
 // The rates page answers "what does it cost". This page answers "why is it that", which is the
-// question that stalls a booking: four independent things move the per-person SHARING price (the
-// cost per person for the whole, mandatory trail — never a per-night figure, since there is no
-// shorter stay to choose), and until a guest can see which one applies to them the matrix reads
-// as arbitrary.
+// question that stalls a booking: four independent things move the per-person price for the whole
+// trail (never a per-night figure, since there is no shorter stay to choose), and until a guest
+// can see which one applies to them the matrix reads as arbitrary.
 //
 // EVERY figure here is computed from data/rates.ts and lib/pricing.ts. Nothing on this page is
 // typed by hand, because an explainer that disagrees with the calculator is worse than none.
@@ -14,83 +13,83 @@ import Section from '../components/Section.astro';
 import {
   NIGHTS,
   MAX_GROUP_SIZE,
-  EXCLUSIVE_SIZE,
-  MIN_PARTY_SIZE,
-  SHARED_OPEN_MIN_CATERED,
-  SHARED_OPEN_MIN_UNCATERED,
-  SHARED_TOPUP_MIN,
-  UNCATERED_PP_NIGHT,
-  CATERED_PP_NIGHT,
+  MIN_PARTY_CATERED,
+  MIN_TO_JOIN,
+  RATE_BASE_YEAR,
+  RATE_YEARS,
+  RATE_YEAR_MULTIPLIER,
+  SEASON_DISCOUNT,
   SEASON_HIGH_DATES,
   LAST_MINUTE_DISCOUNT,
   LAST_MINUTE_MIN_DAYS,
   LAST_MINUTE_MAX_DAYS,
-  CATERED_WINDOW_MONTHS,
-  UNCATERED_WINDOW_MONTHS,
-  FROM_PP_SHARING_DISPLAY,
+  START_DAYS_DISPLAY,
+  TAPER_END_DISPLAY,
+  FROM_PP_TRIP_DISPLAY,
   formatRand,
+  rateFor,
   inclusions,
   exclusions,
-  ppSharingRand,
 } from '../data/rates';
-import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS, ppNightCentsFor, isHighSeason } from '../lib/pricing';
+import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS, ppTripCentsFor, isHighSeason } from '../lib/pricing';
 import { withBase } from '../data/site';
 import { webPageSchema, breadcrumbSchema, faqPageSchema } from '../data/schema';
 
 const title = 'How pricing works';
-const description = `Rates are per person sharing, for the whole trail, from ${FROM_PP_SHARING_DISPLAY}. Four things move the price: catering, season, start day, and how far ahead you book.`;
+const description = `Rates are per person sharing, for the whole trail, from ${FROM_PP_TRIP_DISPLAY}, VAT and conservation levies included. Three things move the price: the season, the year you travel, and how far ahead you book.`;
 
 const lastMinutePct = Math.round(LAST_MINUTE_DISCOUNT * 100);
+const seasonPct = Math.round(SEASON_DISCOUNT * 100);
 
-// The four factors, each with its own effect stated in the rates the table actually carries.
+// This page quotes the published (international) rate only. The resident rate exists in the
+// engine but is marketed directly, so it is never explained or shown here.
+const rate = (year: number, highSeason: boolean) =>
+  formatRand(rateFor({ catering: 'catered', residency: 'international', year, highSeason }));
+
+// The increase from the base year to the next published year, stated as the operator set it.
+const nextYear = RATE_YEARS.find((y) => y > RATE_BASE_YEAR) ?? RATE_BASE_YEAR;
+const nextYearPct = Math.round((RATE_YEAR_MULTIPLIER[nextYear] / RATE_YEAR_MULTIPLIER[RATE_BASE_YEAR] - 1) * 100);
+
+// The factors, each with its effect stated in the rates the table actually carries. Residency is
+// deliberately NOT among them: the resident rate is marketed directly, not explained here.
 const factors = [
   {
-    q: 'Does catering change the price?',
-    lead: 'Yes, and it is the largest single factor.',
-    body: `Self-catered starts at ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.low))} per person sharing and catered at ${formatRand(ppSharingRand(CATERED_PP_NIGHT.low))}. On a self-catered trail you bring and cook your own food, with lodge staff on hand for kitchen prep, the barbeque and cleaning. On a catered trail every meal is prepared for you.`,
-  },
-  {
     q: 'What counts as high season?',
-    lead: `${SEASON_HIGH_DATES}. Every other date is low season, at the lower rate.`,
-    body: `The season depends only on your start date. Catering, group size and everything else about the trail work exactly the same either way.`,
+    lead: `${SEASON_HIGH_DATES}. Every other date is low season, at ${seasonPct}% less.`,
+    body: `The season depends only on your start date: ${rate(RATE_BASE_YEAR, true)} per person in high season against ${rate(RATE_BASE_YEAR, false)} in low. Everything else about the trail is identical.`,
   },
   {
-    q: 'Why does my start day change the price?',
-    lead: 'Only on self-catered trails, and only for Thursday and Friday starts.',
-    body: `A self-catered trail beginning on a Thursday or Friday is ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.weekend.high))} per person sharing in high season against ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.high))} for any other start day. Catered trails are one rate whatever day you start.`,
+    q: 'Which year\'s rate applies to me?',
+    lead: 'The rate for the year your trail starts in, locked in when you book.',
+    body: `Rates are published two years ahead, because tour operators need them that far in advance. A trail starting in ${RATE_BASE_YEAR} high season is ${rate(RATE_BASE_YEAR, true)} per person; one starting in ${nextYear} is ${rate(nextYear, true)}. Whichever applies to your start date is the rate you pay, and it does not change after you book.`,
   },
   {
     q: 'Is there a discount for booking late?',
     lead: `Yes. Departures between ${LAST_MINUTE_MIN_DAYS} and ${LAST_MINUTE_MAX_DAYS} days away are ${lastMinutePct}% less.`,
-    body: `It applies to both catered and self-catered trails, and it is applied automatically: you will see it named on the date you pick and again on your total before you pay. Nothing needs to be asked for or entered.`,
+    body: `It is applied automatically: you will see it named on the date you pick and again on your total before you pay. Nothing needs to be asked for or entered. The last week before departure is closed for online booking, because that week is reserved for staffing your trail.`,
   },
 ];
 
 // A worked example, computed rather than typed, so the arithmetic on this page is the arithmetic
-// in the calculator. Fixed "now" is deliberate: a far-future date so the example is never
+// in the calculator. A fixed "now" is deliberate: a far-future date so the example is never
 // silently altered by the last-minute window as the date approaches.
 //
 // The DESCRIPTION is derived too, not written alongside the date. Writing "low season" next to a
-// date is exactly how this page ends up contradicting itself: the first draft of this example was
-// labelled low season on a date inside 1 Apr to 31 Oct, and the label was wrong while every
-// number below it was right.
+// date is exactly how this page ends up contradicting itself.
 const exampleIso = '2027-11-15';
 const exampleParty = 4;
-const exampleCatering = 'uncatered' as const;
+const exampleResidency = 'international' as const; // the published rate
 const exampleNow = new Date('2027-01-20T00:00:00Z');
 const exampleDate = new Date(exampleIso + 'T00:00:00Z');
 const exampleWeekday = exampleDate.toLocaleDateString('en-ZA', { timeZone: 'UTC', weekday: 'long' });
 const exampleSeason = isHighSeason(exampleIso) ? 'high season' : 'low season';
-const exampleStyle = exampleCatering === 'uncatered' ? 'Self-catered' : 'Catered';
-// The per-night figure exists only inside lib/pricing.ts's calculation; nothing on this page
-// ever shows it un-multiplied. examplePpSharing IS the per-person price for the whole trail.
-const examplePpSharing = ppNightCentsFor(exampleCatering, exampleIso, exampleNow) * NIGHTS;
-const exampleTotal = examplePpSharing * exampleParty;
+const examplePp = ppTripCentsFor('catered', exampleResidency, exampleIso, exampleNow);
+const exampleTotal = examplePp * exampleParty;
 const exampleDeposit = Math.round(exampleTotal / 2);
 const asRand = (cents: number) => formatRand(cents / 100);
 
 const exampleLines: Array<[string, string]> = [
-  [`${exampleStyle}, ${exampleSeason}, ${exampleWeekday} start`, `${asRand(examplePpSharing)} per person sharing`],
+  [`All-inclusive, ${exampleSeason}, ${exampleWeekday} start`, `${asRand(examplePp)} per person sharing`],
   [`${exampleParty} walkers`, asRand(exampleTotal)],
   ['Paid today (50% deposit)', asRand(exampleDeposit)],
   [`Balance, due ${BALANCE_LEAD_DAYS} days before arrival`, asRand(exampleTotal - exampleDeposit)],
@@ -118,8 +117,9 @@ const jsonLd = [
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         Rates are per person sharing, for the whole {NIGHTS}-night trail, from{' '}
-        {FROM_PP_SHARING_DISPLAY}. Four things move that price: whether you self-cater, the
-        season, your start day, and how far ahead you book. Nothing else is added at checkout.
+        {FROM_PP_TRIP_DISPLAY}, with VAT and all conservation levies included. Three things move
+        that price: the season, the year you travel, and how far ahead you book. Nothing else is
+        added at checkout.
       </p>
     </div>
   </Section>
@@ -153,7 +153,7 @@ const jsonLd = [
         A worked example
       </h2>
       <p class="mt-4 font-body leading-relaxed text-cream/85">
-        {exampleParty} walkers, {exampleStyle.toLowerCase()}, starting on a {exampleWeekday} in
+        {exampleParty} walkers, all-inclusive, starting on a {exampleWeekday} in{' '}
         {exampleSeason}. Every line is the same calculation the booking form runs, so this is what
         you would actually be charged.
       </p>
@@ -182,19 +182,19 @@ const jsonLd = [
       </h2>
       <p class="mt-4 font-body leading-relaxed text-charcoal">
         <strong>Just the people you are booking for.</strong> The rate is per person sharing, for
-        the whole trail, so a party of {MIN_PARTY_SIZE} pays for {MIN_PARTY_SIZE} even on a date
-        where others join later. A departure carries up to {MAX_GROUP_SIZE} walkers in total.
+        the whole trail, so a party of {MIN_PARTY_CATERED} pays for {MIN_PARTY_CATERED} even on a
+        date where others join later. A departure carries up to {MAX_GROUP_SIZE} walkers in total,
+        with two trail guides.
       </p>
       <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-        The first booking on a shared date needs at least {SHARED_OPEN_MIN_UNCATERED} people
-        self-catered or {SHARED_OPEN_MIN_CATERED} catered, and fixes the catering for everyone who
-        joins that date afterwards. Once a date is running, any party of {SHARED_TOPUP_MIN} or more
-        can join it while places last. Wednesday and Thursday departures are exclusive, for
-        exactly {EXCLUSIVE_SIZE} places, so nobody joins you.
+        The first booking on a date opens it, from {MIN_PARTY_CATERED} guests. Once a date has
+        {' '}{MIN_PARTY_CATERED} guests it is a guaranteed departure, and any party of{' '}
+        {MIN_TO_JOIN} or more can join it while places last. Book all {MAX_GROUP_SIZE} places and
+        the trail and each lodge are reserved for your group alone, with nobody joining you.
       </p>
       <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-        Catered dates open for booking up to {CATERED_WINDOW_MONTHS} months ahead and self-catered
-        up to {UNCATERED_WINDOW_MONTHS} months.
+        Departures run {START_DAYS_DISPLAY} until {TAPER_END_DISPLAY}, and every weekday from 2029.
+  
       </p>
     </div>
   </Section>

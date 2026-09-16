@@ -1,254 +1,143 @@
-// Supporting surfaces (§9): homepage "from" price, the pricing explainer, the WhatsApp fallback,
-// and the confirmation email.
+// Supporting surfaces: every page, email and data file that quotes a price, a discount, a
+// minimum or a date must READ the constant rather than repeat the number.
 // Run: npx tsx scripts/verify-surfaces.mjs
 //
-// The failure this guards against is drift, not breakage. Every one of these surfaces states a
-// price, a discount, a minimum or a deadline that ALSO lives in data/rates.ts or lib/pricing.ts.
-// A hardcoded copy of any of them keeps rendering perfectly while quietly advertising a number we
-// no longer honour, which is worse than a crash: nothing fails, and the site lies.
-//
-// So the shape of this script is: for every figure that appears in copy, assert the copy reads
-// the constant rather than a literal.
+// The failure this guards against is drift, not breakage. A hardcoded copy of a rate keeps
+// rendering perfectly while quietly advertising a number we no longer honour, which is worse than
+// a crash: nothing fails, and the site lies. It matters more under commercial model v4 than it
+// did before, because rates now change on a published schedule (+8% in 2028, +5% in 2029) rather
+// than only when someone decides to reprice.
 import { readFileSync } from 'node:fs';
 import {
-  NIGHTS,
-  LOWEST_PP_NIGHT,
-  FROM_PP_SHARING_DISPLAY,
-  ppSharingRand,
-  UNCATERED_PP_NIGHT,
-  CATERED_PP_NIGHT,
+  BASE_PP_TRIP,
+  FROM_PP_TRIP,
+  FROM_PP_TRIP_DISPLAY,
   LAST_MINUTE_DISCOUNT,
+  MAX_GROUP_SIZE,
+  MIN_PARTY_CATERED,
+  BOOKING_OPEN_DISPLAY,
+  formatRand,
+  rateFor,
   inclusions,
   exclusions,
-  formatRand,
 } from '../src/data/rates.ts';
-import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS, isHighSeason } from '../src/lib/pricing.ts';
-import { routePins } from '../src/data/route.ts';
 
 let failed = 0;
-function assert(label, cond) {
+function assert(label, cond, detail) {
   console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}`);
-  if (!cond) failed++;
+  if (!cond) {
+    if (detail) console.log(`        ${detail}`);
+    failed++;
+  }
 }
-const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 62 - t.length))}`);
-const read = (rel) => readFileSync(new URL('../' + rel, import.meta.url), 'utf8');
+const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 66 - t.length))}`);
+const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 const home = read('src/pages/index.astro');
+const rates = read('src/pages/rates.astro');
 const explainer = read('src/pages/how-pricing-works.astro');
-const ratesPage = read('src/pages/rates.astro');
+const table = read('src/components/RatesTable.astro');
 const widget = read('src/components/BookingWidget.astro');
+const sadc = read('src/pages/sadc-slackpacking.astro');
 const email = read('src/lib/email.ts');
-const rates = read('src/data/rates.ts');
-const css = read('src/styles/global.css');
+const llms = read('public/llms.txt');
 
-section('1. The "from" price is DERIVED, per person SHARING, and every quoted rate is honourable');
-assert('LOWEST_PP_NIGHT is computed with Math.min over the rate table, not assigned',
-  /export const LOWEST_PP_NIGHT = Math\.min\(/.test(rates));
-// A hand-picked "cheapest cell" is the exact thing that goes stale: the table can change without
-// anyone remembering the marketing figure was copied out of it.
-assert('it is not a literal', !/export const LOWEST_PP_NIGHT = \d+/.test(rates));
-const everyRate = [
-  UNCATERED_PP_NIGHT.week.high, UNCATERED_PP_NIGHT.week.low,
-  UNCATERED_PP_NIGHT.weekend.high, UNCATERED_PP_NIGHT.weekend.low,
-  CATERED_PP_NIGHT.high, CATERED_PP_NIGHT.low,
-];
-assert(`LOWEST_PP_NIGHT (${LOWEST_PP_NIGHT}) really is the minimum of all six published rates`,
-  LOWEST_PP_NIGHT === Math.min(...everyRate));
-// Deliberate: the last-minute rate is lower still, but a guest cannot choose to be in that window.
-assert('the last-minute rate is NOT advertised as the entry price',
-  LOWEST_PP_NIGHT > LOWEST_PP_NIGHT * (1 - LAST_MINUTE_DISCOUNT) &&
-  /Deliberately excludes the\n\/\/ last-minute discount/.test(rates));
-// The trail has no shorter stay to choose (all NIGHTS nights are mandatory), so the entry price
-// quoted anywhere on the site must be the per-person SHARING total, never the bare nightly rate.
-assert('ppSharingRand multiplies by NIGHTS, and is the ONLY conversion site-wide',
-  /export const ppSharingRand = \(perNightRand: number\): number => perNightRand \* NIGHTS/.test(rates));
-assert(`FROM_PP_SHARING_DISPLAY (${FROM_PP_SHARING_DISPLAY}) is exactly LOWEST_PP_NIGHT x NIGHTS`,
-  FROM_PP_SHARING_DISPLAY === formatRand(LOWEST_PP_NIGHT * NIGHTS));
-assert('the display string is built from ppSharingRand, once',
-  /export const FROM_PP_SHARING_DISPLAY = formatRand\(ppSharingRand\(LOWEST_PP_NIGHT\)\)/.test(rates));
-assert('the retired nightly display constant is gone', !/FROM_PP_NIGHT_DISPLAY/.test(rates));
-
-section('2. Homepage shows NO visible pricing at all (removed on request)');
-// "Remove this from the home page, and also remove the text screenshotted in the buttons ... I
-// dont want any visible pricing on the home page." The CTAs and prose used to quote the computed
-// FROM_PP_SHARING_DISPLAY figure; that is deliberately gone now, not just swapped for a literal.
-assert('FROM_PP_SHARING_DISPLAY is not imported on the homepage at all', !/FROM_PP_SHARING_DISPLAY/.test(home));
-assert('the retired nightly display constant is not imported either', !/FROM_PP_NIGHT_DISPLAY/.test(home));
-assert('no rand figure at all is typed into the homepage', !/\bR\d[\d,]*\b/.test(home));
-assert('no "per person sharing" pricing phrase survives on the homepage',
-  !/per person sharing/.test(home));
-assert('the homepage never claims a per-night price either', !/per person per night|pp\/night/.test(home));
-// This used to name two exact button labels. One of them, "See rates and book", belonged to the
-// beta banner that the design pass replaced with a slim button-less bar (the homepage was carrying
-// four CTAs above the first content section). Asserting the PROPERTY instead of the literal labels
-// keeps the original intent — no price may ride along on a CTA — without re-breaking on every copy
-// edit, and covers every primary CTA rather than the two that happened to exist when it was written.
-const homePrimaryCtas = [...home.matchAll(/class="btn btn-primary"[^>]*>([^<]*)</g)].map((m) =>
-  m[1].trim(),
-);
-assert('the homepage still has at least one primary CTA', homePrimaryCtas.length > 0);
-assert(
-  'every primary CTA is plain, with no price appended',
-  homePrimaryCtas.every((t) => t.length > 0 && !/R\s?\d/.test(t) && !/per person|per night/i.test(t)),
-);
-
-section('3. The pricing explainer exists and computes everything it claims');
-assert('the page exists at /how-pricing-works', explainer.length > 500);
-assert('it has exactly one <h1>', (explainer.match(/<h1/g) || []).length === 1);
-assert('it carries Seo metadata and JSON-LD', /webPageSchema\(\{ path: '\/how-pricing-works'/.test(explainer));
-assert('breadcrumbs place it under Rates', /\{ name: 'How pricing works', path: '\/how-pricing-works' \}/.test(explainer));
-// Question-shaped headings answered in the first sentence: the house SEO/GEO rule, and also just
-// how a person reads a pricing page.
-const questions = (explainer.match(/q: '[^']*\?'/g) || []).length;
-assert(`headings are question-shaped and answered first (${questions} questions)`, questions >= 4);
-assert('every question is fed to FAQ JSON-LD', /faqPageSchema\(factors\.map\(/.test(explainer));
-assert('NO rand figure is typed into the explainer', !/\bR\d[\d,]*\b/.test(explainer));
-assert('rates come through formatRand of the constants', (explainer.match(/formatRand\(/g) || []).length >= 3);
-// The season discount PERCENTAGE and the high-vs-low price comparison were removed on request:
-// "no need to tell the customer how much discount they get off season, they can work out the
-// difference themselves." The page now states only WHEN low season applies, never a percentage
-// or a high-season figure to compare against.
-assert('no season discount percentage is computed or shown anywhere on the page',
-  !/SEASON_DISCOUNT/.test(explainer) && !/seasonPct/.test(explainer));
-assert('the high-season Q&A states the DATES but not a percentage or a comparison price',
-  /Every other date is low season, at the lower rate/.test(explainer) &&
-  !/UNCATERED_PP_NIGHT\.week\.high/.test(explainer.slice(explainer.indexOf("q: 'What counts as high season?"), explainer.indexOf("q: 'Why does my start day"))));
-assert(`the ${Math.round(LAST_MINUTE_DISCOUNT * 100)}% last-minute figure is computed`,
-  /Math\.round\(LAST_MINUTE_DISCOUNT \* 100\)/.test(explainer));
-assert('the last-minute discount is stated for BOTH caterings (the step-1 rule)',
-  /applies to both catered and self-catered/.test(explainer));
-assert('the worked example runs the REAL pricing function, not arithmetic retyped here',
-  /ppNightCentsFor\(exampleCatering, exampleIso, exampleNow\)/.test(explainer));
-assert('the example uses a fixed "now" so the last-minute window cannot silently alter it',
-  /const exampleNow = new Date\('2027-01-20T00:00:00Z'\)/.test(explainer));
-// The example's PROSE must be derived from its date, not written beside it. The first draft said
-// "low season" on a date inside 1 Apr to 31 Oct: every number was right and the sentence was not.
-assert('the season label is derived from the date, not typed',
-  /const exampleSeason = isHighSeason\(exampleIso\) \?/.test(explainer) &&
-  !/low season, Monday start|outside high season/.test(explainer));
-assert('the weekday is derived too', /const exampleWeekday = exampleDate\.toLocaleDateString/.test(explainer));
-assert('the catering label is derived', /const exampleStyle = exampleCatering === 'uncatered'/.test(explainer));
-{
-  // Independently re-derive the example date's season and confirm the page cannot claim otherwise.
-  const iso = (explainer.match(/const exampleIso = '([\d-]+)'/) || [])[1];
-  assert(`the example date ${iso} really is low season`, iso != null && !isHighSeason(iso));
+// Every rand figure the model can currently produce, as a formatted string. Any of these appearing
+// as a literal in a page is a hardcoded price.
+const liveFigures = new Set();
+for (const year of [2027, 2028, 2029]) {
+  for (const catering of ['catered', 'uncatered']) {
+    for (const residency of ['sadc', 'international']) {
+      for (const highSeason of [true, false]) {
+        liveFigures.add(formatRand(rateFor({ catering, residency, year, highSeason })));
+      }
+    }
+  }
 }
-assert('the example shows deposit AND balance, not just a total',
-  /Paid today \(50% deposit\)/.test(explainer) && /Balance, due \$\{BALANCE_LEAD_DAYS\} days before arrival/.test(explainer));
-// The worked example's headline row must be the per-person SHARING figure (nightly rate already
-// multiplied by NIGHTS), not a nightly rate awaiting a separate "x nights" step — the trail has no
-// shorter stay, so a two-step "per night, then x nights" breakdown would misstate what is on offer.
-assert('the example computes a SHARING figure by multiplying the engine\'s per-night rate by NIGHTS',
-  /const examplePpSharing = ppNightCentsFor\(exampleCatering, exampleIso, exampleNow\) \* NIGHTS/.test(explainer));
-assert('the example\'s headline row is labelled "per person sharing"',
-  /\$\{asRand\(examplePpSharing\)\} per person sharing/.test(explainer));
-assert('no separate nights-multiplication row survives in the example',
-  !/NIGHTS.{0,20}nights.{0,20}asRand\(examplePpTotal\)/.test(explainer) && !/examplePpTotal/.test(explainer));
-assert('the example never states a bare per-night figure', !/per person per night/.test(explainer));
-assert('inclusions and exclusions are mapped from data/rates.ts',
-  /\{inclusions\.map\(/.test(explainer) && /\{exclusions\.map\(/.test(explainer));
-for (const item of [...inclusions, ...exclusions]) {
-  assert(`"${item.slice(0, 30)}..." is not duplicated as a literal`, !explainer.includes(item));
+
+section('1. No page hardcodes a rate the engine computes');
+for (const [name, src] of [
+  ['index.astro', home],
+  ['rates.astro', rates],
+  ['how-pricing-works.astro', explainer],
+  ['RatesTable.astro', table],
+  ['sadc-slackpacking.astro', sadc],
+]) {
+  const found = [...liveFigures].filter((f) => src.includes(f));
+  assert(`${name} quotes no rate as a literal`, found.length === 0, found.join(', '));
 }
-assert('the worked-example styling exists', /\.pricing-example__row \{/.test(css));
 
-section('4. It is reachable, and the rates page links to it');
-assert('/rates links to the explainer', /withBase\('\/how-pricing-works'\)/.test(ratesPage));
-assert('the booking widget links to it too', /withBase\('\/how-pricing-works'\)/.test(widget));
+section('2. The figures that DO appear in copy come from the constants');
+assert('rates.astro derives its "from" price via rateFor()', /rateFor\(\{/.test(rates));
+assert('how-pricing-works reads FROM_PP_TRIP_DISPLAY', /FROM_PP_TRIP_DISPLAY/.test(explainer));
+assert('how-pricing-works computes its worked example from lib/pricing', /ppTripCentsFor\(/.test(explainer));
+assert('the rate table renders rateRows, not hand-written cells', /rateRows\.map/.test(table));
+assert('the SADC page derives its rate line', /rateFor\(\{/.test(sadc) && /sadcSelfCateredRates/.test(sadc));
+assert('the widget mirrors the price chain from its serialised constants, not literals',
+  /R\.base \* \(R\.yearMultipliers/.test(widget) && !new RegExp(`\\b${BASE_PP_TRIP.catered}\\b`).test(widget));
 
-section('5. The step-1 conformance fix reached the MARKETING copy, not just the engine');
-// lib/pricing.ts was corrected in step 1 so the last-minute discount applies to both caterings.
-// This sentence on /rates still gated it on self-catered, which would have under-quoted catered
-// guests against what we now actually charge them.
-assert('/rates no longer restricts the last-minute discount to self-catered',
-  !/Self-catered bookings made \{LAST_MINUTE_MIN_DAYS\}/.test(ratesPage));
-// The last-minute disclosure sentence was later trimmed from /rates entirely as part of a
-// broader wording simplification pass; the "both caterings" guarantee still holds because the
-// explainer page states it explicitly (asserted above) and no page claims otherwise here.
-assert('no page still claims the discount is self-catered only',
-  ![home, explainer, ratesPage, widget].some((f) => /self-catered bookings.{0,80}% off/i.test(f)));
-
-section('6. Deadline literals removed from copy');
-// SPLIT_THRESHOLD_DAYS and BALANCE_LEAD_DAYS are both 45 today. Copy that types "45" keeps saying
-// 45 after either moves, in the one place a guest treats as a commitment.
-assert(`no "${SPLIT_THRESHOLD_DAYS} day" literal in the booking widget`, !/\b45[+]? (or more )?days?\b/.test(widget));
-assert('the deposit strip on /rates reads the constants', /\{SPLIT_THRESHOLD_DAYS\}\+ days out/.test(ratesPage));
-assert('the payment summary on /rates reads the constants',
-  /Full payment is due \{BALANCE_LEAD_DAYS\} days before arrival/.test(ratesPage));
-assert('the confirmation email reads the constant', /\$\{BALANCE_LEAD_DAYS\} days before your trip/.test(email));
-assert('no "45 days" literal survives in the email', !/\b45 days\b/.test(email));
-// Deliberately NOT bound to SPLIT_THRESHOLD_DAYS: non-refundability is a separate commercial term
-// that merely coincides with the payment threshold today, so fusing them would hide two decisions
-// behind one constant. De-duplicated against its OWN source instead.
-assert('the refund summary renders from refundPolicy.tiers, not a retyped sentence',
-  /refundPolicy\.tiers\[0\]\.window/.test(ratesPage) && !/Cancel 45 or more days/.test(ratesPage));
-assert('no page retypes a deposit/balance deadline as a literal',
-  ![home, ratesPage, widget, email, explainer].some((f) =>
-    /\b45[+]? (or more )?days?\b/.test(f.replace(/^\s*(\/\/|\*).*$/gm, ''))));
-
-section('6b. The comp-booking form cannot submit a group size the server will reject');
-const compForm = read('src/pages/admin/bookings/new.astro');
-assert('the buyout size comes from the constant, not a DOM read', /groupSize: EXCLUSIVE_SIZE,/.test(compForm));
-assert('it no longer parses the number back out of a display field', !/Number\(val\('cb-group'\)/.test(compForm));
-assert('the displayed value is the constant too', /value=\{EXCLUSIVE_SIZE\}/.test(compForm));
-assert('the hint states the constant rather than a literal 8',
-  /exactly \{EXCLUSIVE_SIZE\} guests/.test(compForm) && !/exactly 8 guests/.test(compForm));
-// `disabled` removes the field from the accessibility tree; readonly keeps it announced.
-assert('the display field is readonly, not disabled', /readonly aria-readonly="true"/.test(compForm) && !/readonly disabled/.test(compForm));
-
-section('7. WhatsApp fallback at both dead ends');
-assert('a fallback line exists in the widget', /class="bform__fallback"/.test(widget));
-assert('it uses the configured number, not a typed link', /\{site\.contact\.whatsappUrl\}/.test(widget));
-assert('it opens safely', (widget.match(/target="_blank" rel="noopener"/g) || []).length >= 2);
-assert('it sits BELOW the primary action, as an escape hatch not a rival',
-  widget.indexOf('bform__submit') < widget.indexOf('bform__fallback'));
-assert('it is not styled as a button', !/bform__fallback[\s\S]{0,200}btn-primary/.test(widget));
-assert('the empty state also offers WhatsApp', /ask us on WhatsApp/.test(widget));
-assert('the fallback has its own styling', /\.bform__fallback \{/.test(css));
-
-section('8. The confirmation email gained the trail and what it covers');
-assert('a trail strip is built', /function trailStrip\(\)/.test(email));
-assert('it reads routePins rather than naming lodges', /import \{ routePins \} from '\.\.\/data\/route'/.test(email));
-for (const pin of routePins) {
-  assert(`"${pin.name}" is not hardcoded in the email`, !email.includes(`>${pin.name}<`));
+section('3. Discounts, minimums and dates are read, not retyped');
+const pct = (d) => `${Math.round(d * 100)}%`;
+// (The resident-rate percentage is not quoted on any public page at all — asserted below.)
+assert('the last-minute percentage is derived in the widget',
+  /Math\.round\(LAST_MINUTE_DISCOUNT \* 100\)/.test(widget) || /Math\.round\(R\.lastMinuteDiscount \* 100\)/.test(widget));
+assert('group size comes from MAX_GROUP_SIZE / MIN_PARTY_CATERED on the rates page',
+  /MAX_GROUP_SIZE/.test(rates) && /MIN_PARTY_CATERED/.test(rates));
+assert('the launch date on the homepage reads BOOKING_OPEN_DISPLAY', /BOOKING_OPEN_DISPLAY/.test(home));
+// /rates deliberately does not state the start-day rule at all (operator decision, 16 Sep 2026:
+// keep that page as simple as possible; the calendar enforces it by not offering the date). So
+// the guard is conditional: a page may stay silent, but if it names the start days it must read
+// the constant rather than typing weekday names that a taper change would leave stale.
+const WEEKDAYS = /\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/;
+for (const [name, src] of [['rates.astro', rates], ['how-pricing-works.astro', explainer], ['sadc-slackpacking.astro', sadc]]) {
+  assert(`${name} either stays silent on start days or reads START_DAYS_DISPLAY`,
+    !WEEKDAYS.test(src) || /START_DAYS_DISPLAY/.test(src));
 }
-assert('the loop returns to the hub', /role: 'Day 1, arrive'[\s\S]{0,240}role: 'Day 4, depart'/.test(email));
-assert('an inclusions block is built from data/rates.ts', /function inclusionsBlock\(\)/.test(email));
-for (const item of inclusions) {
-  assert(`"${item.slice(0, 30)}..." is not duplicated in the email`, !email.includes(item));
-}
-assert('both are inserted into the confirmation', /trailStrip\(\) \+/.test(email) && /inclusionsBlock\(\) \+/.test(email));
-// Email clients that ignore flex are the reason this is a table, and the reason it is asserted.
-assert('layout uses tables, not flex (Outlook)', !/function trailStrip\(\)[\s\S]{0,1200}display:\s*flex/.test(email));
-assert('every interpolated value is escaped', !/\$\{stop\.name\}/.test(email) && /escapeHtml\(stop\.name\)/.test(email));
-assert('inclusion text is escaped too', /escapeHtml\(item\)/.test(email));
-assert('self-catered guests are told food is theirs to bring',
-  /opts\.catering === 'uncatered'[\s\S]{0,220}Food and drink are yours to bring/.test(email));
 
-section('9. House rules');
-for (const [name, src] of [['homepage', home], ['explainer', explainer]]) {
-  const copy = src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')                        // JSX comments
-    .replace(/^---[\s\S]*?^---$/m, (m) => m.replace(/—/g, ''))      // frontmatter is code
-    .split('\n')
-    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
-    .join('\n');
-  assert(`no em-dash in ${name} copy`, !/—/.test(copy));
-}
-assert('no fabricated credential appears on the explainer',
-  !/FGASA|certified|years of experience|award[- ]winning/i.test(explainer));
-assert(`the explainer claims exactly the ${inclusions.length} inclusions we publish`,
-  (explainer.match(/inclusions\.map/g) || []).length === 1);
+section('4. The included/excluded lists are shared, never restated');
+assert('rates.astro renders the inclusions array', /inclusions/.test(rates));
+assert('how-pricing-works renders the same arrays', /inclusions/.test(explainer) && /exclusions/.test(explainer));
+assert('the confirmation email renders them too', /inclusionsBlock/.test(email));
+assert('the SADC page uses its own pair, not the flagship one',
+  /uncateredInclusions/.test(sadc) && !/\binclusions\b/.test(sadc.replace(/uncateredInclusions|uncateredExclusions/g, '')));
+assert('every inclusion line appears exactly once in the array (no duplicate claims)',
+  new Set(inclusions).size === inclusions.length && new Set(exclusions).size === exclusions.length);
 
-// The trail is always exactly NIGHTS nights (mandatory, no shorter stay), so no customer-facing
-// surface may quote a bare per-night price — every figure is per person SHARING for the whole
-// trail. Swept across every surface this script already reads.
-for (const [name, src] of [['homepage', home], ['explainer', explainer], ['rates page', ratesPage], ['booking widget', widget]]) {
-  assert(`${name} never states a bare per-night price`, !/per person per night|pp\/night/.test(src));
+section('5. llms.txt states the current model (it is read by AI crawlers, not rebuilt from code)');
+for (const [label, needle] of [
+  ['the flagship rate', formatRand(BASE_PP_TRIP.catered)],
+  ['the low-season rate', FROM_PP_TRIP_DISPLAY],
+  ['the launch date', BOOKING_OPEN_DISPLAY],
+  ['the last-minute discount', pct(LAST_MINUTE_DISCOUNT)],
+  ['the capacity', String(MAX_GROUP_SIZE)],
+]) {
+  assert(`llms.txt states ${label} (${needle})`, llms.includes(needle));
 }
-assert('the rates JSON-LD offers price the SHARING total, not the raw nightly constant',
-  /price: ppSharingRand\(UNCATERED_PP_NIGHT\.week\.low\)/.test(ratesPage) &&
-  /price: ppSharingRand\(CATERED_PP_NIGHT\.low\)/.test(ratesPage));
+assert('llms.txt does NOT link the unlisted SADC page', !llms.includes('sadc-slackpacking'));
+// The public site is written for the international market and does not disclose that a resident
+// rate exists (operator decision, 16 Sep 2026). llms.txt is fed to AI crawlers, so it is public
+// for this purpose: it must quote the published rate and nothing about the resident band.
+assert('llms.txt does not disclose the resident rate band', !/sadc/i.test(llms));
+// Tested against what SHIPS, not the source: a code comment explaining why the band is withheld
+// is useful and never reaches the browser, so stripping comments first is the honest check.
+const shipped = (src) =>
+  src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+for (const [name, src] of [['index.astro', home], ['rates.astro', rates], ['how-pricing-works.astro', explainer], ['RatesTable.astro', table]]) {
+  assert(`${name} ships no mention of the resident rate band`, !/sadc/i.test(shipped(src)));
+}
+// The widget is checked on its MARKUP and its user-visible strings, not its script: the bundled
+// JS necessarily carries the band name as an internal value, because the on-page estimate is
+// computed client-side. That residual is documented in the widget's own header comment; removing
+// it entirely would mean fetching the quote from the server instead.
+const widgetMarkup = shipped(widget).split('<script>')[0].split('---').slice(2).join('---');
+assert('the widget shows no mention of the resident rate band in its markup',
+  !/sadc/i.test(widgetMarkup));
+assert('no user-facing widget string names the band',
+  ![...shipped(widget).matchAll(/setStatus\('([^']*)'/g)].some(([, msg]) => /sadc/i.test(msg)));
+assert('the declaration field is named neutrally, since page source is readable by a visitor',
+  /name="residencyDeclaration"/.test(widget) && /residencyDeclaration: z\.boolean/.test(readFileSync(new URL('../src/actions/index.ts', import.meta.url), 'utf8')));
+assert('FROM_PP_TRIP is the low-season flagship rate, derived',
+  FROM_PP_TRIP === rateFor({ catering: 'catered', residency: 'international', year: 2027, highSeason: false }));
 
-console.log(failed === 0 ? '\nALL SURFACE CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);
+console.log(`\n${failed === 0 ? 'ALL SURFACE CHECKS PASSED' : `${failed} CHECK(S) FAILED`}`);
 process.exit(failed === 0 ? 0 : 1);

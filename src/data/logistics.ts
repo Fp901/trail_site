@@ -12,24 +12,24 @@ export interface LogBlock {
 export const logisticsBlocks: LogBlock[] = [
   {
     id: 'catering',
-    kicker: 'Catering',
-    title: 'Self-catered or fully catered',
+    kicker: 'Dining',
+    title: 'All-inclusive, hearty bush hospitality',
     body: [
-      'For un-catered groups you bring your own food and drinks; we move them. Your provisions and bags travel between lodges each day, kept cool and dry, and every lodge has staff to help with kitchen prep, cooking, the barbeque, and washing up.',
-      'Prefer not to plan meals? For catered groups we provide a full English breakfast, a snack pack for the trail, and a full barbeque for dinner. Unfortunately, due to logistical limitations, we have a fixed typical safari menu and are not able to accommodate special dietary requirements.',
-      'Self-catered or catered, your choice, on any start date. On a shared departure date, whichever catering option the first booking on that date chose is what everyone joining gets.',
+      'Every meal is included. Breakfast at the lodge before you set off, a bush brunch laid out on the trail after three to four hours of walking, refreshments on arrival at the next lodge, and dinner served family-style around the boma fire, accompanied by selected South African estate wines and local beers.',
+      'The menu is a fixed, wholesome bushveld one, deliberately built without high-risk allergens such as nuts and shellfish. It carries enough variety for straightforward vegetarian preferences, but as a remote walking safari rather than a bespoke lodge we cannot cater for extensive or highly specific diets.',
+      'Because you walk 15 to 20 km the next morning in Big 5 terrain, heavy spirits are excluded apart from gin for sundowners, and wine and beer are served as a curated daily selection. You are welcome to bring a particular bottle of your own; it travels with your luggage.',
     ],
   },
   {
     id: 'lodges',
     kicker: 'The lodges',
     title: 'Every lodge, one standard',
-    body: 'Each of the three private lodges is fully equipped to the same premium standard: bedding, pool, equipped kitchen, barbeque, free ice, wood and WiFi. You carry only a daypack, and everything you need is waiting when you arrive.',
+    body: 'Each of the three private lodges is fully equipped to the same premium standard including a pool and WiFi. Everything you need is waiting when you arrive.',
   },
   {
     id: 'safety',
     kicker: 'Safety',
-    title: 'Two experienced trail guides, the whole way.',
+    title: 'Two trail guides, the whole way',
     body: 'Two experienced trail guides are with you at all times. This is the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. The reserve is also 100% malaria-free.',
     emphasis: true,
   },
@@ -58,12 +58,12 @@ export function faqAnswerText(a: Faq['a']): string {
 
 export const faqs: Faq[] = [
   {
-    q: 'What is slackpacking?',
-    a: 'Slackpacking is multi-day hiking without a heavy pack. You walk the trail while your luggage and food are carried ahead. On Rooiberg Wander, support vehicles move everything between lodges each day, kept cool and dry, so you walk with only a daypack.',
+    q: 'Is this a slackpacking trail?',
+    a: 'Yes. Your luggage moves ahead to the next lodge each day, so you walk with a daypack. Rooiberg Wander is all-inclusive: every meal, both trail guides and all conservation levies are part of the rate, and you sleep in established private safari lodges.',
   },
   {
     q: 'What are the conservation levies?',
-    a: 'Included in your package are conservation levies of 18% of your booking fee, payable to RoiSan Reserve NPC, the manager of the reserve, which allocates monies to the maintenance and protection of the ecosystem and wildlife.',
+    a: 'Your rate includes a conservation levy paid to RoiSan Reserve, the manager of the reserve. It funds anti-poaching work, fence maintenance and wildlife monitoring across the reserve.',
   },
   {
     q: 'Where is the trail and how do I get there?',
@@ -87,15 +87,15 @@ export const faqs: Faq[] = [
   },
   {
     q: 'Who carries the luggage and food?',
-    a: 'You do not. Your food and bags are moved between lodges daily and kept cool and dry, and staff at each lodge help with kitchen prep, cooking, the barbeque and the washing-up.',
+    a: 'You do not. Your bags and the group provisions are moved between lodges daily and kept cool and dry, and a chef travels with the group to handle every meal.',
   },
   {
     q: 'What are the lodges like?',
-    a: 'Each of the three lodges accommodates guests in 2 person suites, includes bedding, has a swimming pool, a fully equipped kitchen with a fridge, ice machine, wood, barbeque facilities, safe drinking water and free WiFi. Each has its own character.',
+    a: 'Each of the three lodges accommodates guests in 2 person suites, includes bedding, and has a swimming pool, safe drinking water and free WiFi. Each is an established private bush lodge with its own character.',
   },
   {
     q: 'How big is the group?',
-    a: 'Up to 8 guests, either way. Book a Wednesday or Thursday exclusive departure for exactly 8, with the trail and each lodge to yourselves, or join a shared departure on any other day, where the first booking needs 4 or more people and later bookings can top up to 8 in total.',
+    a: 'Two to eight guests, with two trail guides. The first booking on a date opens it, from two guests, and later bookings join until the eight places are taken. Book all eight and the trail and each lodge are reserved for your group alone.',
   },
   {
     q: 'Where can I stay before or after my visit?',
@@ -112,16 +112,7 @@ export const faqs: Faq[] = [
   },
 ];
 
-// Practical "before you arrive" info — provisions and transfers, each with a disclaimer.
-export const provisions = {
-  kicker: 'Food & provisions',
-  title: 'Stocking up before you arrive',
-  intro:
-    'Groceries and supplies can be pre-ordered before arrival. The closest fully-stocked supermarket and liquor store is Checkers Bela Bela, at the Bela Mall off the N1, about 80 km from us.',
-  disclaimer:
-    'Grocery orders and deliveries are strictly between you and Checkers; we cannot manage them on your behalf.',
-};
-
+// Practical "before you arrive" info — transfers, with a disclaimer.
 export const transfers = {
   kicker: 'Transfers & transport',
   title: 'Getting here',
@@ -144,7 +135,7 @@ export const transfers = {
 // Day-pack kit list. Items grounded in the brief.
 export const kitList = {
   kicker: 'What to pack',
-  title: 'What to pack for a slackpacking trail',
+  title: 'What to pack for the trail',
   intro:
     'You walk with a light daypack while the rest of your luggage travels ahead to the next lodge. Pack for warm days and cool mornings in the Waterberg, in neutral colours for the game areas.',
   items: [

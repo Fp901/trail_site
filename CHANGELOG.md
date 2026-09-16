@@ -10,6 +10,201 @@ marked done. Dates are the working dates.
 
 ---
 
+## Commercial model v4: all-inclusive flagship, SADC rates, tapered start (memo 15 Sep 2026) — 2026-09-16
+
+Implements the operator's 15 September 2026 memo to Francois and the 5 September 2026 business
+plan as the live commercial model, retiring Booking v3.1's per-person-per-night, catering-choice,
+Wednesday/Thursday-buyout model. Numbers traced against the memo's own rate table before anything
+was written: R15,900 / R12,720 (2027) and R17,172 / R13,737 (2028) all reproduce exactly.
+
+### The model
+
+1. **One flagship on the public site.** The all-inclusive **catered** walking safari is what
+   `/rates` sells. The self-catered product still exists in the booking engine but is reachable
+   only from the hidden `/sadc-slackpacking` page (the QR target on the marketing PDF), per
+   business plan §5.3: mixing a self-catering version into the main site confuses the DMCs the
+   inbound bookings depend on.
+2. **Three products = catering x residency.** Catered/international (min 2, 24-month window),
+   catered/SADC (min 2, 12-month window, 30% off), self-catered/SADC (exactly 8, 12-month window).
+   International self-catered is not sold: the hidden page states the 100% premium that applies to
+   a guest who cannot show SADC proof at check-in, which is an on-the-day operator matter.
+3. **Rates are PER PERSON, PER TRIP.** `data/rates.ts` now holds one figure per product for the
+   whole 3-night trail (`BASE_PP_TRIP`), not a nightly rate multiplied at the edges. The trail is
+   always exactly 3 nights, so a nightly figure implies a duration decision that does not exist,
+   and the operator's own table is per trip. Nothing downstream divides by nights.
+4. **Annual increases live in the engine**: +8% from 1 January 2028 and a further +5% in 2029
+   (`RATE_YEAR_MULTIPLIER`, compounding to 1.134). A start date is priced by the calendar year it
+   begins in. **Flagged:** a date beyond 2029 holds the 2029 multiplier rather than inventing a
+   fourth year.
+5. **Rounding is FLOOR to the whole rand**, applied once after the whole discount chain, because
+   12,720 x 1.08 = 13,737.60 and the operator's published table reads R13,737. It also always
+   rounds the guest's way. `roundRateRand()` in `data/rates.ts` is the single definition.
+6. **Tapered start.** Tuesday, Wednesday and Saturday are not start days for any date up to
+   31 December 2028, so departures run Sunday, Monday, Thursday and Friday. Enforced in
+   `lib/pricing.ts`, the widget, `createCheckout` and the `bookings_window_guard` trigger.
+7. **Booking opens 1 April 2027** (was 15 January 2027). The rolling per-product windows still
+   anchor to the later of today and that date, so each window opens at its full length on launch
+   day rather than being eaten into by the wait.
+8. **The Wednesday/Thursday exclusive-buyout day rule is gone.** Every open start day works the
+   same way: 8 places, the first booking opens the date and locks its catering, later bookings
+   join in 2s. "Exclusive" is no longer a product — it is what a group of 8 gets by taking every
+   place, and `booking_type` is now DERIVED by the DB trigger rather than asserted by the caller.
+9. **Guaranteed-departure status.** Once a date carries a booking, the calendar and preview show
+   the memo's exact line: "Guaranteed Departure: 2 of 8 spots booked. 6 spots available."
+10. **The Thursday/Friday self-catered weekend premium is set to zero** (`WEEKEND_PREMIUM`), kept
+    as a named constant rather than deleted because the memo says it may return once seven start
+    days a week run.
+11. **VAT.** The memo prices everything VAT-inclusive and adds VAT to the "every rate includes"
+    line, so customer-facing copy and the payment receipt now say so ("Prices include VAT at 15%
+    and all reserve conservation levies"), replacing the v2 "No VAT is charged" wording.
+    **Flagged, not invented:** a SARS-compliant *tax invoice* needs the operating company's VAT
+    registration number, which has not been supplied (the entity is being re-registered), so the
+    guest document stays a **receipt**. `lib/email.ts` carries a comment naming exactly what to
+    add when the number arrives.
+
+### Copy review round 2 and the country dropdown, 16 September 2026
+
+**Tone pass (A1 to B5 of the review), applied as approved:** the Day 2 and Day 3 itinerary copy
+loses "the payoff is huge" and "The view, the pool and the fire are waiting"; Blackwood stops
+telling the guest to watch the sunset; Oukraal's "evening sounds of the wild are close" becomes
+"the bush closes in around the lodge"; the homepage sundowner step stops issuing instructions; the
+statement band becomes "15,000 hectares of Big 5 reserve, crossed on foot"; the safety heading
+loses its full stop; "rather than a sedentary vehicle safari" becomes "crossed on foot rather than
+viewed from a vehicle", since the first version disparaged a product most DMC partners also sell;
+the slackpacking FAQ is answered plainly (and no longer says "rather than huts", per the operator);
+the conservation-levy answer is rewritten in plain English **and no longer publishes the 18% cost
+structure**; and the rate-year explainer leads with the rate being locked in rather than with an
+increase.
+
+**The resident rate is now never disclosed on the public site** (operator decision). The site is
+written for the international market and the SADC rate is marketed separately, so:
+
+1. **Step 2 is a country dropdown.** "Country of residence", a native `<select>` over the full ISO
+   3166-1 list (249 entries, names and sort order from ICU rather than hand-typed, with overrides
+   where ICU's rendering is not booking-form English). The self-catered mount offers only the 16
+   SADC states, since that product is not open to anyone else. **New file:** `data/countries.ts`,
+   which holds the list, the SADC set and the one `residencyForCountry()` mapping.
+2. **The band is derived server-side from the country code.** `createCheckout` now takes `country`
+   and derives the band itself; the browser no longer sends a band at all, so a tampered payload
+   cannot buy the resident rate by asserting one.
+3. **Nothing on a public page names the band.** The rate cards are gone, the "SADC resident, 30%
+   less" line is gone from the price breakdown (a guest is quoted one rate, not a rack rate with a
+   reduction beneath it), the residency factor is gone from `/how-pricing-works` (three factors
+   now, not four), and `llms.txt` no longer mentions it. The declaration field was renamed
+   `residencyDeclaration` because field names are readable in page source, and one user-facing
+   status message that still said "SADC" was caught and fixed.
+4. **`verify-surfaces.mjs` now enforces this**: it fails if any public page, or `llms.txt`, or the
+   widget's markup, or any user-facing widget string names the band.
+5. **Honest limit, documented in the widget header and in CLAUDE.md Part 17:** the bundled widget
+   JS still carries the band internally, because the on-page estimate is computed client-side.
+   Removing that residual means fetching the quote from the server on each date or country change.
+   Flagged rather than faked.
+6. **`lead_country` added to migration 0016** (still unapplied, so edited in place rather than
+   adding an 0017). Storing it keeps the reason for the band auditable and gives the operator the
+   source-market breakdown the DMC strategy depends on.
+
+### Operator copy review, 16 September 2026
+
+Applied on top of the v4 implementation, after the operator previewed the branch:
+
+1. **Hero eyebrow** drops "Luggage portage · Hearty bush hospitality" for
+   **"Malaria-free Big 5 reserve · Rooiberg, Limpopo"**. The competitor register this was measured
+   against is place-led and flat (RETURN Africa: "Walk the wild frontier of northern Kruger"),
+   not a list of sensory selling points.
+2. **`/rates` carries no SADC reference and no forward-looking operational detail.** The discount
+   note under the rate table is gone, along with the taper end date, the 2029 opening and the
+   24/12-month windows. Those rules still hold; the calendar enforces them by not offering the
+   date. "How a departure works" becomes **"How booking works"**: three numbered steps, one fact
+   per sentence. The intro and the booking lead-in were cut to match.
+   **Note:** the booking widget on that page still says "SADC resident" on its rate card, because
+   the guest has to self-identify into the band. Flagged for the operator.
+3. **Widget step 2 is now "Country of residence"** (was "Where you live"), the standard
+   travel-industry phrasing, with the legend "Where does your group live?".
+4. **`/sadc-slackpacking`**: "charged a 100% premium" becomes **"charged at international
+   rates"** — a departure from the memo's verbatim wording, at the operator's request.
+5. **`/accommodation`**: "bedding included" removed from the amenity chips on all three lodges.
+6. **`/logistics`**: the **"Food & provisions"** section removed, the one telling guests to
+   pre-order groceries from Checkers Bela Bela. It was a self-catering leftover that contradicts
+   an all-inclusive product. "Transfers & transport" beneath it is untouched. (First pass removed
+   the wrong block — the all-inclusive Dining block — which has been restored.)
+
+`verify-surfaces.mjs`'s start-day guard was relaxed from "the rates page must read
+START_DAYS_DISPLAY" to "a page may stay silent on start days, but must not type weekday names by
+hand" — the rates page is now deliberately silent.
+
+### Copy and pages
+
+- **Home** (`src/pages/index.astro`, `Hero.astro`, `data/site.ts`): hero eyebrow is now
+  "Malaria-free &middot; Luggage portage &middot; Hearty bush hospitality &middot; Rooiberg,
+  Limpopo" (the memo's "* luggage portage * hearty bush hospitality *", read as separators); the
+  tagline everywhere becomes "An all-inclusive, point-to-point walking expedition with private
+  trail guides connecting three private safari lodges" (one `site.hook`, so the hero and the
+  footer change together, which is what the memo asks for); the intro carries the memo's new
+  paragraph verbatim, including the dining sentence and the "book out all 8 spots" exclusivity
+  line; the beta bar states 1 April 2027 with the minimum 2 / maximum 8 wording. **The "Why walk
+  the Rooiberg Wander" section is deleted** (memo p.5) — its Exclusive and Shared-departure
+  columns described the retired day-of-week model.
+- **Rates** (`pages/rates.astro`, `RatesTable.astro`): the matrix is now year x season for the
+  flagship only ("All inclusive 2027 / 2028"), with the SADC discount as the note beneath it, per
+  the memo. "Two ways to book" is deleted; a single "How a departure works" block states who a
+  departure takes and which days run. The includes line drops lodge staff, bedding, ice, wood and
+  WiFi and adds meals and VAT. One `Offer` in the JSON-LD, not two.
+- **How pricing works**: rewritten around the four factors that now move the price (residency,
+  season, rate year, last-minute), with a worked example computed from `lib/pricing.ts`.
+- **Lodges** (`accommodation.astro`, `data/sanctuaries.ts`): the "one standard" sentence is the
+  memo's shortened version, and Oukraal's paragraph ends "with a pool, fire-side and dinner
+  waiting". **Judgement call, flagged:** the self-catering amenity chips (equipped kitchen, fridge
+  and ice, firewood) were removed from all three lodges, because an all-inclusive guest does not
+  cook. The memo does not ask for this directly; it follows from the repositioning. Restore them
+  if the operator wants the lodges' kitchens still shown.
+- **Logistics** (`data/logistics.ts`): the "Self-catered or fully catered" block becomes
+  "All-inclusive, hearty bush hospitality", drawn from business plan 6.2/6.3 (bush brunch, fixed
+  wholesome menu without nuts or shellfish, limited scope for specific diets, curated daily wine
+  and beer with spirits excluded). **Operator to confirm that copy.** The group-size FAQ, the
+  lodges FAQ and the luggage FAQ follow the new model, and "What is slackpacking?" becomes "Is
+  this a slackpacking trail?", answered in flagship terms and kept deliberately for search.
+- **`/sadc-slackpacking` (new, unlisted)**: the memo's four paragraphs verbatim, the derived rate
+  line, what is and is not included, and the booking widget mounted self-catered. `noindex`, and
+  excluded from the sitemap in `astro.config.mjs`. Deliberately NOT added to robots.txt: a
+  Disallow line would publish the URL to anyone who reads it.
+- **`public/llms.txt`**, `data/schema.ts`, and every page title and meta description updated for
+  the flagship; "slackpacking" is gone from the public product language except where it names the
+  hidden product or answers the search query.
+
+### Code
+
+- **`src/data/rates.ts`** rewritten: `BASE_PP_TRIP`, `SADC_DISCOUNT`, `RATE_YEAR_MULTIPLIER`,
+  `TAPER_*`, `INTL_CATERED_WINDOW_MONTHS`/`SADC_WINDOW_MONTHS`, `minPartySize()`, `PRODUCTS` +
+  `productLabel()`, `rateFor()` and a `rateRows` matrix derived from it. Gone: `UNCATERED_PP_NIGHT`,
+  `CATERED_PP_NIGHT`, `ppSharingRand`, `EXCLUSIVE_SIZE`, `SHARED_OPEN_MIN_*`, `SHARED_TOPUP_MIN`,
+  `bookingRules`.
+- **`src/lib/pricing.ts`** rewritten around `ppTripCentsFor()`; adds `isTaperBlocked()`,
+  `isAllowedStartDay()`, `rateYearFor()`, `windowMonthsFor()`, `bookingTypeFor()`. Split-payment
+  (45 days / 50% deposit / 45-day balance) is untouched.
+- **`supabase/migrations/0016_commercial_v4.sql`** (NOT yet applied): migrates `residency`
+  'local' -> 'sadc' and re-adds the CHECK, adds `residency_declared_at`, rewrites
+  `bookings_slot_guard` (one rule per date, product minimums, catering lock, derived
+  `booking_type`) and `bookings_window_guard` (1 Apr 2027, 24/12-month windows, taper days),
+  drops the now-redundant `bookings_unique_start_date` index, and reshapes `departure_inventory`
+  to carry `seats_taken` and drop `is_exclusive`.
+- **`src/actions/index.ts`**: `createCheckout` takes `residency` + `sadcDeclaration`, validates the
+  product/residency pairing, the taper and the per-product window, and maps the new `RW_*` codes
+  (`RW_OPEN_MIN`, `RW_TOPUP_MIN`, `RW_CATERING_LOCKED`, `RW_FULL`, `RW_TAPER_DAY`,
+  `RW_GROUP_TOO_LARGE`). `adminCreateCompBooking` now follows the product minimums on any day
+  (comps stay exempt from taper and windows); `adminMoveDates` maps the new codes.
+- **`src/components/BookingWidget.astro` rewritten** (2,195 -> ~1,780 lines). Catering is now a
+  PROP, not a question, which is what retires the Path A / Path B split. Five steps: group,
+  where you live (with the SADC declaration), date, details, review. Path B, the buyout cell state,
+  the two-way catering prompt and the dead `exclusiveOnly`/`lastMinuteOnly`/`highSeasonOnly` filter
+  state are all gone. Kept: the sparse-inventory contract in one `departureFor()`, the roving-
+  tabindex calendar, the date preview, the abandoned-checkout resume flow and the interest capture.
+- **`src/lib/email.ts`**: product + rate rows on the confirmation and operator notification, a
+  SADC "bring ID to registration" line, and the VAT-inclusive receipt footer.
+- **`src/data/policies.ts`**: refund-policy intro no longer describes an exclusive buyout product;
+  the prices clause states VAT inclusion.
+
+---
+
 ## Booking v3.0: occupancy-first widget restructure ("Workstream A") — 2026-07-28 (NOT yet committed/pushed)
 
 UX restructure only — no rate changes, no migration changes, no commercial model change. Ships

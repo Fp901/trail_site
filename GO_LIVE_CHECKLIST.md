@@ -6,12 +6,14 @@ Two lists:
 - **Part B — Still to be built** (engineering work remaining).
 - **Part C — Business inputs/decisions** needed (some block A and B).
 
-Status today (2026-07-02): the booking engine is **code-complete** and all commits are on `main`.
+Status today (2026-09-16): the booking engine is **code-complete for commercial model v4** (see
+CLAUDE.md **Part 17**) on branch `feat/commercial-model-v4`; everything before it is on `main`.
 External accounts now live: **Paystack** (SA business verification submitted, test keys available),
 **Resend** (domain verified, EMAIL_API_KEY + EMAIL_FROM + BOOKINGS_NOTIFY_TO set in Vercel),
 **Supabase** project created (eu-west-2), migrations `0001`–`0015` applied, pg_cron enabled, Hanlie's
-auth user created, **Vercel** project live with SSR adapter. **Next:** fill remaining Vercel env vars
-(Supabase keys, Paystack test keys, CRON_SECRET, ADMIN_EMAIL), then run the E2E test (Phase 6).
+auth user created, **Vercel** project live with SSR adapter. **Next:** apply **migration `0016`**
+(Part D below), fill remaining Vercel env vars (Supabase keys, Paystack test keys, CRON_SECRET,
+ADMIN_EMAIL), then run the E2E test (Phase 6).
 
 ---
 
@@ -165,7 +167,7 @@ auth user created, **Vercel** project live with SSR adapter. **Next:** fill rema
 - [ ] **VAT registration number** (for tax invoices — deposit **and** balance receipts).
 - [ ] Final **refund/cancellation percentages** (confirm the draft in `policies.ts`).
 - [ ] **Split-payment policy — RECONFIRM before go-live** (all money rules, currently hard-coded):
-      **50% deposit / 50% balance**; deposit triggers at a **30-day** lead; balance link sent
+      **50% deposit / 50% balance**; deposit triggers at a **45-day** lead; balance link sent
       **45 days** before start; overdue alert when the trip is within **30 days**. Change points:
       `SPLIT_THRESHOLD_DAYS` / `DEPOSIT_FRACTION` / `BALANCE_LEAD_DAYS` in `lib/pricing.ts`.
 - [ ] **Balance-overdue behaviour — CONFIRM** it is a **manual-follow-up FLAG only** (operator email;
@@ -184,108 +186,76 @@ auth user created, **Vercel** project live with SSR adapter. **Next:** fill rema
 
 ---
 
-## Part D — Booking v2 (merged to `main` 2026-07-08, commit `83f7cdc`; pricing/day model
-## revised to v2.2 on 2026-07-11, NOT yet committed/pushed)
+## Part D — Commercial model v4 (memo 15 Sep 2026) — NOT yet applied to any environment
 
-Catered/uncatered pricing, shared/mixed departures, and 2027 go-live gating. See the CHANGELOG
-entries "Booking v2", "VAT/Franili removal" and "Booking v2.2" for the full design. Code is
-written; these are the remaining go-live steps:
+The full specification is **CLAUDE.md Part 17**; the implementation notes are in the CHANGELOG
+entry "Commercial model v4". This section is only the go-live steps.
 
-- [x] **Apply migration `0013_booking_v2.sql`** in Supabase (adds `booking_type`/`catering`
-      columns and the `bookings_slot_guard` trigger). Applied — confirmed by the operator
-      2026-08-05, along with `0010`–`0012`, `0014` (booking-window guard) and `0015`
-      (`departure_inventory`, which replaced and dropped `unavailable_windows` and
-      `shared_slot_availability`). The model it enforces: exclusive bookings require Wednesday
-      or Thursday and exactly 8 guests; shared bookings require any OTHER day, an opening
-      booking of 4+ that locks the date's catering, and top-up bookings of 2+ matching that
-      catering, up to 8 seats total.
-- [ ] **Confirm the pricing (2026-07-28 revision — "Rooiberg Wander Booking & Pricing Policy"
-      brief)**: every departure is now priced **per person per night**, self-catered or catered,
-      replacing the flat R54,000/R105,000/R5,000pp figures entirely. Self-catered: R1,100
-      pp/night midweek, R1,500 pp/night on a Thursday/Friday start (high season), 20% lower in
-      low season. Catered: R4,800 pp/night flat, any day (high season), 20% lower in low season.
-      A self-catered booking made 8-21 days out gets a further 22% off. All in
-      `src/data/rates.ts` (`UNCATERED_PP_NIGHT`, `CATERED_PP_NIGHT`, `SEASON_DISCOUNT`,
-      `LAST_MINUTE_DISCOUNT`) — confirm none of the old flat-rate figures are still quoted
-      verbally to guests.
-- [ ] **Confirm the day-of-week split (2026-07-28 revision)**: an exclusive buyout now runs
-      **Wednesday or Thursday only**, for **exactly 8 guests** (not up to 8 or 10 — the user
-      confirmed a universal 8-guest cap, matching the 2-guides:8-walkers safety ratio). Every
-      OTHER day (Sun, Mon, Tue, Fri, Sat) is a shared/flexible departure: the first booking on a
-      date needs 4+ people and its catering choice locks the day; later bookings need 2+ and must
-      match, up to 8 seats total. This retires the old Tue-Sat-private / Sun-Mon-shared split.
-- [ ] **Confirm the booking-window mechanics (2026-07-28 revision)**: `BOOKING_OPEN_DATE`
-      (15 Jan 2027) is unchanged as the site-wide soft-launch gate, but each catering type now
-      ALSO has its own rolling ceiling — catered up to 18 months ahead, self-catered up to 8
-      months ahead (`CATERED_WINDOW_MONTHS`/`UNCATERED_WINDOW_MONTHS` in `src/data/rates.ts`),
-      anchored to the LATER of today and the launch date (`windowAnchor()` in `lib/pricing.ts`),
-      so the window opens at full length on launch day rather than having shrunk during the wait.
-- [ ] **Confirm the payment model (2026-07-11 revision)**: full payment is due **45 days**
-      before arrival (was 30) and is non-refundable from that point; a booking made 45+ days out
-      pays a 50% deposit now with the balance auto-collected at the 45-day mark
-      (`SPLIT_THRESHOLD_DAYS`/`BALANCE_LEAD_DAYS` in `lib/pricing.ts`, both 45). The refund
-      schedule collapsed from 4 tiers to 2 (45+ days = full refund less 5%; inside 45 days /
-      no-show = no refund), and the "re-book your dates, get more back" clause was **dropped**
-      (`src/data/policies.ts`) — confirm the operator is comfortable losing that goodwill clause.
-- [ ] **No VAT is charged** (operator confirmed not VAT-registered, 2026-07-08) — all the figures
-      above are the full charged amount, not VAT-inclusive totals. Guest documents are payment
-      receipts, not tax invoices. If VAT registration happens later, this needs re-adding
-      (`lib/pricing.ts`, `lib/email.ts`), not just a rate tweak.
-- [ ] **Confirm the new operating company name and registration number** once formed (Franili
-      Investments was removed as the registered entity, 2026-07-08 — a new company is pending).
-      Update `site.ts` `operator`, `schema.ts` `legalName`, `email.ts` receipt "From" block, and
-      `privacy.astro` "who we are" clause together once known.
-- [ ] **Sign off the "Temminck's Lodge" rename** (2026-07-11, was "Rotavi Lodge") — applied
-      site-wide (homepage, trail page, accommodation, logistics, rates, route map data, emails,
-      privacy policy, pre-trip form) and to all alt text. Confirm this is the operator's intended
-      final name and that the apostrophe is acceptable everywhere it renders (incl. emails).
-- [ ] **Sign off "experienced trail guides"** (2026-07-11, replaces all "armed guides"/"armed
-      trail guides" wording site-wide, including one exception at `logistics.ts`'s "Is it safe?"
-      FAQ which now reads "qualified trail guides" per the operator's literal wording for that
-      answer) — confirm the guides are in fact still armed operationally; only the *public copy*
-      changed, nothing about the actual safety protocol.
-- [ ] **Confirm the new FAQs** added 2026-07-11: "What are the conservation levies?" (R380 to
-      R760 pp/day, "up to approximately 20%" of the booking fee — confirm the range and that
-      "up to" is the right qualifier) and "Where can I stay before or after my visit?" (links to
-      babirwa.com and the Newmark "Letamo at Qwabi" booking page — confirm both are still the
-      recommended partners).
-- [ ] **Sign off the sitewide tagline**: "A luxury walking safari in the Waterberg" (`site.ts
-      hook`, footer + hero + llms.txt). The nav shows no text tagline — it renders the full logo
-      lockup (same artwork as the footer); `headerTagline` was removed.
-- [ ] **Confirm the beta banner wording** (`BetaBanner.astro`): booking opens 15 January 2027;
-      family-and-friends discount via enquiry/WhatsApp only, no promo-code gate. The beta phase
-      has **no fixed end date** (the earlier 15 July 2027 date was incorrect and was removed).
-      The homepage banner now also states the trail is "currently in beta testing" — confirm
-      this framing is accurate and desired.
-- [ ] **Confirm `BOOKING_OPEN_DATE` (15 Jan 2027)** is still correct closer to go-live — a
-      single constant in `src/data/rates.ts`.
-- [ ] **Test the slot-guard trigger** in Supabase SQL editor before relying on it (2026-07-28
-      rewrite): exclusive insert on a non-Wed/Thu date rejected (`RW_EXCLUSIVE_WED_THU_ONLY`);
-      exclusive insert with group_size ≠ 8 rejected (`RW_EXCLUSIVE_SIZE_8`); shared insert on a
-      Wed/Thu date rejected (`RW_SHARED_NOT_WED_THU`); a shared opening insert with group_size < 4
-      rejected (`RW_SHARED_OPEN_MIN_4`); a shared top-up insert with group_size < 2 rejected
-      (`RW_SHARED_TOPUP_MIN_2`); a shared top-up with a DIFFERENT catering than the date's first
-      booking rejected (`RW_SHARED_CATERING_LOCKED`); shared 6+4 on one date rejected (exceeds 8,
-      `RW_SHARED_FULL`), 6+2 accepted; a shared date with 7 seats taken (1 remaining) shows as
-      unavailable in `unavailable_windows` (protects the 2-person top-up minimum); confirm
-      `shared_slot_availability` returns the correct locked `catering` value per date.
-- [ ] **Paystack test-mode E2E** once the migration is applied: an exclusive Wednesday or Thursday
-      buyout of exactly 8 (both self-catered and catered, confirm the pp-night × nights × 8
-      total); a shared opening booking of 4 on a non-Wed/Thu date; a shared top-up booking of 2
-      on the same date with MATCHING catering (accepted) and then with mismatched catering
-      (rejected); a self-catered booking dated 8-21 days out (confirm the 22% last-minute
-      discount is applied); a booking dated inside vs outside each catering's rolling window
-      (8 months self-catered / 18 months catered) to confirm both the accept and reject paths.
-- [ ] **Elevation profile images** (`src/assets/images/elevation-day{2,3,4}.png`) are low-
-      resolution source files (~400-410px wide) now displayed up to 42rem (~672px) wide on
-      desktop per the responsive-layout fix (2026-07-11) — consider supplying higher-resolution
-      source images so they don't look soft at the larger display size.
-- [ ] **Route map illustration** — the Trail page's conceptual SVG map is unchanged pending a
-      real illustration asset from the operator (flagged 2026-07-11, asset not yet supplied).
-- [ ] Decide whether to **merge to `main`** once the above are confirmed, or keep iterating on
-      the branch.
+### D1. Database
 
----
+- [ ] **Apply `supabase/migrations/0016_commercial_v4.sql`.** It migrates `residency` `'local'` →
+      `'sadc'`, adds `lead_country` (ISO alpha-2, the country the guest gives at checkout) and
+      `residency_declared_at`, rewrites `bookings_slot_guard` (product minimums,
+      catering lock, capacity, **derived `booking_type`**) and `bookings_window_guard`
+      (1 Apr 2027, 24/12-month windows, taper days), drops the now-redundant
+      `bookings_unique_start_date` index, and reshapes `departure_inventory` (adds `seats_taken`,
+      drops `is_exclusive`). Safe to re-run.
+- [ ] **Sanity-check existing rows after applying**: any booking taken under the old model keeps
+      its data, but `residency` values of `'local'` are rewritten and `booking_type` is only
+      re-derived on the next update of that row. Nothing recalculates money.
+- [ ] **Run the two SQL harnesses** in the Supabase SQL editor (both roll back, no test rows
+      survive): `scripts/verify-trigger.sql` (product minimums, join minimum, catering lock,
+      capacity, derived type) and `scripts/verify-window-trigger.sql` (T-7 floor, both ceilings,
+      the taper, the comp/UPDATE exemptions, and the critical "a paid pending booking can still
+      confirm" case).
+
+### D2. Code-side checks (all green on the branch)
+
+- [x] `npm run check` and `npm run build` clean.
+- [x] `npx tsx scripts/verify-pricing.mjs` reproduces the operator's published rate table exactly,
+      including the R13,737 flooring edge.
+- [x] `verify-minimums` / `verify-window` confirm the TypeScript and the 0016 SQL agree.
+- [x] `verify-surfaces` confirms no page hardcodes a rate the engine computes.
+- [ ] `npm run audit` is **failing on pre-existing upstream advisories** (astro, esbuild,
+      brace-expansion), not on anything in this change. Decide whether to take the major-version
+      bumps `npm audit fix --force` wants before launch.
+
+### D3. Confirm with the operator before taking money
+
+- [ ] **The rate table**: R15,900 / R12,720 (2027) and R17,172 / R13,737 (2028) per person
+      sharing, VAT and conservation levies included; SADC residents 30% less.
+- [ ] **VAT**: copy now says prices include VAT at 15%. The guest document is still a **payment
+      receipt**. Supply the **VAT registration number** to turn it into a SARS tax invoice, and
+      the **new company's registered name and number** for the receipt, the privacy page,
+      `site.ts` and `schema.ts`.
+- [ ] **The taper**: Sunday, Monday, Thursday and Friday only, up to 31 December 2028.
+- [ ] **Booking opens 1 April 2027**; earlier walks are invoiced manually.
+- [ ] **Windows**: 24 months international catered, 12 months every SADC product.
+- [ ] **2029 and beyond**: the engine holds the 2029 multiplier (+13.4% on 2027) for any later
+      date. Confirm, or publish a further increase.
+- [ ] **The all-inclusive dining copy** on `/logistics` is drawn from business plan §6.2/6.3
+      (bush brunch, fixed menu without nuts or shellfish, limited scope for specific diets,
+      curated daily wine and beer, spirits excluded apart from sundowner gin). Confirm wording.
+- [ ] **The lodge amenity chips** no longer list the kitchen, fridge, ice or firewood, because the
+      flagship guest does not cook. Confirm, or restore them.
+- [ ] **Non-disclosure of the resident rate.** The public site never mentions it: the form asks
+      country of residence and applies the band silently. Confirm that is what you want, and that
+      the resident rate is marketed only through the direct channel.
+- [ ] **The residency confirmation** shown to a guest who names a SADC country ("every guest in
+      this booking lives there, and can show a valid ID or passport at registration on Day 1").
+      Confirm the wording, and how you charge international rates on the day when proof is missing.
+
+### D4. The unlisted SADC page and the marketing PDFs
+
+- [x] `/sadc-slackpacking` built: memo text verbatim, derived rates, self-catered booking widget,
+      `noindex`, excluded from the sitemap, absent from the nav and `llms.txt`, and deliberately
+      **not** in `robots.txt` (a Disallow line would publish the URL).
+- [ ] **The two PDFs are out of scope for the build** and are the operator's or the agency's to
+      produce: an all-inclusive flagship brochure, and the SADC self-catered sheet carrying the
+      **QR code pointing at `https://www.rooibergwander.co.za/sadc-slackpacking`**.
+- [ ] Once the PDFs exist, decide where they are hosted and whether download buttons should appear
+      on the site (the memo puts them beside "See the trail" on the homepage). Nothing links to
+      them today.
 
 ## Critical path (shortest route to a working live booking)
 1. Start **Paystack verification** + **Resend domain** today (lead time).
