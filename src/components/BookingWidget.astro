@@ -1092,8 +1092,10 @@ const clientRates = {
     // Each step-2 card previews its own rate, so the 30% is a number rather than a claim. Uses the
     // first high-season date in the window as the representative date, matching the rates page.
     function paintRatePreviews() {
-      const sample = R.earliest;
-      for (const el of Array.from(form.querySelectorAll<HTMLElement>('[data-rate-preview]'))) {
+      // A high-season date in the base rate year: the rack rate the rates table leads with, so the
+      // card and the table quote the same figure rather than whichever season launch day sits in.
+      const sample = `${R.baseYear}-07-01`;
+      for (const el of Array.from(form!.querySelectorAll<HTMLElement>('[data-rate-preview]'))) {
         const res = (el.dataset.ratePreview === 'sadc' ? 'sadc' : 'international') as Residency;
         el.textContent = `From ${fmtR(ppTripCents(sample, res, false))} per person`;
       }

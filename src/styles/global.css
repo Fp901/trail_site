@@ -2530,6 +2530,16 @@
     outline: 2px solid var(--color-earth);
     outline-offset: 2px;
   }
+  /* The SADC discount note. Sits directly under the matrix as a stated term of the rate table,
+     one step up in weight from the FX disclaimer below it (which is an aside, not a term). */
+  .ratetable__sadcnote {
+    margin: 0.85rem 0 0;
+    max-width: 38em;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    line-height: 1.55;
+    color: var(--color-charcoal);
+  }
   .ratetable__fxnote {
     margin: 0.85rem 0 0;
     /* Constrains the line length so the paragraph wraps as a balanced multi-line block instead of

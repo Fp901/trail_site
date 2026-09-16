@@ -1,6 +1,8 @@
 ---
-// Rates & Booking (/rates) — Part 8.5. Rates matrix (no VAT charged), what's included, the booking
-// area (BookingWidget mounts here at step 12), and the refund/cancellation policy.
+// Rates & Booking (/rates) — Part 8.5, commercial model v4. Sells ONE product: the all-inclusive
+// catered walking safari, at the international rack rate with the SADC resident discount noted
+// beneath. The self-catered option is not shown here at all; it lives on the hidden
+// /sadc-slackpacking page. Rates matrix, what's included, the booking widget, refund policy.
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import RatesTable from '../components/RatesTable.astro';
@@ -8,14 +10,19 @@ import BookingWidget from '../components/BookingWidget.astro';
 import BetaBanner from '../components/BetaBanner.astro';
 import InquiryForm from '../components/InquiryForm.astro';
 import {
-  UNCATERED_PP_NIGHT,
-  CATERED_PP_NIGHT,
-  EXCLUSIVE_SIZE,
   BOOKING_OPEN_DATE,
   NIGHTS,
-  bookingRules,
+  MAX_GROUP_SIZE,
+  MIN_PARTY_CATERED,
+  RATE_BASE_YEAR,
+  SADC_DISCOUNT,
+  SADC_DISCOUNT_NOTE,
+  INTL_CATERED_WINDOW_MONTHS,
+  SADC_WINDOW_MONTHS,
+  START_DAYS_DISPLAY,
+  TAPER_END_DISPLAY,
   formatRand,
-  ppSharingRand,
+  rateFor,
   inclusions,
   exclusions,
 } from '../data/rates';
@@ -45,8 +52,12 @@ const inquiryEnabled = Boolean(import.meta.env.PUBLIC_SUPABASE_URL);
 // a redeploy.
 const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
 
+// The two figures the page leads with, both derived so a rate change moves the copy with it.
+const intlLow = rateFor({ catering: 'catered', residency: 'international', year: RATE_BASE_YEAR, highSeason: false });
+const intlHigh = rateFor({ catering: 'catered', residency: 'international', year: RATE_BASE_YEAR, highSeason: true });
+
 const title = 'Rates & Booking | Rooiberg Wander';
-const description = `From ${formatRand(ppSharingRand(UNCATERED_PP_NIGHT.week.low))} per person sharing self-catered, or ${formatRand(ppSharingRand(CATERED_PP_NIGHT.low))} catered, for the whole ${NIGHTS}-night trail. Wednesday/Thursday exclusive departures for ${EXCLUSIVE_SIZE}, or join a shared departure on any other day. See what's included and book.`;
+const description = `An all-inclusive walking safari from ${formatRand(intlLow)} per person, sharing, for the whole ${NIGHTS}-night trail, VAT and conservation levies included. A ${Math.round(SADC_DISCOUNT * 100)}% discount applies to SADC residents. See what's included and book online.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -58,14 +69,9 @@ const jsonLd = [
     { name: 'Rates & Booking', path: '/rates' },
   ]),
   offerSchema({
-    price: ppSharingRand(UNCATERED_PP_NIGHT.week.low),
-    name: 'Rooiberg Wander: self-catered, per person sharing',
-    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail, self-catered, incl. conservation levies. Wednesday/Thursday exclusive departure for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
-  }),
-  offerSchema({
-    price: ppSharingRand(CATERED_PP_NIGHT.low),
-    name: 'Rooiberg Wander: catered, per person sharing',
-    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail, fully catered, incl. conservation levies. Wednesday/Thursday exclusive departure for ${EXCLUSIVE_SIZE}, or a shared departure any other day.`,
+    price: intlLow,
+    name: 'Rooiberg Wander: all-inclusive catered walking safari, per person sharing',
+    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail: all meals with selected South African wines and beers, two trail guides, daily baggage transport, all conservation levies and VAT. Minimum ${MIN_PARTY_CATERED} guests, maximum ${MAX_GROUP_SIZE}. A ${Math.round(SADC_DISCOUNT * 100)}% discount applies to SADC residents.`,
   }),
 ];
 ---
@@ -81,8 +87,8 @@ const jsonLd = [
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         Every booking is priced <strong>per person, sharing</strong>: one price per person for
-        the whole {NIGHTS}-night trail. Prices vary depending on:
-        whether you self-cater or we cater, the season, and your start day.
+        the whole {NIGHTS}-night trail. Minimum booking size of {MIN_PARTY_CATERED}. Prices vary
+        depending on the season.
       </p>
     </div>
   </Section>
@@ -98,8 +104,9 @@ const jsonLd = [
       <RatesTable />
 
       <p class="rate-includes">
-        <strong>Every rate includes</strong> two trail guides &middot; daily baggage transport
-        &middot; lodge staff &middot; bedding, ice, wood and WiFi &middot; all conservation levies
+        <strong>Every rate includes</strong> two trail guides &middot; all meals, with selected
+        South African estate wines and local beers &middot; daily baggage transport &middot; all
+        conservation levies and VAT
       </p>
 
       <p class="mt-5 font-body text-base leading-relaxed text-charcoal/85">
@@ -110,20 +117,30 @@ const jsonLd = [
       </p>
     </div>
 
-    {/* The two availability rules, stated once. Deliberately separate from the price matrix:
-        what a trip costs and which days you can book it are independent, and merging them into
-        three repeating cards was the main source of confusion on the old page. */}
-    <h3 class="mt-12 font-display text-xl text-earth sm:text-2xl">Two ways to book</h3>
+    {/* What the old "Two ways to book" cards used to carry. There is only one way to book now —
+        the memo retired the Wednesday/Thursday buyout — so what remains is who a departure takes
+        and which days it runs, stated once rather than as competing options. */}
+    <h3 class="mt-12 font-display text-xl text-earth sm:text-2xl">How a departure works</h3>
     <ul class="bookrules">
-      {
-        bookingRules.map((r) => (
-          <li>
-            <p class="bookrules__days">{r.days}</p>
-            <p class="bookrules__title">{r.title}</p>
-            <p class="bookrules__body">{r.body}</p>
-          </li>
-        ))
-      }
+      <li>
+        <p class="bookrules__days">{MIN_PARTY_CATERED} to {MAX_GROUP_SIZE} guests</p>
+        <p class="bookrules__title">Join a departure, or take it</p>
+        <p class="bookrules__body">
+          The first booking on a date opens it; later bookings join, up to {MAX_GROUP_SIZE} guests
+          in total with two trail guides. Once a date has {MIN_PARTY_CATERED} guests it is a
+          guaranteed departure. Book all {MAX_GROUP_SIZE} places and the trail and each lodge are
+          reserved for your group alone.
+        </p>
+      </li>
+      <li>
+        <p class="bookrules__days">{START_DAYS_DISPLAY}</p>
+        <p class="bookrules__title">Start days</p>
+        <p class="bookrules__body">
+          Departures run on these four days until {TAPER_END_DISPLAY}, while we build up our
+          guiding team. Every weekday opens from 2029. International guests can book up to
+          {INTL_CATERED_WINDOW_MONTHS} months ahead, SADC residents up to {SADC_WINDOW_MONTHS}.
+        </p>
+      </li>
     </ul>
   </Section>
 
@@ -139,8 +156,9 @@ const jsonLd = [
         bookingEnabled ? (
           <Fragment>
             <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-              Choose your group size and catering, then a date, and pay securely by card. Your
-              booking is confirmed once payment is received, and a receipt is issued by email.
+              Choose your group size, tell us where you live, pick a start date, and pay securely
+              by card. Your booking is confirmed once payment is received, and a receipt is issued
+              by email.
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}

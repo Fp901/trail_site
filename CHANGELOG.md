@@ -62,6 +62,45 @@ was written: R15,900 / R12,720 (2027) and R17,172 / R13,737 (2028) all reproduce
     guest document stays a **receipt**. `lib/email.ts` carries a comment naming exactly what to
     add when the number arrives.
 
+### Copy and pages
+
+- **Home** (`src/pages/index.astro`, `Hero.astro`, `data/site.ts`): hero eyebrow is now
+  "Malaria-free &middot; Luggage portage &middot; Hearty bush hospitality &middot; Rooiberg,
+  Limpopo" (the memo's "* luggage portage * hearty bush hospitality *", read as separators); the
+  tagline everywhere becomes "An all-inclusive, point-to-point walking expedition with private
+  trail guides connecting three private safari lodges" (one `site.hook`, so the hero and the
+  footer change together, which is what the memo asks for); the intro carries the memo's new
+  paragraph verbatim, including the dining sentence and the "book out all 8 spots" exclusivity
+  line; the beta bar states 1 April 2027 with the minimum 2 / maximum 8 wording. **The "Why walk
+  the Rooiberg Wander" section is deleted** (memo p.5) — its Exclusive and Shared-departure
+  columns described the retired day-of-week model.
+- **Rates** (`pages/rates.astro`, `RatesTable.astro`): the matrix is now year x season for the
+  flagship only ("All inclusive 2027 / 2028"), with the SADC discount as the note beneath it, per
+  the memo. "Two ways to book" is deleted; a single "How a departure works" block states who a
+  departure takes and which days run. The includes line drops lodge staff, bedding, ice, wood and
+  WiFi and adds meals and VAT. One `Offer` in the JSON-LD, not two.
+- **How pricing works**: rewritten around the four factors that now move the price (residency,
+  season, rate year, last-minute), with a worked example computed from `lib/pricing.ts`.
+- **Lodges** (`accommodation.astro`, `data/sanctuaries.ts`): the "one standard" sentence is the
+  memo's shortened version, and Oukraal's paragraph ends "with a pool, fire-side and dinner
+  waiting". **Judgement call, flagged:** the self-catering amenity chips (equipped kitchen, fridge
+  and ice, firewood) were removed from all three lodges, because an all-inclusive guest does not
+  cook. The memo does not ask for this directly; it follows from the repositioning. Restore them
+  if the operator wants the lodges' kitchens still shown.
+- **Logistics** (`data/logistics.ts`): the "Self-catered or fully catered" block becomes
+  "All-inclusive, hearty bush hospitality", drawn from business plan 6.2/6.3 (bush brunch, fixed
+  wholesome menu without nuts or shellfish, limited scope for specific diets, curated daily wine
+  and beer with spirits excluded). **Operator to confirm that copy.** The group-size FAQ, the
+  lodges FAQ and the luggage FAQ follow the new model, and "What is slackpacking?" becomes "Is
+  this a slackpacking trail?", answered in flagship terms and kept deliberately for search.
+- **`/sadc-slackpacking` (new, unlisted)**: the memo's four paragraphs verbatim, the derived rate
+  line, what is and is not included, and the booking widget mounted self-catered. `noindex`, and
+  excluded from the sitemap in `astro.config.mjs`. Deliberately NOT added to robots.txt: a
+  Disallow line would publish the URL to anyone who reads it.
+- **`public/llms.txt`**, `data/schema.ts`, and every page title and meta description updated for
+  the flagship; "slackpacking" is gone from the public product language except where it names the
+  hidden product or answers the search query.
+
 ### Code
 
 - **`src/data/rates.ts`** rewritten: `BASE_PP_TRIP`, `SADC_DISCOUNT`, `RATE_YEAR_MULTIPLIER`,

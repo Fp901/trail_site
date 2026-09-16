@@ -22,9 +22,9 @@ import {
   touristTripSchema,
 } from '../data/schema';
 
-const title = 'Rooiberg Wander | Malaria-free Big 5 slackpacking trail';
+const title = 'Rooiberg Wander | All-inclusive Big 5 walking safari';
 const description =
-  'A walking safari in the Waterberg, self-catered or catered. 3 nights and 3 days through 15,000 ha of malaria-free Big 5 wilderness near Rooiberg, Limpopo, 2.5 hours from OR Tambo International Airport.';
+  'An all-inclusive walking safari in the Waterberg. 3 nights and 3 days on foot through 15,000 ha of malaria-free Big 5 reserve near Rooiberg, Limpopo, 2.5 hours from OR Tambo International Airport, connecting three private safari lodges.';
 
 const jsonLd = [
   organizationSchema,
@@ -114,14 +114,17 @@ const lodgeContext: Record<string, string> = {
         A three-day walking safari in the Waterberg
       </h2>
       <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        Rooiberg Wander is a 3-night, 3-day slackpacking trail across 15,000 hectares of Big 5
-        reserve near Rooiberg in Limpopo, located just 2.5 hours from OR Tambo International
-        Airport. Both self-catered and fully catered options are available to suit your group’s
-        needs.
+        Rooiberg Wander is a 3-night, 3-day all-inclusive authentic wilderness walking trail,
+        rather than a sedentary vehicle safari, across 15,000 hectares of Big 5 reserve near
+        Rooiberg in Limpopo, located just 2.5 hours from OR Tambo International Airport.
+        Accommodation consists of characterful, established private bush lodges with a minimum
+        booking size for 2 persons. Dining is hearty, wholesome bushveld fare served family-style
+        around the boma fire, accompanied by selected South African estate wines and local beers.
       </p>
       <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
-        You walk from one private lodge to the next while your luggage and provisions are moved
-        ahead each day. You carry only a daypack.
+        You walk 15 to 20 km per day from one private lodge to the next while your luggage and
+        provisions are moved ahead each day. Exclusive: take the whole trail exclusively by booking
+        out all 8 spots, so that the trail and each lodge are reserved solely for your group.
       </p>
       <p class="mt-10">
         <a href={withBase('/rates')} class="btn btn-primary">View rates and book the trail</a>
@@ -149,46 +152,6 @@ const lodgeContext: Record<string, string> = {
       </p>
     </div>
   </section>
-
-  {/* Why walk the trail — three grounded benefits. */}
-  <Section bg="cream" labelledby="why-heading" space="md">
-    <h2 id="why-heading" class="max-w-3xl font-display text-2xl text-earth sm:text-3xl">
-      Why walk the Rooiberg Wander
-    </h2>
-    <p class="mt-5 max-w-2xl font-body leading-relaxed text-charcoal/85">
-      A true point-to-point Big 5 slackpacking trail: walk from one private safari lodge to the
-      next and sleep somewhere new every night, with a pool, ice, wood, fire and a luxurious bed
-      waiting at the end of the day.
-    </p>
-    <div class="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="border-t-2 border-ochre pt-4">
-        <h3 class="font-display text-xl text-earth">Big 5 on foot</h3>
-        <p class="mt-2 font-body text-base leading-relaxed text-charcoal/80">
-          Mountain summits, deep valleys, riverbeds and open plains, crossed on foot with two
-          experienced trail guides rather than viewed from a vehicle.
-        </p>
-      </div>
-      <div class="border-t-2 border-ochre pt-4">
-        <h3 class="font-display text-xl text-earth">Unpack and walk</h3>
-        <p class="mt-2 font-body text-base leading-relaxed text-charcoal/80">
-          You carry only a daypack. Your food, drinks and bags travel ahead to the next lodge
-          each day, kept cool and dry.
-        </p>
-      </div>
-      <div class="border-t-2 border-ochre pt-4">
-        <h3 class="font-display text-xl text-earth">Exclusive</h3>
-        <p class="mt-2 font-body text-base leading-relaxed text-charcoal/80">
-          Take the whole trail exclusively: a Wednesday or Thursday start for exactly 8 guests, perfect for a family reunion, friends’ getaway or corporate team-building. The trail and each lodge are reserved solely for your group, self-catered or catered.
-        </p>
-      </div>
-      <div class="border-t-2 border-ochre pt-4">
-        <h3 class="font-display text-xl text-earth">Shared departure</h3>
-        <p class="mt-2 font-body text-base leading-relaxed text-charcoal/80">
-          Prefer to join others? Start any other day of the week, ideal for smaller family groups or friends. The first booking opens the date at 2 or more people, with later bookings topping up to a maximum of 8.
-        </p>
-      </div>
-    </div>
-  </Section>
 
   {/* How it works — four steps. */}
   <Section bg="cream" space="md" labelledby="how-heading" class="border-t border-hairline">

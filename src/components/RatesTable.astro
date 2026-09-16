@@ -1,13 +1,12 @@
 ---
-// RatesTable — Booking v3.3. An actual table now (it was a three-card grid despite the name).
-// One glanceable price matrix: rate types as rows, seasons as columns. Transposed from the
-// operator's source spreadsheet so it is three columns instead of four and fits a 380px phone
-// without sideways scrolling. All figures come from data/rates.ts, which reads them from the
-// same constants lib/pricing.ts charges from.
+// RatesTable — commercial model v4. One glanceable price matrix for the FLAGSHIP product only:
+// rate years as rows, seasons as columns, three columns wide so it fits a 380px phone without
+// sideways scrolling. The SADC discount is a note beneath, not extra columns, exactly as the
+// operator's memo sets it out. All figures come from data/rates.ts, which lib/pricing.ts charges
+// from, so the table and the checkout cannot drift.
 //
-// Prices are PER PERSON SHARING (the whole mandatory NIGHTS-night trail), never per night: the
-// trail has no shorter option to choose, so a nightly figure would represent a choice that does
-// not exist. Every cell here is `ppSharingRand(nightlyRand)`, computed once at build time.
+// Prices are PER PERSON SHARING, for the whole NIGHTS-night trail, VAT and conservation levies
+// included. There is no shorter stay to choose, so no nightly figure appears anywhere.
 //
 // Currency: ZAR is the default and only CHARGED currency (Paystack bills in ZAR — see
 // lib/payments.ts). The EUR/GBP/USD tabs are a static, indicative conversion for foreign guests
@@ -18,7 +17,7 @@ import {
   rateRows,
   formatRand,
   formatForeign,
-  ppSharingRand,
+  SADC_DISCOUNT_NOTE,
   SEASON_HIGH_LABEL,
   SEASON_HIGH_DATES,
   SEASON_LOW_LABEL,
@@ -31,12 +30,11 @@ const CURRENCIES: Array<'ZAR' | ForeignCurrency> = ['ZAR', 'EUR', 'GBP', 'USD'];
 // Every cell's figure, once, in all four currencies — read back out by the client script via
 // data-price-zar / -eur / -gbp / -usd rather than recomputed in JS.
 function priceSet(rand: number): Record<string, string> {
-  const sharing = ppSharingRand(rand);
   return {
-    'data-price-zar': formatRand(sharing),
-    'data-price-eur': formatForeign(sharing, 'EUR'),
-    'data-price-gbp': formatForeign(sharing, 'GBP'),
-    'data-price-usd': formatForeign(sharing, 'USD'),
+    'data-price-zar': formatRand(rand),
+    'data-price-eur': formatForeign(rand, 'EUR'),
+    'data-price-gbp': formatForeign(rand, 'GBP'),
+    'data-price-usd': formatForeign(rand, 'USD'),
   };
 }
 ---
@@ -58,11 +56,12 @@ function priceSet(rand: number): Record<string, string> {
 
   <table class="ratetable">
     <caption class="sr-only">
-      Rates per person sharing, for the whole trail, by catering type, start day and season.
+      All-inclusive rates per person sharing, for the whole trail, by year and season. VAT and
+      conservation levies included.
     </caption>
     <thead>
       <tr>
-        <th scope="col"><span class="sr-only">Rate type</span></th>
+        <th scope="col"><span class="sr-only">Rate year</span></th>
         <th scope="col">
           {SEASON_HIGH_LABEL}
           <span class="ratetable__seasonnote">{SEASON_HIGH_DATES}</span>
@@ -78,17 +77,17 @@ function priceSet(rand: number): Record<string, string> {
           <tr>
             <th scope="row">
               <span class="ratetable__label">{r.label}</span>
-              <span class="ratetable__qualifier">{r.qualifier}</span>
+              <span class="ratetable__qualifier">all-inclusive, incl. VAT</span>
             </th>
             <td>
               <span class="ratetable__price" data-currency-price {...priceSet(r.high)}>
-                {formatRand(ppSharingRand(r.high))}
+                {formatRand(r.high)}
               </span>
               <span class="ratetable__unit">per person sharing</span>
             </td>
             <td>
               <span class="ratetable__price" data-currency-price {...priceSet(r.low)}>
-                {formatRand(ppSharingRand(r.low))}
+                {formatRand(r.low)}
               </span>
               <span class="ratetable__unit">per person sharing</span>
             </td>
@@ -97,6 +96,8 @@ function priceSet(rand: number): Record<string, string> {
       }
     </tbody>
   </table>
+
+  <p class="ratetable__sadcnote">{SADC_DISCOUNT_NOTE}.</p>
 
   <p class="ratetable__fxnote" data-currency-note hidden>
     Approximate conversion, indicative rates set {FX_RATES_AS_OF}. You are always charged in South

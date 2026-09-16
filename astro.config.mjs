@@ -71,12 +71,15 @@ export default defineConfig({
 
   integrations: [
     sitemap({
-      // Exclude transactional API + booking routes (Part 10.1).
+      // Exclude transactional API + booking routes (Part 10.1), and the unlisted SADC page,
+      // which is reachable only from the QR code on the direct-marketing PDF and must not appear
+      // in search or in the main site's navigation (business plan 5.3).
       filter: (page) =>
         !page.includes('/api/') &&
         !page.includes('/booking/') &&
         !page.includes('/pretrip') &&
         !page.includes('/trip-info') &&
+        !page.includes('/sadc-slackpacking') &&
         !page.includes('/admin'),
     }),
   ],

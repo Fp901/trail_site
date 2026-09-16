@@ -8,7 +8,7 @@ import Section from '../../../components/Section.astro';
 import AdminNav from '../../../components/AdminNav.astro';
 import { getAdminUser } from '../../../lib/auth';
 import { withBase } from '../../../data/site';
-import { EXCLUSIVE_SIZE } from '../../../data/rates';
+import { MIN_PARTY_CATERED, MIN_PARTY_UNCATERED, MAX_GROUP_SIZE } from '../../../data/rates';
 
 export const prerender = false;
 
@@ -53,31 +53,44 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
         <div class="bform__grid">
           <div class="form-field">
             <label for="cb-date">Start date (Day 1)</label>
-            <span class="form-hint">Wednesday or Thursday only</span>
+            <span class="form-hint">Any day: comps are exempt from the taper and booking windows</span>
             <input id="cb-date" type="date" min={todaySast} required />
           </div>
           <div class="form-field">
             <label for="cb-group">Group size</label>
-            <span class="form-hint">Fixed: a comp booking is always exclusive</span>
-            <input id="cb-group" type="text" value={EXCLUSIVE_SIZE} readonly aria-readonly="true" />
+            <span class="form-hint">{MIN_PARTY_CATERED} to {MAX_GROUP_SIZE} catered, or exactly {MIN_PARTY_UNCATERED} self-catered</span>
+            <input id="cb-group" type="number" min={MIN_PARTY_CATERED} max={MAX_GROUP_SIZE} value={MAX_GROUP_SIZE} required />
           </div>
         </div>
 
         <fieldset class="bform__radios">
-          <legend>Catering</legend>
+          <legend>Product</legend>
           <label class="bform__radio">
-            <input type="radio" name="cb-catering" value="uncatered" checked />
-            <span>Self-catered</span>
+            <input type="radio" name="cb-catering" value="catered" checked />
+            <span>All-inclusive catered</span>
           </label>
           <label class="bform__radio">
-            <input type="radio" name="cb-catering" value="catered" />
-            <span>Fully catered</span>
+            <input type="radio" name="cb-catering" value="uncatered" />
+            <span>Self-catered (SADC)</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="bform__radios">
+          <legend>Rate band (for the record; a comp is charged nothing either way)</legend>
+          <label class="bform__radio">
+            <input type="radio" name="cb-residency" value="sadc" checked />
+            <span>SADC resident</span>
+          </label>
+          <label class="bform__radio">
+            <input type="radio" name="cb-residency" value="international" />
+            <span>International</span>
           </label>
         </fieldset>
         <p class="admin-card__hint">
-          Comp bookings are exclusive: exactly {EXCLUSIVE_SIZE} guests, Wednesday or Thursday only,
-          self-catered or catered. Every other day is reserved for shared departures and cannot
-          be comped.
+          A comp follows the same minimums as a paid booking ({MIN_PARTY_CATERED} guests catered,
+          {MIN_PARTY_UNCATERED} self-catered) and the same capacity of {MAX_GROUP_SIZE}, but is
+          exempt from the start-day taper and the booking windows. It cannot overbook a date a
+          paying group is already on.
         </p>
 
         <div class="form-field">
@@ -116,7 +129,7 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
 
 <script>
   import { actions } from 'astro:actions';
-  import { EXCLUSIVE_SIZE } from '../../../data/rates';
+  import { MIN_PARTY_CATERED, MIN_PARTY_UNCATERED, MAX_GROUP_SIZE } from '../../../data/rates';
 
   function initCompForm() {
     const form = document.getElementById('comp-form') as HTMLFormElement | null;
@@ -164,12 +177,25 @@ const todaySast = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Joh
       const catering =
         (form.querySelector<HTMLInputElement>('input[name="cb-catering"]:checked')?.value as
           | 'catered'
-          | 'uncatered') ?? 'uncatered';
+          | 'uncatered') ?? 'catered';
+      const residency =
+        (form.querySelector<HTMLInputElement>('input[name="cb-residency"]:checked')?.value as
+          | 'sadc'
+          | 'international') ?? 'sadc';
+      const groupSize = Number(val('cb-group')) || MAX_GROUP_SIZE;
+      const minSize = catering === 'catered' ? MIN_PARTY_CATERED : MIN_PARTY_UNCATERED;
+      if (groupSize < minSize || groupSize > MAX_GROUP_SIZE) {
+        return setStatus(
+          `A ${catering === 'catered' ? 'catered' : 'self-catered'} booking takes ${minSize} to ${MAX_GROUP_SIZE} guests.`,
+          'error',
+        );
+      }
 
       const { data, error } = await actions.adminCreateCompBooking({
         startDate,
-        groupSize: EXCLUSIVE_SIZE,
+        groupSize,
         catering,
+        residency,
         leadName,
         leadEmail,
         leadPhone: leadPhone || undefined,
