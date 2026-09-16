@@ -144,7 +144,7 @@ for (const [table, tuple] of Object.entries(tableTuples)) {
   );
 }
 
-assert('bookings carries exactly 34 columns', BOOKING_COLUMNS.length === 34);
+assert('bookings carries exactly 35 columns', BOOKING_COLUMNS.length === 35);
 assert('no column is listed twice in any tuple', Object.values(tableTuples).every((t) => new Set(t).size === t.length));
 // The columns 0013 added are the ones the dashboard was blind to; pin them explicitly.
 assert('booking_type and catering (0013) are modelled', BOOKING_COLUMNS.includes('booking_type') && BOOKING_COLUMNS.includes('catering'));
@@ -158,7 +158,10 @@ section('2. Enum unions === the SQL CHECK constraints');
 const allSql = stripSqlComments(migFiles.map((f) => readFileSync(new URL(f, migDir), 'utf8')).join('\n'));
 // Last definition wins: 0012 drops and re-adds admin_audit_action_check with an extra value.
 function checkValues(col) {
-  const hits = [...allSql.matchAll(new RegExp(`check\\s*\\(\\s*${col}\\s+in\\s*\\(([\\s\\S]*?)\\)\\s*\\)`, 'g'))];
+  // A nullable column's CHECK is written `check (col is null or col in (...))` (0016 does this
+  // for residency), so the optional prefix below has to be tolerated or the constraint reads as
+  // missing and the enum silently stops being policed.
+  const hits = [...allSql.matchAll(new RegExp(`check\\s*\\(\\s*(?:${col}\\s+is\\s+null\\s+or\\s+)?${col}\\s+in\\s*\\(([\\s\\S]*?)\\)\\s*\\)`, 'g'))];
   if (!hits.length) return null;
   return hits[hits.length - 1][1].match(/'([^']+)'/g)?.map((s) => s.slice(1, -1)) ?? [];
 }

@@ -1,8 +1,8 @@
 // Booking-window constants: TypeScript vs the 0014 trigger migration.
 // Run: npx tsx scripts/verify-window.mjs
 //
-// The trigger cannot import from src/, so 0014 hardcodes four values that also live in
-// src/data/rates.ts. That duplication is unavoidable at the SQL layer but it CAN be policed:
+// The trigger cannot import from src/, so 0016 hardcodes the window and taper values that also
+// live in src/data/rates.ts. That duplication is unavoidable at the SQL layer but it CAN be policed:
 // this script parses the constants back out of the migration and asserts they match the
 // TypeScript. If someone changes BOOKING_OPEN_DATE or a window length in one place only, this
 // fails rather than the two layers silently disagreeing in production.
@@ -12,8 +12,10 @@
 import { readFileSync } from 'node:fs';
 import {
   BOOKING_OPEN_DATE,
-  CATERED_WINDOW_MONTHS,
-  UNCATERED_WINDOW_MONTHS,
+  INTL_CATERED_WINDOW_MONTHS,
+  SADC_WINDOW_MONTHS,
+  TAPER_END_DATE,
+  TAPER_BLOCKED_ISODOW,
 } from '../src/data/rates.ts';
 import { earliestBookableDate, latestBookableDate, todaySast } from '../src/lib/pricing.ts';
 
@@ -27,18 +29,23 @@ function assert(label, cond, detail) {
 }
 const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 66 - t.length))}`);
 
-const sql = readFileSync(new URL('../supabase/migrations/0014_booking_window_guard.sql', import.meta.url), 'utf8');
+const sql = readFileSync(new URL('../supabase/migrations/0016_commercial_v4.sql', import.meta.url), 'utf8');
 const pick = (re) => { const m = sql.match(re); return m ? m[1] : null; };
 
-section('1. Constants in 0014 match src/data/rates.ts');
+section('1. Constants in 0016 match src/data/rates.ts');
 const sqlOpen = pick(/c_booking_open\s+constant date := date '([\d-]+)'/);
 const sqlLead = pick(/c_min_lead_days\s+constant int\s+:= (\d+)/);
-const sqlCat = pick(/c_months_catered\s+constant int\s+:= (\d+)/);
-const sqlUncat = pick(/c_months_uncatered\s+constant int\s+:= (\d+)/);
+const sqlIntl = pick(/c_months_intl\s+constant int\s+:= (\d+)/);
+const sqlSadc = pick(/c_months_sadc\s+constant int\s+:= (\d+)/);
+const sqlTaperEnd = pick(/c_taper_end\s+constant date := date '([\d-]+)'/);
+const sqlTaperDows = pick(/c_taper_dows\s+constant int\[\] := array\[([\d, ]+)\]/);
 
 assert(`BOOKING_OPEN_DATE: SQL ${sqlOpen} === TS ${BOOKING_OPEN_DATE}`, sqlOpen === BOOKING_OPEN_DATE);
-assert(`catered window: SQL ${sqlCat} === TS ${CATERED_WINDOW_MONTHS}`, Number(sqlCat) === CATERED_WINDOW_MONTHS);
-assert(`self-catered window: SQL ${sqlUncat} === TS ${UNCATERED_WINDOW_MONTHS}`, Number(sqlUncat) === UNCATERED_WINDOW_MONTHS);
+assert(`international catered window: SQL ${sqlIntl} === TS ${INTL_CATERED_WINDOW_MONTHS}`, Number(sqlIntl) === INTL_CATERED_WINDOW_MONTHS);
+assert(`SADC window: SQL ${sqlSadc} === TS ${SADC_WINDOW_MONTHS}`, Number(sqlSadc) === SADC_WINDOW_MONTHS);
+assert(`taper end: SQL ${sqlTaperEnd} === TS ${TAPER_END_DATE}`, sqlTaperEnd === TAPER_END_DATE);
+assert(`taper days: SQL [${sqlTaperDows}] === TS [${TAPER_BLOCKED_ISODOW}]`,
+  String(sqlTaperDows).split(',').map((n) => Number(n.trim())).join() === [...TAPER_BLOCKED_ISODOW].join());
 assert(`lead days: SQL ${sqlLead} === 7 (the flagged T-7 reading)`, Number(sqlLead) === 7);
 
 section('2. The SQL floor/ceiling agree with the TS helpers for today');
@@ -53,10 +60,14 @@ const sqlEarliest = max(addDays(today, Number(sqlLead)), sqlOpen);
 assert(`floor: SQL ${sqlEarliest} === earliestBookableDate() ${earliestBookableDate()}`,
   sqlEarliest === earliestBookableDate());
 
-for (const [catering, months] of [['catered', Number(sqlCat)], ['uncatered', Number(sqlUncat)]]) {
+for (const [catering, residency, months] of [
+  ['catered', 'international', Number(sqlIntl)],
+  ['catered', 'sadc', Number(sqlSadc)],
+  ['uncatered', 'sadc', Number(sqlSadc)],
+]) {
   const sqlLatest = addMonths(max(today, sqlOpen), months);
-  const tsLatest = latestBookableDate(catering);
-  assert(`ceiling (${catering}): SQL ${sqlLatest} === latestBookableDate() ${tsLatest}`, sqlLatest === tsLatest);
+  const tsLatest = latestBookableDate(catering, residency);
+  assert(`ceiling (${catering}/${residency}): SQL ${sqlLatest} === latestBookableDate() ${tsLatest}`, sqlLatest === tsLatest);
 }
 
 section('3. The exemptions that keep admin paths and paid bookings working');
@@ -71,10 +82,13 @@ assert('ceiling is anchored to greatest(today, launch gate), not today alone',
 
 section('4. Error codes the app maps');
 const actions = readFileSync(new URL('../src/actions/index.ts', import.meta.url), 'utf8');
-assert('0014 raises RW_WINDOW_TOO_SOON', /RW_WINDOW_TOO_SOON/.test(sql));
-assert('0014 raises RW_WINDOW_TOO_FAR', /RW_WINDOW_TOO_FAR/.test(sql));
+assert('0016 raises RW_WINDOW_TOO_SOON', /RW_WINDOW_TOO_SOON/.test(sql));
+assert('0016 raises RW_WINDOW_TOO_FAR', /RW_WINDOW_TOO_FAR/.test(sql));
+assert('0016 raises RW_TAPER_DAY', /RW_TAPER_DAY/.test(sql));
 assert('createCheckout maps RW_WINDOW_TOO_SOON', /RW_WINDOW_TOO_SOON/.test(actions));
 assert('createCheckout maps RW_WINDOW_TOO_FAR', /RW_WINDOW_TOO_FAR/.test(actions));
+assert('createCheckout maps RW_TAPER_DAY', /RW_TAPER_DAY/.test(actions));
+assert('createCheckout also refuses taper days before the insert', /isAllowedStartDay\(input\.startDate\)/.test(actions));
 
 console.log(
   failed === 0

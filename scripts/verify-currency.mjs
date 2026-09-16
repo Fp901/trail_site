@@ -17,7 +17,6 @@ import {
   ZAR_TO_FOREIGN,
   CURRENCY_SYMBOLS,
   FX_RATES_AS_OF,
-  ppSharingRand,
   rateRows,
   formatRand,
   formatForeign,
@@ -66,13 +65,13 @@ assert('the live BookingWidget does not import the currency-conversion helpers (
 
 section('3. Every currency figure is PRE-COMPUTED at build time, not re-derived in the client script');
 assert('RatesTable computes a priceSet() at build time per cell', /function priceSet\(rand: number\)/.test(table));
-assert('priceSet reads ppSharingRand + formatRand/formatForeign, not raw constants',
-  /ppSharingRand\(rand\)/.test(table) && /formatForeign\(sharing, 'EUR'\)/.test(table));
+assert('priceSet reads formatRand/formatForeign, not raw constants',
+  /formatRand\(rand\)/.test(table) && /formatForeign\(rand, 'EUR'\)/.test(table));
 assert('each cell carries all four pre-rendered strings as data attributes',
-  /'data-price-zar': formatRand\(sharing\)/.test(table) &&
-  /'data-price-eur': formatForeign\(sharing, 'EUR'\)/.test(table) &&
-  /'data-price-gbp': formatForeign\(sharing, 'GBP'\)/.test(table) &&
-  /'data-price-usd': formatForeign\(sharing, 'USD'\)/.test(table));
+  /'data-price-zar': formatRand\(rand\)/.test(table) &&
+  /'data-price-eur': formatForeign\(rand, 'EUR'\)/.test(table) &&
+  /'data-price-gbp': formatForeign\(rand, 'GBP'\)/.test(table) &&
+  /'data-price-usd': formatForeign\(rand, 'USD'\)/.test(table));
 assert('the client script only SELECTS a pre-rendered string, it does not compute one',
   /el\.textContent = value/.test(table) && !/\* 0\.0\d/.test(table) && !/ZAR_TO_FOREIGN/.test(table));
 // One call per FOREIGN currency inside priceSet() — ZAR itself goes through formatRand, not
@@ -107,13 +106,12 @@ section('6. Numeric reconciliation: every rendered figure matches the constant i
 let reconciled = 0;
 let mismatch = null;
 for (const row of rateRows) {
-  for (const nightly of [row.high, row.low]) {
-    const sharing = ppSharingRand(nightly);
+  for (const sharing of [row.high, row.low]) {
     const zar = formatRand(sharing);
     for (const cur of ['EUR', 'GBP', 'USD']) {
       const expected = CURRENCY_SYMBOLS[cur] + Math.round(sharing * ZAR_TO_FOREIGN[cur]).toLocaleString('en-US');
       const got = formatForeign(sharing, cur);
-      if (got !== expected) { mismatch = `${row.label} ${nightly}: ${cur} expected ${expected}, got ${got}`; break; }
+      if (got !== expected) { mismatch = `${row.label} ${sharing}: ${cur} expected ${expected}, got ${got}`; break; }
     }
     if (mismatch) break;
     reconciled++;
