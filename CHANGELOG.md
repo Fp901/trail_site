@@ -62,6 +62,47 @@ was written: R15,900 / R12,720 (2027) and R17,172 / R13,737 (2028) all reproduce
     guest document stays a **receipt**. `lib/email.ts` carries a comment naming exactly what to
     add when the number arrives.
 
+### Copy review round 2 and the country dropdown, 16 September 2026
+
+**Tone pass (A1 to B5 of the review), applied as approved:** the Day 2 and Day 3 itinerary copy
+loses "the payoff is huge" and "The view, the pool and the fire are waiting"; Blackwood stops
+telling the guest to watch the sunset; Oukraal's "evening sounds of the wild are close" becomes
+"the bush closes in around the lodge"; the homepage sundowner step stops issuing instructions; the
+statement band becomes "15,000 hectares of Big 5 reserve, crossed on foot"; the safety heading
+loses its full stop; "rather than a sedentary vehicle safari" becomes "crossed on foot rather than
+viewed from a vehicle", since the first version disparaged a product most DMC partners also sell;
+the slackpacking FAQ is answered plainly (and no longer says "rather than huts", per the operator);
+the conservation-levy answer is rewritten in plain English **and no longer publishes the 18% cost
+structure**; and the rate-year explainer leads with the rate being locked in rather than with an
+increase.
+
+**The resident rate is now never disclosed on the public site** (operator decision). The site is
+written for the international market and the SADC rate is marketed separately, so:
+
+1. **Step 2 is a country dropdown.** "Country of residence", a native `<select>` over the full ISO
+   3166-1 list (249 entries, names and sort order from ICU rather than hand-typed, with overrides
+   where ICU's rendering is not booking-form English). The self-catered mount offers only the 16
+   SADC states, since that product is not open to anyone else. **New file:** `data/countries.ts`,
+   which holds the list, the SADC set and the one `residencyForCountry()` mapping.
+2. **The band is derived server-side from the country code.** `createCheckout` now takes `country`
+   and derives the band itself; the browser no longer sends a band at all, so a tampered payload
+   cannot buy the resident rate by asserting one.
+3. **Nothing on a public page names the band.** The rate cards are gone, the "SADC resident, 30%
+   less" line is gone from the price breakdown (a guest is quoted one rate, not a rack rate with a
+   reduction beneath it), the residency factor is gone from `/how-pricing-works` (three factors
+   now, not four), and `llms.txt` no longer mentions it. The declaration field was renamed
+   `residencyDeclaration` because field names are readable in page source, and one user-facing
+   status message that still said "SADC" was caught and fixed.
+4. **`verify-surfaces.mjs` now enforces this**: it fails if any public page, or `llms.txt`, or the
+   widget's markup, or any user-facing widget string names the band.
+5. **Honest limit, documented in the widget header and in CLAUDE.md Part 17:** the bundled widget
+   JS still carries the band internally, because the on-page estimate is computed client-side.
+   Removing that residual means fetching the quote from the server on each date or country change.
+   Flagged rather than faked.
+6. **`lead_country` added to migration 0016** (still unapplied, so edited in place rather than
+   adding an 0017). Storing it keeps the reason for the band auditable and gives the operator the
+   source-market breakdown the DMC strategy depends on.
+
 ### Operator copy review, 16 September 2026
 
 Applied on top of the v4 implementation, after the operator previewed the branch:

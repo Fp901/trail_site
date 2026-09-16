@@ -29,9 +29,18 @@ alter table public.bookings
 alter table public.bookings
   add column if not exists residency_declared_at timestamptz;
 
+-- The country the lead guest gave at checkout (ISO 3166-1 alpha-2). The rate band above is
+-- DERIVED from it, so storing the country keeps the reason for the band auditable, and gives the
+-- operator the source-market breakdown the business plan's DMC strategy depends on.
+alter table public.bookings
+  add column if not exists lead_country text;
+
 comment on column public.bookings.residency is
   'Pricing input under commercial model v4: sadc pays 30% less for the catered product, and the '
   'self-catered product is SADC-only. Nullable only for pre-v4 rows.';
+comment on column public.bookings.lead_country is
+  'ISO 3166-1 alpha-2 country of residence given by the lead guest at checkout. The residency '
+  'band is derived from this server-side (src/data/countries.ts); the browser never sends a band.';
 comment on column public.bookings.residency_declared_at is
   'When the guest accepted the SADC residency declaration at checkout. Null for international '
   'bookings and for pre-v4 rows. Proof itself is checked in person at Temminck''s Lodge.';

@@ -194,7 +194,8 @@ entry "Commercial model v4". This section is only the go-live steps.
 ### D1. Database
 
 - [ ] **Apply `supabase/migrations/0016_commercial_v4.sql`.** It migrates `residency` `'local'` →
-      `'sadc'`, adds `residency_declared_at`, rewrites `bookings_slot_guard` (product minimums,
+      `'sadc'`, adds `lead_country` (ISO alpha-2, the country the guest gives at checkout) and
+      `residency_declared_at`, rewrites `bookings_slot_guard` (product minimums,
       catering lock, capacity, **derived `booking_type`**) and `bookings_window_guard`
       (1 Apr 2027, 24/12-month windows, taper days), drops the now-redundant
       `bookings_unique_start_date` index, and reshapes `departure_inventory` (adds `seats_taken`,
@@ -237,9 +238,12 @@ entry "Commercial model v4". This section is only the go-live steps.
       curated daily wine and beer, spirits excluded apart from sundowner gin). Confirm wording.
 - [ ] **The lodge amenity chips** no longer list the kitchen, fridge, ice or firewood, because the
       flagship guest does not cook. Confirm, or restore them.
-- [ ] **The SADC declaration** at checkout ("every guest is a SADC resident and will show SA ID or
-      a SADC passport at registration"). Confirm the wording and how the 100% premium is actually
-      charged on the day when proof is missing.
+- [ ] **Non-disclosure of the resident rate.** The public site never mentions it: the form asks
+      country of residence and applies the band silently. Confirm that is what you want, and that
+      the resident rate is marketed only through the direct channel.
+- [ ] **The residency confirmation** shown to a guest who names a SADC country ("every guest in
+      this booking lives there, and can show a valid ID or passport at registration on Day 1").
+      Confirm the wording, and how you charge international rates on the day when proof is missing.
 
 ### D4. The unlisted SADC page and the marketing PDFs
 

@@ -144,7 +144,7 @@ for (const [table, tuple] of Object.entries(tableTuples)) {
   );
 }
 
-assert('bookings carries exactly 35 columns', BOOKING_COLUMNS.length === 35);
+assert('bookings carries exactly 36 columns', BOOKING_COLUMNS.length === 36);
 assert('no column is listed twice in any tuple', Object.values(tableTuples).every((t) => new Set(t).size === t.length));
 // The columns 0013 added are the ones the dashboard was blind to; pin them explicitly.
 assert('booking_type and catering (0013) are modelled', BOOKING_COLUMNS.includes('booking_type') && BOOKING_COLUMNS.includes('catering'));

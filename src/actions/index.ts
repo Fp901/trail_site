@@ -12,6 +12,7 @@ import {
   bookingTypeFor,
   windowMonthsFor,
 } from '../lib/pricing';
+import { isCountryCode, countryName, residencyForCountry } from '../data/countries';
 import {
   MAX_GROUP_SIZE,
   MIN_PARTY_SIZE,
@@ -59,11 +60,14 @@ export const server = {
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
       groupSize: z.number().int().min(MIN_PARTY_SIZE).max(MAX_GROUP_SIZE),
       catering: z.enum(['catered', 'uncatered']),
-      residency: z.enum(['sadc', 'international']),
-      // Ticked by the guest when booking at a SADC rate: they confirm every guest is a SADC
-      // resident and will show SA ID or a SADC passport at check-in. Proof is checked in person;
-      // this records that the term was accepted.
-      sadcDeclaration: z.boolean().optional(),
+      // The guest picks a COUNTRY; the rate band is derived from it server-side. The browser never
+      // sends the band, so a tampered payload cannot buy the resident rate by asserting one.
+      country: z.string().trim().length(2).toUpperCase(),
+      // Ticked by a guest booking at a resident rate: they confirm everyone in the party lives
+      // there and can show ID at check-in. Proof is checked in person; this records the term was
+      // accepted. Named neutrally because the field name is readable in the page source, and the
+      // public site does not disclose that a resident band exists.
+      residencyDeclaration: z.boolean().optional(),
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
       leadPhone: z.string().trim().min(7, 'Please enter a mobile number.').max(40),
@@ -87,20 +91,27 @@ export const server = {
       const supabase = getSupabaseAdmin();
       const now = new Date().toISOString();
 
+      // THE RATE BAND IS DERIVED HERE, from the country, and nowhere else. data/countries.ts holds
+      // the single mapping; the widget uses it only to show an estimate.
+      if (!isCountryCode(input.country)) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Please choose a country from the list.' });
+      }
+      const residency = residencyForCountry(input.country);
+
       // Product validity (commercial model v4): the site sells catered to anyone and self-catered
       // to SADC residents only. There is no international self-catered rate to fall back to — a
-      // guest who cannot show SADC proof at check-in pays the stated premium on the day, which is
-      // an operator matter, not something the booking engine can price.
-      if (input.catering === 'uncatered' && input.residency !== 'sadc') {
+      // guest who cannot show proof of residence at check-in is charged at international rates on
+      // the day, which is an operator matter, not something the booking engine can price.
+      if (input.catering === 'uncatered' && residency !== 'sadc') {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: 'The self-catered option is open to SADC residents only. Please choose the all-inclusive catered safari.',
+          message: 'This option is open to residents of the SADC region only.',
         });
       }
-      if (input.residency === 'sadc' && input.sadcDeclaration !== true) {
+      if (residency === 'sadc' && input.residencyDeclaration !== true) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: 'Please confirm that every guest is a SADC resident and can show SA ID or a SADC passport at check-in.',
+          message: `Please confirm that every guest lives in ${countryName(input.country)} and can show a valid ID or passport at registration.`,
         });
       }
 
@@ -118,7 +129,7 @@ export const server = {
       // international catered, 12 for every SADC product). ISO YYYY-MM-DD strings compare
       // lexicographically, so string comparison is safe.
       const earliest = earliestBookableDate();
-      const latest = latestBookableDate(input.catering, input.residency);
+      const latest = latestBookableDate(input.catering, residency);
       if (input.startDate < earliest) {
         throw new ActionError({
           code: 'BAD_REQUEST',
@@ -128,7 +139,7 @@ export const server = {
       if (input.startDate > latest) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `${productLabel(input.catering, input.residency)} bookings open up to ${windowMonthsFor(input.catering, input.residency)} months ahead. Choose an earlier date.`,
+          message: `Bookings open up to ${windowMonthsFor(input.catering, residency)} months ahead. Please choose an earlier date.`,
         });
       }
 
@@ -188,7 +199,7 @@ export const server = {
       const quote = computeQuote({
         bookingType,
         catering: input.catering,
-        residency: input.residency,
+        residency,
         groupSize: input.groupSize,
         startDate: input.startDate,
       });
@@ -247,7 +258,8 @@ export const server = {
           booking_type: bookingType,
           catering: quote.catering,
           residency: quote.residency,
-          residency_declared_at: input.residency === 'sadc' ? now : null,
+          lead_country: input.country,
+          residency_declared_at: residency === 'sadc' ? now : null,
           lead_name: leadName,
           lead_email: leadEmail,
           lead_phone: leadPhone,

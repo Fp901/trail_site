@@ -12,7 +12,6 @@ import {
   BASE_PP_TRIP,
   FROM_PP_TRIP,
   FROM_PP_TRIP_DISPLAY,
-  SADC_DISCOUNT,
   LAST_MINUTE_DISCOUNT,
   MAX_GROUP_SIZE,
   MIN_PARTY_CATERED,
@@ -79,8 +78,7 @@ assert('the widget mirrors the price chain from its serialised constants, not li
 
 section('3. Discounts, minimums and dates are read, not retyped');
 const pct = (d) => `${Math.round(d * 100)}%`;
-assert('the SADC percentage is derived wherever it appears in copy',
-  !rates.includes(pct(SADC_DISCOUNT)) || /Math\.round\(SADC_DISCOUNT \* 100\)/.test(rates));
+// (The resident-rate percentage is not quoted on any public page at all — asserted below.)
 assert('the last-minute percentage is derived in the widget',
   /Math\.round\(LAST_MINUTE_DISCOUNT \* 100\)/.test(widget) || /Math\.round\(R\.lastMinuteDiscount \* 100\)/.test(widget));
 assert('group size comes from MAX_GROUP_SIZE / MIN_PARTY_CATERED on the rates page',
@@ -110,13 +108,34 @@ for (const [label, needle] of [
   ['the flagship rate', formatRand(BASE_PP_TRIP.catered)],
   ['the low-season rate', FROM_PP_TRIP_DISPLAY],
   ['the launch date', BOOKING_OPEN_DISPLAY],
-  ['the SADC discount', pct(SADC_DISCOUNT)],
   ['the last-minute discount', pct(LAST_MINUTE_DISCOUNT)],
   ['the capacity', String(MAX_GROUP_SIZE)],
 ]) {
   assert(`llms.txt states ${label} (${needle})`, llms.includes(needle));
 }
 assert('llms.txt does NOT link the unlisted SADC page', !llms.includes('sadc-slackpacking'));
+// The public site is written for the international market and does not disclose that a resident
+// rate exists (operator decision, 16 Sep 2026). llms.txt is fed to AI crawlers, so it is public
+// for this purpose: it must quote the published rate and nothing about the resident band.
+assert('llms.txt does not disclose the resident rate band', !/sadc/i.test(llms));
+// Tested against what SHIPS, not the source: a code comment explaining why the band is withheld
+// is useful and never reaches the browser, so stripping comments first is the honest check.
+const shipped = (src) =>
+  src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+for (const [name, src] of [['index.astro', home], ['rates.astro', rates], ['how-pricing-works.astro', explainer], ['RatesTable.astro', table]]) {
+  assert(`${name} ships no mention of the resident rate band`, !/sadc/i.test(shipped(src)));
+}
+// The widget is checked on its MARKUP and its user-visible strings, not its script: the bundled
+// JS necessarily carries the band name as an internal value, because the on-page estimate is
+// computed client-side. That residual is documented in the widget's own header comment; removing
+// it entirely would mean fetching the quote from the server instead.
+const widgetMarkup = shipped(widget).split('<script>')[0].split('---').slice(2).join('---');
+assert('the widget shows no mention of the resident rate band in its markup',
+  !/sadc/i.test(widgetMarkup));
+assert('no user-facing widget string names the band',
+  ![...shipped(widget).matchAll(/setStatus\('([^']*)'/g)].some(([, msg]) => /sadc/i.test(msg)));
+assert('the declaration field is named neutrally, since page source is readable by a visitor',
+  /name="residencyDeclaration"/.test(widget) && /residencyDeclaration: z\.boolean/.test(readFileSync(new URL('../src/actions/index.ts', import.meta.url), 'utf8')));
 assert('FROM_PP_TRIP is the low-season flagship rate, derived',
   FROM_PP_TRIP === rateFor({ catering: 'catered', residency: 'international', year: 2027, highSeason: false }));
 

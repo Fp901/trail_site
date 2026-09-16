@@ -2530,6 +2530,28 @@
     outline: 2px solid var(--color-earth);
     outline-offset: 2px;
   }
+  /* Step 2's country select and the residency confirmation that follows it. The select is a
+     native <select> on purpose: it is the best country picker on a phone, needs no JS, and a
+     249-item custom listbox would be worse in every respect. */
+  .bform__country select {
+    width: 100%;
+    max-width: 28rem;
+    padding: 0.7rem 0.85rem;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--color-charcoal);
+    background: var(--color-cream);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-sm);
+  }
+  .bform__country select:focus-visible {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 2px;
+  }
+  .bform__declaration {
+    margin-top: 1.25rem;
+  }
+
   /* The SADC discount note. Sits directly under the matrix as a stated term of the rate table,
      one step up in weight from the FX disclaimer below it (which is an aside, not a term). */
   .ratetable__sadcnote {

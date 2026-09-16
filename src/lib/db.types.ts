@@ -69,10 +69,10 @@ export const PAYMENT_EVENT_TYPES = [
 ] as const;
 export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
 
-// ---- bookings (35 columns) --------------------------------------------------------------------
+// ---- bookings (36 columns) --------------------------------------------------------------------
 // 0001 base (18) + 0003 pretrip_token + 0004 three reminder guards (renamed by 0007)
 // + 0008 nine split-payment columns + 0010 lead_phone + 0013 booking_type & catering
-// + 0016 residency_declared_at.
+// + 0016 lead_country & residency_declared_at.
 
 export const BOOKING_COLUMNS = [
   // 0001_init
@@ -116,6 +116,7 @@ export const BOOKING_COLUMNS = [
   'booking_type',
   'catering',
   // 0016_commercial_v4
+  'lead_country',
   'residency_declared_at',
 ] as const;
 
@@ -157,8 +158,10 @@ export interface BookingRow {
   lead_phone: string | null;
   booking_type: BookingType;
   catering: Catering;
-  // When the guest ticked the SADC residency declaration at checkout (null for international
-  // bookings and for pre-v4 rows).
+  // ISO 3166-1 alpha-2 country of residence given at checkout. `residency` is derived from it.
+  lead_country: string | null;
+  // When the guest ticked the residency declaration at checkout (null for international bookings
+  // and for pre-v4 rows).
   residency_declared_at: string | null;
 }
 

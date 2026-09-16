@@ -29,7 +29,7 @@ export const logisticsBlocks: LogBlock[] = [
   {
     id: 'safety',
     kicker: 'Safety',
-    title: 'Two experienced trail guides, the whole way.',
+    title: 'Two trail guides, the whole way',
     body: 'Two experienced trail guides are with you at all times. This is the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. The reserve is also 100% malaria-free.',
     emphasis: true,
   },
@@ -59,11 +59,11 @@ export function faqAnswerText(a: Faq['a']): string {
 export const faqs: Faq[] = [
   {
     q: 'Is this a slackpacking trail?',
-    a: 'In the sense that matters on the trail, yes: you walk without a heavy pack, because your luggage and provisions are moved ahead to the next lodge each day. Rooiberg Wander goes further than a classic slackpack, though. It is all-inclusive, so every meal, your two trail guides and all conservation levies are part of the rate, and you sleep in established private safari lodges rather than huts.',
+    a: 'Yes. Your luggage moves ahead to the next lodge each day, so you walk with a daypack. Rooiberg Wander is all-inclusive: every meal, both trail guides and all conservation levies are part of the rate, and you sleep in established private safari lodges.',
   },
   {
     q: 'What are the conservation levies?',
-    a: 'Included in your package are conservation levies of 18% of your booking fee, payable to RoiSan Reserve NPC, the manager of the reserve, which allocates monies to the maintenance and protection of the ecosystem and wildlife.',
+    a: 'Your rate includes a conservation levy paid to RoiSan Reserve, the manager of the reserve. It funds anti-poaching work, fence maintenance and wildlife monitoring across the reserve.',
   },
   {
     q: 'Where is the trail and how do I get there?',

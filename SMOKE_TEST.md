@@ -59,10 +59,14 @@ Create a test admin: Supabase → Authentication → Users → Add user (auto-co
 - [ ] "Travelling solo?" panel expands (`aria-expanded` flips)
 - [ ] **There is no catering step.** `/rates` sells the all-inclusive product only; catering is a
       prop, not a question
-- [ ] Step 2 ("Where you live"): each card previews its own rate, and the SADC card is 30% lower
-- [ ] Choosing **SADC resident** reveals the declaration checkbox; Continue is refused until it is
-      ticked, with the reason stated
-- [ ] Choosing **International** hides the declaration and clears it
+- [ ] Step 2 ("Country of residence") is a single country dropdown, 249 entries, no rate cards and
+      **no mention anywhere on the page that a resident rate exists**
+- [ ] Choosing **South Africa** (or any SADC state) reveals the confirmation checkbox; Continue is
+      refused until it is ticked, with the reason stated
+- [ ] Choosing **United Kingdom** hides the confirmation and clears it
+- [ ] The total for South Africa is lower than for the United Kingdom, with **no line in the
+      breakdown naming a discount or a rack rate** — just the rate
+- [ ] View source on `/rates`: the string "SADC" appears **nowhere** in the rendered HTML
 - [ ] Step 3: calendar **opens on April 2027** and cannot page earlier — this is correct, not a
       bug (`earliest = 2027-04-01`)
 - [ ] **Tuesdays, Wednesdays and Saturdays are unavailable** through 2028; their `aria-label`
@@ -355,7 +359,8 @@ unreachable from there. No tunnel needed: Vercel already gives you a public HTTP
 - [ ] The homepage beta bar reads "Online booking opens for start dates from 1 April 2027:
       minimum booking size of 2 persons, maximum 8 guests per day."
 - [ ] `/sadc-slackpacking` loads, carries `noindex`, mounts the widget with the group size fixed
-      at 8 and no residency choice, and quotes R4,950 / R3,960 for 2027
+      at 8 and a country dropdown limited to the **16 SADC states**, and quotes R4,950 / R3,960
+      for 2027
 - [ ] `/sadc-slackpacking` is **absent** from `dist/client/sitemap-0.xml`, from the nav, from the
       footer and from `llms.txt`, and is **not** named in `robots.txt`
 - [ ] Nothing anywhere on the public site links to it

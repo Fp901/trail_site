@@ -272,7 +272,7 @@ Reusable, typed (TS interfaces). Treatment per Part 5.
 - **`RouteMap`** — styled static SVG from `route.ts`: loop Temminck's Lodge → Oukraal → Blackwood → Temminck's Lodge, three day-coloured segments, lodge pins, legend, `role="img"` + `<title>`/`<desc>` + text equivalent. No mapping library.
 - **`FaqAccordion`** — accessible native `<details>/<summary>`; keyboard + SR friendly.
 - **`RatesTable`** — the flagship matrix only: **rate year × season**, per person sharing for the whole trail, every figure derived from `data/rates.ts` (Part 17). The SADC discount is a note beneath the table, not extra columns. Currency tabs (ZAR/EUR/GBP/USD) are an indicative display conversion; ZAR is the only charged currency.
-- **`BookingWidget`** (island) — see Part 9 and Part 17. Takes a `catering` **prop** (`'catered'` on `/rates`, `'uncatered'` on the unlisted page): catering is never asked of the guest. Five steps: group size → where you live (with the SADC declaration) → start date → details → review and pay.
+- **`BookingWidget`** (island) — see Part 9 and Part 17. Takes a `catering` **prop** (`'catered'` on `/rates`, `'uncatered'` on the unlisted page): catering is never asked of the guest. Five steps: group size → **country of residence** (a native `<select>` over the ISO list; the self-catered mount offers only the 16 SADC states) → start date → details → review and pay. The price breakdown shows the rate for the guest's own band and the last-minute reduction only: it must never show a rack rate with a resident reduction beneath it.
 - **`InquiryForm`** (island, optional) — fields Name, Group Size, Target Dates, Contact Details; validation + length caps + accessible errors + honeypot + calm success; POPIA note; submits via the `createInquiry` action (stores in Supabase or emails operator); **no PII in storage on the client**; never a raw HTML `<form>` submit in a React island.
 - **`Seo`** — props `title`, `description`, `path`, `image`, `type`, `noindex`, `jsonLd[]`; emits meta + OG/Twitter + JSON-LD. **Only acceptable `set:html`** is our own serialized JSON-LD — never user input.
 
@@ -329,8 +329,9 @@ Keep **visible** Q&A (LLMs cite it — Part 10). **Acceptance:** accordion keybo
 ### 8.5 Rates &amp; Booking (`/rates`)
 Sells the **flagship only**. The full rate table, the discount chain and the availability rules are in **Part 17**; this page renders them, never restates them as literals.
 
-- Intro (memo, verbatim sense): "Every booking is priced **per person, sharing**: one price per person for the whole 3-night trail. Minimum booking size of 2. Prices vary depending on the season."
-- `RatesTable` = rate year × season, with **"A 30% discount is offered to SADC residents"** beneath it.
+- Intro: one price per person for the whole 3-night trail, VAT and levies included, from 2 guests up, varying by season. Plain, one fact per sentence: a child should be able to follow how to book.
+- `RatesTable` = rate year × season, flagship only. **No SADC note**, no discount percentage.
+- **No forward-looking operational copy** (when more start days open, how far ahead each band books). Those rules hold; the calendar enforces them by not offering the date.
 - "Every rate includes" line: two trail guides · all meals, with selected South African estate wines and local beers · daily baggage transport · all conservation levies and VAT.
 - The old **"Two ways to book"** block is deleted (memo p.11); one "How a departure works" block states who a departure takes and which days run.
 - Hosts the **BookingWidget** (Part 9/17) plus the enquiry path, and the cancellation policy.
@@ -374,7 +375,7 @@ The memo's four paragraphs verbatim, the derived rate line, what is and is not i
 - **Amount unit:** Paystack expects the amount in the **currency subunit** (ZAR **cents**). `lib/pricing.ts` works in cents — pass the value straight through.
 
 ### 9.2 Flow (Paystack hosted checkout + webhook)
-1. **BookingWidget** (island) collects group size, residency (with the SADC declaration), start date and lead-guest details → calls the **`createCheckout` Astro Action**. Catering comes from the widget's `catering` prop, not the guest.
+1. **BookingWidget** (island) collects group size, **country of residence** (with the residency confirmation where it applies), start date and lead-guest details → calls the **`createCheckout` Astro Action**. Catering comes from the widget's `catering` prop, not the guest; the rate band is derived server-side from the country, never sent.
 2. **Server (Action):** zod-validate input; refuse an invalid product/residency pairing, a taper day, or a date outside the product's window; read the date's current seats + catering lock for a friendly message; **compute price server-side** (`computeQuote`); create a **`pending` booking** row with `hold_expires_at = now() + HOLD_MINUTES` (the `bookings_slot_guard` trigger serialises concurrent seat-grabs under an advisory lock and is the authority) and a unique `processor_reference`; **initialize a Paystack transaction** server-side (`POST https://api.paystack.co/transaction/initialize` with `email`, `amount` in cents, `currency: "ZAR"`, `reference`, `callback_url=/booking/confirm`, `metadata.booking_id`) using the **secret key**; return the `authorization_url`.
 3. **Redirect** the browser to the Paystack-hosted `authorization_url` (card data never touches our server → PCI **SAQ-A**).
 4. **Webhook** `POST /api/payments/webhook` (`prerender=false`): read the **raw body**, **verify `x-paystack-signature`** = HMAC-SHA512 of the raw body using the **secret key**; on `charge.success`, **independently call Verify Transaction** (`GET /transaction/verify/:reference`) to confirm status + amount, then **idempotently** (guard on booking status) set the booking `confirmed`, record `processor_txn_id`, set `amount_paid_cents`, clear the hold → trigger confirmation + operator-notification email.
@@ -581,8 +582,12 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 | Product | Public? | Catering | Residency | Min | Max | Booking window | Where it is sold |
 |---|---|---|---|---|---|---|---|
 | **All-inclusive catered safari** (the flagship) | Yes | catered | international | 2 | 8 | 24 months | `/rates` |
-| **The same trail, SADC resident rate** | Yes, as a discount note | catered | sadc | 2 | 8 | 12 months | `/rates` |
+| **The same trail, SADC resident rate** | **No, never disclosed** | catered | sadc | 2 | 8 | 12 months | applied automatically at `/rates` |
 | **SADC self-catered slackpacking option** | **No** | uncatered | sadc | 8 | 8 | 12 months | `/sadc-slackpacking` only |
+
+**THE RESIDENT RATE IS NEVER DISCLOSED ON THE PUBLIC SITE** (operator decision, 16 September 2026). The site is written for the international market, and the resident rate is marketed separately. So: no resident-rate card, no discount percentage, no "SADC" in any rendered page, meta description, JSON-LD or `llms.txt`. The booking form asks **one plain question, country of residence**, from a full ISO country list, and the band is **derived from the answer server-side** (`data/countries.ts` → `residencyForCountry()`); the browser never sends a band, so a tampered payload cannot buy the resident rate. A guest who names a SADC country is additionally asked to confirm they can show ID at registration. `scripts/verify-surfaces.mjs` fails the build if any public page or `llms.txt` names the band.
+
+*Residual, documented and accepted:* the bundled widget JS carries the band internally, because the on-page estimate is computed client-side. Removing that would mean fetching the quote from the server on every date/country change. Flagged rather than faked.
 
 A product is `catering × residency`; there are no other columns. **International self-catered is not sold**: the hidden page states that a guest who cannot show SADC proof at check-in pays a 100% premium, which is an on-the-day operator matter, not something the engine prices.
 
@@ -649,6 +654,7 @@ Every open start day works identically. There is no day-of-week product rule any
 | Rule | Display / client | Server authority | Database |
 |---|---|---|---|
 | Rates, discounts, rate years | `data/rates.ts` | `lib/pricing.ts` | — |
+| Country list, country → rate band | `data/countries.ts` | `data/countries.ts` (server derives) | `bookings.lead_country` (0016) |
 | Product minimums, capacity | `data/rates.ts` | `actions/index.ts` | `bookings_slot_guard` (0016) |
 | Catering lock | widget calendar | `actions/index.ts` | `bookings_slot_guard` (0016) |
 | Taper, booking windows, T-7 | widget calendar | `lib/pricing.ts` + `actions/index.ts` | `bookings_window_guard` (0016) |

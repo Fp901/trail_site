@@ -8,11 +8,14 @@
 // fixed, the minimum party size is fixed with it, so every party that can see this widget can
 // open a date.
 //
-// COUNTRY OF RESIDENCE IS A PRICE. A SADC resident pays 30% less for the catered trail, so
-// residency is a real step with a real number attached, not a profile field. Choosing it requires
-// accepting the declaration: proof is checked in person at registration, and the widget says so.
-// The step is labelled "Country of residence" — the standard travel-industry phrasing, and
-// accurate: the rate follows where a guest lives, not the passport they hold.
+// COUNTRY OF RESIDENCE SETS THE RATE, SILENTLY. The site is written for the international market,
+// and the SADC resident rate is marketed separately, so the form NEVER shows that two bands exist:
+// no resident-rate card, no discount percentage, no "SADC" label a visitor can read. It asks one
+// plain question, which country the group lives in, and the price simply is what it is.
+// The band is derived from the country — client-side for the estimate, and independently
+// SERVER-SIDE from the submitted country code, which is what actually prices the booking.
+// A guest who picks a SADC country is additionally asked to confirm they can show ID at
+// registration, because that is the condition attached to the rate they are being given.
 //
 // AVAILABILITY. One read of the derived `departure_inventory` view (migration 0016), which is
 // SPARSE — an absent date has no state and is wide open. The contract is applied in exactly one
@@ -20,8 +23,8 @@
 // now: 8 places, the first booking opens the date and locks its catering, later bookings join in
 // 2s. "Exclusive" is not a product — it is what a group of 8 gets by taking every place.
 //
-// The wire payload is { startDate, groupSize, catering, residency, sadcDeclaration, lead* }.
-// bookingType stays derived server-side (and, finally, in the DB trigger), never sent.
+// The wire payload is { startDate, groupSize, catering, country, residencyDeclaration, lead* }.
+// Both the rate band and bookingType are derived server-side, never sent.
 import type { Catering } from '../lib/db.types';
 import {
   NIGHTS,
@@ -45,6 +48,7 @@ import {
   START_DAYS_DISPLAY,
   formatRand,
 } from '../data/rates';
+import { COUNTRIES, SADC_COUNTRIES } from '../data/countries';
 import { site, withBase } from '../data/site';
 import { refundPolicy } from '../data/policies';
 import { itinerary } from '../data/itinerary';
@@ -64,6 +68,9 @@ const { catering = 'catered' } = Astro.props;
 
 const isCatered = catering === 'catered';
 const partyMin = minPartySize(catering);
+// The self-catered product is open to SADC residents only, so that mount offers only those
+// countries rather than letting a guest choose one that will be refused at submit.
+const countryOptions = isCatered ? COUNTRIES : COUNTRIES.filter(([code]) => SADC_COUNTRIES.has(code));
 const earliest = earliestBookableDate();
 
 // Where each night is spent, DERIVED from the itinerary rather than retyped: night N is the lodge
@@ -91,7 +98,7 @@ const clientRates = {
   baseYear: RATE_BASE_YEAR,
   lastYear: RATE_LAST_YEAR,
   seasonDiscount: SEASON_DISCOUNT,
-  sadcDiscount: SADC_DISCOUNT,
+  residentFactor: 1 - SADC_DISCOUNT,
   lastMinuteMinDays: LAST_MINUTE_MIN_DAYS,
   lastMinuteMaxDays: LAST_MINUTE_MAX_DAYS,
   lastMinuteDiscount: LAST_MINUTE_DISCOUNT,
@@ -103,12 +110,20 @@ const clientRates = {
   balanceLeadDays: BALANCE_LEAD_DAYS,
   earliest,
   // Ceilings per residency. Self-catered is SADC-only, so both of its values are the SADC window.
-  sadcLatest: latestBookableDate(catering, 'sadc'),
-  intlLatest: latestBookableDate(catering, 'international'),
-  sadcMonths: SADC_WINDOW_MONTHS,
-  intlMonths: isCatered ? INTL_CATERED_WINDOW_MONTHS : SADC_WINDOW_MONTHS,
+  residentLatest: latestBookableDate(catering, 'sadc'),
+  visitorLatest: latestBookableDate(catering, 'international'),
+  residentMonths: SADC_WINDOW_MONTHS,
+  visitorMonths: isCatered ? INTL_CATERED_WINDOW_MONTHS : SADC_WINDOW_MONTHS,
   nightLodges,
   departureLodge,
+  // The resident-rate factor and the countries it applies to. These are here ONLY to price the
+  // on-page estimate and to decide whether to ask for the declaration; the server derives the
+  // band again from the submitted country code and is the authority.
+  //
+  // HONEST LIMIT: the identifiers are neutral so nothing in the page reads as "SADC discount",
+  // but a reader of page source can still infer that two bands exist. Truly withholding it needs
+  // the estimate to come from a server quote instead of being computed here. Flagged, not faked.
+  residentCountries: [...SADC_COUNTRIES],
 };
 ---
 
@@ -212,60 +227,31 @@ const clientRates = {
       <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
     </div>
     <div class="bstep__body" data-step-body>
-      {isCatered ? (
-        <fieldset class="bstyle">
-          <legend class="bstyle__legend">Where does your group live?</legend>
-          {/* No visible default: the rates differ by 30%, so the guest states which one they are
-              entitled to rather than being defaulted into either. */}
-          <div class="bstyle__cards">
-            <label class="bstyle__card">
-              <input type="radio" name="residency" value="sadc" />
-              <span class="bstyle__body">
-                <span class="bstyle__name">SADC resident</span>
-                <span class="bstyle__desc">
-                  {Math.round(SADC_DISCOUNT * 100)}% off, for residents of South Africa and the
-                  SADC region. Bookable up to {SADC_WINDOW_MONTHS} months ahead.
-                </span>
-                <span class="bstyle__from" data-rate-preview="sadc"></span>
-              </span>
-            </label>
-            <label class="bstyle__card">
-              <input type="radio" name="residency" value="international" />
-              <span class="bstyle__body">
-                <span class="bstyle__name">International visitor</span>
-                <span class="bstyle__desc">
-                  The rack rate. Bookable up to {INTL_CATERED_WINDOW_MONTHS} months ahead, so it
-                  can be planned into a longer trip.
-                </span>
-                <span class="bstyle__from" data-rate-preview="international"></span>
-              </span>
-            </label>
-          </div>
-        </fieldset>
-      ) : (
-        <div class="bstep__static">
-          <p class="bstep__sub">
-            The self-catered option is open to SADC residents only.
-          </p>
-          <input type="hidden" name="residency" value="sadc" />
-        </div>
-      )}
-
-      {/* The declaration. Shown only once a SADC rate is in play, because that is the only case it
-          governs. Proof is checked in person, so this records the term, not the document. */}
-      <div class="form-field bform__declaration" data-sadc-block hidden={isCatered}>
-        <label class="bform__radio">
-          <input type="checkbox" name="sadcDeclaration" data-sadc-declare />
-          <span>
-            I confirm every guest is a SADC resident and will show a valid South African ID or
-            SADC passport at registration on Day 1.
-          </span>
-        </label>
-        <span class="form-error" data-sadc-error aria-live="polite"></span>
+      <div class="form-field bform__country">
+        <label for="bf-country">Country of residence</label>
+        <select id="bf-country" name="country" required aria-describedby="bf-country-err">
+          <option value="">Select a country</option>
+          {countryOptions.map(([code, name]) => <option value={code}>{name}</option>)}
+        </select>
+        <span class="form-error" id="bf-country-err" aria-live="polite"></span>
       </div>
 
-      {/* Residency changes the rate AND how far ahead dates open — announced in words, not only
-          by the grid changing underneath the guest. */}
+      {/* Shown only once a guest has named a country whose rate carries the ID condition. An
+          international visitor never sees it, and therefore never learns another rate exists. */}
+      <div class="form-field bform__declaration" data-residency-block hidden>
+        <p class="form-hint" data-residency-note></p>
+        <label class="bform__radio">
+          <input type="checkbox" name="residencyDeclaration" data-residency-declare />
+          <span>
+            I confirm every guest in this booking lives there, and can show a valid ID or passport
+            at registration on Day 1.
+          </span>
+        </label>
+        <span class="form-error" data-residency-error aria-live="polite"></span>
+      </div>
+
+      {/* The country can change how far ahead dates open, so the calendar may move underneath the
+          guest. When it does, say so in words rather than letting the grid silently change. */}
       <p class="bstep__notice" data-path-notice role="status" aria-live="polite" hidden></p>
       <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
     </div>
@@ -416,10 +402,10 @@ const clientRates = {
         <ol class="btrip__nights" data-trip-nights></ol>
       </div>
 
-      {/* Every figure is a NAMED line: the rack rate for that date, any SADC or last-minute
-          reduction, the resolved rate, the multiplication, then what is taken today. Rendered from
-          the same helper as the date preview, so the card a guest reads before choosing and the
-          one they pay from cannot disagree. */}
+      {/* Every figure is a NAMED line: the rate for that date, any last-minute reduction, the
+          multiplication, then what is taken today. Rendered from the same helper as the date
+          preview, so the card a guest reads before choosing and the one they pay from cannot
+          disagree. */}
       <div class="bform__pricing">
         <div class="bform__breakdown" data-breakdown></div>
         <p class="bform__estimate">
@@ -604,9 +590,12 @@ const clientRates = {
 
     // ---- DOM ---------------------------------------------------------------------------------
     const pathNotice = form.querySelector<HTMLElement>('[data-path-notice]');
-    const sadcBlock = form.querySelector<HTMLElement>('[data-sadc-block]');
-    const sadcDeclare = form.querySelector<HTMLInputElement>('[data-sadc-declare]');
-    const sadcError = form.querySelector<HTMLElement>('[data-sadc-error]');
+    const countrySelect = form.querySelector<HTMLSelectElement>('#bf-country');
+    const residencyBlock = form.querySelector<HTMLElement>('[data-residency-block]');
+    const residencyNote = form.querySelector<HTMLElement>('[data-residency-note]');
+    const residencyDeclare = form.querySelector<HTMLInputElement>('[data-residency-declare]');
+    const residencyError = form.querySelector<HTMLElement>('[data-residency-error]');
+    const SADC = new Set<string>(Array.isArray(R.residentCountries) ? R.residentCountries : []);
 
     const joinList = form.querySelector<HTMLElement>('[data-join-list]');
     const joinEmpty = form.querySelector<HTMLElement>('[data-join-empty]');
@@ -656,9 +645,14 @@ const clientRates = {
     const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
 
     // ---- State -------------------------------------------------------------------------------
-    // Self-catered is SADC-only, so that mount starts resolved; the catered mount asks.
-    let residency: Residency | null = CATERING === 'uncatered' ? 'sadc' : null;
+    // Country is what the guest picks; the rate band is DERIVED from it and is never presented as
+    // a choice. Both start empty on every mount, including the self-catered one: that product is
+    // SADC-only, but we still need to know which country for check-in.
+    let country = '';
+    let residency: Residency | null = null;
     let selectedStartIso = '';
+
+    const residencyFor = (code: string): Residency => (SADC.has(code) ? 'sadc' : 'international');
 
     let inventory = new Map<string, Departure>();
     let availabilityInFlight: Promise<void> | null = null;
@@ -698,12 +692,11 @@ const clientRates = {
       return gap >= R.lastMinuteMinDays && gap <= R.lastMinuteMaxDays;
     }
 
-    // Per person, whole trip, in cents. `res` defaults to the chosen residency (or the rack rate
-    // while none is chosen, so the step-2 cards can each preview their own figure).
+    // Per person, whole trip, in cents, for the band the guest's country resolved to.
     function ppTripCents(iso: string, res: Residency, withLastMinute = true): number {
       let rand = R.base * (R.yearMultipliers[String(rateYearFor(iso))] ?? 1);
       if (!isHighSeasonIso(iso)) rand *= 1 - R.seasonDiscount;
-      if (res === 'sadc' && CATERING === 'catered') rand *= 1 - R.sadcDiscount;
+      if (res === 'sadc' && CATERING === 'catered') rand *= 1 - R.residentFactor;
       if (withLastMinute && withinLastMinuteWindow(iso)) rand *= 1 - R.lastMinuteDiscount;
       return Math.floor(rand) * 100;
     }
@@ -760,11 +753,11 @@ const clientRates = {
     }
 
     function latestFor(res: Residency | null): string {
-      return res === 'international' ? R.intlLatest : R.sadcLatest;
+      return res === 'international' ? R.visitorLatest : R.residentLatest;
     }
 
     function monthsFor(res: Residency | null): number {
-      return res === 'international' ? R.intlMonths : R.sadcMonths;
+      return res === 'international' ? R.visitorMonths : R.residentMonths;
     }
 
     // Tapered start: Tuesday, Wednesday and Saturday are not start days up to R.taperEnd.
@@ -875,23 +868,22 @@ const clientRates = {
     // the figure a guest reads before choosing and the one they pay from are one computation.
     function priceRows(iso: string, res: Residency, n: number): HTMLElement[] {
       const rows: HTMLElement[] = [];
-      const rack = ppTripCents(iso, 'international', false);
-      const afterSadc = ppTripCents(iso, res, false);
+      // The rate for THIS booking, already carrying whatever band the country resolved to. The
+      // rack rate and the resident reduction are deliberately not shown as separate lines: the
+      // guest is quoted one price, and the site never advertises that another band exists.
+      const beforeLastMinute = ppTripCents(iso, res, false);
       const final = ppTripCents(iso, res, true);
       rows.push(previewRow(
         `${CATERING === 'catered' ? 'All-inclusive' : 'Self-catered'} rate`,
-        `${fmtR(rack)} per person`));
-      if (afterSadc < rack) {
-        rows.push(previewRow(
-          `SADC resident, ${Math.round(R.sadcDiscount * 100)}% less`,
-          `- ${fmtR(rack - afterSadc)}`, 'credit'));
-      }
-      if (final < afterSadc) {
+        `${fmtR(beforeLastMinute)} per person`));
+      // The last-minute reduction IS named: every guest can qualify for it, it is visible on the
+      // calendar, and an unexplained drop in the total is worse than naming it.
+      if (final < beforeLastMinute) {
         rows.push(previewRow(
           `Last-minute, ${Math.round(R.lastMinuteDiscount * 100)}% less`,
-          `- ${fmtR(afterSadc - final)}`, 'credit'));
+          `- ${fmtR(beforeLastMinute - final)}`, 'credit'));
+        rows.push(previewRow('Your rate', `${fmtR(final)} per person`, 'rate'));
       }
-      rows.push(previewRow('Your rate', `${fmtR(final)} per person`, 'rate'));
       rows.push(previewRow(`${n} ${n === 1 ? 'walker' : 'walkers'}`, fmtR(final * n), 'total'));
       return rows;
     }
@@ -1091,18 +1083,6 @@ const clientRates = {
       }
     }
 
-    // Each step-2 card previews its own rate, so the 30% is a number rather than a claim. Uses the
-    // first high-season date in the window as the representative date, matching the rates page.
-    function paintRatePreviews() {
-      // A high-season date in the base rate year: the rack rate the rates table leads with, so the
-      // card and the table quote the same figure rather than whichever season launch day sits in.
-      const sample = `${R.baseYear}-07-01`;
-      for (const el of Array.from(form!.querySelectorAll<HTMLElement>('[data-rate-preview]'))) {
-        const res = (el.dataset.ratePreview === 'sadc' ? 'sadc' : 'international') as Residency;
-        el.textContent = `From ${fmtR(ppTripCents(sample, res, false))} per person`;
-      }
-    }
-
     function updateEstimate() {
       paintEstimate();
       refreshSteps();
@@ -1131,9 +1111,16 @@ const clientRates = {
     }
 
     function residencyValid(): boolean {
-      if (!residency) return false;
-      if (residency === 'sadc' && !sadcDeclare?.checked) return false;
+      if (!country || !residency) return false;
+      if (residency === 'sadc' && !residencyDeclare?.checked) return false;
       return true;
+    }
+
+    // The country's own name, read back off the option the guest chose rather than kept in a
+    // second lookup table that could drift from the list actually rendered.
+    function countryLabel(): string {
+      const opt = countrySelect?.selectedOptions?.[0];
+      return opt && opt.value ? opt.textContent?.trim() ?? opt.value : '';
     }
 
     function stepComplete(n: number): boolean {
@@ -1150,7 +1137,7 @@ const clientRates = {
         const g = groupSize();
         return `${g} ${g === 1 ? 'walker' : 'walkers'}`;
       }
-      if (n === 2) return residency === 'sadc' ? 'SADC resident rate' : residency ? 'International rate' : '';
+      if (n === 2) return countryLabel();
       if (n === 3) {
         if (!selectedStartIso) return '';
         return humanDate(selectedStartIso, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
@@ -1228,7 +1215,7 @@ const clientRates = {
     // Continue: block the advance and say why, rather than moving on to a step that cannot be
     // completed. The messages name the missing thing; they never just refuse.
     const BLOCKED: Record<number, string> = {
-      2: 'Tell us where your group lives to continue.',
+      2: 'Choose the country your group lives in to continue.',
       3: 'Choose a start date to continue.',
       4: 'Please complete your details to continue.',
     };
@@ -1236,9 +1223,14 @@ const clientRates = {
       const n = Number(el.dataset.step);
       el.querySelector<HTMLButtonElement>('[data-step-continue]')?.addEventListener('click', () => {
         if (!stepComplete(n)) {
-          if (n === 2 && residency === 'sadc' && !sadcDeclare?.checked) {
-            if (sadcError) sadcError.textContent = 'Please confirm the SADC residency declaration.';
-            sadcDeclare?.focus();
+          if (n === 2 && !country) {
+            markField(countrySelect?.closest('.form-field') ?? null, 'Please choose the country your group lives in.');
+            countrySelect?.focus();
+            return;
+          }
+          if (n === 2 && residency === 'sadc' && !residencyDeclare?.checked) {
+            if (residencyError) residencyError.textContent = 'Please tick the confirmation to continue.';
+            residencyDeclare?.focus();
             return;
           }
           if (n === 4) {
@@ -1499,23 +1491,30 @@ const clientRates = {
       });
     }
 
-    for (const input of Array.from(form.querySelectorAll<HTMLInputElement>('input[name="residency"]'))) {
-      input.addEventListener('change', () => {
-        residency = input.value === 'sadc' ? 'sadc' : 'international';
-        hidePathNotice();
-        if (sadcError) sadcError.textContent = '';
-        // The declaration only governs the SADC rate; hide it (and clear it) otherwise, so nobody
-        // is asked to certify something that does not apply to them.
-        if (sadcBlock) sadcBlock.hidden = residency !== 'sadc';
-        if (residency !== 'sadc' && sadcDeclare) sadcDeclare.checked = false;
-        calRefresh();
-        joinRefresh();
-        updateEstimate();
-      });
-    }
+    countrySelect?.addEventListener('change', () => {
+      country = countrySelect.value;
+      residency = country ? residencyFor(country) : null;
+      hidePathNotice();
+      markField(countrySelect.closest('.form-field'), null);
+      if (residencyError) residencyError.textContent = '';
 
-    sadcDeclare?.addEventListener('change', () => {
-      if (sadcDeclare.checked && sadcError) sadcError.textContent = '';
+      // The declaration is the condition attached to the resident rate, so it appears only for a
+      // country that carries it. Clearing it on the way out means a guest who switches country
+      // cannot leave a stale confirmation behind.
+      const needsDeclaration = residency === 'sadc';
+      if (residencyBlock) residencyBlock.hidden = !needsDeclaration;
+      if (!needsDeclaration && residencyDeclare) residencyDeclare.checked = false;
+      if (needsDeclaration && residencyNote) {
+        residencyNote.textContent = `You selected ${countryLabel()}.`;
+      }
+
+      calRefresh();
+      joinRefresh();
+      updateEstimate();
+    });
+
+    residencyDeclare?.addEventListener('change', () => {
+      if (residencyDeclare.checked && residencyError) residencyError.textContent = '';
       refreshSteps();
     });
 
@@ -1684,8 +1683,8 @@ const clientRates = {
         goToStep(2);
         return;
       }
-      if (residency === 'sadc' && !sadcDeclare?.checked) {
-        setStatus('Please confirm the SADC residency declaration.');
+      if (residency === 'sadc' && !residencyDeclare?.checked) {
+        setStatus('Please tick the confirmation in step 2 to continue.');
         goToStep(2);
         return;
       }
@@ -1706,8 +1705,10 @@ const clientRates = {
         startDate: startVal,
         groupSize: groupSize(),
         catering: CATERING,
-        residency,
-        sadcDeclaration: residency === 'sadc',
+        // The COUNTRY goes on the wire; the server derives the rate band from it. The widget's
+        // own `residency` is for the estimate only and is deliberately not sent.
+        country,
+        residencyDeclaration: residency === 'sadc',
         leadName: String(fd.get('leadName') ?? ''),
         leadEmail: String(fd.get('leadEmail') ?? ''),
         leadPhone: String(fd.get('leadPhone') ?? ''),
@@ -1756,7 +1757,6 @@ const clientRates = {
     });
 
     // ---- First paint -------------------------------------------------------------------------
-    paintRatePreviews();
     buildJump();
     calRender();
     calUpdateNextAvail();
