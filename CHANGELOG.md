@@ -62,6 +62,33 @@ was written: R15,900 / R12,720 (2027) and R17,172 / R13,737 (2028) all reproduce
     guest document stays a **receipt**. `lib/email.ts` carries a comment naming exactly what to
     add when the number arrives.
 
+### Operator copy review, 16 September 2026
+
+Applied on top of the v4 implementation, after the operator previewed the branch:
+
+1. **Hero eyebrow** drops "Luggage portage · Hearty bush hospitality" for
+   **"Malaria-free Big 5 reserve · Rooiberg, Limpopo"**. The competitor register this was measured
+   against is place-led and flat (RETURN Africa: "Walk the wild frontier of northern Kruger"),
+   not a list of sensory selling points.
+2. **`/rates` carries no SADC reference and no forward-looking operational detail.** The discount
+   note under the rate table is gone, along with the taper end date, the 2029 opening and the
+   24/12-month windows. Those rules still hold; the calendar enforces them by not offering the
+   date. "How a departure works" becomes **"How booking works"**: three numbered steps, one fact
+   per sentence. The intro and the booking lead-in were cut to match.
+   **Note:** the booking widget on that page still says "SADC resident" on its rate card, because
+   the guest has to self-identify into the band. Flagged for the operator.
+3. **Widget step 2 is now "Country of residence"** (was "Where you live"), the standard
+   travel-industry phrasing, with the legend "Where does your group live?".
+4. **`/sadc-slackpacking`**: "charged a 100% premium" becomes **"charged at international
+   rates"** — a departure from the memo's verbatim wording, at the operator's request.
+5. **`/accommodation`**: "bedding included" removed from the amenity chips on all three lodges.
+6. **`/logistics`**: the food and provisions block removed entirely. The page now runs lodges →
+   safety → grading. The food-related FAQs below it were left in place pending review.
+
+`verify-surfaces.mjs`'s start-day guard was relaxed from "the rates page must read
+START_DAYS_DISPLAY" to "a page may stay silent on start days, but must not type weekday names by
+hand" — the rates page is now deliberately silent.
+
 ### Copy and pages
 
 - **Home** (`src/pages/index.astro`, `Hero.astro`, `data/site.ts`): hero eyebrow is now

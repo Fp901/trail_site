@@ -1,8 +1,13 @@
 ---
 // Rates & Booking (/rates) — Part 8.5, commercial model v4. Sells ONE product: the all-inclusive
-// catered walking safari, at the international rack rate with the SADC resident discount noted
-// beneath. The self-catered option is not shown here at all; it lives on the hidden
-// /sadc-slackpacking page. Rates matrix, what's included, the booking widget, refund policy.
+// catered walking safari, quoted at the international rack rate. The SADC resident rate is NOT
+// mentioned in the copy (operator decision, 16 Sep 2026): it is marketed directly, and the booking
+// widget applies it once a guest says where they live. The self-catered option is not shown here
+// at all; it lives on the hidden /sadc-slackpacking page.
+//
+// Copy rule for this page: plain, one fact per sentence, no forward-looking operational detail
+// (when more start days open, how far ahead each band books). Those rules are real, but the
+// calendar enforces them by simply not offering the date.
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import RatesTable from '../components/RatesTable.astro';
@@ -15,12 +20,6 @@ import {
   MAX_GROUP_SIZE,
   MIN_PARTY_CATERED,
   RATE_BASE_YEAR,
-  SADC_DISCOUNT,
-  SADC_DISCOUNT_NOTE,
-  INTL_CATERED_WINDOW_MONTHS,
-  SADC_WINDOW_MONTHS,
-  START_DAYS_DISPLAY,
-  TAPER_END_DISPLAY,
   formatRand,
   rateFor,
   inclusions,
@@ -57,7 +56,7 @@ const intlLow = rateFor({ catering: 'catered', residency: 'international', year:
 const intlHigh = rateFor({ catering: 'catered', residency: 'international', year: RATE_BASE_YEAR, highSeason: true });
 
 const title = 'Rates & Booking | Rooiberg Wander';
-const description = `An all-inclusive walking safari from ${formatRand(intlLow)} per person, sharing, for the whole ${NIGHTS}-night trail, VAT and conservation levies included. A ${Math.round(SADC_DISCOUNT * 100)}% discount applies to SADC residents. See what's included and book online.`;
+const description = `An all-inclusive walking safari from ${formatRand(intlLow)} per person, sharing, for the whole ${NIGHTS}-night trail, VAT and conservation levies included. See what is included and book online.`;
 
 const included = inclusions;
 const excluded = exclusions;
@@ -71,7 +70,7 @@ const jsonLd = [
   offerSchema({
     price: intlLow,
     name: 'Rooiberg Wander: all-inclusive catered walking safari, per person sharing',
-    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail: all meals with selected South African wines and beers, two trail guides, daily baggage transport, all conservation levies and VAT. Minimum ${MIN_PARTY_CATERED} guests, maximum ${MAX_GROUP_SIZE}. A ${Math.round(SADC_DISCOUNT * 100)}% discount applies to SADC residents.`,
+    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail: all meals with selected South African wines and beers, two trail guides, daily baggage transport, all conservation levies and VAT. Minimum ${MIN_PARTY_CATERED} guests, maximum ${MAX_GROUP_SIZE}.`,
   }),
 ];
 ---
@@ -86,9 +85,9 @@ const jsonLd = [
         What the trail costs
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        Every booking is priced <strong>per person, sharing</strong>: one price per person for
-        the whole {NIGHTS}-night trail. Minimum booking size of {MIN_PARTY_CATERED}. Prices vary
-        depending on the season.
+        One price per person for the whole {NIGHTS}-night trail, VAT and conservation levies
+        included. You pay for the people in your group, from {MIN_PARTY_CATERED} guests up. The
+        price depends on the season you walk in.
       </p>
     </div>
   </Section>
@@ -117,28 +116,34 @@ const jsonLd = [
       </p>
     </div>
 
-    {/* What the old "Two ways to book" cards used to carry. There is only one way to book now —
-        the memo retired the Wednesday/Thursday buyout — so what remains is who a departure takes
-        and which days it runs, stated once rather than as competing options. */}
-    <h3 class="mt-12 font-display text-xl text-earth sm:text-2xl">How a departure works</h3>
+    {/* The practical rules, in the order a guest meets them. Deliberately plain: every sentence
+        states one fact, with no forward-looking operational detail (when more start days open,
+        how far ahead each rate band books). Those are real rules, but they belong to the
+        calendar, which simply will not offer a date that breaks them. */}
+    <h3 class="mt-12 font-display text-xl text-earth sm:text-2xl">How booking works</h3>
     <ul class="bookrules">
       <li>
-        <p class="bookrules__days">{MIN_PARTY_CATERED} to {MAX_GROUP_SIZE} guests</p>
-        <p class="bookrules__title">Join a departure, or take it</p>
+        <p class="bookrules__days">Step 1</p>
+        <p class="bookrules__title">Pick your group and a date</p>
         <p class="bookrules__body">
-          The first booking on a date opens it; later bookings join, up to {MAX_GROUP_SIZE} guests
-          in total with two trail guides. Once a date has {MIN_PARTY_CATERED} guests it is a
-          guaranteed departure. Book all {MAX_GROUP_SIZE} places and the trail and each lodge are
-          reserved for your group alone.
+          A departure takes {MIN_PARTY_CATERED} to {MAX_GROUP_SIZE} guests, with two trail guides.
+          The calendar shows every date you can start on.
         </p>
       </li>
       <li>
-        <p class="bookrules__days">{START_DAYS_DISPLAY}</p>
-        <p class="bookrules__title">Start days</p>
+        <p class="bookrules__days">Step 2</p>
+        <p class="bookrules__title">You may be walking with others</p>
         <p class="bookrules__body">
-          Departures run on these four days until {TAPER_END_DISPLAY}, while we build up our
-          guiding team. Every weekday opens from 2029. International guests can book up to
-          {INTL_CATERED_WINDOW_MONTHS} months ahead, SADC residents up to {SADC_WINDOW_MONTHS}.
+          If your group is smaller than {MAX_GROUP_SIZE}, other guests can book the same date, up
+          to {MAX_GROUP_SIZE} in total. Book all {MAX_GROUP_SIZE} places and the trail and the
+          lodges are yours alone.
+        </p>
+      </li>
+      <li>
+        <p class="bookrules__days">Step 3</p>
+        <p class="bookrules__title">Pay and you are booked</p>
+        <p class="bookrules__body">
+          Pay by card. We email your confirmation and receipt straight away.
         </p>
       </li>
     </ul>
@@ -156,9 +161,8 @@ const jsonLd = [
         bookingEnabled ? (
           <Fragment>
             <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-              Choose your group size, tell us where you live, pick a start date, and pay securely
-              by card. Your booking is confirmed once payment is received, and a receipt is issued
-              by email.
+              Choose your group size, tell us where you live, pick a start date and pay by card.
+              Your booking is confirmed as soon as the payment goes through.
             </p>
 
             {/* Booking-confidence strip — the friendliest policy facts, at the point of hesitation. */}

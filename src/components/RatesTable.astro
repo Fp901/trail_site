@@ -1,7 +1,7 @@
 ---
 // RatesTable — commercial model v4. One glanceable price matrix for the FLAGSHIP product only:
 // rate years as rows, seasons as columns, three columns wide so it fits a 380px phone without
-// sideways scrolling. The SADC discount is a note beneath, not extra columns, exactly as the
+// sideways scrolling. Only the flagship rate appears here, one row per published rate year.
 // operator's memo sets it out. All figures come from data/rates.ts, which lib/pricing.ts charges
 // from, so the table and the checkout cannot drift.
 //
@@ -17,7 +17,6 @@ import {
   rateRows,
   formatRand,
   formatForeign,
-  SADC_DISCOUNT_NOTE,
   SEASON_HIGH_LABEL,
   SEASON_HIGH_DATES,
   SEASON_LOW_LABEL,
@@ -96,8 +95,6 @@ function priceSet(rand: number): Record<string, string> {
       }
     </tbody>
   </table>
-
-  <p class="ratetable__sadcnote">{SADC_DISCOUNT_NOTE}.</p>
 
   <p class="ratetable__fxnote" data-currency-note hidden>
     Approximate conversion, indicative rates set {FX_RATES_AS_OF}. You are always charged in South

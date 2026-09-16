@@ -47,7 +47,7 @@ export const sanctuaries: Sanctuary[] = [
     amenities: [
       { icon: 'parking', label: 'Secure shaded parking' },
       { icon: 'pool', label: 'Swimming pool' },
-      { icon: 'suite', label: '2-person suites, bedding included' },
+      { icon: 'suite', label: '2-person suites' },
             { icon: 'barbeque', label: 'Boma fire & barbeque' },
       { icon: 'wifi', label: 'Free WiFi' },
     ],
@@ -63,7 +63,7 @@ export const sanctuaries: Sanctuary[] = [
     image: oukraalImg,
     amenities: [
       { icon: 'pool', label: 'Swimming pool' },
-      { icon: 'suite', label: '2-person suites, bedding included' },
+      { icon: 'suite', label: '2-person suites' },
             { icon: 'barbeque', label: 'Dining under the stars' },
       { icon: 'wifi', label: 'Free WiFi' },
           ],
@@ -80,7 +80,7 @@ export const sanctuaries: Sanctuary[] = [
     amenities: [
       { icon: 'view', label: 'Sunset mountain views' },
       { icon: 'pool', label: 'Swimming pool' },
-      { icon: 'suite', label: '2-person suites, bedding included' },
+      { icon: 'suite', label: '2-person suites' },
             { icon: 'barbeque', label: 'Boma fire & barbeque' },
       { icon: 'wifi', label: 'Free WiFi' },
     ],

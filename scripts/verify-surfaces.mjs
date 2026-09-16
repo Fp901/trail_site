@@ -86,8 +86,15 @@ assert('the last-minute percentage is derived in the widget',
 assert('group size comes from MAX_GROUP_SIZE / MIN_PARTY_CATERED on the rates page',
   /MAX_GROUP_SIZE/.test(rates) && /MIN_PARTY_CATERED/.test(rates));
 assert('the launch date on the homepage reads BOOKING_OPEN_DISPLAY', /BOOKING_OPEN_DISPLAY/.test(home));
-assert('the start-day rule reads START_DAYS_DISPLAY rather than naming days by hand',
-  /START_DAYS_DISPLAY/.test(rates) && /START_DAYS_DISPLAY/.test(explainer));
+// /rates deliberately does not state the start-day rule at all (operator decision, 16 Sep 2026:
+// keep that page as simple as possible; the calendar enforces it by not offering the date). So
+// the guard is conditional: a page may stay silent, but if it names the start days it must read
+// the constant rather than typing weekday names that a taper change would leave stale.
+const WEEKDAYS = /\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/;
+for (const [name, src] of [['rates.astro', rates], ['how-pricing-works.astro', explainer], ['sadc-slackpacking.astro', sadc]]) {
+  assert(`${name} either stays silent on start days or reads START_DAYS_DISPLAY`,
+    !WEEKDAYS.test(src) || /START_DAYS_DISPLAY/.test(src));
+}
 
 section('4. The included/excluded lists are shared, never restated');
 assert('rates.astro renders the inclusions array', /inclusions/.test(rates));

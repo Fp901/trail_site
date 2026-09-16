@@ -8,9 +8,11 @@
 // fixed, the minimum party size is fixed with it, so every party that can see this widget can
 // open a date.
 //
-// WHERE YOU LIVE IS A PRICE. A SADC resident pays 30% less for the catered trail, so residency is
-// a real step with a real number attached, not a profile field. Choosing it requires accepting
-// the declaration: proof is checked in person at registration, and the widget says so.
+// COUNTRY OF RESIDENCE IS A PRICE. A SADC resident pays 30% less for the catered trail, so
+// residency is a real step with a real number attached, not a profile field. Choosing it requires
+// accepting the declaration: proof is checked in person at registration, and the widget says so.
+// The step is labelled "Country of residence" — the standard travel-industry phrasing, and
+// accurate: the rate follows where a guest lives, not the passport they hold.
 //
 // AVAILABILITY. One read of the derived `departure_inventory` view (migration 0016), which is
 // SPARSE — an absent date has no state and is wide open. The contract is applied in exactly one
@@ -205,14 +207,14 @@ const clientRates = {
   {/* ==== Step 2 — Where you live (the rate). ================================================= */}
   <div class="bstep" data-step="2">
     <div class="bstep__bar">
-      <p class="bstep__heading"><span class="bstep__num">2</span>. Where you live</p>
+      <p class="bstep__heading"><span class="bstep__num">2</span>. Country of residence</p>
       <p class="bstep__summary" data-step-summary hidden></p>
       <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
     </div>
     <div class="bstep__body" data-step-body>
       {isCatered ? (
         <fieldset class="bstyle">
-          <legend class="bstyle__legend">Which rate applies to your group?</legend>
+          <legend class="bstyle__legend">Where does your group live?</legend>
           {/* No visible default: the rates differ by 30%, so the guest states which one they are
               entitled to rather than being defaulted into either. */}
           <div class="bstyle__cards">
@@ -1226,7 +1228,7 @@ const clientRates = {
     // Continue: block the advance and say why, rather than moving on to a step that cannot be
     // completed. The messages name the missing thing; they never just refuse.
     const BLOCKED: Record<number, string> = {
-      2: 'Choose which rate applies to your group to continue.',
+      2: 'Tell us where your group lives to continue.',
       3: 'Choose a start date to continue.',
       4: 'Please complete your details to continue.',
     };
@@ -1678,7 +1680,7 @@ const clientRates = {
         return;
       }
       if (!residency) {
-        setStatus('Please choose which rate applies to your group.');
+        setStatus('Please tell us where your group lives.');
         goToStep(2);
         return;
       }
