@@ -4,14 +4,16 @@
 >
 > Because it is one long document, **Part 0** is a map. Read the part relevant to your current task; the per-part precedence rules from the old multi-file setup are preserved inline.
 >
-> Authoritative source documents: `Memo_to_Francois_re_Rooiberg_Wander.pdf` (13 June 2026 — **governs the website**) and `RoiSan_Walking_Trails_Business_Plan.pdf` (20 May 2026 — internal context only).
+> **Authoritative source documents (current):** `Memorandum to Francois 16 September.pdf` (15 September 2026 — **governs the website**) and `RoiSan Walking Trails Business Plan 10 September 2026.pdf` (5 September 2026 — internal context only). The June 2026 memo and May 2026 business plan they replace are historical.
+>
+> ⚠ **Commercial model v4 (15 September 2026) supersedes the product, pricing and availability rules stated in Parts 1, 7, 8, 9, 10 and 12 below.** Those parts have been updated in place where they were wrong, but **Part 17 is the canonical specification** of what the site now sells, how it is priced and how a departure forms. Where anything earlier in this file disagrees with Part 17, Part 17 wins.
 
 ---
 
 ## Part 0 — How to use this file
 
 - This file is **binding**. When it conflicts with your instinct, it wins.
-- **Internal precedence** (unchanged from the old docs): build mechanics → Parts 1–7, 13–14; anything visual → Part 5; exact content/keywords → Parts 8 & 10; **security always wins** → Part 11; booking architecture → Part 9.
+- **Internal precedence**: build mechanics → Parts 1–7, 13–14; anything visual → Part 5; exact content/keywords → Parts 8 & 10; **security always wins** → Part 11; booking architecture → Part 9; **anything commercial (product, price, availability) → Part 17, which overrides every other Part**.
 - **Plan before building.** State a one-paragraph plan per page/component, then build.
 - **Verify before claiming done.** Run `npm run verify` after every page/change and fix everything before moving on. Never report a task complete on an unverified build.
 - **Stay faithful.** Don't invent facts, prices, dates, properties, amenities, testimonials, or imagery the brief doesn't contain. Missing detail → labelled placeholder + an "Open questions" note at the end of your turn. Never fabricate.
@@ -20,28 +22,32 @@
 > **Note on referenced files (v2.1).** The former `TECHNICAL_SPEC.md`, `DESIGN.md`, `SECURITY.md`, `SEO.md`, and `KEYWORD_MAP.md` were **merged into this file** and no longer exist as build inputs. Their content now lives here: exact copy/data/acceptance criteria → **Part 8** (and per-page meta → **§8.8**); alt text → **§8.7/§5.8**; visual bible → **Part 5**; security → **Part 11**; SEO → **Part 10**; keywords → **§10.11**. Any standalone copies of those files kept in the repo for history are **non-authoritative**; where they conflict with this file, **this file wins** (each carries a "Superseded" banner). Do not treat their cross-references to `TECHNICAL_SPEC.md` as a missing dependency — that content is **§8** here.
 
 **Map of this document**
-1. Mission, non-negotiables &amp; scope · 2. Tech stack · 3. Commands, env &amp; Definition of Done · 4. Project structure · 5. Design system (visual bible) · 6. Build order · 7. Component contracts · 8. Content &amp; data (per-page) · 9. **Booking system (Paystack + Supabase)** · 10. SEO, AI visibility &amp; keyword map · 11. **Security (OWASP + payments + data)** · 12. Content fidelity guardrails · 13. Workflow &amp; git · 14. When to ask · 15. Consolidated pre-launch checklist · 16. Reconciliation log.
+1. Mission, non-negotiables &amp; scope · 2. Tech stack · 3. Commands, env &amp; Definition of Done · 4. Project structure · 5. Design system (visual bible) · 6. Build order · 7. Component contracts · 8. Content &amp; data (per-page) · 9. **Booking system (Paystack + Supabase)** · 10. SEO, AI visibility &amp; keyword map · 11. **Security (OWASP + payments + data)** · 12. Content fidelity guardrails · 13. Workflow &amp; git · 14. When to ask · 15. Consolidated pre-launch checklist · 16. Reconciliation log · **17. Commercial model v4 (canonical: what is sold, what it costs, how a departure forms)**.
 
 ---
 
 ## Part 1 — Mission, non-negotiables &amp; scope
 
-Build a **world-class, production-ready website with an integrated online booking system** for *The Rooiberg Wander* — a premium, exclusive, 3-night / 3-day guided slackpacking trail through ~8,000 ha of private Big 5 mountain terrain in RoiSan Reserve (Limpopo Waterberg).
+Build a **world-class, production-ready website with an integrated online booking system** for *The Rooiberg Wander* — a premium, all-inclusive, 3-night / 3-day guided walking safari through ~15,000 ha of private Big 5 mountain terrain in RoiSan Reserve (Limpopo Waterberg), connecting three private safari lodges.
 
 Every output must be:
 - **Premium and distinctive** — an organic extension of the rugged Rooiberg veld, not a template. Actively avoid "AI slop" (Part 5).
 - **Mobile-first** — design for a 380px viewport first; touch targets ≥ 44px; flawless menu, timeline, pricing, and booking flow on iOS/Android.
 - **Fast and accessible** — Lighthouse 95+ (Perf/A11y/Best Practices), SEO 100; WCAG 2.2 AA; Core Web Vitals targets in Part 10.
-- **Faithful** — content, structure, and the page flow match the 13 June brief.
+- **Faithful** — content, structure, and the page flow match the 15 September memo.
 - **Secure and trustworthy** — it now takes money and stores personal data; Part 11 is mandatory.
 
 **Hard constraints (do not violate):**
-- The route is **conceptual**; the on-page route map is a **styled static SVG only** — no live GPS/Mapbox/Google Maps (Part 7 / Part 8).
+- The on-page route map is a **styled static SVG only** — no live GPS/Mapbox/Google Maps (Part 7 / Part 8). (The route itself is operational, not conceptual; the "conceptual route" notice of earlier revisions is retired.)
 - Safety messaging (Two-Man Rule, two armed guides) is mandatory and prominent.
-- Public price is displayed **VAT-inclusive** (the entity is VAT-registered): **R62,100 per group** local / **R74,520** international (R54,000 / R64,800 net + 15% VAT; incl. conservation levies). R54,000 stays the ex-VAT net the operator retains. The internal R60k figure from the business plan is **never** shown publicly.
+- **The public site sells ONE product: the all-inclusive catered walking safari.** The self-catered product exists in the booking engine but appears nowhere in the navigation, the sitemap or `llms.txt` — only on the unlisted `/sadc-slackpacking` page. Never link it from the main site (business plan §5.3: a mixed offer confuses the DMCs the inbound bookings depend on).
+- Public prices are **per person, sharing, for the whole trail**, VAT and conservation levies included. Never quote a per-night figure: the trail has no shorter option, so a nightly rate implies a choice that does not exist. Full rate table and the discount chain: **Part 17**.
+- Never surface internal-only data: owner splits, margins, staffing costs, conservation-levy projections, or named individuals from the business plan.
 - Guests **do not walk on arrival day** and **depart immediately after the final walk on Day 4** — state explicitly on The Trail page.
 
-**Scope change (this revision).** The product moves from "conceptual, inquiry-to-email" to **transactional**: visitors can **book and pay online**. This deliberately overrides the old "static-only / no backend / route to placeholder email" model. Marketing pages stay static; only the booking and API routes become dynamic. See Parts 2, 9, 11 and the Reconciliation Log (Part 16).
+**Scope (established).** The site is **transactional**: visitors book and pay online. Marketing pages stay static; only the booking and API routes are dynamic. See Parts 2, 9, 11 and the Reconciliation Log (Part 16).
+
+**Scope change (September 2026 revision).** The product is repositioned onto the all-inclusive catered safari as the public flagship, with a 30% SADC-resident rate and a hidden self-catered option, a tapered set of start days, published annual increases, and online booking opening 1 April 2027. **Part 17 specifies all of it.**
 
 **Payment provider — Paystack (decided).** The processor is **Paystack** (Stripe-owned; the leading developer-first gateway in South Africa). It onboards South-Africa-registered businesses (business verification typically 1–3 business days) and supports ZAR + international cards — so it both fits the SA market and resolves the earlier Stripe-can't-onboard-SA blocker. The booking code is **processor-abstracted** (`lib/payments.ts`), so switching to **PayFast** (most ubiquitous SA gateway, widest local methods incl. Instant EFT), **Peach Payments** (enterprise/recurring), or **Adumo/Lesaka** (largest SA acquirer) later is a contained change. **Client decision to confirm:** whether to add **Instant EFT** (a very common SA preference) alongside cards — Paystack supports it as an option; PayFast/Ozow are stronger on EFT if it proves essential.
 
@@ -186,7 +192,7 @@ Put **all** structured content in `src/data/*.ts` as typed objects and map over 
 > Authority on all visual decisions. Implemented as CSS-first `@theme` tokens in `src/styles/global.css` — use the token variables, never hard-coded hexes.
 
 ### 5.1 Core aesthetic philosophy
-Brand personality: raw yet refined · cinematic &amp; atmospheric · exclusive &amp; intimate (max 10) · grounded, powerful, timeless · South African veld elegance — wild and considered, not polished safari luxury. Visitors should feel the dramatic scale of the Rooiberg, the intimacy of a small group, and the confidence of a world-class guided experience. References for *tone and quality* (not copying): &amp;Beyond, Singita (cinematic restraint); Leopard Trail / Baviaans Canyon Trail (high-conversion wilderness storytelling); high-end editorial nature photography; premium adventure editorial.
+Brand personality: raw yet refined · cinematic &amp; atmospheric · exclusive &amp; intimate (max 8) · grounded, powerful, timeless · South African veld elegance — wild and considered, not polished safari luxury. Visitors should feel the dramatic scale of the Rooiberg, the intimacy of a small group, and the confidence of a world-class guided experience. References for *tone and quality* (not copying): &amp;Beyond, Singita (cinematic restraint); Leopard Trail / Baviaans Canyon Trail (high-conversion wilderness storytelling); high-end editorial nature photography; premium adventure editorial.
 
 ### 5.2 Strict anti-slop rules (never violate)
 - No generic system fonts as the **hero/display** face (avoid Inter, Roboto, Arial, SF Pro as headline faces). *(Inter is permitted for **body** only.)*
@@ -259,14 +265,14 @@ Foundations first, conversion + payments last. Verify (`npm run verify`) after e
 Reusable, typed (TS interfaces). Treatment per Part 5.
 - **`Nav` + `MobileMenu`** — see 5.6. Driven by `site.ts`.
 - **`Hero`** — full-bleed image, scrim, Playfair headline, hook tagline, **primary ochre + understated secondary CTA** (`.btn` primitives, not pills).
-- **`StatsBar`** — four stats from `site.ts`: `3 Nights · 3 Days Walking · 3 Private Sanctuaries · Max 10 Guests (Exclusive Group Use)`.
+- **`StatsBar`** — four stats from `site.ts`: `3 Nights · 3 Days Walking · 3 Private Dedicated Lodges · Max 8 Guests per Departure`.
 - **`ItineraryTimeline`** — maps `itinerary.ts`; vertical desktop+mobile; organic markers; per-day accent; Day 1 "No walking"; Day 4 immediate departure.
 - **`DayCard`** — props: `day`, `title`, `distanceKm` (null = no walking), `from?`, `to?`, `description`, `colorVar?`.
-- **`SanctuaryCard`** — props: `name`, `role`, `description`, `image`, `alt`, `accentVar`. ×3 distinct-but-cohesive.
-- **`RouteMap`** — styled static SVG from `route.ts`: loop Rotavi → Oukraal → VierVanAcht → Rotavi, three day-coloured segments, sanctuary pins, legend, "conceptual" caption, `role="img"` + `<title>`/`<desc>` + text equivalent. No mapping library.
+- **`SanctuaryCard`** — props: `name`, `role`, `description`, `image`, `alt`, `accentVar`. ×3 distinct-but-cohesive. The lodges are **Temminck's Lodge, Oukraal and Blackwood** (page: `/accommodation`, nav label "The Safari Lodges").
+- **`RouteMap`** — styled static SVG from `route.ts`: loop Temminck's Lodge → Oukraal → Blackwood → Temminck's Lodge, three day-coloured segments, lodge pins, legend, `role="img"` + `<title>`/`<desc>` + text equivalent. No mapping library.
 - **`FaqAccordion`** — accessible native `<details>/<summary>`; keyboard + SR friendly.
-- **`RatesTable`** — local vs international; strong price type showing the **VAT-inclusive** total (R62,100 local / R74,520 intl) with "incl. VAT (15%) + conservation levies" small text. Never the internal R60k figure.
-- **`BookingWidget`** (island) — see Part 9.
+- **`RatesTable`** — the flagship matrix only: **rate year × season**, per person sharing for the whole trail, every figure derived from `data/rates.ts` (Part 17). The SADC discount is a note beneath the table, not extra columns. Currency tabs (ZAR/EUR/GBP/USD) are an indicative display conversion; ZAR is the only charged currency.
+- **`BookingWidget`** (island) — see Part 9 and Part 17. Takes a `catering` **prop** (`'catered'` on `/rates`, `'uncatered'` on the unlisted page): catering is never asked of the guest. Five steps: group size → where you live (with the SADC declaration) → start date → details → review and pay.
 - **`InquiryForm`** (island, optional) — fields Name, Group Size, Target Dates, Contact Details; validation + length caps + accessible errors + honeypot + calm success; POPIA note; submits via the `createInquiry` action (stores in Supabase or emails operator); **no PII in storage on the client**; never a raw HTML `<form>` submit in a React island.
 - **`Seo`** — props `title`, `description`, `path`, `image`, `type`, `noindex`, `jsonLd[]`; emits meta + OG/Twitter + JSON-LD. **Only acceptable `set:html`** is our own serialized JSON-LD — never user input.
 
@@ -274,16 +280,17 @@ Reusable, typed (TS interfaces). Treatment per Part 5.
 
 ## Part 8 — Content &amp; data (per page)
 
-Source of truth for the website = the 13 June memo. Reproduce given strings **verbatim**. Bulk data lives typed in `src/data/*.ts`.
+Source of truth for the website = the **15 September 2026 memo**. Reproduce given strings **verbatim**. Bulk data lives typed in `src/data/*.ts`. Where this Part still describes the retired product (per-group pricing, self-catering as a public option, the Rotavi/VierVanAcht lodge names), **Part 17 governs**.
 
-**Global strings (`site.ts`):** name "Rooiberg Wander"; operator "Rooiberg Wander"; location "Rooiberg, Limpopo, South Africa"; terrain ~15,000 ha; hook **"A luxury private walking safari, ideal for families, groups of friends or corporate team-building."**; max 10 guests; operator notify email `hanlie@rooibergwander.co.za` *(corrected from original brief)*.
-**Nav:** Home · The Trail · The Sanctuaries · Trail Logistics &amp; FAQ · Rates &amp; Booking.
+**Global strings (`site.ts`):** name "Rooiberg Wander"; operator "Rooiberg Wander" (the new operating company is not yet registered — Part 14); location "Rooiberg, Limpopo, South Africa"; terrain ~15,000 ha; hook **"An all-inclusive, point-to-point walking expedition with private trail guides connecting three private safari lodges."**; max 8 guests per departure; operator notify email `hanlie@rooibergwander.co.za`.
+**Nav:** Home · The Trail · The Safari Lodges · Trail Logistics &amp; FAQ · Rates &amp; Booking. (`/sadc-slackpacking` is **never** in the nav.)
 
 ### 8.1 Home (`/`)
 Sections: Hero → Stats bar → Wilderness-promise/intro → teasers (Trail, Sanctuaries, Rates) → Footer.
-- Hero: full-bleed landscape showing the **vertical drama** of the Rooiberg; earth-gradient scrim; headline conveys *a 3-night, 3-day slackpacking journey through a private Big 5 reserve*; subline = the hook; primary CTA → Rates &amp; Booking.
+- Hero: full-bleed landscape showing the **vertical drama** of the Rooiberg; earth-gradient scrim; headline conveys *three days on foot through a private Big 5 wilderness*; eyebrow **"Malaria-free · Luggage portage · Hearty bush hospitality · Rooiberg, Limpopo"**; subline = the hook; primary CTA → Rates &amp; Booking.
 - Stats bar: the four items, directly below the hero.
-- Promise: short evocative copy on the "unpack-and-walk" model — fully self-catered; luggage + provisions ported camp to camp; dedicated lodge staff for cleaning and to assist with cooking/braai/washing-up; exclusive use, max 10.
+- Intro (memo, verbatim): a 3-night, 3-day **all-inclusive authentic wilderness walking trail, rather than a sedentary vehicle safari**, across 15,000 ha near Rooiberg, 2.5 hours from OR Tambo; characterful, established private bush lodges, minimum booking size 2; hearty, wholesome bushveld fare served family-style around the boma fire with selected South African estate wines and local beers; you walk 15 to 20 km per day while luggage and provisions move ahead; and the exclusivity line — book out all 8 spots and the trail and each lodge are reserved solely for your group.
+- The old "Why walk the Rooiberg Wander" four-column section is **deleted** (memo p.5) and must not return: its Exclusive and Shared-departure columns described the retired day-of-week model.
 - **Acceptance:** hero is the LCP element (eager, `fetchpriority="high"`, optimised AVIF/WebP, explicit dims); stats legible at 380px; one `<h1>`; CTA keyboard-reachable.
 
 ### 8.2 The Trail (`/the-trail`)
@@ -291,93 +298,98 @@ Explicitly state: guests **do not walk on the arrival day**, and **depart immedi
 
 | Day | Title | Distance | Detail |
 |---|---|---|---|
-| **1** | Arrival &amp; Acclimatization | **No walking** | Arrive at **Rotavi Lodge**. Parking, registration, full safety briefing by the two armed Lead Trails Guides, relaxed self-catered evening. |
-| **2** | The Mountain Crossing | ~20 km | Trek **Rotavi Lodge over Groenkop to Oukraal.** Luggage and evening food moved ahead. |
-| **3** | The High Ridge Traverse | ~20 km | Walk **Oukraal to VierVanAcht**, traversing Louis du Toit's land, stopping at the pristine **Welgedacht lookout point.** |
-| **4** | The Plains &amp; Departure | ~20 km | Walk through the **Welgedacht donga** and across the open plains back to **Rotavi Lodge.** Collect vehicles and depart directly. |
+| **1** | Arrival &amp; Briefing | **No walking** | Arrive and register at **Temminck's Lodge**. Secure parking, full safety and route briefing by the two armed trail guides, dinner around the boma fire. |
+| **2** | The Mountain Crossing | ~15 km | Trek **Temminck's Lodge over Groenkop to Oukraal.** Luggage and provisions moved ahead. |
+| **3** | The High Ridge Traverse | ~20 km | Walk **Oukraal to Blackwood** through the Elandsberg L-Kloof, by way of the **Welgedacht lookout** over the Marakele range. |
+| **4** | The Plains &amp; Departure | ~18 km | Cross the open plains along the Sand River back to **Temminck's Lodge.** Shower, share a final meal, collect vehicles and depart. |
 
-- **Acceptance:** Day 1 flagged "No walking"; timeline clean on mobile; day colours match the route map; embedded `RouteMap` is conceptual-only.
+- **Acceptance:** Day 1 flagged "No walking"; timeline clean on mobile; day colours match the route map.
 
-### 8.3 The Sanctuaries (`/sanctuaries`)
-Three distinct, high-quality nodes under one trail standard (visual assets supplied separately → documented placeholders, don't fabricate amenities):
+### 8.3 The Safari Lodges (`/accommodation`)
+Three characterful, established private bush lodges under one standard (don't fabricate amenities):
 
 | Name | Role | Notes |
 |---|---|---|
-| **Rotavi Lodge** | The Valley Basecamp · Start &amp; End Point | Arrival, registration, briefing; departure point. |
-| **Oukraal** | The Bush Sanctuary | Night 2. |
-| **VierVanAcht** | The Mountain Sanctuary | Night 3. |
+| **Temminck's Lodge** | The Valley Basecamp · Start &amp; End Point | Arrival, registration, briefing; departure point. |
+| **Oukraal** | The Bush Lodge · Night 2 | Reached on Day 2 after the crossing over Groenkop, with a pool, fire-side and dinner waiting. |
+| **Blackwood** | The Mountain Lodge · Night 3 | Highest lodge on the trail, long views across the Waterberg. |
 
-Standardise spelling **VierVanAcht** (the website-brief form), even though the business plan writes "ViervanAcht". **Acceptance:** three cards, equal standard, distinct character; descriptive `alt`; editorial variety (avoid identical boxes).
+**Lodge naming is settled:** Temminck's Lodge (was Rotavi) and Blackwood (was VierVanAcht/ViervanAcht). The old names must not reappear in copy.
+
+**Intro sentence (memo, verbatim):** "Each of the three private lodges is fully equipped to the same premium standard including a pool and WiFi. Everything you need is waiting when you arrive." The self-catering kit (equipped kitchen, fridge, ice, firewood) is deliberately **not** listed: the flagship guest does not cook. **Acceptance:** three cards, equal standard, distinct character; descriptive `alt`; editorial variety.
 
 ### 8.4 Trail Logistics &amp; FAQ (`/logistics`)
-Three mandatory blocks (accordion or clean sections):
-1. **Catering style:** self-catered trail; provisions, drinks, and baggage are portered daily by support vehicles; each camp has dedicated staff to assist with kitchen prep, cooking, cleanup.
-2. **Safety protocols (non-negotiable, prominent):** the **Two-Man Rule** — accompanied **at all times by two qualified, armed wilderness guides** for safe tracking in a Big 5 environment.
-3. **Route status notice (explicit):** the route is **purely conceptual at this stage**, designed to maximise wilderness exposure and **entirely avoid game-viewer jeep tracks.**
+Mandatory blocks (accordion or clean sections):
+1. **Dining (all-inclusive):** breakfast at the lodge, a bush brunch on the trail, refreshments on arrival, dinner family-style around the boma fire with selected South African estate wines and local beers. A fixed, wholesome menu built without high-risk allergens (nuts, shellfish); enough variety for straightforward vegetarian preferences, but not for extensive or highly specific diets. Spirits excluded apart from gin for sundowners; wine and beer served as a curated daily selection, because guests walk 15 to 20 km the next morning in Big 5 terrain. *(Drawn from business plan §6.2/6.3 — operator to confirm the exact wording.)*
+2. **Luggage:** bags and provisions move ahead between lodges daily; a chef travels with the group.
+3. **Safety protocols (non-negotiable, prominent):** the **Two-Man Rule** — accompanied **at all times by two qualified, armed wilderness guides** for safe tracking in a Big 5 environment. The reserve is 100% malaria-free.
 
 Keep **visible** Q&A (LLMs cite it — Part 10). **Acceptance:** accordion keyboard/SR friendly; safety block emphasised.
 
 ### 8.5 Rates &amp; Booking (`/rates`)
-Public pricing matrix — **VAT-inclusive display** (the entity is VAT-registered; SA rules require consumer prices to include VAT). R54,000 is the ex-VAT net; the headline is the VAT-inclusive total, with the breakdown shown as supporting detail:
+Sells the **flagship only**. The full rate table, the discount chain and the availability rules are in **Part 17**; this page renders them, never restates them as literals.
 
-| | Price (incl. VAT) | Breakdown |
-|---|---|---|
-| **Local Residents** | **R62,100 per group** | R54,000 net + R8,100 VAT (15%). Flat, exclusive use up to 10 participants. Includes all conservation levies. |
-| **International Visitors** | **R74,520 per group** | +20% premium on net (R64,800) + R9,720 VAT (15%). |
+- Intro (memo, verbatim sense): "Every booking is priced **per person, sharing**: one price per person for the whole 3-night trail. Minimum booking size of 2. Prices vary depending on the season."
+- `RatesTable` = rate year × season, with **"A 30% discount is offered to SADC residents"** beneath it.
+- "Every rate includes" line: two trail guides · all meals, with selected South African estate wines and local beers · daily baggage transport · all conservation levies and VAT.
+- The old **"Two ways to book"** block is deleted (memo p.11); one "How a departure works" block states who a departure takes and which days run.
+- Hosts the **BookingWidget** (Part 9/17) plus the enquiry path, and the cancellation policy.
+- **Acceptance:** widget + table fully usable by keyboard/SR; no per-night figure anywhere; on-brand; calm.
 
-Label "incl. VAT" clearly; the ex-VAT + VAT breakdown may be shown beneath. Do **not** display the internal R60k figure, per-person breakdowns, owner splits, or business-plan financials. This page now hosts the **BookingWidget** (Part 9) plus the inquiry/"enquire" option. **Acceptance:** widget + table fully usable by keyboard/SR; pricing footnotes present; on-brand; calm.
+### 8.6 Route data (`route.ts`) — for the styled static map
+Loop **Temminck's Lodge → Oukraal → Blackwood → Temminck's Lodge**; three day-coloured segments, with landmark labels from the business-plan route sketches (illustrative; no GPS needed):
+- **Day 2** (`--color-day2`): Temminck's → Oukraal · Daskop dam · Groenkop summit · Exit of Groenkop climb · Scenic dam.
+- **Day 3** (`--color-day3`): Oukraal → Blackwood · Entrance to L-Kloof · Wooden bridge · Welgedacht lookout · Scenic ravine.
+- **Day 4** (`--color-day4`): Blackwood → Temminck's · Scenic riverbed walk · Scenic viewpoint · Welgedacht plains · Matopo Point · Picnic at dam.
+Three pins (Temminck's Lodge, Oukraal, Blackwood); legend Day 2/3/4; text equivalent for a11y.
 
-### 8.6 Route data (`route.ts`) — for the conceptual map
-Loop **Rotavi Lodge → Oukraal → VierVanAcht → Rotavi Lodge**; three day-coloured segments. Optional landmark labels from the business-plan sketches (illustrative; no GPS needed):
-- **Day 2** (`--color-day2`): Rotavi → Oukraal · Daskop dam · Groenkop summit · Exit of Groenkop climb · Scenic dam.
-- **Day 3** (`--color-day3`): Oukraal → VierVanAcht · Entrance to L-Kloof · Wooden bridge · Kareedam · Welgedacht lookout · Scenic donga · Vista picnic.
-- **Day 4** (`--color-day4`): VierVanAcht → Rotavi · Scenic riverbed walk · Scenic viewpoint · Welgedacht donga · Welgedacht plains · Daskop &amp; Daskop dam.
-Three pins (Rotavi, Oukraal, VierVanAcht); legend Day 2/3/4; conceptual caption; text equivalent for a11y.
-
-### 8.7 Placeholder image manifest (`public/images/placeholders/`)
-Document subject, aspect, and alt. Suggested: `hero.jpg` (Rooiberg vista, 16:9/3:2), `rotavi.jpg`/`oukraal.jpg`/`viervanacht.jpg` (4:3), `trail-*.jpg` (3:2). No fabricated credits/features; list swap-ins under Open questions.
+### 8.7 Imagery
+Real client photography now lives in `src/assets/images/` and is served through `astro:assets`. Outstanding gaps (chase, do not fabricate): interior/lodge photography for all three lodges (the current images are landscape and wildlife), and hi-res replacements for the low-resolution panorama and sunset files.
 
 ### 8.8 SEO metadata starters (tune in build; keyword-optimised titles in Part 10)
 | Page | Title | Description (≤155 chars) |
 |---|---|---|
-| Home | The Rooiberg Wander — Exclusive Big 5 Slackpacking Trail | A 3-night, 3-day guided walking journey through 8,000 ha of private Big 5 mountain wilderness. Bring your own flavor; we take care of the rest. |
-| The Trail | The Trail — 3-Night / 3-Day Rhythm | Day-by-day through the Rooiberg: arrival, two ~20 km mountain days, ridge traverse and plains. Fully ported, self-catered, exclusive. |
-| Sanctuaries | The Sanctuaries — Three Wilderness Nodes | Rotavi Lodge, Oukraal and VierVanAcht — three distinct sanctuaries under one premium trail standard. |
-| Logistics &amp; FAQ | Trail Logistics &amp; Safety | Self-catered with daily porterage, dedicated camp staff, and the Two-Man Rule: two armed wilderness guides at all times. |
-| Rates &amp; Booking | Rates &amp; Booking — Book the Trail | R62,100 per exclusive group of up to 10 (local, incl. VAT &amp; conservation levies). Check dates and book online. |
+| Home | Rooiberg Wander — All-inclusive Big 5 Walking Safari | An all-inclusive walking safari in the Waterberg. 3 nights and 3 days through 15,000 ha of malaria-free Big 5 reserve, 2.5 hours from OR Tambo. |
+| The Trail | The Trail — Day-by-day walking safari itinerary | Day by day through the Rooiberg: arrival, then three 15 to 20 km mountain days over Groenkop, the high ridge to Blackwood and the open plains. |
+| The Safari Lodges | The Safari Lodges — Three private trail lodges | Temminck's Lodge, Oukraal and Blackwood: three characterful private safari lodges, each with a pool and free WiFi, reserved for your group. |
+| Logistics &amp; FAQ | Trail Logistics, Safety &amp; FAQ | All-inclusive dining, daily luggage portage, two experienced trail guides under the Two-Man Rule, moderate-to-challenging grading, 100% malaria-free. |
+| Rates &amp; Booking | Rates &amp; Booking — Book the trail | An all-inclusive walking safari from R12,720 per person sharing, VAT and conservation levies included. A 30% discount applies to SADC residents. |
+| SADC option (unlisted) | SADC Self-catered Slackpacking Option | `noindex`. Never in the sitemap, the nav or llms.txt. |
 
-JSON-LD via `Seo.astro` + `schema.ts`: `Organization` + `BreadcrumbList` + `WebPage` everywhere; `TouristTrip` on Home/Trail; `TouristAttraction` per sanctuary; `Offer` (ZAR, public rate) on Rates.
+"Slackpacking" is retired from the flagship's titles and descriptions: it now names the hidden product. One FAQ ("Is this a slackpacking trail?") is kept on Logistics, answered in flagship terms, because the query still has search volume.
 
----
+JSON-LD via `Seo.astro` + `schema.ts`: `Organization` + `BreadcrumbList` + `WebPage` everywhere; `TouristTrip` on Home/Trail; `TouristAttraction` per lodge; **one** `Offer` (ZAR, the flagship low-season rate) on Rates.
+
+### 8.9 SADC self-catered option (`/sadc-slackpacking`) — UNLISTED
+The memo's four paragraphs verbatim, the derived rate line, what is and is not included, and the BookingWidget mounted `catering="uncatered"`. `noindex`; excluded from the sitemap in `astro.config.mjs`; absent from the nav and `llms.txt`. **Not** listed in `robots.txt` — a `Disallow` line would publish the URL to anyone who reads it. Reached only by the QR code on the direct-marketing PDF.
 
 ## Part 9 — The booking system (Astro + Paystack + Supabase)
 
 > Converts Rates into a real booking flow. **Marketing pages stay static; only this is dynamic.** Processor-abstracted via `lib/payments.ts` — Paystack-first, swappable to PayFast/Peach/Adumo (Part 1).
 
 ### 9.1 Product model
-The unit sold is the **whole trail for an exclusive group (up to 10), by a start date** (a 4-day window: Day 1 arrival → Day 4 departure). Pricing is **per group**, computed **server-side only** in `lib/pricing.ts`:
-- Net (ex VAT): Local **R54,000**; International **+20% = R64,800**. Customer-facing **VAT-inclusive** totals: **R62,100** / **R74,520**.
-- **VAT (resolved):** the entity is VAT-registered; all quoted and charged prices are **VAT-inclusive at 15%** (`VAT_REGISTERED=true`). R54,000 is the ex-VAT net the operator retains; send the VAT-inclusive `totalCents` to Paystack. The confirmation receipt **must be a valid tax invoice** (VAT number, VAT shown separately).
-- **Deposit vs full** (decision pending): full payment by default; `BOOKING_DEPOSIT_PERCENT` < 100 takes a deposit and records the balance for later.
-- **Amount unit:** Paystack expects the amount in the **currency subunit** (ZAR **cents**). `lib/pricing.ts` already works in cents — pass the cents value straight through.
+**See Part 17 for the canonical rules.** In summary: the unit sold is **a place on a departure**, priced **per person for the whole trail** (a 4-day window: Day 1 arrival → Day 4 departure), computed **server-side only** in `lib/pricing.ts` from the constants in `data/rates.ts`. A departure takes 8 places; the first booking opens a date and locks its catering, later bookings join in 2s; a party that takes all 8 places has the trail to itself, which is what `booking_type = 'exclusive'` now means (derived by the DB trigger, never asserted by the caller).
+- **Deposit vs full (resolved):** 45+ days out pays a 50% deposit with the balance collected by emailed link 45 days before arrival; inside 45 days pays in full. `BOOKING_DEPOSIT_PERCENT` is no longer read.
+- **VAT:** prices are quoted and charged VAT-inclusive. The guest document is a **payment receipt, not a tax invoice**, until the operating company's VAT number is supplied (Part 14). Do not invent one.
+- **Amount unit:** Paystack expects the amount in the **currency subunit** (ZAR **cents**). `lib/pricing.ts` works in cents — pass the value straight through.
 
 ### 9.2 Flow (Paystack hosted checkout + webhook)
-1. **BookingWidget** (island) collects start date, group size, residency, lead-guest details → calls the **`createCheckout` Astro Action**.
-2. **Server (Action):** zod-validate input; check availability against `departure_inventory` (Supabase); **compute price server-side** (`computeQuote`); create a **`pending` booking** row with `hold_expires_at = now() + HOLD_MINUTES` (the partial unique index `bookings_unique_start_date` plus the `bookings_slot_guard` trigger prevent double-booking) and a unique `processor_reference`; **initialize a Paystack transaction** server-side (`POST https://api.paystack.co/transaction/initialize` with `email`, `amount` in cents, `currency: "ZAR"`, `reference`, `callback_url=/booking/confirm`, `metadata.booking_id`) using the **secret key**; return the `authorization_url`.
+1. **BookingWidget** (island) collects group size, residency (with the SADC declaration), start date and lead-guest details → calls the **`createCheckout` Astro Action**. Catering comes from the widget's `catering` prop, not the guest.
+2. **Server (Action):** zod-validate input; refuse an invalid product/residency pairing, a taper day, or a date outside the product's window; read the date's current seats + catering lock for a friendly message; **compute price server-side** (`computeQuote`); create a **`pending` booking** row with `hold_expires_at = now() + HOLD_MINUTES` (the `bookings_slot_guard` trigger serialises concurrent seat-grabs under an advisory lock and is the authority) and a unique `processor_reference`; **initialize a Paystack transaction** server-side (`POST https://api.paystack.co/transaction/initialize` with `email`, `amount` in cents, `currency: "ZAR"`, `reference`, `callback_url=/booking/confirm`, `metadata.booking_id`) using the **secret key**; return the `authorization_url`.
 3. **Redirect** the browser to the Paystack-hosted `authorization_url` (card data never touches our server → PCI **SAQ-A**).
 4. **Webhook** `POST /api/payments/webhook` (`prerender=false`): read the **raw body**, **verify `x-paystack-signature`** = HMAC-SHA512 of the raw body using the **secret key**; on `charge.success`, **independently call Verify Transaction** (`GET /transaction/verify/:reference`) to confirm status + amount, then **idempotently** (guard on booking status) set the booking `confirmed`, record `processor_txn_id`, set `amount_paid_cents`, clear the hold → trigger confirmation + operator-notification email.
 5. **`/booking/confirm`** (callback) verifies the transaction server-side by `reference` and shows a calm confirmation; **`/booking/cancel`** (or an abandoned/expired hold) marks the pending booking `cancelled`/releases the hold. **Never** confirm a booking from the callback redirect alone — the webhook (verified) is the source of truth.
 6. **Expiry:** pending holds past `hold_expires_at` are treated as not blocking (the availability view filters them) and swept by a scheduled job or on-read.
 
 ### 9.3 Data &amp; libs
-- Schema + RLS: `supabase/migrations/` applied in filename order (bookings, inquiries, blocked_dates, pretrip_details, payment_events, admin_audit, rate_limits; the anon-readable `departure_inventory` view; **RLS default-deny**; the `bookings_unique_start_date` partial unique index and the `bookings_slot_guard`/`bookings_window_guard` triggers; `processor`/`processor_reference`/`processor_txn_id` columns).
+- Schema + RLS: `supabase/migrations/` applied in filename order (bookings, inquiries, blocked_dates, pretrip_details, payment_events, admin_audit, rate_limits; the anon-readable `departure_inventory` view; **RLS default-deny**; the `bookings_slot_guard`/`bookings_window_guard` triggers). **0016 is the current head** and drops the `bookings_unique_start_date` index — capacity is enforced entirely by the slot guard now.
 - `lib/supabase.ts`: a **server** client built with `SUPABASE_SERVICE_ROLE_KEY` (server only) + an optional **anon** client for reading `departure_inventory`.
 - `lib/db.types.ts`: the **single source of truth for row shapes** — one hand-written mirror of the migrations, as runtime column tuples plus row types. `scripts/verify-admin.mjs` parses the migration SQL and asserts they match, so a drifted schema fails the build rather than failing silently at runtime.
 - `lib/payments.ts`: a small **processor interface** (`initCheckout`, `verifyTransaction`, `verifyWebhookSignature`) with a **Paystack** implementation using `fetch` + the secret key. Keep the interface clean so PayFast/Peach/Adumo can drop in.
 - `lib/pricing.ts`: the single price authority (already in repo).
 
 ### 9.4 Edge cases &amp; UX
-Concurrency (two users, same date) — the exclusion constraint + hold makes the second `pending` insert fail; surface "just taken, pick another date." Abandoned checkout → hold expires, date frees. Group size > 10 rejected. International toggle changes the server total (re-quoted server-side; the widget shows an estimate clearly labelled "final total confirmed at checkout"). Never act on a price from the client.
+Concurrency (two parties, same date) — the advisory lock in `bookings_slot_guard` serialises them and the loser's insert fails; surface "only N place(s) left" rather than a generic error. Abandoned checkout → the hold expires and the places free. A party below the product minimum, above capacity, on a taper day, or outside its window is refused with the reason **and the route out**. A date already locked to the other catering is shown and explained, never silently greyed. The residency choice changes the server total (re-quoted server-side; the widget's figure is an estimate). Never act on a price from the client.
 
 ### 9.5 Emails
 Confirmation (guest) + notification (operator `BOOKINGS_NOTIFY_TO`) via a transactional provider (Resend/Postmark/SendGrid — **decision**). Keep a `sendEmail()` seam; strip CR/LF from any user value placed in headers (Part 11). Paystack also emails a receipt on success.
@@ -401,16 +413,16 @@ Google "good" thresholds (75th-pct **field** data, 28-day window) are **unchange
 JSON-LD only (Part 8.8). Types that still earn rich results: `Organization`, `LocalBusiness`, `BreadcrumbList`, `Article`, `Event`, `Product`/`Offer`, image/video. `TouristTrip`/`TouristAttraction` = strong entity/AI signal (no special Google rich result). **FAQ:** Google **deprecated FAQ rich results 7 May 2026** (SC report June 2026, API Aug 2026). Keep **visible** Q&A on Logistics (LLMs extract it); `FAQPage` JSON-LD optional (Bing/AI parse it; harmless to rankings) — don't expect a Google rich result. Validate every type with the Rich Results Test.
 
 ### 10.5 GEO / AEO (the 2026 essential)
-Be cited when someone asks an AI about Waterberg walking safaris. Write for extraction: **question-shaped `<h2>`s** matching real queries, each **answered in the first sentence**, then detail. Be specific and quotable (3 nights, ~20 km/day, max 10, Two-Man Rule, sanctuary names, Waterberg). Entity clarity &amp; consistency (identical naming; `Organization` schema; clear About). Earn mentions in already-ranking listicles ("best slackpacking trails in South Africa"). Ship `llms.txt`; allow AI crawlers. The same clarity serves humans, classic SEO, and AI.
+Be cited when someone asks an AI about Waterberg walking safaris. Write for extraction: **question-shaped `<h2>`s** matching real queries, each **answered in the first sentence**, then detail. Be specific and quotable (3 nights, 15 to 20 km/day, max 8, Two-Man Rule, lodge names, Waterberg, all-inclusive, malaria-free). Entity clarity &amp; consistency (identical naming; `Organization` schema; clear About). Earn mentions in already-ranking listicles ("best slackpacking trails in South Africa"). Ship `llms.txt`; allow AI crawlers. The same clarity serves humans, classic SEO, and AI.
 
 ### 10.6 Crawler &amp; AI-bot policy
 `robots.txt` allows general crawling + **explicitly allows** `Googlebot`, `Bingbot`, `Google-Extended`, `GPTBot`, `OAI-SearchBot`, `ChatGPT-User`, `PerplexityBot`, `ClaudeBot`, `anthropic-ai`; references the sitemap. (Opting out of AI use later = disallow per bot; client's call.) Ship `llms.txt`.
 
 ### 10.7 Local SEO
-Google Business Profile (client action, post-conceptual — highest local lever); NAP consistency; `LocalBusiness`/geo schema (Rotavi basecamp geo, Waterberg/Limpopo region); locality terms in copy (Waterberg, Limpopo, D970, private Big 5 reserve); plan for reviews.
+Google Business Profile (client action — highest local lever); NAP consistency; `LocalBusiness`/geo schema (Temminck's Lodge basecamp geo, Waterberg/Limpopo region); locality terms in copy (Waterberg, Limpopo, D970, private Big 5 reserve); plan for reviews.
 
 ### 10.8 Internationalisation
-Primary `en-ZA`, ZAR, state the +20% international rate. **Do NOT add `hreflang`** now (only correct with separate localized URLs; premature use creates errors). Revisit only if localized pages are built.
+Primary `en-ZA`, ZAR. The international rate is the rack rate; the SADC rate is the discount off it (Part 17), so there is no separate "international premium" to state. **Do NOT add `hreflang`** now (only correct with separate localized URLs; premature use creates errors). Revisit only if localized pages are built.
 
 ### 10.9 E-E-A-T &amp; content
 Own the niche entities (be the definitive "Rooiberg Wander" page; strong for "Waterberg Big 5 walking trail," "slackpacking South Africa"). Demonstrate real experience (authentic photos, operator specifics, FGASA Lead Trails credentials, real logistics). Trust signals (operator identity, safety creds, transparent pricing, privacy notice, real contact). Post-conceptual content roadmap (small + excellent): "What is slackpacking?", "Walking safely in Big 5 terrain", "Best time to visit the Waterberg", "What to pack for a 3-day slackpacking trail", "Slackpacking vs walking safari". Keep the route-status notice fresh.
@@ -425,17 +437,17 @@ Google Search Console + **Bing Webmaster Tools** (feeds Copilot/ChatGPT) verifie
 |---|---|---|
 | **Brand** | the rooiberg wander · rooiberg wander trail | Rank #1; reinforce with `Organization` schema |
 | **Winnable niche (primary battleground)** | waterberg slackpacking · big 5 walking trail limpopo · multi-day walking safari waterberg · self-catered guided walking trail · exclusive walking trail private reserve · point-to-point big 5 trail | Low competition, high intent |
-| **Category (compete via specificity)** | slackpacking south africa · guided walking trail south africa · waterberg hiking trails · luxury walking safari | Be the Waterberg + Big-5-trail answer |
+| **Category (compete via specificity)** | guided walking safari south africa · waterberg hiking trails · luxury walking safari · all-inclusive walking safari | Be the Waterberg + Big-5-trail answer. "Slackpacking" now belongs to the hidden product and is not a flagship target, though the Logistics FAQ still answers the query. |
 | **Head (don't chase; ride via listicles/GEO)** | walking safari south africa · big five safari | Third-party lists + AI citation only |
 
-**Global entities** (use consistently in copy, schema, `llms.txt`, alt): brand *The Rooiberg Wander*; categories *slackpacking, guided walking trail, walking safari, Big 5 on foot, multi-day hiking trail, point-to-point, self-catered, luggage porterage*; places *RoiSan Reserve, Waterberg, Waterberg Biosphere, Limpopo, South Africa, private Big 5 reserve, D970*; trail *Rotavi Lodge, Oukraal, VierVanAcht, Groenkop, Welgedacht lookout/donga*; features *Two-Man Rule, two armed wilderness guides, FGASA Lead Trails Guide, ~20 km/day, 3 nights/3 days, max 10, exclusive group, conservation levies*; operator *RoiSan Reserve NPC*.
+**Global entities** (use consistently in copy, schema, `llms.txt`, alt): brand *The Rooiberg Wander*; categories *all-inclusive walking safari, guided walking trail, Big 5 on foot, multi-day hiking trail, point-to-point, luggage portage, malaria-free*; places *RoiSan Reserve, Waterberg, Waterberg Biosphere, Limpopo, South Africa, private Big 5 reserve, D970*; trail *Temminck's Lodge, Oukraal, Blackwood, Groenkop, Elandsberg L-Kloof, Welgedacht lookout*; features *Two-Man Rule, two armed wilderness guides, FGASA Lead Trails Guide, 15 to 20 km/day, 3 nights/3 days, max 8, conservation levies included, VAT included*; operator *Rooiberg Wander* (the operating company is being re-registered — Part 14).
 
 **Per-page (primary → owner; questions feed GEO H2s):**
 - **Home** — primary `Big 5 slackpacking trail` (brand-led); secondary: walking safari Waterberg · exclusive guided walking trail · private game reserve walking trail. Q: What is the Rooiberg Wander? Where is it? How is it different from a normal walking safari?
 - **The Trail** — primary `3 day walking trail itinerary`; secondary: point-to-point walking trail · Rooiberg Wander route · ~20 km per day · lodge-to-lodge. Q: How long is it? How far each day? Do you walk on arrival day? Where does it start/end?
-- **Sanctuaries** — primary `Waterberg trail lodges`; secondary: Rotavi Lodge · Oukraal · VierVanAcht · walking trail overnight camps. Q: Where do you sleep? What are the three sanctuaries? Catered or self-catered?
-- **Logistics &amp; FAQ** — primary `self-catered walking trail`; secondary: is a walking safari safe · armed guides walking safari · what is slackpacking · luggage transfer hiking trail. Q (answer-first): What is slackpacking? Is it safe in a Big 5 reserve? How many guides? What is the Two-Man Rule? Catered or self-catered? Who carries luggage/food? What to bring? Is the route finalised?
-- **Rates &amp; Booking** — primary `Rooiberg Wander rates` / `Big 5 walking trail cost`; secondary: walking trail price South Africa · book guided walking trail Waterberg · private group walking trail rate. Q: How much? What's included? Per person or per group? Do international visitors pay more? How do I book?
+- **The Safari Lodges** — primary `Waterberg trail lodges`; secondary: Temminck's Lodge · Oukraal · Blackwood · walking safari lodges. Q: Where do you sleep? What are the three lodges? What is included?
+- **Logistics &amp; FAQ** — primary `all-inclusive walking safari`; secondary: is a walking safari safe · armed guides walking safari · is this slackpacking · luggage transfer hiking trail · malaria-free Big 5. Q (answer-first): What is slackpacking? Is it safe in a Big 5 reserve? How many guides? What is the Two-Man Rule? Catered or self-catered? Who carries luggage/food? What to bring? Is the route finalised?
+- **Rates &amp; Booking** — primary `Rooiberg Wander rates` / `Big 5 walking safari cost`; secondary: walking safari price South Africa · book guided walking safari Waterberg · SADC resident rate. Q: How much? What's included? Per person or per group? Is there a local rate? How do I book?
 
 **Anti-cannibalisation:** one owner page per cluster (Home=brand/category; Trail=itinerary/route; Sanctuaries=lodges; Logistics=safety/included/definitions; Rates=cost/book). If two pages rank for one term in GSC, strengthen the owner + add an internal link from the other. No new pages per keyword in this phase — fold into the owner.
 
@@ -505,24 +517,28 @@ Validate type/format + length-cap every field (server-side is authoritative; cli
 ---
 
 ## Part 12 — Content fidelity guardrails
-- Use the exact strings in Part 8 for hook, stats, itinerary, rates, and safety copy.
-- Hook: **"Bring your own flavor; we take care of the rest."**
-- Operator-notify email: `hanlie@rooibergwander.co.za` — corrected from original brief.
-- Standardise **VierVanAcht** (website-brief form) over the business plan's "ViervanAcht".
-- **VAT (operator decision):** the entity is VAT-registered and consumer prices are displayed **VAT-inclusive** at 15% (R62,100 local / R74,520 international). This **supersedes the brief's "excl. VAT" display wording**; R54,000 is retained as the ex-VAT net base. Confirmation receipts must be valid tax invoices (VAT number, VAT shown).
-- Never surface internal-only data: the R60k figure, owner profit splits, staffing/salaries, conservation-levy projections, named individuals from the business plan.
-- Don't add pages, change the flow, or introduce features not in the brief unless explicitly asked. (The booking system **was** explicitly requested.)
+- Use the exact strings in Parts 8 and 17 for hook, stats, itinerary, rates, and safety copy.
+- Hook: **"An all-inclusive, point-to-point walking expedition with private trail guides connecting three private safari lodges."** (`site.hook`, rendered in both the hero and the footer.)
+- Operator-notify email: `hanlie@rooibergwander.co.za`.
+- Lodge names are **Temminck's Lodge, Oukraal, Blackwood**. "Rotavi", "VierVanAcht" and "ViervanAcht" must not appear in copy.
+- **No em-dashes or en-dashes in user-facing text.** Use a colon, a comma or a full stop. Write "barbeque", not "braai". Plain international English; classy and informative, never salesy.
+- **Prices are per person, sharing, for the whole trail, VAT-inclusive.** Never publish a per-night figure, an owner split, a margin, or the business plan's cost assumptions.
+- **VAT:** prices include VAT at 15% and all conservation levies. The guest document is a **payment receipt**; it becomes a tax invoice only when the operator supplies a VAT registration number. Never invent one.
+- **The hidden product stays hidden.** Never link `/sadc-slackpacking` from the nav, the footer, the sitemap, `llms.txt` or any public page.
+- Don't add pages, change the flow, or introduce features not in the memo unless explicitly asked.
 
 ## Part 13 — Workflow &amp; git
 Small logical commits, one page/component each; conventional messages (`feat: home hero + stats bar`). Run `npm run verify` before every commit. Don't push/open PRs unless asked. Don't touch lockfiles/CI/unrelated files without reason. End each turn with: what changed, verify/build result, and any "Open questions / placeholders" needing human input.
 
 ## Part 14 — When to ask vs. proceed
 - **Proceed** (with a labelled placeholder) for: missing images, unspecified microcopy, exact pixel spacing, icon choices.
-- **Ask** for: anything contradicting the brief; adding a page/feature beyond booking; changing pricing/email; adding a dependency/third-party embed (also a Part 11 entry); the flagged **decisions** (deposit vs full, Instant-EFT support, email provider, refund/cancellation policy, Supabase region, final payment provider if not Paystack); anything needing real banking/legal input.
+- **Ask** for: anything contradicting the memo; adding a page/feature beyond what it specifies; changing pricing or the operator email; adding a dependency or third-party embed (also a Part 11 entry); anything needing real banking or legal input.
+- **Resolved, do not re-ask:** payment provider (Paystack, cards only, no Instant EFT), email provider (Resend), Supabase region (eu-west-2), deposit rule (50% at 45+ days), refund policy (2-tier, in `data/policies.ts`).
+- **Open with the operator (September 2026):** the VAT registration number and the new operating company's registered name and number (both block turning receipts into tax invoices and completing the privacy page); whether to publish a 2029 row in the rate table; what happens to rates after 2029; who produces the two marketing PDFs and hosts the QR target; and confirmation of the all-inclusive dining copy drawn from business plan §6.2/6.3.
 - Attempt a complete section first, then list questions — don't block on minor ambiguity.
 
 ## Part 15 — Consolidated pre-launch checklist
-**Build/UX:** all pages render 380/768/1280; one `<h1>`/page; Part 5 treatment; §5.9 filter passed; mobile-perfect nav/timeline/pricing/booking. **Content:** exact strings present (hook, stats, itinerary incl. "No walking" Day 1, rates, Two-Man Rule, route notice); no internal financials. **SEO:** `Seo.astro` on every page; question-shaped H2s; JSON-LD validated; sitemap (images, api/booking excluded) + AI-aware robots + llms.txt; CWV targets in lab + plan field monitoring; `en-ZA`/ZAR; no premature hreflang; GSC + Bing verified. **Booking:** Supabase schema + RLS applied; server price authority; holds + overlap constraint tested; Paystack test-mode E2E (initialize → hosted checkout → webhook verified + Verify Transaction → confirmed → email); confirm/cancel pages; Paystack account verified (business onboarding). **Security:** full Part 11.10 checklist. **Open questions resolved or listed:** email spelling, deposit, Instant-EFT, refund policy, email provider, Supabase region, privacy contact + retention.
+**Build/UX:** all pages render 380/768/1280; one `<h1>`/page; Part 5 treatment; §5.9 filter passed; mobile-perfect nav/timeline/pricing/booking. **Content:** exact strings present (hook, stats, itinerary incl. "No walking" Day 1, rates, Two-Man Rule); the flagship rate table matches Part 17 exactly; no internal financials; no per-night figure anywhere; the hidden page is unlinked, noindexed and absent from the sitemap. **SEO:** `Seo.astro` on every page; question-shaped H2s; JSON-LD validated; sitemap (images, api/booking excluded) + AI-aware robots + llms.txt; CWV targets in lab + plan field monitoring; `en-ZA`/ZAR; no premature hreflang; GSC + Bing verified. **Booking:** Supabase schema + RLS applied through **migration 0016**; server price authority; holds, product minimums, catering lock, capacity, taper and per-product windows tested (`scripts/verify-*.mjs` and both SQL harnesses); Paystack test-mode E2E (initialize → hosted checkout → webhook verified + Verify Transaction → confirmed → email); confirm/cancel pages; Paystack account verified (business onboarding). **Security:** full Part 11.10 checklist. **Open questions resolved or listed:** the Part 14 list (VAT number, company registration, 2029 rates, the marketing PDFs, the dining copy).
 
 ---
 
@@ -536,7 +552,7 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 6. **LCP target mismatch** ("< 2.0s" vs "2.5s official / rumor of 2.0s"). **Resolved:** official "good" = **2.5s**, internal target **< 2.0s**; the 2.0s "tightening" is an unverified rumor (Part 10.3).
 7. **INP target mismatch** (200ms vs 150ms). **Resolved:** official ≤ 200ms; **internal target < 150ms**, alert > 160ms (Part 10.3).
 8. **Fonts** ("avoid Inter" vs Inter for body). **Resolved:** "avoid Inter" applies to the **hero/display** face only; **Inter is the body face** (Parts 2, 5.2, 5.3).
-9. **Sanctuary spelling** (VierVanAcht vs ViervanAcht). **Resolved:** standardise **VierVanAcht** everywhere (Parts 8.3, 12).
+9. **Sanctuary spelling** (VierVanAcht vs ViervanAcht). **Superseded by v4:** the lodges were renamed to **Temminck's Lodge** and **Blackwood**; neither old spelling survives (Parts 8.3, 12, 17).
 10. **Placeholder email spelling.** The original brief's misspelled placeholder has been corrected to `hanlie@rooibergwander.co.za` (corrected from original brief; Parts 8, 12).
 11. **"Conceptual route" vs taking real bookings.** **Flagged:** bookings can be taken for future dates; the route-status notice stays. Whether to open live availability while the route is conceptual is a **product decision** (Part 14).
 12. **Privacy stance** ("form data not stored" → bookings stored). **Resolved:** explicit POPIA program — minimisation, consent, retention, processors, region, Privacy page (Part 11.7).
@@ -545,3 +561,117 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 ---
 
 **This consolidated file supersedes the former six documents. Read the relevant Part, then build from Part 6 step 1.**
+
+14. **Commercial model v2 → v3 (July 2026), recorded for history.** Between the June brief and this revision the product went through two intermediate models that are no longer live: **v2** (catered/uncatered flat group rates, VAT removed after the operator confirmed no VAT registration, lodges renamed to Temminck's/Blackwood, booking opening 15 January 2027) and **v3.1** (per-person-per-night pricing, Wednesday/Thursday exclusive buyouts of exactly 8, shared departures every other day, 18/8-month booking windows). Both are superseded by Part 17. The CHANGELOG carries the detail.
+
+15. **Commercial model v4 (15 September 2026 memo) — the current model.** The public site sells the **all-inclusive catered safari only**, at a per-person-per-trip rate with a 30% SADC resident discount; the self-catered product moves to the unlisted `/sadc-slackpacking` page; the day-of-week exclusivity rule is replaced by a **tapered start** (Sun/Mon/Thu/Fri until 31 December 2028); booking opens **1 April 2027**; rates rise 8% in 2028 and a further 5% in 2029; booking windows become 24 months (international catered) and 12 months (every SADC product). **Full specification: Part 17.** Changed throughout: Parts 1, 5.1, 7, 8.1–8.9, 9.1–9.4, 10.5/10.7/10.8/10.11, 12, 14, 15.
+
+16. **VAT: "no VAT charged" → VAT-inclusive.** v2 removed all VAT language after the operator confirmed the entity was not VAT-registered. The 15 September memo prices everything "VAT and Conservation Levy included" and adds VAT to the rates-page includes line. **Resolved:** customer-facing copy and the payment receipt now state that prices include VAT at 15%. **Deliberately NOT resolved:** the guest document remains a *receipt*, not a SARS tax invoice, because that requires the supplier's VAT registration number and the operating company is being re-registered. Flagged in Part 14; `lib/email.ts` carries a comment naming exactly what to add when the number arrives.
+
+17. **"Exclusive" stops being a product.** v3.1 sold an exclusive buyout on Wednesdays and Thursdays for exactly 8 guests. v4 has one kind of departure: 8 places, opened by the first booking and joined by later ones. Exclusivity is simply what a party of 8 gets by taking every place, so `booking_type` is now **derived by the `bookings_slot_guard` trigger** rather than asserted by the application. The `bookings_unique_start_date` index that enforced "one exclusive booking per date" is dropped: it could no longer reject anything the seat count does not already reject.
+
+---
+
+## Part 17 — Commercial model v4 (canonical specification)
+
+> **This Part is authoritative.** Where any earlier Part disagrees about what is sold, what it costs, who may book it or when, Part 17 wins. Source: the 15 September 2026 memo to Francois, with internal context from the 5 September 2026 business plan.
+
+### 17.1 What the site sells
+
+| Product | Public? | Catering | Residency | Min | Max | Booking window | Where it is sold |
+|---|---|---|---|---|---|---|---|
+| **All-inclusive catered safari** (the flagship) | Yes | catered | international | 2 | 8 | 24 months | `/rates` |
+| **The same trail, SADC resident rate** | Yes, as a discount note | catered | sadc | 2 | 8 | 12 months | `/rates` |
+| **SADC self-catered slackpacking option** | **No** | uncatered | sadc | 8 | 8 | 12 months | `/sadc-slackpacking` only |
+
+A product is `catering × residency`; there are no other columns. **International self-catered is not sold**: the hidden page states that a guest who cannot show SADC proof at check-in pays a 100% premium, which is an on-the-day operator matter, not something the engine prices.
+
+Why the split: the business plan (§5.3) is explicit that a mixed offer confuses the DMCs the inbound bookings depend on. The self-catered product is marketed directly to South African walking clubs via a PDF carrying a QR code that opens the unlisted page.
+
+### 17.2 Rates: per person, per trip
+
+The unit is **one person, for the whole 3-night trail**, VAT and conservation levies included. There is no shorter stay, so **no per-night figure may appear anywhere on the site**, even though the operator's internal model is nightly.
+
+2027 base rates (`BASE_PP_TRIP` in `src/data/rates.ts`):
+- Catered: **R15,900**
+- Self-catered: **R4,950**
+
+The published table, which the engine must reproduce exactly:
+
+| | High season | Low season |
+|---|---|---|
+| **All inclusive 2027** | R15,900 | R12,720 |
+| **All inclusive 2028** | R17,172 | R13,737 |
+
+*A 30% discount is offered to SADC residents* (stated as a note beneath the table, never as extra columns).
+
+### 17.3 The discount chain
+
+Resolved in this order, per person, then multiplied by party size:
+
+```
+base(catering)
+  → × rate-year multiplier      2027: 1.0   2028: 1.08   2029: 1.134  (8%, then a further 5%)
+  → × 0.8 if low season         high = 1 Apr–31 Oct and 15 Dec–15 Jan
+  → × 0.7 if SADC and catered   (the self-catered rate is already a resident rate)
+  → × 0.78 if 8–21 days out     the last-minute discount, all products
+  → FLOOR to the whole rand     once, at the end
+  → × group size
+```
+
+**The flooring is load-bearing.** 12,720 × 1.08 = 13,737.60, and the operator's published table reads R13,737. Round-half-up would put a figure on the site the operator never published. It also always rounds in the guest's favour. `roundRateRand()` in `data/rates.ts` is the single definition; `scripts/verify-pricing.mjs` §A guards it.
+
+A start date is priced by **the calendar year it begins in**. A date beyond the last published year holds the last multiplier — flagged for the operator (Part 14), not invented.
+
+### 17.4 How a departure forms
+
+Every open start day works identically. There is no day-of-week product rule any more.
+
+- A departure has **8 places** (the FGASA cap: two armed guides to eight walkers).
+- The **first booking opens the date** and must meet the product minimum: **2 catered, 8 self-catered**. Its catering choice **locks the date**.
+- **Later bookings join** with at least **2** people, matching the locked catering, while places last.
+- Once a date carries a booking, the site shows the memo's exact line: **"Guaranteed Departure: 2 of 8 spots booked. 6 spots available."**
+- A party taking all 8 places has the trail and each lodge to itself. That is what `booking_type = 'exclusive'` means, and it is **derived by the `bookings_slot_guard` trigger**, never sent by the client.
+
+### 17.5 When a departure may start
+
+- **Online booking opens 1 April 2027** (`BOOKING_OPEN_DATE`). Earlier dates are family-and-friends-by-enquiry only; walks before that date are invoiced manually.
+- **Tapered start:** Tuesday, Wednesday and Saturday are **not** start days for any date up to and including **31 December 2028**, so departures run **Sunday, Monday, Thursday and Friday**. Every weekday opens from 1 January 2029. This caps the reserve at two groups a day while guiding capacity is built up.
+- **Rolling windows**, anchored to the later of today and the opening date so each opens at full length on launch day: **24 months** for international catered, **12 months** for every SADC product.
+- **T-7 close:** the last seven days before a departure are not bookable online; that week is reserved for staffing.
+
+### 17.6 Payment (unchanged from v3)
+
+45+ days out: **50% deposit** now, balance collected by emailed Paystack link 45 days before arrival. Inside 45 days: **pay in full**, non-refundable thereafter. Refunds: full refund less a 5% administration fee at 45+ days; nothing inside 45 days or for a no-show (`data/policies.ts`).
+
+### 17.7 Where each rule lives
+
+| Rule | Display / client | Server authority | Database |
+|---|---|---|---|
+| Rates, discounts, rate years | `data/rates.ts` | `lib/pricing.ts` | — |
+| Product minimums, capacity | `data/rates.ts` | `actions/index.ts` | `bookings_slot_guard` (0016) |
+| Catering lock | widget calendar | `actions/index.ts` | `bookings_slot_guard` (0016) |
+| Taper, booking windows, T-7 | widget calendar | `lib/pricing.ts` + `actions/index.ts` | `bookings_window_guard` (0016) |
+| Availability | `departure_inventory` view (anon) | — | `departure_inventory` (0016) |
+| `booking_type` | not sent | derived, advisory only | **derived authoritatively** (0016) |
+
+The DB triggers cannot import from `src/`, so they restate the numbers in SQL. That duplication is policed, not tolerated: `scripts/verify-minimums.mjs` and `scripts/verify-window.mjs` parse the constants back out of migration 0016 and fail if they drift from the TypeScript. **Any change to a rate, a minimum, a window or the taper must change both sides and keep those scripts green.**
+
+### 17.8 Verification
+
+```
+npx tsx scripts/verify-pricing.mjs    # the published rate table, the flooring edge, the whole chain
+npx tsx scripts/verify-minimums.mjs   # group rules: TypeScript vs the 0016 trigger
+npx tsx scripts/verify-window.mjs     # windows, taper and launch gate: TypeScript vs 0016
+npx tsx scripts/verify-surfaces.mjs   # no page hardcodes a rate the engine computes
+npx tsx scripts/verify-admin.mjs      # db.types.ts mirrors the migrations
+npx tsx scripts/verify-inventory.mjs  # the availability view's shape and its one client
+npx tsx scripts/verify-calendar-states.mjs  # calendar a11y: colour is never the only cue
+npx tsx scripts/verify-currency.mjs   # the FX tabs stay display-only
+```
+
+Trigger *behaviour* needs a live database: apply `0016`, then run `scripts/verify-trigger.sql` and `scripts/verify-window-trigger.sql` in the Supabase SQL editor (both roll back).
+
+### 17.9 Open with the operator
+
+See Part 14. The two that block work: the **VAT registration number** (turns receipts into tax invoices) and the **new operating company's registered name and number** (needed by `site.ts`, the receipt, the privacy page and `schema.ts`).
