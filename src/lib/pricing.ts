@@ -1,48 +1,52 @@
-// Server-side price authority (Part 9.1 / 11.4) — Booking v3.1 (Workstream B). Works in CENTS.
+// Server-side price authority (Part 9.1 / 11.4) — Commercial model v4. Works in CENTS.
 // The browser never sends a price; the server always recomputes from the constants in
-// data/rates.ts (shared with the display layer so they can never drift). The operator is NOT
-// VAT-registered, so no VAT is charged or shown anywhere; totalCents is the full amount paid.
+// data/rates.ts (shared with the display layer so they can never drift).
 //
-// Two departure types, both priced PER PERSON PER NIGHT now (the flat-group-rate model is
-// retired):
-//   exclusive — Wednesday or Thursday only; EXACTLY 8 guests (min = max); either catering.
-//   shared    — every other day; the first active booking on a date needs >= 4 people and its
-//               catering choice locks the day; later bookings need >= 2 and must match, up to
-//               8 seats total per date. (The "does this catering match the date's locked type"
-//               check requires a DB lookup and lives in actions/index.ts + the DB trigger, not
-//               here — this module is pure price/date math with no I/O.)
-// Rate also varies by season (high/low, ±20%) and, for self-catered only, by weekday vs the
-// Thursday/Friday "weekend" premium. A 22% last-minute discount applies 21 to 8 days out to
-// BOTH caterings. The chain resolves in policy order — base → season → last-minute → round to
-// the nearest rand — and only then multiplies by NIGHTS and party size.
+// THE UNIT IS PER PERSON, PER TRIP. data/rates.ts holds one rand figure per product for the whole
+// 3-night trail; this module resolves it for a given start date and multiplies by party size.
+// Nothing here divides by nights.
+//
+// Resolution order (policy order, mirrored by the operator's own rate table):
+//   base(catering) -> rate year -> season -> SADC discount -> last-minute discount
+//   -> floor to the whole rand  -> x group size
+// Flooring once, at the end of the per-person chain, is what makes 12,720 x 1.08 = R13,737 rather
+// than R13,738, matching the memo's published table, and it always rounds the guest's way.
+//
+// Availability rules live here too (which start days exist, how far ahead each product books), so
+// the widget, the createCheckout guard and the DB triggers all state one rule.
 import {
-  NIGHTS,
-  SHARED_OPEN_MIN_CATERED,
-  SHARED_OPEN_MIN_UNCATERED,
-  SHARED_TOPUP_MIN,
-  UNCATERED_PP_NIGHT,
-  CATERED_PP_NIGHT,
-  CATERED_WINDOW_MONTHS,
-  UNCATERED_WINDOW_MONTHS,
+  BASE_PP_TRIP,
+  SEASON_DISCOUNT,
+  SADC_DISCOUNT,
+  RATE_YEAR_MULTIPLIER,
+  RATE_BASE_YEAR,
+  RATE_LAST_YEAR,
   LAST_MINUTE_MIN_DAYS,
   LAST_MINUTE_MAX_DAYS,
   LAST_MINUTE_DISCOUNT,
   BOOKING_OPEN_DATE,
+  INTL_CATERED_WINDOW_MONTHS,
+  SADC_WINDOW_MONTHS,
+  TAPER_END_DATE,
+  TAPER_BLOCKED_ISODOW,
+  MAX_GROUP_SIZE,
+  MIN_TO_JOIN,
+  minPartySize,
+  roundRateRand,
 } from '../data/rates';
 
 export const CURRENCY = 'ZAR';
 // Canonical definitions live in lib/db.types.ts (mirrored from the SQL CHECK constraints and
 // asserted against them by verify-admin.mjs). Imported for local use AND re-exported, so every
 // existing import path keeps working unchanged.
-import type { BookingType, Catering } from './db.types';
-export type { BookingType, Catering };
+import type { BookingType, Catering, Residency } from './db.types';
+export type { BookingType, Catering, Residency };
 
 const toCents = (rand: number) => Math.round(rand * 100);
 
-// Payment model (unchanged by Workstream B): full payment is due 45 days before arrival,
-// non-refundable thereafter. A booking made 45+ days before its start date pays a deposit now
-// and the balance is collected (via an emailed link) at the 45-day mark; inside 45 days it pays
-// in full up front.
+// Payment model (unchanged by v4): full payment is due 45 days before arrival, non-refundable
+// thereafter. A booking made 45+ days before its start date pays a deposit now and the balance is
+// collected (via an emailed link) at the 45-day mark; inside 45 days it pays in full up front.
 export const SPLIT_THRESHOLD_DAYS = 45;
 export const DEPOSIT_FRACTION = 0.5;
 export const BALANCE_LEAD_DAYS = 45;
@@ -69,7 +73,7 @@ export function addDaysIso(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// ISO date + n calendar months (not an approximation by days — used for the 18mo/8mo rolling
+// ISO date + n calendar months (not an approximation by days — used for the 24mo/12mo rolling
 // booking-window ceilings, where a day-count approximation would drift).
 export function addMonthsIso(isoDate: string, months: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -78,127 +82,126 @@ export function addMonthsIso(isoDate: string, months: number): string {
 }
 
 // The earliest start date the online system accepts: the later of the 7-day lead time and the
-// site-wide soft-launch gate (BOOKING_OPEN_DATE). Earlier dates are family-and-friends-by-enquiry
-// only (BetaBanner). This is independent of the per-catering rolling windows below.
+// site-wide gate (BOOKING_OPEN_DATE). Earlier dates are family-and-friends-by-enquiry only.
 export function earliestBookableDate(now: Date = new Date()): string {
   const lead = addDaysIso(todaySast(now), 7);
   return lead > BOOKING_OPEN_DATE ? lead : BOOKING_OPEN_DATE;
 }
 
-// Anchor for the rolling per-catering windows below: the later of today and the soft-launch
-// gate (BOOKING_OPEN_DATE), mirroring earliestBookableDate's own "later of the two" rule. Rolling
-// from today alone would, before launch, shrink the window every day the launch is still ahead
-// (a self-catered window that's a full 8 months on launch day would otherwise already be eaten
-// into by however long the wait has been). Anchoring here means the window opens at its FULL
-// length the moment booking opens; after launch this is simply "today", identical to before.
+// Anchor for the rolling per-product windows: the later of today and the booking-open gate,
+// mirroring earliestBookableDate's own rule. Rolling from today alone would, before launch,
+// shrink the window every day the launch is still ahead; anchoring here means each window opens
+// at its FULL length the moment booking opens, and behaves as a normal today-rolling window once
+// launch has passed.
 function windowAnchor(now: Date = new Date()): string {
   const today = todaySast(now);
   return today > BOOKING_OPEN_DATE ? today : BOOKING_OPEN_DATE;
 }
 
-// The latest start date bookable for a given catering choice — a rolling window anchored to
-// windowAnchor(), not a fixed calendar date. Catered departures book much further ahead than
-// self-catered, matching the longer international trip-planning cycle. Shared by the
-// createCheckout guard, the widget frontmatter and the calendar so they can never disagree.
-export function latestBookableDate(catering: Catering, now: Date = new Date()): string {
-  const months = catering === 'catered' ? CATERED_WINDOW_MONTHS : UNCATERED_WINDOW_MONTHS;
-  return addMonthsIso(windowAnchor(now), months);
+// How far ahead a product books: international catered 24 months, every SADC product 12.
+export function windowMonthsFor(catering: Catering, residency: Residency): number {
+  return catering === 'catered' && residency === 'international'
+    ? INTL_CATERED_WINDOW_MONTHS
+    : SADC_WINDOW_MONTHS;
+}
+
+// The latest start date bookable for a product — rolling, anchored to windowAnchor().
+export function latestBookableDate(
+  catering: Catering,
+  residency: Residency,
+  now: Date = new Date(),
+): string {
+  return addMonthsIso(windowAnchor(now), windowMonthsFor(catering, residency));
 }
 
 // ISO day-of-week, Monday = 1 ... Sunday = 7 (matches Postgres isodow, used the same way in the
 // DB trigger).
-function isoDow(isoDate: string): number {
+export function isoDow(isoDate: string): number {
   const jsDow = new Date(`${isoDate}T00:00:00Z`).getUTCDay(); // 0 = Sunday .. 6 = Saturday
   return jsDow === 0 ? 7 : jsDow;
 }
 
-// Wednesday or Thursday — the exclusive-buyout days (exactly 8 guests, no other booking joins).
-export function isExclusiveDay(isoDate: string): boolean {
-  const d = isoDow(isoDate);
-  return d === 3 || d === 4;
+// Tapered start: Tuesday, Wednesday and Saturday are not start days up to TAPER_END_DATE, so
+// departures run Sunday, Monday, Thursday and Friday. Every weekday opens from 1 January 2029.
+export function isTaperBlocked(isoDate: string): boolean {
+  if (isoDate > TAPER_END_DATE) return false;
+  return (TAPER_BLOCKED_ISODOW as readonly number[]).includes(isoDow(isoDate));
 }
 
-// Every other day — shared/flexible departures (open at 4+, top up in 2s, up to 8).
-export function isSharedDay(isoDate: string): boolean {
-  return !isExclusiveDay(isoDate);
+// Can the trail start on this date at all (taper aside from holds, blocks and windows)?
+export function isAllowedStartDay(isoDate: string): boolean {
+  return !isTaperBlocked(isoDate);
 }
 
-// Thursday or Friday — the self-catered "weekend" pricing premium. Catered has no day-of-week
-// premium. (Thursday is deliberately both an exclusive-buyout day AND a weekend-pricing day —
-// those are two independent rules from the pricing brief, not a contradiction.)
-export function isWeekendPricingDay(isoDate: string): boolean {
-  const d = isoDow(isoDate);
-  return d === 4 || d === 5;
+// The calendar year that prices a booking: the year the trip STARTS in. A date beyond the last
+// published year holds the last multiplier (flagged for the operator, not invented).
+export function rateYearFor(isoDate: string): number {
+  const year = Number(isoDate.slice(0, 4));
+  return RATE_YEAR_MULTIPLIER[year] !== undefined ? year : RATE_LAST_YEAR;
 }
 
 // High season: 1 April - 31 October, and 15 December - 15 January (wraps the year boundary).
 export function isHighSeason(isoDate: string): boolean {
   const [, mStr, dStr] = isoDate.split('-');
   const mmdd = Number(mStr) * 100 + Number(dStr);
-  if (mmdd >= 401 && mmdd <= 1031) return true; // Apr 1 – Oct 31
-  if (mmdd >= 1215 || mmdd <= 115) return true; // Dec 15 – Jan 15
+  if (mmdd >= 401 && mmdd <= 1031) return true; // Apr 1 - Oct 31
+  if (mmdd >= 1215 || mmdd <= 115) return true; // Dec 15 - Jan 15
   return false;
 }
 
-// Rounds a cents figure to the nearest WHOLE RAND (nearest 100 cents). Policy: no displayed or
-// charged price may contain cents, and the rounding happens on the resolved PER-NIGHT rate
-// BEFORE it is multiplied by NIGHTS and party size (see ppNightCentsFor below). Rounding after
-// the multiplication instead drifts by up to a rand per person: 880 × 3 × 0.78 rounds to
-// R2,059, whereas the policy's round-first chain gives R686 pppn → R2,058.
-const roundToRand = (cents: number) => Math.round(cents / 100) * 100;
-
-// The BASE per-person-per-night rate (cents) — catering and start day resolved, seasonal
-// adjustment applied, but WITHOUT the last-minute discount. Exposed on the Quote so the booking
-// UI can show a named "base + season" line separately from the last-minute reduction.
-// The low-season values are stored explicitly in data/rates.ts rather than derived here; the
-// verification script asserts low === round(high × (1 − SEASON_DISCOUNT)) so the two cannot drift.
-export function basePpNightCentsFor(catering: Catering, startDate: string): number {
-  const season = isHighSeason(startDate) ? 'high' : 'low';
-  if (catering === 'catered') return roundToRand(toCents(CATERED_PP_NIGHT[season]));
-  const bucket = isWeekendPricingDay(startDate) ? 'weekend' : 'week';
-  return roundToRand(toCents(UNCATERED_PP_NIGHT[bucket][season]));
-}
-
 // Is this start date inside the last-minute window? 21 to 8 days before the start, inclusive.
-// Applies to BOTH catered and self-catered — there is deliberately NO catering condition. The
-// policy wants locals taking discounted catered spots and states cannibalisation is not a
-// concern. The final 7 days are excluded on purpose: that week is reserved for staffing, so full
-// rate at T-7 is intended, not an oversight.
+// Applies to every product. The final 7 days are excluded on purpose: that week is reserved for
+// staffing, so full rate at T-7 is intended.
 export function isWithinLastMinuteWindow(startDate: string, now: Date = new Date()): boolean {
   const gap = daysUntil(startDate, now);
   return gap >= LAST_MINUTE_MIN_DAYS && gap <= LAST_MINUTE_MAX_DAYS;
 }
 
-// The FULLY RESOLVED per-person-per-night rate (cents), in policy order:
-//   base → seasonal adjustment → last-minute discount → round to the nearest rand
-// This is the single value that NIGHTS and party size multiply. Nothing downstream rounds again.
-export function ppNightCentsFor(catering: Catering, startDate: string, now: Date = new Date()): number {
-  const season = isHighSeason(startDate) ? 'high' : 'low';
-  const baseRand =
-    catering === 'catered'
-      ? CATERED_PP_NIGHT[season]
-      : UNCATERED_PP_NIGHT[isWeekendPricingDay(startDate) ? 'weekend' : 'week'][season];
-  const finalRand = isWithinLastMinuteWindow(startDate, now)
-    ? baseRand * (1 - LAST_MINUTE_DISCOUNT)
-    : baseRand;
-  return roundToRand(toCents(finalRand));
+// The per-person, per-trip rate in RAND for a given product and date, WITHOUT the last-minute
+// discount (base -> year -> season -> SADC). Exposed so the booking UI can show a named
+// "rack rate" line separately from the last-minute reduction.
+export function basePpTripRand(
+  catering: Catering,
+  residency: Residency,
+  startDate: string,
+): number {
+  let rand = BASE_PP_TRIP[catering] * RATE_YEAR_MULTIPLIER[rateYearFor(startDate)];
+  if (!isHighSeason(startDate)) rand *= 1 - SEASON_DISCOUNT;
+  if (residency === 'sadc' && catering === 'catered') rand *= 1 - SADC_DISCOUNT;
+  return roundRateRand(rand);
 }
 
-// --- Group-formation minimums (policy, 30 July 2026) -------------------------------------------
-// The opening minimum splits by catering; the joining minimum does not. These are the single
-// definition the widget and createCheckout both use. The DB trigger re-implements the same rule
-// independently in SQL (it is the last line of defence and cannot import from here), so any
-// change to these numbers must be mirrored in the trigger migration.
-export function minToOpen(catering: Catering): number {
-  return catering === 'catered' ? SHARED_OPEN_MIN_CATERED : SHARED_OPEN_MIN_UNCATERED;
+// The FULLY RESOLVED per-person, per-trip rate (cents), in policy order:
+//   base -> rate year -> season -> SADC -> last-minute -> floor to the rand
+// This is the single value that party size multiplies. Nothing downstream rounds again.
+export function ppTripCentsFor(
+  catering: Catering,
+  residency: Residency,
+  startDate: string,
+  now: Date = new Date(),
+): number {
+  let rand = BASE_PP_TRIP[catering] * RATE_YEAR_MULTIPLIER[rateYearFor(startDate)];
+  if (!isHighSeason(startDate)) rand *= 1 - SEASON_DISCOUNT;
+  if (residency === 'sadc' && catering === 'catered') rand *= 1 - SADC_DISCOUNT;
+  if (isWithinLastMinuteWindow(startDate, now)) rand *= 1 - LAST_MINUTE_DISCOUNT;
+  return toCents(roundRateRand(rand));
 }
 
-export const MIN_TO_JOIN = SHARED_TOPUP_MIN;
+// --- Group formation ---------------------------------------------------------------------------
+// Minimum party size is a property of the product (2 catered, 8 self-catered); joining a date
+// someone else opened always takes 2. The DB trigger re-implements the same rule independently in
+// SQL (it is the last line of defence and cannot import from here), so any change to these
+// numbers must be mirrored in migration 0016.
+export { minPartySize, MIN_TO_JOIN, MAX_GROUP_SIZE };
 
-// Can this party start a brand-new date with this catering, or must it join one already open?
-// Not a function of party size alone: 2 people can open catered, but need 4 for self-catered.
-export function canOpen(groupSize: number, catering: Catering): boolean {
-  return groupSize >= minToOpen(catering);
+// A booking that opens a date with the full complement has the trail to itself. There is no
+// separate "buyout" product any more: exclusivity is a consequence of booking all 8 places.
+export function isExclusiveParty(groupSize: number, seatsTaken: number): boolean {
+  return seatsTaken === 0 && groupSize >= MAX_GROUP_SIZE;
+}
+
+export function bookingTypeFor(groupSize: number, seatsTaken: number): BookingType {
+  return isExclusiveParty(groupSize, seatsTaken) ? 'exclusive' : 'shared';
 }
 
 export type PaymentPlan = 'full' | 'deposit_balance';
@@ -206,19 +209,21 @@ export type PaymentPlan = 'full' | 'deposit_balance';
 export interface Quote {
   bookingType: BookingType;
   catering: Catering;
+  residency: Residency;
   groupSize: number;
-  totalCents: number; // the full amount the customer owes — no VAT is charged
+  totalCents: number; // the full amount the customer owes, VAT and levies included
   depositPercent: number;
   amountDueCents: number; // the FIRST charge: deposit (deposit_balance) or full total (full)
   currency: string;
   // Named components so the booking UI can show the breakdown as separate lines (never one
-  // unexplained figure): basePpNightCents is after the seasonal adjustment but before the
-  // last-minute discount; ppNightCents is the final resolved rate that actually multiplies out.
-  basePpNightCents: number;
-  ppNightCents: number; // FINAL per person per night: base → season → last-minute → rounded
-  ppTotalCents: number; // ppNightCents × NIGHTS (no further rounding)
+  // unexplained figure): basePpTripCents is after year/season/SADC but before the last-minute
+  // discount; ppTripCents is the final resolved rate that actually multiplies out.
+  basePpTripCents: number;
+  ppTripCents: number;
   lastMinuteDiscountApplied: boolean;
-  highSeason: boolean; // for the preview card's season label
+  sadcDiscountApplied: boolean;
+  highSeason: boolean;
+  rateYear: number;
   // Split payment. When no startDate is supplied (display contexts) the plan defaults to 'full'.
   paymentPlan: PaymentPlan;
   depositCents: number; // deposit portion of total (== totalCents when plan is 'full')
@@ -226,62 +231,62 @@ export interface Quote {
   balanceDueDate: string | null; // ISO date, BALANCE_LEAD_DAYS before startDate, when split
 }
 
-// SERVER price authority. totalCents = groupSize × NIGHTS × ppNight(catering, startDate,
-// season, day-of-week), less the last-minute discount when eligible. bookingType does not
-// affect price directly (an exclusive buyout is simply a shared-rate booking of exactly 8) —
-// it only affects which days/group-sizes are valid, enforced in actions/index.ts + the DB
-// trigger, not here.
-// Pass `startDate` to price the correct season/day and to apply the split-payment rule (gap >=
-// SPLIT_THRESHOLD_DAYS → 50% deposit now, 50% balance later; inside the window → pay in full).
-// Display contexts with no startDate get a representative high-season, week-rate estimate.
+// SERVER price authority. totalCents = groupSize x ppTrip(catering, residency, startDate).
+// bookingType does not affect price: a group of 8 pays 8 places whether or not that happens to
+// give them the trail to themselves.
+// Pass `startDate` to price the correct year/season and to apply the split-payment rule (gap >=
+// SPLIT_THRESHOLD_DAYS -> 50% deposit now, 50% balance later; inside the window -> pay in full).
+// Display contexts with no startDate get a representative high-season, base-year estimate.
 export function computeQuote(input: {
-  bookingType: BookingType;
+  bookingType?: BookingType;
   catering: Catering;
+  residency: Residency;
   groupSize: number;
+  seatsTaken?: number;
   startDate?: string;
   now?: Date;
 }): Quote {
   const now = input.now ?? new Date();
-  const catering = input.catering;
+  const { catering, residency } = input;
 
-  // Resolve the per-night rate COMPLETELY first (base → season → last-minute → round to the
-  // rand), then multiply. Nothing below this point rounds again, so no fractional cents can
-  // compound through NIGHTS or party size.
-  const fallbackRand = catering === 'catered' ? CATERED_PP_NIGHT.high : UNCATERED_PP_NIGHT.week.high;
-  const basePpNightCents = input.startDate
-    ? basePpNightCentsFor(catering, input.startDate)
-    : roundToRand(toCents(fallbackRand));
-  const ppNightCents = input.startDate
-    ? ppNightCentsFor(catering, input.startDate, now)
-    : roundToRand(toCents(fallbackRand));
+  // Resolve the per-person trip rate COMPLETELY first (base -> year -> season -> SADC ->
+  // last-minute -> floor), then multiply. Nothing below this point rounds again.
+  const fallbackDate = `${RATE_BASE_YEAR}-07-01`; // base year, high season: the headline rate
+  const priceDate = input.startDate ?? fallbackDate;
+  const basePpTripCents = toCents(basePpTripRand(catering, residency, priceDate));
+  const ppTripCents = input.startDate
+    ? ppTripCentsFor(catering, residency, input.startDate, now)
+    : basePpTripCents;
   const lastMinuteDiscountApplied =
     !!input.startDate && isWithinLastMinuteWindow(input.startDate, now);
 
-  const ppTotalCents = ppNightCents * NIGHTS;
-  const totalCents = ppTotalCents * input.groupSize;
+  const totalCents = ppTripCents * input.groupSize;
 
-  // Split decision. Deposit is rounded; balance is the remainder so the two always reconcile
-  // to totalCents exactly.
+  // Split decision. Deposit is rounded; balance is the remainder so the two always reconcile to
+  // totalCents exactly.
   const gapDays = input.startDate ? daysUntil(input.startDate, now) : 0;
   const isSplit = !!input.startDate && gapDays >= SPLIT_THRESHOLD_DAYS;
   const depositCents = isSplit ? Math.round(totalCents * DEPOSIT_FRACTION) : totalCents;
   const balanceCents = isSplit ? totalCents - depositCents : 0;
   const paymentPlan: PaymentPlan = isSplit ? 'deposit_balance' : 'full';
-  const balanceDueDate = isSplit && input.startDate ? addDaysIso(input.startDate, -BALANCE_LEAD_DAYS) : null;
+  const balanceDueDate =
+    isSplit && input.startDate ? addDaysIso(input.startDate, -BALANCE_LEAD_DAYS) : null;
 
   return {
-    bookingType: input.bookingType,
+    bookingType: input.bookingType ?? bookingTypeFor(input.groupSize, input.seatsTaken ?? 0),
     catering,
+    residency,
     groupSize: input.groupSize,
     totalCents,
     depositPercent: totalCents > 0 ? Math.round((depositCents / totalCents) * 100) : 0,
     amountDueCents: depositCents,
     currency: CURRENCY,
-    basePpNightCents,
-    ppNightCents,
-    ppTotalCents,
+    basePpTripCents,
+    ppTripCents,
     lastMinuteDiscountApplied,
-    highSeason: input.startDate ? isHighSeason(input.startDate) : true,
+    sadcDiscountApplied: residency === 'sadc' && catering === 'catered',
+    highSeason: isHighSeason(priceDate),
+    rateYear: rateYearFor(priceDate),
     paymentPlan,
     depositCents,
     balanceCents,

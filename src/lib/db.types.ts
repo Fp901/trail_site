@@ -29,8 +29,10 @@ export type Catering = (typeof CATERINGS)[number];
 export const PAYMENT_PLANS = ['full', 'deposit_balance'] as const;
 export type PaymentPlan = (typeof PAYMENT_PLANS)[number];
 
-// Legacy: 0013 dropped the NOT NULL, so new bookings leave this null. The CHECK survives.
-export const RESIDENCIES = ['local', 'international'] as const;
+// Commercial model v4 (0016): residency is a live pricing input again — a SADC resident pays 30%
+// less for the catered product, and the self-catered product is SADC-only. 0016 migrated the
+// legacy value 'local' to 'sadc'. Still nullable: pre-v4 rows may carry null.
+export const RESIDENCIES = ['sadc', 'international'] as const;
 export type Residency = (typeof RESIDENCIES)[number];
 
 export const ADMIN_ACTIONS = [
@@ -67,9 +69,10 @@ export const PAYMENT_EVENT_TYPES = [
 ] as const;
 export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
 
-// ---- bookings (34 columns) --------------------------------------------------------------------
+// ---- bookings (35 columns) --------------------------------------------------------------------
 // 0001 base (18) + 0003 pretrip_token + 0004 three reminder guards (renamed by 0007)
-// + 0008 nine split-payment columns + 0010 lead_phone + 0013 booking_type & catering.
+// + 0008 nine split-payment columns + 0010 lead_phone + 0013 booking_type & catering
+// + 0016 residency_declared_at.
 
 export const BOOKING_COLUMNS = [
   // 0001_init
@@ -112,6 +115,8 @@ export const BOOKING_COLUMNS = [
   // 0013_booking_v2
   'booking_type',
   'catering',
+  // 0016_commercial_v4
+  'residency_declared_at',
 ] as const;
 
 export interface BookingRow {
@@ -120,7 +125,8 @@ export interface BookingRow {
   start_date: string; // date, Day 1 (arrival)
   end_date: string; // date, Day 4 (departure)
   group_size: number;
-  // 0013 dropped the NOT NULL: only legacy (pre-catering-model) bookings carry a value.
+  // Live again under commercial model v4: 'sadc' unlocks the 30% discount and the self-catered
+  // product. Null only on pre-v4 rows.
   residency: Residency | null;
   lead_name: string;
   lead_email: string;
@@ -151,6 +157,9 @@ export interface BookingRow {
   lead_phone: string | null;
   booking_type: BookingType;
   catering: Catering;
+  // When the guest ticked the SADC residency declaration at checkout (null for international
+  // bookings and for pre-v4 rows).
+  residency_declared_at: string | null;
 }
 
 // ---- inquiries (9) ----------------------------------------------------------------------------
@@ -300,22 +309,25 @@ export interface RateLimitRow {
 }
 
 // ---- departure_inventory (view, 5) ------------------------------------------------------------
-// The anon-readable booking calendar gateway (0015). SPARSE by contract: a start_date absent from
-// it has no state at all (all 8 places free, no catering lock, not exclusive, not blocked).
+// The anon-readable booking calendar gateway (0015, reshaped by 0016). SPARSE by contract: a
+// start_date absent from it has no state at all (all 8 places free, no catering lock, not
+// blocked). `seats_taken` is carried explicitly because the guaranteed-departure line quotes it
+// ("2 of 8 spots booked"), and deriving it from seats_left would be wrong on a blocked date.
+// PII-free: counts and flags only, never who booked.
 
 export const DEPARTURE_INVENTORY_COLUMNS = [
   'start_date',
+  'seats_taken',
   'seats_left',
   'locked_catering',
-  'is_exclusive',
   'is_blocked',
 ] as const;
 
 export interface DepartureInventoryRow {
   start_date: string;
+  seats_taken: number;
   seats_left: number;
   locked_catering: Catering | null;
-  is_exclusive: boolean;
   is_blocked: boolean;
 }
 
