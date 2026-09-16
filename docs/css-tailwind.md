@@ -63,11 +63,11 @@ Grouped by area, with the line each section banner starts at (`global.css:N`) so
 - ⚠️ `.boption*` — option-comparison cards (`:1101`). **Dead CSS: 12 rules with no markup anywhere in the repo** (not in `BookingWidget.astro`, not generated in JS). Verified by searching the whole tree; the only surviving reference was this document. Candidate for deletion.
 - `.btrip*` — **step 5** trip summary, one line per night (`:1251`)
 - `.bwalkers*`, `.bsolo*`, `.blink` — **step 1**, "Your group" (walker-count chips + the solo path) (`:1309`)
-- `.bstyle*` — **step 2**, "Booking type" (catered / self-catered cards). Note the `/* --- Step 1: your group (walkers / style / private buyout) --- */` banner above this block in `global.css` is stale — the style cards moved to step 2 in the markup and the banner was never updated.
-- `.bjoin-list`, `.bjoin-card*`, `.bjoin-empty*` — **step 3**, party-of-1-3 "join a departure" list (`:1513`)
+- `.bstyle*` — **step 2**, "Where you live" (SADC resident / international cards, each previewing its own rate). Under commercial model v4 these are residency cards, not catering cards: catering is a prop of the widget, not a question. The `/* --- Step 1: your group (walkers / style / private buyout) --- */` banner above this block in `global.css` is stale.
+- `.bjoin-list`, `.bjoin-card*`, `.bjoin-empty*` — **step 3**, the "Soonest available" list beneath the calendar and its notify-me empty state (`:1513`). It was the Path B list before the v4 widget rewrite; the markup survived, the Path A/B split did not.
 - `.bmodal*` — native `<dialog>`-based policy modal (`:1595`)
-- `.bcatchoice*` — **step 3**, two-way catering prompt under the calendar (`:1466`)
-- Availability calendar — **step 3** (`:1784`) and its 5 cell-state colour codings (`:1912`)
+- ⚠️ `.bcatchoice*` — the retired two-way catering prompt (`:1466`). **Dead CSS** since the v4 widget rewrite: catering is no longer a choice the guest makes. Candidate for deletion alongside `.boption*`.
+- Availability calendar — **step 3** (`:1784`) and its cell-state colour codings (`:1912`). v4 uses four of the five: `--open`, `--started`, `--locked`, `--unavailable`. ⚠️ `--exclusive` is now unused, since exclusivity is not a separate kind of date.
 - Date preview panel (`:2007`), pre-trip details form (`:2216`)
 
 **Rates & trust**

@@ -1,5 +1,8 @@
 # The Rooiberg Wander — Opportunities for Improvement
 
+> **⚠ Written June 2026, against the retired per-group pricing model.** Its "R60,000 for up to 10" / "~R6,000 per person" value lines, its exclusive-private-use positioning and the Rotavi lodge name are all superseded by commercial model v4 (CLAUDE.md Part 17). The competitor research and the content/GPX/PDF ideas still stand.
+
+
 A content-gap analysis against high-quality Limpopo competitors, with concrete add-ons to
 consider. Prepared 2026-06-22.
 

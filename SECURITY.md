@@ -1,4 +1,6 @@
 # ⚠ STATUS — SUPERSEDED (read this first)
+> **⚠ SUPERSEDED.** Security guidance now lives in CLAUDE.md Part 11; the commercial model it assumes is retired (see CLAUDE.md Part 17). Kept for history.
+
 
 This standalone file has been **consolidated into `CLAUDE.md` Part 11**, the single source of truth. It is preserved here for reference/history and **nothing has been removed**, but **where it conflicts with `CLAUDE.md`, `CLAUDE.md` wins** — and on security, both files agree that **security wins all other conflicts**.
 

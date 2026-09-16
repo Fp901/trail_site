@@ -1,8 +1,9 @@
 # The Rooiberg Wander
 
-Marketing website + online booking for *The Rooiberg Wander* — an exclusive 3-night / 3-day
-guided slackpacking trail in the Waterberg. Built per [CLAUDE.md](./CLAUDE.md) (the single
-source of truth). Astro 6 · Tailwind v4 · Supabase · Paystack · Resend.
+Marketing website + online booking for *The Rooiberg Wander* — an all-inclusive 3-night / 3-day
+guided walking safari in the Waterberg, connecting three private safari lodges. Built per
+[CLAUDE.md](./CLAUDE.md) (the single source of truth; **Part 17** is the current commercial
+model). Astro 6 · Tailwind v4 · Supabase · Paystack · Resend.
 
 ## Stack
 
@@ -26,14 +27,18 @@ The site builds and runs **without** any secrets (the Rates page shows a "bookin
 state). To switch booking on:
 
 1. **Copy env:** `cp .env.example .env` and fill it in (see `.env.example` for every var).
-   Set the same vars in your Vercel project. Decided defaults: full payment up front
-   (`BOOKING_DEPOSIT_PERCENT=100`), cards only, Resend email, Supabase region **eu-west-2**.
+   Set the same vars in your Vercel project. Decided defaults: a 50% deposit for bookings 45+
+   days out with the balance collected by an emailed link (`BOOKING_DEPOSIT_PERCENT` is no longer
+   read by the pricing engine), cards only, Resend email, Supabase region **eu-west-2**.
 2. **Supabase:** create the project (region eu-west-2) and run **every** file in
    `supabase/migrations/` in filename order (SQL editor or Supabase CLI). They create `bookings`,
    `inquiries`, `blocked_dates`, `pretrip_details`, `payment_events`, `admin_audit` and
    `rate_limits`, RLS (default-deny) on all of them, the anon-readable `departure_inventory` view,
    and the `bookings_slot_guard` / `bookings_window_guard` triggers that enforce the departure
-   rules. Double-booking is prevented by the partial unique index `bookings_unique_start_date`.
+   rules. Capacity and double-booking are enforced entirely by `bookings_slot_guard`, which
+   serialises concurrent seat-grabs on a date under an advisory lock (migration `0016` drops the
+   older `bookings_unique_start_date` index, which no longer rejected anything the guard does
+   not). `0016` is the current head and has **not** been applied yet.
 3. **Paystack:** add **test** keys first; set the webhook URL to
    `https://<your-domain>/api/payments/webhook`. Test the flow end-to-end (initialize → hosted
    checkout → webhook verified + Verify Transaction → confirmed → email) before going live.

@@ -57,10 +57,19 @@ Create a test admin: Supabase → Authentication → Users → Add user (auto-co
 - [ ] Step 1: pick 6 walkers → Continue → step 1 collapses to a summary with an **Edit** link
 - [ ] **Edit** reopens step 1 in place; later steps re-lock; no state lost
 - [ ] "Travelling solo?" panel expands (`aria-expanded` flips)
-- [ ] Step 2: choose Self-catered → Continue → summary shows the choice
-- [ ] Step 3: calendar **opens on January 2027** and cannot page earlier — this is correct, not a
-      bug (`earliest = 2027-01-15`)
-- [ ] Month heading `<select>` jumps months; self-catered ceiling ~2027-09, catered ~2028-07
+- [ ] **There is no catering step.** `/rates` sells the all-inclusive product only; catering is a
+      prop, not a question
+- [ ] Step 2 ("Where you live"): each card previews its own rate, and the SADC card is 30% lower
+- [ ] Choosing **SADC resident** reveals the declaration checkbox; Continue is refused until it is
+      ticked, with the reason stated
+- [ ] Choosing **International** hides the declaration and clears it
+- [ ] Step 3: calendar **opens on April 2027** and cannot page earlier — this is correct, not a
+      bug (`earliest = 2027-04-01`)
+- [ ] **Tuesdays, Wednesdays and Saturdays are unavailable** through 2028; their `aria-label`
+      says "not a start day: departures run Sunday, Monday, Thursday and Friday until
+      31 December 2028". A Tuesday in 2029 is bookable
+- [ ] Month heading `<select>` jumps months; the SADC ceiling is ~12 months out, international
+      catered ~24 months. Switching residency re-homes the calendar and says so
 - [ ] Tapping a date opens the preview **inline beneath the grid**; Esc closes it and leaves
       focus on the cell
 - [ ] Select a valid date → Continue → step 3 summary shows the date
@@ -69,8 +78,15 @@ Create a test admin: Supabase → Authentication → Users → Add user (auto-co
       lodge, then a **Depart** row
 - [ ] Lodge names match `/the-trail` exactly (they are derived from `itinerary.ts`, so a
       mismatch means the derivation broke)
-- [ ] Price breakdown shows named lines, not one unexplained figure
+- [ ] Price breakdown shows named lines, not one unexplained figure: the all-inclusive rate, the
+      SADC reduction where it applies, any last-minute reduction, the resolved per-person rate,
+      then the multiplication
+- [ ] The figures match the published table: **R15,900** pp in 2027 high season (international),
+      **R12,720** low season, **R11,130** for a SADC resident in high season
+- [ ] A 2028 start date shows **R17,172 / R13,737** — R13,737, not R13,738
 - [ ] Deposit split note appears for a date 45+ days out
+- [ ] A date that already carries a booking shows **"Guaranteed Departure: N of 8 spots booked.
+      M spots available."**, word for word
 - [ ] "view the cancellation policy" opens the `<dialog>`; Esc closes; focus returns
 
 **🛑 Do not press "Continue to secure payment."** It calls `createCheckout` → Paystack and leaves
@@ -99,11 +115,14 @@ a `pending` row to clean up.
 
 Negative cases first:
 
-- [ ] Friday date → rejected: "Exclusive departures run Wednesday or Thursday only"
-- [ ] 6 guests → rejected: "exactly 8 guests"
+- [ ] 1 guest, catered → rejected: a catered booking takes at least 2
+- [ ] 4 guests, self-catered → rejected: the self-catered option runs as a full group of 8
+- [ ] 9 guests → rejected (capacity is 8)
 - [ ] 5-character reason → rejected (≥10 required)
+- [ ] A **Tuesday** date is **accepted** for a comp: comps are deliberately exempt from the taper
+      and the booking windows
 
-Then create **Booking A** (2026-08-05, 8 guests, self-catered, guest email ON):
+Then create **Booking A** (any open date, 8 guests, self-catered, SADC, guest email ON):
 
 - [ ] Created. Check the row:
       `status='confirmed'`, `processor='comp'`, reference `comp_%`, **all money columns 0**,
@@ -324,6 +343,26 @@ unreachable from there. No tunnel needed: Vercel already gives you a public HTTP
 - [ ] If `BOOKINGS_NOTIFY_TO` was left pointed at the operator's real address in Vercel, the
       operator-notification email in 9.1 went to her, not you — worth knowing before she sees
       an unexplained "New booking" alert
+
+---
+
+## 9b. Commercial model v4 specifics
+
+- [ ] `/rates` shows the **year × season** matrix with "A 30% discount is offered to SADC
+      residents" beneath it, and no per-night figure anywhere on the page
+- [ ] "Two ways to book" is gone; "How a departure works" replaces it
+- [ ] The homepage has **no "Why walk the Rooiberg Wander"** section
+- [ ] The homepage beta bar reads "Online booking opens for start dates from 1 April 2027:
+      minimum booking size of 2 persons, maximum 8 guests per day."
+- [ ] `/sadc-slackpacking` loads, carries `noindex`, mounts the widget with the group size fixed
+      at 8 and no residency choice, and quotes R4,950 / R3,960 for 2027
+- [ ] `/sadc-slackpacking` is **absent** from `dist/client/sitemap-0.xml`, from the nav, from the
+      footer and from `llms.txt`, and is **not** named in `robots.txt`
+- [ ] Nothing anywhere on the public site links to it
+- [ ] A booking confirmation email shows the product and, for a SADC booking, the "bring your ID
+      to registration" line; the receipt footer says prices include VAT at 15%
+- [ ] Book the **same date twice**: the second booking joins it (2+), and a third with the other
+      catering is refused with the lock explained
 
 ---
 

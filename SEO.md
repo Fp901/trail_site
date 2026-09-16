@@ -1,4 +1,6 @@
 # ⚠ STATUS — SUPERSEDED (read this first)
+> **⚠ SUPERSEDED — and its own pricing statements are stale.** This file predates commercial model v4 (15 September 2026). Every product, price, group-size and lodge-name statement in it is wrong: the site now sells one all-inclusive catered safari, priced per person per trip, with a 30% SADC resident rate, at three lodges named Temminck's Lodge, Oukraal and Blackwood. **See CLAUDE.md Part 17.** Kept only for the design/SEO reasoning that is still useful.
+
 
 This standalone file has been **consolidated into `CLAUDE.md` Part 10**, the single source of truth. Preserved for reference/history; **nothing removed**; **where it conflicts with `CLAUDE.md`, `CLAUDE.md` wins.** Most of this file is still valid (marketing pages remain static and crawl-optimal). Two additions post-date it:
 > 1. **Dynamic routes exist now.** The booking/`/api/` routes (`/booking/confirm`, `/booking/cancel`, `/api/payments/webhook`) must be **`noindex` and excluded from the sitemap**; only the five marketing pages are indexable (`CLAUDE.md` §10.1).
