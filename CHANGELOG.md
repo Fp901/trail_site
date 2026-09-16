@@ -82,8 +82,10 @@ Applied on top of the v4 implementation, after the operator previewed the branch
 4. **`/sadc-slackpacking`**: "charged a 100% premium" becomes **"charged at international
    rates"** — a departure from the memo's verbatim wording, at the operator's request.
 5. **`/accommodation`**: "bedding included" removed from the amenity chips on all three lodges.
-6. **`/logistics`**: the food and provisions block removed entirely. The page now runs lodges →
-   safety → grading. The food-related FAQs below it were left in place pending review.
+6. **`/logistics`**: the **"Food & provisions"** section removed, the one telling guests to
+   pre-order groceries from Checkers Bela Bela. It was a self-catering leftover that contradicts
+   an all-inclusive product. "Transfers & transport" beneath it is untouched. (First pass removed
+   the wrong block — the all-inclusive Dining block — which has been restored.)
 
 `verify-surfaces.mjs`'s start-day guard was relaxed from "the rates page must read
 START_DAYS_DISPLAY" to "a page may stay silent on start days, but must not type weekday names by

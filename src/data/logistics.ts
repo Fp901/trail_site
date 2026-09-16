@@ -11,6 +11,16 @@ export interface LogBlock {
 
 export const logisticsBlocks: LogBlock[] = [
   {
+    id: 'catering',
+    kicker: 'Dining',
+    title: 'All-inclusive, hearty bush hospitality',
+    body: [
+      'Every meal is included. Breakfast at the lodge before you set off, a bush brunch laid out on the trail after three to four hours of walking, refreshments on arrival at the next lodge, and dinner served family-style around the boma fire, accompanied by selected South African estate wines and local beers.',
+      'The menu is a fixed, wholesome bushveld one, deliberately built without high-risk allergens such as nuts and shellfish. It carries enough variety for straightforward vegetarian preferences, but as a remote walking safari rather than a bespoke lodge we cannot cater for extensive or highly specific diets.',
+      'Because you walk 15 to 20 km the next morning in Big 5 terrain, heavy spirits are excluded apart from gin for sundowners, and wine and beer are served as a curated daily selection. You are welcome to bring a particular bottle of your own; it travels with your luggage.',
+    ],
+  },
+  {
     id: 'lodges',
     kicker: 'The lodges',
     title: 'Every lodge, one standard',
@@ -102,16 +112,7 @@ export const faqs: Faq[] = [
   },
 ];
 
-// Practical "before you arrive" info — provisions and transfers, each with a disclaimer.
-export const provisions = {
-  kicker: 'Food & provisions',
-  title: 'Stocking up before you arrive',
-  intro:
-    'Groceries and supplies can be pre-ordered before arrival. The closest fully-stocked supermarket and liquor store is Checkers Bela Bela, at the Bela Mall off the N1, about 80 km from us.',
-  disclaimer:
-    'Grocery orders and deliveries are strictly between you and Checkers; we cannot manage them on your behalf.',
-};
-
+// Practical "before you arrive" info — transfers, with a disclaimer.
 export const transfers = {
   kicker: 'Transfers & transport',
   title: 'Getting here',
