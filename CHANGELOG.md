@@ -62,6 +62,25 @@ was written: R15,900 / R12,720 (2027) and R17,172 / R13,737 (2028) all reproduce
     guest document stays a **receipt**. `lib/email.ts` carries a comment naming exactly what to
     add when the number arrives.
 
+### The rates page never names the self-catered product, 17 September 2026
+
+The copy was already clean, but the **calendar legend on `/rates` read "Running, other catering"**,
+and a date opened as self-catered announced itself as "already running as self-catered" in its
+`aria-label`. On a page that sells one product to the international market, that advertised the
+existence of a second one.
+
+- The `cateringLocked` cell state survives internally (the reason is genuinely different from
+  "full", and `data-state` is useful when debugging) but it is now **drawn and described exactly
+  like any other unavailable date**: one neutral reason, "already taken by another group".
+- The legend drops to **three keys**: open, guaranteed departure, unavailable. `CellVisual` loses
+  `'locked'`, so `.bcal__cell--locked` and `.bcal__key--locked` join `--exclusive` as dead CSS,
+  flagged in `docs/css-tailwind.md`.
+- `verify-calendar-states.mjs` now fails the build if a cell or legend string ever names the other
+  product again, or if the legend and the appearances stop matching one-to-one.
+
+Verified against the built output: `/rates`, `/`, `/logistics` and `/how-pricing-works` contain
+zero occurrences of "self-catered", "uncatered" or "other catering".
+
 ### Closing the client-side rate-band leak, 17 September 2026
 
 The previous round removed the resident rate from every rendered page, but the widget still

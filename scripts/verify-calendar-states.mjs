@@ -25,17 +25,23 @@ const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 66 - t.l
 const widget = readFileSync(new URL('../src/components/BookingWidget.astro', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../src/styles/global.css', import.meta.url), 'utf8');
 
-const VISUALS = ['open', 'started', 'locked', 'unavailable'];
+const VISUALS = ['open', 'started', 'unavailable'];
 const STATES = ['open', 'joinable', 'cateringLocked', 'full', 'needsOpen', 'closed'];
 
 section('1. The state model');
 assert('six logical states are declared', STATES.every((s) => widget.includes(`'${s}'`)));
-assert('four appearances are declared',
-  /type CellVisual = 'open' \| 'started' \| 'locked' \| 'unavailable'/.test(widget));
+assert('three appearances are declared',
+  /type CellVisual = 'open' \| 'started' \| 'unavailable'/.test(widget));
 assert('visualFor() maps state onto appearance in one place',
   /function visualFor\(c: Classification\): CellVisual/.test(widget));
 assert('the retired buyout/exclusive cell state is gone',
   !/buyoutOnly/.test(widget) && !/bcal__cell--exclusive/.test(widget));
+// Each mount sells exactly one product, so a date held by the other one must look and read like
+// any other unavailable date. Naming it would advertise a product the page does not sell.
+assert('a date held by the other product is drawn as unavailable, not as its own appearance',
+  !/bcal__cell--locked/.test(widget) && !/bcal__key--locked/.test(widget));
+assert('no cell or legend text names the other product',
+  !/other catering/i.test(widget) && !/already running as/i.test(widget));
 assert('the retired filter state is gone',
   !/exclusiveOnly/.test(widget) && !/lastMinuteOnly/.test(widget) && !/highSeasonOnly/.test(widget));
 
@@ -76,6 +82,8 @@ for (const v of VISUALS) {
   const key = v === 'unavailable' ? 'out' : v;
   assert(`legend has a key for ${v} (.bcal__key--${key})`, widget.includes(`bcal__key--${key}`));
 }
+assert('the legend has exactly one key per appearance',
+  (widget.match(/bcal__key bcal__key--/g) || []).length === VISUALS.length);
 assert('legend is aria-hidden (each cell already states its own status)',
   /<div class="bcal__legend" aria-hidden="true">/.test(widget));
 assert('the guaranteed-departure wording matches the memo exactly',

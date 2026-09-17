@@ -297,7 +297,6 @@ const clientRates = {
           <div class="bcal__legend" aria-hidden="true">
             <span class="bcal__key bcal__key--open">Open, start it</span>
             <span class="bcal__key bcal__key--started">Guaranteed departure, join it</span>
-            <span class="bcal__key bcal__key--locked">Running, other catering</span>
             <span class="bcal__key bcal__key--out">Unavailable</span>
           </div>
         </div>
@@ -783,7 +782,10 @@ const clientRates = {
     // ---- Cell classification -----------------------------------------------------------------
     // open:           nobody has started this date and this party can open it.
     // joinable:       already running, matching catering, enough places for this party.
-    // cateringLocked: already running as the OTHER product. Stated, never silently greyed.
+    // cateringLocked: held by a departure this guest cannot join. Kept as its own STATE because
+    //   the reason differs from "full" and data-state is useful when debugging, but it is drawn
+    //   and described exactly like any other unavailable date: each mount sells one product, and
+    //   naming the other one would advertise a product this page does not sell.
     // full:           running and matching, but not enough places for this party.
     // needsOpen:      nobody has started it and this party is below the opening minimum.
     // closed:         blocked, not a start day, too soon, or beyond the window. Always says which.
@@ -816,13 +818,13 @@ const clientRates = {
       return n <= d.seatsLeft ? { ...base, state: 'joinable' } : { ...base, state: 'full' };
     }
 
-    // Five logical states, four appearances: `open` and `joinable` are both actionable but read
-    // differently (nobody there yet, versus a departure that is already guaranteed to run).
-    type CellVisual = 'open' | 'started' | 'locked' | 'unavailable';
+    // Six logical states, three appearances: `open` and `joinable` are both actionable but read
+    // differently (nobody there yet, versus a departure already guaranteed to run); everything a
+    // guest cannot book looks the same, whatever the reason, with the reason in the aria-label.
+    type CellVisual = 'open' | 'started' | 'unavailable';
     function visualFor(c: Classification): CellVisual {
       if (c.state === 'open') return 'open';
       if (c.state === 'joinable') return 'started';
-      if (c.state === 'cateringLocked') return 'locked';
       return 'unavailable';
     }
 
@@ -844,9 +846,7 @@ const clientRates = {
           : `already running, joining takes at least ${R.joinMin} walkers`;
       }
       if (c.state === 'full') return `only ${c.seatsLeft} place(s) left, your group needs ${groupSize()}`;
-      if (c.state === 'cateringLocked') {
-        return `already running as ${c.lockedCatering === 'catered' ? 'catered' : 'self-catered'}`;
-      }
+      if (c.state === 'cateringLocked') return 'already taken by another group';
       if (c.reason === 'blocked') return 'not running that week';
       if (c.reason === 'taperDay') return `not a start day: departures run ${R.startDays} until ${R.taperEndDisplay}`;
       if (c.reason === 'tooSoon') return 'too close to departure to book online';
