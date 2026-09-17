@@ -33,6 +33,7 @@ function assert(label, cond, detail) {
 const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 66 - t.length))}`);
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
+const actions = read('src/actions/index.ts');
 const home = read('src/pages/index.astro');
 const rates = read('src/pages/rates.astro');
 const explainer = read('src/pages/how-pricing-works.astro');
@@ -73,8 +74,9 @@ assert('how-pricing-works reads FROM_PP_TRIP_DISPLAY', /FROM_PP_TRIP_DISPLAY/.te
 assert('how-pricing-works computes its worked example from lib/pricing', /ppTripCentsFor\(/.test(explainer));
 assert('the rate table renders rateRows, not hand-written cells', /rateRows\.map/.test(table));
 assert('the SADC page derives its rate line', /rateFor\(\{/.test(sadc) && /sadcSelfCateredRates/.test(sadc));
-assert('the widget mirrors the price chain from its serialised constants, not literals',
-  /R\.base \* \(R\.yearMultipliers/.test(widget) && !new RegExp(`\\b${BASE_PP_TRIP.catered}\\b`).test(widget));
+assert('the widget mirrors the price chain from the fetched base, never a literal',
+  /rate\.baseRand \* \(R\.yearMultipliers/.test(widget) &&
+  !new RegExp(`\\b${BASE_PP_TRIP.catered}\\b`).test(widget));
 
 section('3. Discounts, minimums and dates are read, not retyped');
 const pct = (d) => `${Math.round(d * 100)}%`;
@@ -125,15 +127,32 @@ const shipped = (src) =>
 for (const [name, src] of [['index.astro', home], ['rates.astro', rates], ['how-pricing-works.astro', explainer], ['RatesTable.astro', table]]) {
   assert(`${name} ships no mention of the resident rate band`, !/sadc/i.test(shipped(src)));
 }
-// The widget is checked on its MARKUP and its user-visible strings, not its script: the bundled
-// JS necessarily carries the band name as an internal value, because the on-page estimate is
-// computed client-side. That residual is documented in the widget's own header comment; removing
-// it entirely would mean fetching the quote from the server instead.
-const widgetMarkup = shipped(widget).split('<script>')[0].split('---').slice(2).join('---');
-assert('the widget shows no mention of the resident rate band in its markup',
-  !/sadc/i.test(widgetMarkup));
+// The widget ships NOTHING about any rate band: not in the markup, not in the client script, and
+// not in the data-rates blob. Its frontmatter still imports the country list (to render the
+// <option>s and, on the hidden mount, to restrict them), but frontmatter runs on the server and is
+// never sent. So the check is: everything from the closing frontmatter fence onwards is clean.
+const widgetShipped = shipped(widget).split('---').slice(2).join('---');
+assert('the widget ships no mention of the resident rate band, markup or script',
+  !/sadc/i.test(widgetShipped));
 assert('no user-facing widget string names the band',
   ![...shipped(widget).matchAll(/setStatus\('([^']*)'/g)].some(([, msg]) => /sadc/i.test(msg)));
+
+// The decisive one: the page must ship no rate DATA either, or the policy is readable in source
+// whatever the identifiers are called. The base rate now arrives from getRateContext, per band,
+// only after a guest names a country.
+const blob = shipped(widget).slice(0, shipped(widget).indexOf('---', 3));
+for (const banned of ['BASE_PP_TRIP', 'SADC_DISCOUNT', 'residentFactor', 'residentCountries']) {
+  assert(`the data-rates blob does not ship ${banned}`, !widget.includes(`${banned},`) || !blob.includes(banned));
+}
+assert('the widget fetches its rate context from the server',
+  /actions\.getRateContext\(\{ country, catering: CATERING \}\)/.test(widget));
+assert('the estimate refuses to render without a fetched context',
+  /if \(!rate\) return 0;/.test(widget));
+const checkoutInput = actions.slice(actions.indexOf('createCheckout: defineAction'), actions.indexOf('handler: async (input, ctx)'));
+assert('createCheckout takes a country, never a rate band, from the browser',
+  /country: z\.string\(\)/.test(checkoutInput) && !/residency: z\./.test(checkoutInput));
+assert('both server paths derive the band from the country',
+  (actions.match(/residencyForCountry\(input\.country\)/g) || []).length >= 2);
 assert('the declaration field is named neutrally, since page source is readable by a visitor',
   /name="residencyDeclaration"/.test(widget) && /residencyDeclaration: z\.boolean/.test(readFileSync(new URL('../src/actions/index.ts', import.meta.url), 'utf8')));
 assert('FROM_PP_TRIP is the low-season flagship rate, derived',

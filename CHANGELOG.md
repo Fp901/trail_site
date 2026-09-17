@@ -62,6 +62,39 @@ was written: R15,900 / R12,720 (2027) and R17,172 / R13,737 (2028) all reproduce
     guest document stays a **receipt**. `lib/email.ts` carries a comment naming exactly what to
     add when the number arrives.
 
+### Closing the client-side rate-band leak, 17 September 2026
+
+The previous round removed the resident rate from every rendered page, but the widget still
+shipped `residentFactor: 0.7` and the 16 country codes it applied to in its `data-rates`
+attribute, because the on-page estimate is computed in the browser. That was not an inference a
+determined reader could make: it was the policy, in plain JSON, in view-source, on the page
+written for the international market.
+
+**The page now ships no rate data at all.**
+
+1. **New `getRateContext` action.** Takes `{ country, catering }`, derives the band server-side
+   through the same `residencyForCountry()` mapping `createCheckout` uses, and returns the base
+   per-person rate **for that band only**, whether to ask for the ID confirmation (as a boolean,
+   never a band name), and how far ahead that guest may book. Rate-limited 40/min per IP.
+2. **The widget fetches it on country change** and computes its estimate from that one figure.
+   `BASE_PP_TRIP`, the resident factor, the country set and the two window lengths are all gone
+   from the serialised blob; the band name is gone from the bundled JS entirely. Verified against
+   the built output: zero occurrences of the band in the HTML or in any JS chunk, and no money
+   figure left in `data-rates`.
+3. **The calendar ships the shorter of the two ceilings** and the server extends it once the
+   guest's own window is known, so we never advertise a date the guest then cannot book.
+4. **Failure is never guessed.** If the fetch fails the widget says so on the field, leaves step 2
+   incomplete and lets the guest retry; it does not fall back to a rate.
+5. **Side benefit:** the estimate and the charge now resolve from the same constants through the
+   same code path, so the two cannot drift.
+6. `verify-surfaces.mjs` now fails the build if the blob carries a rate figure, if the widget stops
+   fetching its context, or if `createCheckout` ever accepts a band from the browser again.
+
+Chosen over full server-side quoting: six places price a date (calendar labels, preview, the
+soonest-available list, the review card), so quoting each would need a batched month endpoint and
+a round-trip per interaction, and would cost the per-date prices in the calendar. Fetching one
+base rate per country keeps the whole UI and closes the disclosure.
+
 ### Copy review round 2 and the country dropdown, 16 September 2026
 
 **Tone pass (A1 to B5 of the review), applied as approved:** the Day 2 and Day 3 itinerary copy

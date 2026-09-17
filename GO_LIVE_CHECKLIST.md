@@ -238,6 +238,9 @@ entry "Commercial model v4". This section is only the go-live steps.
       curated daily wine and beer, spirits excluded apart from sundowner gin). Confirm wording.
 - [ ] **The lodge amenity chips** no longer list the kitchen, fridge, ice or firewood, because the
       flagship guest does not cook. Confirm, or restore them.
+- [x] **The booking page ships no rate data.** The base rate for a guest's band arrives from the
+      `getRateContext` action after they name their country; the resident factor and the country
+      list are no longer in the page source. Verified against the built output.
 - [ ] **Non-disclosure of the resident rate.** The public site never mentions it: the form asks
       country of residence and applies the band silently. Confirm that is what you want, and that
       the resident rate is marketed only through the direct channel.

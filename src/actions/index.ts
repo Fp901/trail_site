@@ -5,6 +5,7 @@ import { z } from 'astro:schema';
 import crypto from 'node:crypto';
 import {
   computeQuote,
+  basePpTripRand,
   BALANCE_LEAD_DAYS,
   earliestBookableDate,
   latestBookableDate,
@@ -16,6 +17,7 @@ import { isCountryCode, countryName, residencyForCountry } from '../data/countri
 import {
   MAX_GROUP_SIZE,
   MIN_PARTY_SIZE,
+  RATE_BASE_YEAR,
   MIN_TO_JOIN,
   minPartySize,
   productLabel,
@@ -448,6 +450,63 @@ export const server = {
       });
 
       return { authorizationUrl: init.authorizationUrl, reference: newReference };
+    },
+  }),
+
+  // Resolve the pricing context for ONE country, server-side.
+  //
+  // WHY THIS EXISTS. The booking page used to ship the resident-rate factor and the list of
+  // countries it applies to in a `data-rates` attribute, because the on-page estimate is computed
+  // in the browser. That put the whole rate policy in view-source on a page written for the
+  // international market, which is exactly what the operator asked not to disclose (16 Sep 2026).
+  //
+  // So the page now ships NO rate data at all. Once a guest names their country, this returns the
+  // base rate for THAT GUEST'S BAND ONLY, and the widget computes its estimate from that. A guest
+  // never receives the other band's numbers, and a competitor reading the page source finds
+  // nothing to read. The seasonal, rate-year and last-minute rules stay client-side: they are
+  // public, they apply to everyone, and they are already stated in the copy.
+  //
+  // It is also the only figure that can drift: the estimate a guest reads is now derived from the
+  // same constants createCheckout charges from, resolved by the same code path.
+  getRateContext: defineAction({
+    accept: 'json',
+    input: z.object({
+      country: z.string().trim().length(2).toUpperCase(),
+      catering: z.enum(['catered', 'uncatered']),
+    }),
+    handler: async (input, ctx) => {
+      // Cheap and read-only, but it is public and unauthenticated, so it is still capped.
+      const ip = clientIp(ctx.request);
+      if (!(await rateLimit(`ratectx:${ip}`, 40, 60))) {
+        throw new ActionError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Too many requests. Please wait a moment and try again.',
+        });
+      }
+
+      if (!isCountryCode(input.country)) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Please choose a country from the list.' });
+      }
+      const residency = residencyForCountry(input.country);
+
+      if (input.catering === 'uncatered' && residency !== 'sadc') {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: 'This option is open to residents of the SADC region only.',
+        });
+      }
+
+      return {
+        // The per-person, whole-trip base rate for this band, before the seasonal, rate-year and
+        // last-minute rules the widget applies itself.
+        baseRand: basePpTripRand(input.catering, residency, `${RATE_BASE_YEAR}-07-01`),
+        // Whether this country's rate carries the show-your-ID condition. Sent as a boolean rather
+        // than a band name, so the browser is told what to ASK, never what band it is in.
+        requiresDeclaration: residency === 'sadc',
+        // How far ahead this guest may book. Also band-dependent, also resolved here.
+        latestDate: latestBookableDate(input.catering, residency),
+        windowMonths: windowMonthsFor(input.catering, residency),
+      };
     },
   }),
 

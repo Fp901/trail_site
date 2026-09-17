@@ -57,8 +57,8 @@ assert('no price string is written onto a cell face',
 assert('every actionable cell gets an aria-label', /cell\.setAttribute\('aria-label'/.test(widget));
 assert('an actionable label names the places left or that the date is open',
   /guaranteed departure, \$\{c\.seatsTaken\} of \$\{R\.maxGroup\} places booked/.test(widget));
-assert('an actionable label names the price when a rate is known',
-  /const priceWord = residency \? `, \$\{fmtR\(ppTripCents\(iso, residency\)\)\} per person`/.test(widget));
+assert('an actionable label names the price once a rate context has been fetched',
+  /const priceWord = priced\(\) \? `, \$\{fmtR\(ppTripCents\(iso\)\)\} per person`/.test(widget));
 assert('aria-pressed marks the selected date', /cell\.setAttribute\('aria-pressed'/.test(widget));
 
 section('4. An unavailable cell states its reason and stays reachable');

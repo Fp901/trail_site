@@ -9,13 +9,18 @@
 // open a date.
 //
 // COUNTRY OF RESIDENCE SETS THE RATE, SILENTLY. The site is written for the international market,
-// and the SADC resident rate is marketed separately, so the form NEVER shows that two bands exist:
-// no resident-rate card, no discount percentage, no "SADC" label a visitor can read. It asks one
-// plain question, which country the group lives in, and the price simply is what it is.
-// The band is derived from the country — client-side for the estimate, and independently
-// SERVER-SIDE from the submitted country code, which is what actually prices the booking.
-// A guest who picks a SADC country is additionally asked to confirm they can show ID at
-// registration, because that is the condition attached to the rate they are being given.
+// and the resident rate is marketed separately, so the form never shows that two bands exist: no
+// resident-rate card, no discount percentage, no band name a visitor can read. It asks one plain
+// question, which country the group lives in, and the price simply is what it is.
+//
+// NO RATE DATA SHIPS WITH THIS PAGE. Not the base rate, not the resident factor, not the list of
+// countries it applies to. Once a guest names a country, `getRateContext` returns the base rate
+// for THAT BAND ONLY, plus whether to ask for the ID confirmation and how far ahead they may
+// book; the estimate is computed from that. A reader of the page source finds nothing, and a
+// guest never receives the other band's numbers.
+//
+// What stays client-side is the season, rate-year and last-minute arithmetic: public rules that
+// apply to everyone and are already stated in the copy.
 //
 // AVAILABILITY. One read of the derived `departure_inventory` view (migration 0016), which is
 // SPARSE — an absent date has no state and is wide open. The contract is applied in exactly one
@@ -31,13 +36,10 @@ import {
   MAX_GROUP_SIZE,
   MIN_TO_JOIN,
   minPartySize,
-  BASE_PP_TRIP,
   SEASON_DISCOUNT,
-  SADC_DISCOUNT,
   RATE_YEAR_MULTIPLIER,
   RATE_BASE_YEAR,
   RATE_LAST_YEAR,
-  INTL_CATERED_WINDOW_MONTHS,
   SADC_WINDOW_MONTHS,
   LAST_MINUTE_MIN_DAYS,
   LAST_MINUTE_MAX_DAYS,
@@ -93,12 +95,10 @@ const clientRates = {
   maxGroup: MAX_GROUP_SIZE,
   partyMin,
   joinMin: MIN_TO_JOIN,
-  base: BASE_PP_TRIP[catering],
   yearMultipliers: RATE_YEAR_MULTIPLIER,
   baseYear: RATE_BASE_YEAR,
   lastYear: RATE_LAST_YEAR,
   seasonDiscount: SEASON_DISCOUNT,
-  residentFactor: 1 - SADC_DISCOUNT,
   lastMinuteMinDays: LAST_MINUTE_MIN_DAYS,
   lastMinuteMaxDays: LAST_MINUTE_MAX_DAYS,
   lastMinuteDiscount: LAST_MINUTE_DISCOUNT,
@@ -109,21 +109,13 @@ const clientRates = {
   splitDays: SPLIT_THRESHOLD_DAYS,
   balanceLeadDays: BALANCE_LEAD_DAYS,
   earliest,
-  // Ceilings per residency. Self-catered is SADC-only, so both of its values are the SADC window.
-  residentLatest: latestBookableDate(catering, 'sadc'),
-  visitorLatest: latestBookableDate(catering, 'international'),
-  residentMonths: SADC_WINDOW_MONTHS,
-  visitorMonths: isCatered ? INTL_CATERED_WINDOW_MONTHS : SADC_WINDOW_MONTHS,
+  // The calendar has to draw something before a country is known, so it ships the SHORTER of the
+  // two ceilings; the server extends it once the guest's own window is known. Erring short means
+  // we never advertise a date the guest then cannot book.
+  defaultLatest: latestBookableDate(catering, 'sadc'),
+  defaultMonths: SADC_WINDOW_MONTHS,
   nightLodges,
   departureLodge,
-  // The resident-rate factor and the countries it applies to. These are here ONLY to price the
-  // on-page estimate and to decide whether to ask for the declaration; the server derives the
-  // band again from the submitted country code and is the authority.
-  //
-  // HONEST LIMIT: the identifiers are neutral so nothing in the page reads as "SADC discount",
-  // but a reader of page source can still infer that two bands exist. Truly withholding it needs
-  // the estimate to come from a server quote instead of being computed here. Flagged, not faked.
-  residentCountries: [...SADC_COUNTRIES],
 };
 ---
 
@@ -496,7 +488,6 @@ const clientRates = {
   const SUPABASE_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
   type Catering = 'catered' | 'uncatered';
-  type Residency = 'sadc' | 'international';
 
   // Date helpers — UTC, ISO YYYY-MM-DD (mirror the server's lead-time/window/season rules).
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -595,7 +586,6 @@ const clientRates = {
     const residencyNote = form.querySelector<HTMLElement>('[data-residency-note]');
     const residencyDeclare = form.querySelector<HTMLInputElement>('[data-residency-declare]');
     const residencyError = form.querySelector<HTMLElement>('[data-residency-error]');
-    const SADC = new Set<string>(Array.isArray(R.residentCountries) ? R.residentCountries : []);
 
     const joinList = form.querySelector<HTMLElement>('[data-join-list]');
     const joinEmpty = form.querySelector<HTMLElement>('[data-join-empty]');
@@ -645,14 +635,22 @@ const clientRates = {
     const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
 
     // ---- State -------------------------------------------------------------------------------
-    // Country is what the guest picks; the rate band is DERIVED from it and is never presented as
-    // a choice. Both start empty on every mount, including the self-catered one: that product is
-    // SADC-only, but we still need to know which country for check-in.
+    // Country is what the guest picks. Everything that depends on their rate band comes back from
+    // the server in ONE object, and the page holds nothing about any other band.
+    interface RateContext {
+      baseRand: number;       // per person, whole trip, before season/year/last-minute
+      requiresDeclaration: boolean;
+      latestDate: string;     // how far ahead THIS guest may book
+      windowMonths: number;
+    }
     let country = '';
-    let residency: Residency | null = null;
+    let rate: RateContext | null = null;
+    let rateInFlight = false;
     let selectedStartIso = '';
 
-    const residencyFor = (code: string): Residency => (SADC.has(code) ? 'sadc' : 'international');
+    // `priced` stands in for the old `residency` flag: it answers "can we put a number on screen
+    // yet", which is the only question the rest of the widget ever asked of it.
+    const priced = () => rate !== null;
 
     let inventory = new Map<string, Departure>();
     let availabilityInFlight: Promise<void> | null = null;
@@ -692,11 +690,14 @@ const clientRates = {
       return gap >= R.lastMinuteMinDays && gap <= R.lastMinuteMaxDays;
     }
 
-    // Per person, whole trip, in cents, for the band the guest's country resolved to.
-    function ppTripCents(iso: string, res: Residency, withLastMinute = true): number {
-      let rand = R.base * (R.yearMultipliers[String(rateYearFor(iso))] ?? 1);
+    // Per person, whole trip, in cents. The BASE comes from the server for this guest's band; the
+    // season, rate-year and last-minute rules are applied here, exactly as lib/pricing.ts does, in
+    // the same order and with the same floor. Returns 0 while no context has been fetched, and
+    // every caller is guarded on priced() so that value is never rendered.
+    function ppTripCents(iso: string, withLastMinute = true): number {
+      if (!rate) return 0;
+      let rand = rate.baseRand * (R.yearMultipliers[String(rateYearFor(iso))] ?? 1);
       if (!isHighSeasonIso(iso)) rand *= 1 - R.seasonDiscount;
-      if (res === 'sadc' && CATERING === 'catered') rand *= 1 - R.residentFactor;
       if (withLastMinute && withinLastMinuteWindow(iso)) rand *= 1 - R.lastMinuteDiscount;
       return Math.floor(rand) * 100;
     }
@@ -752,12 +753,14 @@ const clientRates = {
       return Number(fixed?.value || R.partyMin);
     }
 
-    function latestFor(res: Residency | null): string {
-      return res === 'international' ? R.visitorLatest : R.residentLatest;
+    // Until a country is known we use the conservative shipped ceiling; after that, the one the
+    // server resolved for this guest.
+    function latestFor(): string {
+      return rate?.latestDate ?? R.defaultLatest;
     }
 
-    function monthsFor(res: Residency | null): number {
-      return res === 'international' ? R.visitorMonths : R.residentMonths;
+    function monthsFor(): number {
+      return rate?.windowMonths ?? R.defaultMonths;
     }
 
     // Tapered start: Tuesday, Wednesday and Saturday are not start days up to R.taperEnd.
@@ -800,7 +803,7 @@ const clientRates = {
       if (d.isBlocked) return { ...base, state: 'closed', reason: 'blocked' };
       if (isTaperBlocked(iso)) return { ...base, state: 'closed', reason: 'taperDay' };
       if (iso < R.earliest) return { ...base, state: 'closed', reason: 'tooSoon' };
-      if (iso > latestFor(residency)) return { ...base, state: 'closed', reason: 'outOfWindow' };
+      if (iso > latestFor()) return { ...base, state: 'closed', reason: 'outOfWindow' };
 
       const n = groupSize();
       if (d.seatsTaken === 0) {
@@ -866,13 +869,13 @@ const clientRates = {
 
     // The named price lines for one date, used by BOTH the preview card and the review step, so
     // the figure a guest reads before choosing and the one they pay from are one computation.
-    function priceRows(iso: string, res: Residency, n: number): HTMLElement[] {
+    function priceRows(iso: string, n: number): HTMLElement[] {
       const rows: HTMLElement[] = [];
       // The rate for THIS booking, already carrying whatever band the country resolved to. The
       // rack rate and the resident reduction are deliberately not shown as separate lines: the
       // guest is quoted one price, and the site never advertises that another band exists.
-      const beforeLastMinute = ppTripCents(iso, res, false);
-      const final = ppTripCents(iso, res, true);
+      const beforeLastMinute = ppTripCents(iso, false);
+      const final = ppTripCents(iso, true);
       rows.push(previewRow(
         `${CATERING === 'catered' ? 'All-inclusive' : 'Self-catered'} rate`,
         `${fmtR(beforeLastMinute)} per person`));
@@ -921,9 +924,9 @@ const clientRates = {
         previewBody.appendChild(places);
       }
 
-      if (actionable(c) && residency) {
-        for (const row of priceRows(iso, residency, n)) previewBody.appendChild(row);
-      } else if (actionable(c) && !residency) {
+      if (actionable(c) && priced()) {
+        for (const row of priceRows(iso, n)) previewBody.appendChild(row);
+      } else if (actionable(c) && !priced()) {
         const note = document.createElement('p');
         note.className = 'bpreview__note';
         note.textContent = 'Choose your rate in step 2 to see the price for this date.';
@@ -1007,10 +1010,10 @@ const clientRates = {
         meta.textContent = c.seatsTaken > 0 ? guaranteedLine(c) : 'Open, nobody has started it';
         body.append(date, meta);
         card.appendChild(body);
-        if (residency) {
+        if (priced()) {
           const price = document.createElement('span');
           price.className = 'bjoin-card__price';
-          price.textContent = `${fmtR(ppTripCents(iso, residency))} pp`;
+          price.textContent = `${fmtR(ppTripCents(iso))} pp`;
           card.appendChild(price);
         }
         card.addEventListener('click', () => calSelectDate(iso));
@@ -1021,7 +1024,7 @@ const clientRates = {
     // Walks forward from the earliest bookable date and returns the first few actionable ones.
     function joinRefresh() {
       const rows: JoinRow[] = [];
-      const limit = latestFor(residency);
+      const limit = latestFor();
       let iso = R.earliest > todayIso ? R.earliest : todayIso;
       let guard = 0;
       while (iso <= limit && rows.length < 3 && guard < 800) {
@@ -1039,7 +1042,7 @@ const clientRates = {
       if (lastMinuteNote) lastMinuteNote.hidden = true;
       if (breakdownEl) breakdownEl.textContent = '';
 
-      if (!selectedStartIso || !residency) {
+      if (!selectedStartIso || !priced()) {
         if (estimate) estimate.textContent = '—';
         if (paymentLabel) paymentLabel.textContent = 'Total:';
         if (balanceNote) balanceNote.hidden = true;
@@ -1048,12 +1051,12 @@ const clientRates = {
         return;
       }
 
-      const pp = ppTripCents(selectedStartIso, residency);
+      const pp = ppTripCents(selectedStartIso);
       const totalCents = pp * n;
 
       // Never one unexplained figure: the same priceRows() the date card uses.
       if (breakdownEl) {
-        for (const row of priceRows(selectedStartIso, residency, n)) breakdownEl.appendChild(row);
+        for (const row of priceRows(selectedStartIso, n)) breakdownEl.appendChild(row);
       }
       if (lastMinuteNote) lastMinuteNote.hidden = !withinLastMinuteWindow(selectedStartIso);
       if (estimate) estimate.textContent = fmtR(totalCents);
@@ -1111,8 +1114,8 @@ const clientRates = {
     }
 
     function residencyValid(): boolean {
-      if (!country || !residency) return false;
-      if (residency === 'sadc' && !residencyDeclare?.checked) return false;
+      if (!country || !rate) return false;
+      if (rate.requiresDeclaration && !residencyDeclare?.checked) return false;
       return true;
     }
 
@@ -1228,7 +1231,7 @@ const clientRates = {
             countrySelect?.focus();
             return;
           }
-          if (n === 2 && residency === 'sadc' && !residencyDeclare?.checked) {
+          if (n === 2 && rate?.requiresDeclaration && !residencyDeclare?.checked) {
             if (residencyError) residencyError.textContent = 'Please tick the confirmation to continue.';
             residencyDeclare?.focus();
             return;
@@ -1258,7 +1261,7 @@ const clientRates = {
     const calMinIdx = viewIdx(+R.earliest.slice(0, 4), +R.earliest.slice(5, 7) - 1);
     let calSelected = '';
     let calFocusIso = ''; // the grid's single roving tab stop
-    let calLatest: string = latestFor(residency);
+    let calLatest: string = latestFor();
     let calMaxIdx = viewIdx(+calLatest.slice(0, 4), +calLatest.slice(5, 7) - 1);
     // Default to the first bookable month, not the calendar month — nobody should have to page
     // past months that cannot be booked yet.
@@ -1297,7 +1300,7 @@ const clientRates = {
 
         if (actionable(c)) {
           const n = groupSize();
-          const priceWord = residency ? `, ${fmtR(ppTripCents(iso, residency))} per person` : '';
+          const priceWord = priced() ? `, ${fmtR(ppTripCents(iso))} per person` : '';
           const what =
             c.seatsTaken > 0
               ? `, guaranteed departure, ${c.seatsTaken} of ${R.maxGroup} places booked, ${c.seatsLeft} available`
@@ -1342,7 +1345,7 @@ const clientRates = {
         if (atMaxMonth) {
           calWindowLimitEl.hidden = false;
           calWindowLimitEl.textContent =
-            `This is as far ahead as bookings open: ${monthsFor(residency)} months. Later dates open as time passes.`;
+            `This is as far ahead as bookings open: ${monthsFor()} months. Later dates open as time passes.`;
         } else {
           calWindowLimitEl.hidden = true;
         }
@@ -1444,7 +1447,7 @@ const clientRates = {
     // The soonest date this party can actually act on, used for the "next available" hint.
     function calNextAvailable(): string | null {
       let iso = R.earliest > todayIso ? R.earliest : todayIso;
-      const limit = latestFor(residency);
+      const limit = latestFor();
       let guard = 0;
       while (iso <= limit && guard < 800) {
         if (actionable(classifyDate(iso))) return iso;
@@ -1467,7 +1470,7 @@ const clientRates = {
 
     // Re-filters and repaints from whatever is currently in the store (no fetch).
     function calRefresh() {
-      calLatest = latestFor(residency);
+      calLatest = latestFor();
       calMaxIdx = viewIdx(+calLatest.slice(0, 4), +calLatest.slice(5, 7) - 1);
       if (viewIdx(calView.y, calView.m) > calMaxIdx) {
         calView = { y: +calLatest.slice(0, 4), m: +calLatest.slice(5, 7) - 1 };
@@ -1491,26 +1494,59 @@ const clientRates = {
       });
     }
 
-    countrySelect?.addEventListener('change', () => {
-      country = countrySelect.value;
-      residency = country ? residencyFor(country) : null;
-      hidePathNotice();
-      markField(countrySelect.closest('.form-field'), null);
-      if (residencyError) residencyError.textContent = '';
+    // Asking the server for this guest's rate context is what keeps the other band off the page.
+    // It is one round-trip per country change, and the calendar is repainted from the answer.
+    async function loadRateContext(): Promise<void> {
+      if (!country) {
+        rate = null;
+        if (residencyBlock) residencyBlock.hidden = true;
+        if (residencyDeclare) residencyDeclare.checked = false;
+        calRefresh();
+        joinRefresh();
+        updateEstimate();
+        return;
+      }
 
-      // The declaration is the condition attached to the resident rate, so it appears only for a
-      // country that carries it. Clearing it on the way out means a guest who switches country
-      // cannot leave a stale confirmation behind.
-      const needsDeclaration = residency === 'sadc';
-      if (residencyBlock) residencyBlock.hidden = !needsDeclaration;
-      if (!needsDeclaration && residencyDeclare) residencyDeclare.checked = false;
-      if (needsDeclaration && residencyNote) {
+      rateInFlight = true;
+      markField(countrySelect?.closest('.form-field') ?? null, null);
+      const { data, error } = await actions.getRateContext({ country, catering: CATERING });
+      rateInFlight = false;
+
+      if (error || !data) {
+        // Never guess a rate. Say what happened, leave step 2 incomplete, and let them retry by
+        // choosing again.
+        rate = null;
+        markField(
+          countrySelect?.closest('.form-field') ?? null,
+          error?.message || 'We could not load rates for that country. Please try again.',
+        );
+        if (residencyBlock) residencyBlock.hidden = true;
+        calRefresh();
+        joinRefresh();
+        updateEstimate();
+        return;
+      }
+
+      rate = data as RateContext;
+
+      // The confirmation appears only for a country whose rate carries the ID condition. Clearing
+      // it on the way out means a guest who switches country cannot leave a stale tick behind.
+      if (residencyBlock) residencyBlock.hidden = !rate.requiresDeclaration;
+      if (!rate.requiresDeclaration && residencyDeclare) residencyDeclare.checked = false;
+      if (rate.requiresDeclaration && residencyNote) {
         residencyNote.textContent = `You selected ${countryLabel()}.`;
       }
 
       calRefresh();
       joinRefresh();
       updateEstimate();
+    }
+
+    countrySelect?.addEventListener('change', () => {
+      country = countrySelect.value;
+      hidePathNotice();
+      if (residencyError) residencyError.textContent = '';
+      void loadRateContext();
     });
 
     residencyDeclare?.addEventListener('change', () => {
@@ -1678,12 +1714,17 @@ const clientRates = {
         goToStep(3);
         return;
       }
-      if (!residency) {
-        setStatus('Please tell us where your group lives.');
+      if (!country || !rate) {
+        setStatus(
+          rateInFlight
+            ? 'Still checking rates for that country. Please try again in a moment.'
+            : 'Please choose the country your group lives in.',
+        );
         goToStep(2);
         return;
       }
-      if (residency === 'sadc' && !residencyDeclare?.checked) {
+      const rateCtx = rate; // narrowed for the payload below
+      if (rateCtx.requiresDeclaration && !residencyDeclare?.checked) {
         setStatus('Please tick the confirmation in step 2 to continue.');
         goToStep(2);
         return;
@@ -1705,10 +1746,10 @@ const clientRates = {
         startDate: startVal,
         groupSize: groupSize(),
         catering: CATERING,
-        // The COUNTRY goes on the wire; the server derives the rate band from it. The widget's
-        // own `residency` is for the estimate only and is deliberately not sent.
+        // The COUNTRY goes on the wire; the server derives the rate band from it again, and is
+        // the authority. The browser never sends a band or a price.
         country,
-        residencyDeclaration: residency === 'sadc',
+        residencyDeclaration: rateCtx.requiresDeclaration,
         leadName: String(fd.get('leadName') ?? ''),
         leadEmail: String(fd.get('leadEmail') ?? ''),
         leadPhone: String(fd.get('leadPhone') ?? ''),

@@ -587,7 +587,7 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 
 **THE RESIDENT RATE IS NEVER DISCLOSED ON THE PUBLIC SITE** (operator decision, 16 September 2026). The site is written for the international market, and the resident rate is marketed separately. So: no resident-rate card, no discount percentage, no "SADC" in any rendered page, meta description, JSON-LD or `llms.txt`. The booking form asks **one plain question, country of residence**, from a full ISO country list, and the band is **derived from the answer server-side** (`data/countries.ts` → `residencyForCountry()`); the browser never sends a band, so a tampered payload cannot buy the resident rate. A guest who names a SADC country is additionally asked to confirm they can show ID at registration. `scripts/verify-surfaces.mjs` fails the build if any public page or `llms.txt` names the band.
 
-*Residual, documented and accepted:* the bundled widget JS carries the band internally, because the on-page estimate is computed client-side. Removing that would mean fetching the quote from the server on every date/country change. Flagged rather than faked.
+**No rate data ships with the booking page at all** — not the base rate, not the resident factor, not the list of countries it applies to. Once a guest names a country, the **`getRateContext` action** returns the base rate for *that band only*, plus whether to ask for the ID confirmation and how far ahead they may book; the widget computes its estimate from that one figure. What stays client-side is the season, rate-year and last-minute arithmetic: public rules that apply to everyone and are already in the copy. A reader of the page source finds nothing, and a guest never receives the other band's numbers. This also removes the estimate-versus-charge drift risk: both now resolve from the same constants through the same code path.
 
 A product is `catering × residency`; there are no other columns. **International self-catered is not sold**: the hidden page states that a guest who cannot show SADC proof at check-in pays a 100% premium, which is an on-the-day operator matter, not something the engine prices.
 
@@ -654,7 +654,7 @@ Every open start day works identically. There is no day-of-week product rule any
 | Rule | Display / client | Server authority | Database |
 |---|---|---|---|
 | Rates, discounts, rate years | `data/rates.ts` | `lib/pricing.ts` | — |
-| Country list, country → rate band | `data/countries.ts` | `data/countries.ts` (server derives) | `bookings.lead_country` (0016) |
+| Country list, country → rate band | `data/countries.ts` (renders the options only) | `getRateContext` + `createCheckout`, both via `residencyForCountry()` | `bookings.lead_country` (0016) |
 | Product minimums, capacity | `data/rates.ts` | `actions/index.ts` | `bookings_slot_guard` (0016) |
 | Catering lock | widget calendar | `actions/index.ts` | `bookings_slot_guard` (0016) |
 | Taper, booking windows, T-7 | widget calendar | `lib/pricing.ts` + `actions/index.ts` | `bookings_window_guard` (0016) |
