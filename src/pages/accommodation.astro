@@ -67,7 +67,7 @@ const context: Record<string, string> = {
     <ul class="jumpnav" aria-label="Jump to a lodge">
       {
         sanctuaries.map((s) => (
-          <li class="jumpnav__item">
+          <li class="jumpnav__item" data-accent={s.accentVar.replace('--color-', '')}>
             <a href={`#${s.id}`} class="jumpnav__link">
               {s.heroImage && (
                 <Image

@@ -1111,34 +1111,13 @@
     color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
 
-  /* Day-card media — pairs the elevation chart with a real photo of that night's lodge (the
-     wireframe's "Major change": previously the chart stood alone). Mobile: chart + photo sit
-     side by side in one row. Desktop (≥1024px): the whole body splits into a text column and a
-     media column, with chart above photo in the media column, alternating sides day to day like
-     a classic itinerary timeline. Day 1 has no chart (no walking), so its media is just the
-     lodge photo at a wider crop. */
+  /* Day-card media — the elevation chart alone (route profile only, no accommodation photos:
+     those belong on /accommodation, where the lodge itself is the content). Desktop (≥1024px):
+     the whole body splits into a text column and a media column holding the chart, alternating
+     sides day to day like a classic itinerary timeline. Day 1 has no chart (no walking), so it
+     renders text-only with no media column at all. */
   .daycard__media {
     margin-top: 1.1rem;
-    display: flex;
-    gap: 0.75rem;
-  }
-  .daycard__media > * {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-  .daycard__media--photo-only {
-    display: block;
-  }
-  .daycard__photo {
-    display: block;
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
-    border-radius: var(--radius-sm);
-  }
-  .daycard__media--photo-only .daycard__photo {
-    max-width: 26rem;
-    aspect-ratio: 16 / 9;
   }
   @media (min-width: 1024px) {
     .daycard__body--split {
@@ -1152,15 +1131,7 @@
     }
     .daycard__body--split .daycard__media {
       grid-area: media;
-      flex-direction: column;
       margin-top: 0;
-    }
-    .daycard__body--split .daycard__photo {
-      aspect-ratio: 16 / 10;
-    }
-    .daycard__body--split .daycard__media--photo-only .daycard__photo {
-      max-width: none;
-      aspect-ratio: 4 / 3;
     }
     /* Alternate which side the media sits on, day to day — mirrors the route's own zig-zag. */
     .daycard:nth-child(even) .daycard__body--split {
@@ -3344,13 +3315,28 @@
   .jumpnav__thumb {
     display: block;
     width: 100%;
-    height: 3.5rem;
+    height: 4.25rem;
     border-radius: var(--radius-md);
     object-fit: cover;
+    /* Each hero photo is a full 3:2 architectural shot; a plain centre crop at this strip's
+       height cuts through whatever happens to sit in the frame's vertical middle rather than the
+       feature that actually identifies the lodge (Temminck's showed mostly garden path, Oukraal
+       mostly tree canopy, Blackwood just the roof apex with the entrance cropped off). Biased
+       per-lodge below, the same way .sanctuary__img already biases the ochre lodge's hero crop. */
+    object-position: center 40%;
     border: 1px solid var(--color-hairline);
     transition:
       transform 200ms ease,
       border-color 200ms ease;
+  }
+  .jumpnav__item[data-accent='ochre'] .jumpnav__thumb {
+    object-position: center 32%; /* Temminck's: more roofline, less garden path below it */
+  }
+  .jumpnav__item[data-accent='green'] .jumpnav__thumb {
+    object-position: center 58%; /* Oukraal: keeps the "Ou Kraal" sign wall in frame, not just canopy */
+  }
+  .jumpnav__item[data-accent='day4'] .jumpnav__thumb {
+    object-position: center 62%; /* Blackwood: shows the entrance doors, not only the roof apex */
   }
   .jumpnav__link:hover .jumpnav__thumb {
     transform: scale(1.03);
@@ -3369,7 +3355,7 @@
       gap: 1.25rem;
     }
     .jumpnav__thumb {
-      height: 5rem;
+      height: 6rem;
     }
     .jumpnav__name {
       font-size: var(--text-sm);
@@ -3443,12 +3429,18 @@
     flex: 0 0 auto;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2px;
+    gap: 0.5rem;
+    /* The 2px gap this replaces read as a stray hairline rather than a deliberate seam, and at
+       6.5rem tall the two photos were easy to miss entirely under the much larger hero above
+       them. A visible gap (showing the card's own cream background, same trick the media column
+       already uses for text overflow) plus a taller strip reads as a proper two-up gallery. */
+    padding-top: 0.5rem;
   }
   .sanctuary__gallery-img {
     display: block;
     width: 100%;
-    height: 6.5rem;
+    height: 8rem;
+    border-radius: var(--radius-sm);
     object-fit: cover;
   }
   .sanctuary__body {

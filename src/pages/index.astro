@@ -219,9 +219,9 @@ const lodgeContext: Record<string, string> = {
                 where the image is the content rather than a thumbnail. */}
             <a href={withBase(`/accommodation#${s.id}`)} class="home-lodge group">
               <div class="home-lodge__media">
-                {s.homeImage && (
+                {s.heroImage && (
                   <Image
-                    src={s.homeImage}
+                    src={s.heroImage}
                     alt=""
                     class="home-lodge__img"
                     widths={[400, 600]}

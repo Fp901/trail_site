@@ -1,25 +1,22 @@
 // Sanctuaries — Part 8.3 + 2026 brief. Three distinct premium nodes under one trail standard.
 // Spelling: "Blackwood" (renamed from ViervanAcht). Images supplied by the client.
 //
-// Each lodge carries three photo roles, matching the approved wireframe's photo plan: a small
-// `homeImage` teaser (Home page lodge cards — decorative, alt="" there since the card's own text
-// already names the lodge), a larger `heroImage` for the lodge's own card on /accommodation, and
-// a `gallery` of supporting photos shown alongside it. Previously all three contexts shared one
-// single image per lodge; this splits them so the Home teaser, the lodge-page hero and its
-// gallery can each carry the photo that actually suits that slot.
+// Each lodge carries one `heroImage`, used both as the Home page lodge-card teaser and as the
+// primary photo on the lodge's own card on /accommodation, plus a `gallery` of supporting photos
+// shown alongside the hero there. A separate, smaller `homeImage` (a pool-area shot, distinct
+// from the hero) used to serve the Home teaser alone; it read as a weaker, less characterful photo
+// of each lodge than the hero one click away, so the Home cards now show the same hero photo
+// instead — one strong image per lodge, reused, rather than two competing ones.
 import type { ImageMetadata } from 'astro';
 
-import temmnicksHomeImg from '../assets/images/temmnicks-pool.jpg';
 import temmnicksHeroImg from '../assets/images/temmnicks-hero.jpg';
 import temmnicksGallery1 from '../assets/images/temmnickss-room-1.jpg';
 import temmnicksGallery2 from '../assets/images/temmnicks-room-2.jpg';
 
-import oukraalHomeImg from '../assets/images/oukraal-pool.jpg';
 import oukraalHeroImg from '../assets/images/oukraal-hero.jpg';
 import oukraalGallery1 from '../assets/images/oukraal-entrance.jpg';
 import oukraalGallery2 from '../assets/images/oukraal-bed-2.jpg';
 
-import blackwoodHomeImg from '../assets/images/blackwood-pool-area.jpg';
 import blackwoodHeroImg from '../assets/images/blackwood-lodge-hero.jpg';
 import blackwoodGallery1 from '../assets/images/blackwood-fire-pit.jpg';
 import blackwoodGallery2 from '../assets/images/blackwood-main-interior.jpg';
@@ -53,8 +50,7 @@ export interface Sanctuary {
   description: string;
   alt: string; // heroImage's alt text
   accentVar: string;
-  homeImage?: ImageMetadata; // small teaser photo on the Home page lodge cards (rendered alt="")
-  heroImage?: ImageMetadata; // primary photo on the lodge's own card on /accommodation
+  heroImage?: ImageMetadata; // primary photo, used on both the Home page teaser and /accommodation
   gallery?: GalleryPhoto[]; // supporting photos shown alongside the hero
   amenities: LodgeAmenity[];
 }
@@ -68,7 +64,6 @@ export const sanctuaries: Sanctuary[] = [
       'Your start and end point. A comfortable, established safari lodge low in the Waterberg valley. Arrive on Day 1 to register and get your safety briefing, leave the car in secure shaded parking, and return on Day 4 to shower, share a final meal and head home.',
     alt: "The thatched main lodge at Temminck's, the basecamp at the foot of the Rooiberg where the trail begins and ends.",
     accentVar: '--color-ochre',
-    homeImage: temmnicksHomeImg,
     heroImage: temmnicksHeroImg,
     gallery: [
       { image: temmnicksGallery1, alt: "A thatched guest gazebo along the path at Temminck's Lodge." },
@@ -90,7 +85,6 @@ export const sanctuaries: Sanctuary[] = [
       'Deep in the thick Limpopo bushveld, where the bush closes in around the lodge. You reach this private bush lodge on Day 2 after the mountain crossing over Groenkop, with a pool, fire-side and dinner waiting.',
     alt: 'The entrance to Oukraal, the bush lodge deep in the Limpopo bushveld reached on the second day.',
     accentVar: '--color-green',
-    homeImage: oukraalHomeImg,
     heroImage: oukraalHeroImg,
     gallery: [
       { image: oukraalGallery1, alt: 'The palm-lined driveway and grounds at Oukraal.' },
@@ -111,7 +105,6 @@ export const sanctuaries: Sanctuary[] = [
       'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range. The pool faces west across the Waterberg.',
     alt: "The thatched entrance to Blackwood's main lodge, the mountain lodge overlooking the Waterberg on the third night of the trail.",
     accentVar: '--color-day4',
-    homeImage: blackwoodHomeImg,
     heroImage: blackwoodHeroImg,
     gallery: [
       { image: blackwoodGallery1, alt: 'The fire pit terrace at Blackwood, looking out over the Waterberg.' },
