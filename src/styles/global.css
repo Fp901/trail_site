@@ -123,12 +123,16 @@
      inward instead, so every alignment relationship is preserved and the block centres as a unit.
      Widening the prose column instead was measured and rejected: 896px puts body copy at 89ch,
      past the 75ch upper bound.
-     Narrowed again to 62.5rem (1000px) to match the approved wireframe's tighter content column —
-     a deliberate second pass on top of the reasoning above, not a reversal of it: the shared-rail
-     logic still holds, just at a smaller width. */
+     Narrowed to 62.5rem (1000px) in an earlier pass to match the wireframe's tighter content
+     column, then widened back to 75rem (1200px) here: the wireframe's own 1000px figure was
+     measured off a review document that staged the design inside a simulated 1440px browser
+     frame, with generous chrome padding around it — a fair proportion for reviewing a mockup,
+     but on an actual wide monitor at 1440px+ it read as a narrow column marooned in empty
+     margins rather than a considered editorial measure. 75rem keeps the shared-rail logic above
+     intact, just at the site's original, more generous width. */
   @media (min-width: 1024px) {
     :root {
-      --container: 62.5rem;
+      --container: 75rem;
     }
   }
 
@@ -650,6 +654,64 @@
     transform: translateX(4px);
   }
 
+  /* --- Homepage: intro (two-column with supporting photo at desktop) ------
+     Previously text-only. The wireframe pairs this copy with a supporting photo — between the
+     two paragraphs on mobile, a right-hand column spanning the full text height at desktop —
+     which this page never had. Spacing between the text pieces still comes from each element's
+     own mt-* utility (unchanged), so .home-intro itself only supplies the grid areas; the photo
+     gets its own margin since it isn't a Tailwind-utility sibling of the paragraphs. */
+  .home-intro {
+    display: grid;
+    grid-template-areas: 'eyebrow' 'head' 'p1' 'media' 'p2' 'cta';
+  }
+  .home-intro__eyebrow {
+    grid-area: eyebrow;
+  }
+  .home-intro__head {
+    grid-area: head;
+  }
+  .home-intro__p1 {
+    grid-area: p1;
+  }
+  .home-intro__media {
+    grid-area: media;
+    margin-top: 1.75rem;
+  }
+  .home-intro__p2 {
+    grid-area: p2;
+  }
+  .home-intro__cta {
+    grid-area: cta;
+  }
+  .home-intro__img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: var(--radius-lg);
+  }
+  @media (min-width: 768px) {
+    .home-intro {
+      grid-template-columns: 1.1fr 0.9fr;
+      grid-template-areas:
+        'eyebrow media'
+        'head media'
+        'p1 media'
+        'p2 media'
+        'cta media';
+      column-gap: 2.5rem;
+      align-items: start;
+    }
+    .home-intro__media {
+      margin-top: 0;
+      height: 100%;
+    }
+    .home-intro__img {
+      height: 100%;
+      min-height: 22rem;
+    }
+  }
+
   /* --- Homepage: statement band (dark visual break) ----------------------- */
   .statement-band {
     position: relative;
@@ -745,18 +807,34 @@
     color: color-mix(in srgb, var(--color-charcoal) 82%, transparent);
   }
 
-  /* --- Homepage: lodge teasers (image-led) -------------------------------- */
+  /* --- Homepage: lodge teasers (image-led) --------------------------------
+     A swipeable row on mobile (the wireframe's "Carousel" note), a static 3-column grid from
+     640px up since all three fit without scrolling. CSS scroll-snap only — no carousel JS or
+     controls, since the browser's native swipe/scroll already does the job at this item count. */
   .home-lodges {
     list-style: none;
     margin: 2.5rem 0 0;
     padding: 0;
-    display: grid;
-    gap: 1.75rem;
-    grid-template-columns: 1fr;
+    display: flex;
+    gap: 1.25rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .home-lodges > li {
+    flex: 0 0 78%;
+    scroll-snap-align: start;
   }
   @media (min-width: 640px) {
     .home-lodges {
+      display: grid;
+      gap: 1.75rem;
       grid-template-columns: repeat(3, minmax(0, 1fr));
+      overflow-x: visible;
+    }
+    .home-lodges > li {
+      flex: none;
     }
   }
   .home-lodge {
@@ -1031,6 +1109,64 @@
     font-size: var(--text-2xs);
     letter-spacing: 0.01em;
     color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
+  }
+
+  /* Day-card media — pairs the elevation chart with a real photo of that night's lodge (the
+     wireframe's "Major change": previously the chart stood alone). Mobile: chart + photo sit
+     side by side in one row. Desktop (≥1024px): the whole body splits into a text column and a
+     media column, with chart above photo in the media column, alternating sides day to day like
+     a classic itinerary timeline. Day 1 has no chart (no walking), so its media is just the
+     lodge photo at a wider crop. */
+  .daycard__media {
+    margin-top: 1.1rem;
+    display: flex;
+    gap: 0.75rem;
+  }
+  .daycard__media > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .daycard__media--photo-only {
+    display: block;
+  }
+  .daycard__photo {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+  }
+  .daycard__media--photo-only .daycard__photo {
+    max-width: 26rem;
+    aspect-ratio: 16 / 9;
+  }
+  @media (min-width: 1024px) {
+    .daycard__body--split {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      column-gap: 2.5rem;
+      grid-template-areas: 'text media';
+    }
+    .daycard__body--split .daycard__text {
+      grid-area: text;
+    }
+    .daycard__body--split .daycard__media {
+      grid-area: media;
+      flex-direction: column;
+      margin-top: 0;
+    }
+    .daycard__body--split .daycard__photo {
+      aspect-ratio: 16 / 10;
+    }
+    .daycard__body--split .daycard__media--photo-only .daycard__photo {
+      max-width: none;
+      aspect-ratio: 4 / 3;
+    }
+    /* Alternate which side the media sits on, day to day — mirrors the route's own zig-zag. */
+    .daycard:nth-child(even) .daycard__body--split {
+      grid-template-areas: 'media text';
+      grid-template-columns: 0.85fr 1.15fr;
+    }
   }
 
   /* --- Abandoned-checkout resume prompt (Booking v3.0) ---------------------- */
@@ -3187,6 +3323,59 @@
     color: color-mix(in srgb, var(--color-charcoal) 90%, transparent);
   }
 
+  /* --- Lodges jump-nav (Part 8.3) — new, per the approved wireframe -------
+     A thumbnail strip so a guest can tap straight to the lodge they're curious about instead of
+     scrolling past all three. Anchors down to each <SanctuaryCard id="…">. */
+  .jumpnav {
+    display: flex;
+    gap: 0.75rem;
+    margin: 2rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .jumpnav__item {
+    flex: 1 1 0;
+  }
+  .jumpnav__link {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+  }
+  .jumpnav__thumb {
+    display: block;
+    width: 100%;
+    height: 3.5rem;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+    border: 1px solid var(--color-hairline);
+    transition:
+      transform 200ms ease,
+      border-color 200ms ease;
+  }
+  .jumpnav__link:hover .jumpnav__thumb {
+    transform: scale(1.03);
+    border-color: var(--accent);
+  }
+  .jumpnav__name {
+    display: block;
+    margin-top: 0.4rem;
+    font-family: var(--font-body);
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  @media (min-width: 640px) {
+    .jumpnav {
+      gap: 1.25rem;
+    }
+    .jumpnav__thumb {
+      height: 5rem;
+    }
+    .jumpnav__name {
+      font-size: var(--text-sm);
+    }
+  }
+
   /* --- Sanctuaries (Part 5.6 / 8.3) — distinct-but-cohesive feature rows --- */
   /* Boxed card frame, matching the approved wireframe's bordered-card language (previously an
      open, borderless two-column row). The card clips the media to its own radius via
@@ -3699,6 +3888,73 @@
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
+  }
+
+  /* --- Page hero (Part 8.2/8.4 — wireframe's "trail-header"/"logistics-header") ------------
+     A shorter, capped-height sibling of .hero for interior page openers (The Trail, Logistics
+     & FAQ) that were previously plain text with no photo — the wireframe treats this as new,
+     matching Home's strong visual entry instead of starting on plain text. Rather than Hero's
+     absolutely-positioned media + scrim, the copy panel is pulled up over the image with a
+     negative margin and carries its own gradient background: simpler for a fixed-height (not
+     viewport-relative) band, and it keeps the photo itself visible and bright above the fold. */
+  .page-hero {
+    position: relative;
+  }
+  .page-hero__media {
+    display: block;
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+  }
+  @media (min-width: 640px) {
+    .page-hero__media {
+      height: 380px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .page-hero__media {
+      height: 480px;
+    }
+  }
+  .page-hero__content {
+    position: relative;
+    margin-top: -110px;
+    padding-top: 5.5rem;
+    padding-bottom: 1.75rem;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--color-earth) 88%, black) 0%,
+      transparent 92%
+    );
+    color: var(--color-cream);
+    text-shadow: 0 1px 16px rgba(36, 24, 17, 0.5);
+  }
+  @media (min-width: 640px) {
+    .page-hero__content {
+      margin-top: -130px;
+      padding-top: 7rem;
+      padding-bottom: 2rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .page-hero__content {
+      margin-top: -170px;
+      padding-top: 9.5rem;
+      padding-bottom: 2.5rem;
+    }
+  }
+  /* The slotted copy carries the real site's own dark-on-cream Tailwind utility classes
+     (text-earth/text-charcoal/text-green), since it's the same untouched heading + paragraphs
+     used when there was no photo behind them. Repainted light-on-dark here now that they sit
+     over a scrimmed image — a visual override only, no text changes. */
+  .page-hero__content :is(h1, .font-display) {
+    color: var(--color-cream);
+  }
+  .page-hero__content p {
+    color: color-mix(in srgb, var(--color-cream) 92%, transparent);
+  }
+  .page-hero__content .text-green {
+    color: color-mix(in srgb, var(--color-cream) var(--tint-strong), var(--color-ochre));
   }
 
   /* --- StatsBar (Part 7 / 8.1) --------------------------------------------- */

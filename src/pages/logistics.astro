@@ -1,9 +1,9 @@
 ---
 // Trail Logistics & FAQ (/logistics) — Part 8.4. Three mandatory blocks (safety emphasised)
 // + visible answer-first Q&A (Part 10.5). FAQPage JSON-LD included (Part 10.4, harmless).
-import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
+import PageHero from '../components/PageHero.astro';
 import FaqAccordion from '../components/FaqAccordion.astro';
 import {
   logisticsBlocks,
@@ -32,7 +32,11 @@ const jsonLd = [
 ---
 
 <Layout title={title} description={description} path="/logistics" jsonLd={jsonLd}>
-  <Section bg="cream" labelledby="logistics-heading" space="lg">
+  <PageHero
+    image={blackwoodView}
+    imageAlt="The view across the Waterberg hills from Blackwood's pool deck at sunset."
+    labelledby="logistics-heading"
+  >
     <div class="max-w-3xl">
       <p class="font-body text-2xs font-semibold uppercase tracking-[0.14em] text-green">
         Before you walk
@@ -48,17 +52,7 @@ const jsonLd = [
         Big 5 reserve.
       </p>
     </div>
-  </Section>
-
-  <figure class="media-band">
-    <Image
-      src={blackwoodView}
-      alt="The view across the Waterberg hills from Blackwood's pool deck at sunset."
-      widths={[768, 1280, 1920]}
-      sizes="100vw"
-      loading="lazy"
-    />
-  </figure>
+  </PageHero>
 
   {/* !pb-0 as well as !pt-0: this section and the next are one continuous ruled list of .logblocks
       (each carries its own top hairline + 1.75rem padding), split across two <Section>s only for

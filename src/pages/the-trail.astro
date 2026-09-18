@@ -4,11 +4,13 @@
 import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
+import PageHero from '../components/PageHero.astro';
 import ItineraryTimeline from '../components/ItineraryTimeline.astro';
 import RouteMap from '../components/RouteMap.astro';
 import { webPageSchema, breadcrumbSchema, touristTripSchema } from '../data/schema';
 import { wildlifeGroups, birdingHighlights, wildlifeCounts } from '../data/wildlife';
 import vista from '../assets/images/walking-route-1.jpg';
+import trailHeaderImg from '../assets/images/walking-route-2.jpg';
 
 const title = 'The Trail | Day-by-day walking safari itinerary';
 const description =
@@ -25,7 +27,11 @@ const jsonLd = [
 ---
 
 <Layout title={title} description={description} path="/the-trail" jsonLd={jsonLd}>
-  <Section bg="cream" labelledby="trail-heading" space="lg">
+  <PageHero
+    image={trailHeaderImg}
+    imageAlt="Trail guests following a footpath through dry Waterberg bushveld, mountains on the horizon."
+    labelledby="trail-heading"
+  >
     <div class="max-w-3xl">
       <p class="font-body text-2xs font-semibold uppercase tracking-[0.14em] text-green">
         The Trail · 3 nights / 3 days · ~55 km
@@ -45,9 +51,13 @@ const jsonLd = [
         The walking is graded moderate to challenging, over mountain ascents, rocky kloofs and
         rugged ravine terrain. A good level of hiking fitness is required.
       </p>
+    </div>
+  </PageHero>
 
+  <Section bg="cream" space="md">
+    <div class="max-w-3xl">
       <!-- VERIFY WITH OPERATOR -->
-      <div class="mt-8 rounded-2xl border border-ochre/50 bg-ochre/10 p-6">
+      <div class="rounded-2xl border border-ochre/50 bg-ochre/10 p-6">
         <p class="font-body text-xs font-semibold uppercase tracking-[0.14em] text-green">
           Before you book
         </p>
@@ -60,16 +70,6 @@ const jsonLd = [
       </div>
     </div>
   </Section>
-
-  <figure class="media-band">
-    <Image
-      src={vista}
-      alt="Trail guests walking a rocky path through wooded bushveld on the Rooiberg crossing."
-      widths={[768, 1280, 1920]}
-      sizes="100vw"
-      loading="lazy"
-    />
-  </figure>
 
   <Section bg="cream" labelledby="itinerary-heading" space="md">
     <h2 id="itinerary-heading" class="font-display text-2xl text-earth sm:text-3xl">
@@ -94,6 +94,19 @@ const jsonLd = [
     </div>
     <RouteMap class="mt-10 sm:mt-12" />
   </Section>
+
+  {/* Second photo band — a pacing breather between the route map and the wildlife section
+      (matches the approved wireframe's placement; previously sat higher up the page, between
+      the intro and the day-by-day itinerary, ahead of the page's own new photo header). */}
+  <figure class="media-band">
+    <Image
+      src={vista}
+      alt="Trail guests walking a rocky path through wooded bushveld on the Rooiberg crossing."
+      widths={[768, 1280, 1920]}
+      sizes="100vw"
+      loading="lazy"
+    />
+  </figure>
 
   {/* Wildlife & birding — GEO answer-first ("what animals will I see"). */}
   <Section bg="cream" labelledby="wildlife-heading" space="md">
