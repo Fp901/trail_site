@@ -1,7 +1,8 @@
 ---
 // Home (/) — Part 8.1. Restructured to tease and sell; detail lives on the dedicated pages
-// (safety + FAQ on /logistics, pricing + inclusions on /rates). Flow: hero → intro → statement
-// band → why → how it works → lodges → testimonials → review → book.
+// (safety + FAQ on /logistics, pricing + inclusions on /rates). Flow: hero → facts/beta →
+// statement band → intro → how it works → lodges → testimonials → review → book. The statement
+// band now runs BEFORE the intro (moved up per the approved wireframe), not after it.
 import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
@@ -15,6 +16,7 @@ import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../lib/pricing';
 import { sanctuaries } from '../data/sanctuaries';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
 import panorama from '../assets/images/rooiberg-dusk-panorama.jpg';
+import introPhoto from '../assets/images/walking-route-3.jpg';
 import {
   organizationSchema,
   webPageSchema,
@@ -101,44 +103,16 @@ const lodgeContext: Record<string, string> = {
     </p>
   </div>
 
-  {/* Intro — short and factual. Detail lives on /the-trail. */}
-  <Section bg="cream" labelledby="promise-heading">
-    <div class="max-w-3xl">
-      <p class="font-body text-2xs font-semibold uppercase tracking-[0.14em] text-green">
-        The unpack-and-walk trail
-      </p>
-      <h2
-        id="promise-heading"
-        class="mt-4 font-display text-3xl text-earth sm:text-4xl md:text-5xl"
-      >
-        A three-day walking safari in the Waterberg
-      </h2>
-      <p class="mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
-        Rooiberg Wander is a 3-night, 3-day all-inclusive wilderness walking trail, crossed on
-        foot rather than viewed from a vehicle, across 15,000 hectares of Big 5 reserve near
-        Rooiberg in Limpopo, located just 2.5 hours from OR Tambo International Airport.
-        Accommodation consists of characterful, established private bush lodges with a minimum
-        booking size for 2 persons. Dining is hearty, wholesome bushveld fare served family-style
-        around the boma fire, accompanied by selected South African estate wines and local beers.
-      </p>
-      <p class="mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
-        You walk 15 to 20 km per day from one private lodge to the next while your luggage and
-        provisions are moved ahead each day. Exclusive: take the whole trail exclusively by booking
-        out all 8 spots, so that the trail and each lodge are reserved solely for your group.
-      </p>
-      <p class="mt-10">
-        <a href={withBase('/rates')} class="btn btn-primary">View rates and book the trail</a>
-      </p>
-    </div>
-  </Section>
-
-  {/* Statement band — dark visual break; one factual line over an atmospheric image. */}
+  {/* Statement band — dark visual break; one factual line over an atmospheric image. Moved up to
+      run right after the facts/beta strip, before the intro copy, per the approved wireframe —
+      keeps the page visually led coming off the hero instead of opening the first content
+      section on plain text. */}
   <section class="statement-band" aria-label="About the trail">
     <Image
       class="statement-band__img"
       src={panorama}
-      alt="Dusk over the Rooiberg mountains in the Waterberg, Limpopo."
-      widths={[768, 1280, 1920]}
+      alt="A wide view over layered mountain ridges at dusk in the Waterberg, Limpopo."
+      widths={[768, 1280, 1920, 2560, 3024]}
       sizes="100vw"
       loading="lazy"
     />
@@ -152,6 +126,50 @@ const lodgeContext: Record<string, string> = {
       </p>
     </div>
   </section>
+
+  {/* Intro — short and factual. Detail lives on /the-trail. Paired with a supporting photo per
+      the approved wireframe: it sits between the two paragraphs on mobile, and becomes a
+      right-hand column spanning the full text height at desktop — this copy had no photo at
+      all before. */}
+  <Section bg="cream" labelledby="promise-heading">
+    <div class="home-intro max-w-none">
+      <p class="home-intro__eyebrow font-body text-2xs font-semibold uppercase tracking-[0.14em] text-green">
+        The unpack-and-walk trail
+      </p>
+      <h2
+        id="promise-heading"
+        class="home-intro__head mt-4 font-display text-3xl text-earth sm:text-4xl md:text-5xl"
+      >
+        A three-day walking safari in the Waterberg
+      </h2>
+      <p class="home-intro__p1 mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
+        Rooiberg Wander is a 3-night, 3-day all-inclusive wilderness walking trail, crossed on
+        foot rather than viewed from a vehicle, across 15,000 hectares of Big 5 reserve near
+        Rooiberg in Limpopo, located just 2.5 hours from OR Tambo International Airport.
+        Accommodation consists of characterful, established private bush lodges with a minimum
+        booking size for 2 persons. Dining is hearty, wholesome bushveld fare served family-style
+        around the boma fire, accompanied by selected South African estate wines and local beers.
+      </p>
+      <div class="home-intro__media">
+        <Image
+          src={introPhoto}
+          alt="A trail guide crouches to point out fresh spoor on the path while guests look on."
+          class="home-intro__img"
+          widths={[400, 600, 800]}
+          sizes="(min-width: 768px) 40vw, 100vw"
+          loading="lazy"
+        />
+      </div>
+      <p class="home-intro__p2 mt-5 max-w-2xl font-body text-base leading-relaxed text-charcoal/85">
+        You walk 15 to 20 km per day from one private lodge to the next while your luggage and
+        provisions are moved ahead each day. Exclusive: take the whole trail exclusively by booking
+        out all 8 spots, so that the trail and each lodge are reserved solely for your group.
+      </p>
+      <p class="home-intro__cta mt-10">
+        <a href={withBase('/rates')} class="btn btn-primary">View rates and book the trail</a>
+      </p>
+    </div>
+  </Section>
 
   {/* How it works — four steps. */}
   <Section bg="cream" space="md" labelledby="how-heading" class="border-t border-hairline">
@@ -201,9 +219,9 @@ const lodgeContext: Record<string, string> = {
                 where the image is the content rather than a thumbnail. */}
             <a href={withBase(`/accommodation#${s.id}`)} class="home-lodge group">
               <div class="home-lodge__media">
-                {s.image && (
+                {s.homeImage && (
                   <Image
-                    src={s.image}
+                    src={s.homeImage}
                     alt=""
                     class="home-lodge__img"
                     widths={[400, 600]}

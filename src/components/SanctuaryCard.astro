@@ -5,16 +5,17 @@
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 import AmenityIcon from './AmenityIcon.astro';
-import type { LodgeAmenity } from '../data/sanctuaries';
+import type { GalleryPhoto, LodgeAmenity } from '../data/sanctuaries';
 
 interface Props {
   id?: string; // anchor target, so /accommodation#rotavi etc. resolve from the homepage teasers
   name: string;
   role: string;
   description: string;
-  alt: string;
+  alt: string; // heroImage's alt text
   accentVar: string;
-  image?: ImageMetadata;
+  heroImage?: ImageMetadata;
+  gallery?: GalleryPhoto[]; // supporting photos shown alongside the hero
   reverse?: boolean;
   context?: string; // optional trail-context line (e.g. "Day 2 · Temminck's → Oukraal, over Groenkop")
   amenities?: LodgeAmenity[]; // optional per-lodge amenity list rendered with icons
@@ -26,7 +27,8 @@ const {
   description,
   alt,
   accentVar,
-  image,
+  heroImage,
+  gallery,
   reverse = false,
   context,
   amenities,
@@ -40,9 +42,9 @@ const {
 >
   <div class="sanctuary__media">
     {
-      image ? (
+      heroImage ? (
         <Image
-          src={image}
+          src={heroImage}
           alt={alt}
           class="sanctuary__img"
           widths={[480, 768, 1024]}
@@ -51,6 +53,22 @@ const {
         />
       ) : (
         <div class="sanctuary__placeholder" role="img" aria-label={alt} />
+      )
+    }
+    {
+      gallery && gallery.length > 0 && (
+        <div class="sanctuary__gallery">
+          {gallery.map((photo) => (
+            <Image
+              src={photo.image}
+              alt={photo.alt}
+              class="sanctuary__gallery-img"
+              widths={[320, 480]}
+              sizes="(min-width: 768px) 25vw, 50vw"
+              loading="lazy"
+            />
+          ))}
+        </div>
       )
     }
   </div>

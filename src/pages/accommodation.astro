@@ -2,6 +2,7 @@
 // The Safari Lodges (/accommodation) — Part 8.3, carried forward from the former /sanctuaries page
 // (real photography retained) with clearer structure and visual hierarchy. The old /sanctuaries URL
 // 301-redirects here (astro.config.mjs). Three private lodges under one premium trail standard.
+import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import SanctuaryCard from '../components/SanctuaryCard.astro';
@@ -60,6 +61,32 @@ const context: Record<string, string> = {
     </div>
   </Section>
 
+  {/* Jump-nav — new, per the approved wireframe: lets a guest tap straight to the lodge they're
+      curious about instead of scrolling past all three. */}
+  <Section bg="cream" space="md" containerClass="!pt-0 !pb-0">
+    <ul class="jumpnav" aria-label="Jump to a lodge">
+      {
+        sanctuaries.map((s) => (
+          <li class="jumpnav__item">
+            <a href={`#${s.id}`} class="jumpnav__link">
+              {s.heroImage && (
+                <Image
+                  src={s.heroImage}
+                  alt=""
+                  class="jumpnav__thumb"
+                  widths={[160, 240]}
+                  sizes="33vw"
+                  loading="lazy"
+                />
+              )}
+              <span class="jumpnav__name">{s.name}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
   <Section bg="cream" space="md" containerClass="!pt-0">
     {
       sanctuaries.map((s, i) => (
@@ -70,7 +97,8 @@ const context: Record<string, string> = {
           description={s.description}
           alt={s.alt}
           accentVar={s.accentVar}
-          image={s.image}
+          heroImage={s.heroImage}
+          gallery={s.gallery}
           context={context[s.id]}
           amenities={s.amenities}
           reverse={i % 2 === 1}
