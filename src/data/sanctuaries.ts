@@ -1,9 +1,9 @@
 // Sanctuaries — Part 8.3 + 2026 brief. Three distinct premium nodes under one trail standard.
 // Spelling: "Blackwood" (renamed from ViervanAcht). Images supplied by the client.
 import type { ImageMetadata } from 'astro';
-import rotaviImg from '../assets/images/rotavi-valley-plains.jpg';
-import oukraalImg from '../assets/images/oukraal-kudu-bushveld.jpg';
-import blackwoodImg from '../assets/images/blackwood-giraffe-sunset.jpg';
+import rotaviImg from '../assets/images/temmnicks-hero.jpg';
+import oukraalImg from '../assets/images/oukraal-hero.jpg';
+import blackwoodImg from '../assets/images/blackwood-fire-pit.jpg';
 
 export type AmenityIconName =
   | 'parking'
@@ -41,7 +41,7 @@ export const sanctuaries: Sanctuary[] = [
     role: 'The Valley Basecamp · Start & End Point',
     description:
       'Your start and end point. A comfortable, established safari lodge low in the Waterberg valley. Arrive on Day 1 to register and get your safety briefing, leave the car in secure shaded parking, and return on Day 4 to shower, share a final meal and head home.',
-    alt: "The valley around Temminck's Lodge, the basecamp at the foot of the Rooiberg where the trail begins and ends.",
+    alt: "The thatched main lodge at Temminck's, the basecamp at the foot of the Rooiberg where the trail begins and ends.",
     accentVar: '--color-ochre',
     image: rotaviImg,
     amenities: [
@@ -58,7 +58,7 @@ export const sanctuaries: Sanctuary[] = [
     role: 'The Bush Lodge · Night 2',
     description:
       'Deep in the thick Limpopo bushveld, where the bush closes in around the lodge. You reach this private bush lodge on Day 2 after the mountain crossing over Groenkop, with a pool, fire-side and dinner waiting.',
-    alt: 'Kudu in the thick green bushveld around Oukraal, the bush lodge reached on the second day.',
+    alt: 'The entrance to Oukraal, the bush lodge deep in the Limpopo bushveld reached on the second day.',
     accentVar: '--color-green',
     image: oukraalImg,
     amenities: [
@@ -74,7 +74,7 @@ export const sanctuaries: Sanctuary[] = [
     role: 'The Mountain Lodge · Night 3',
     description:
       'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range. The pool faces west across the Waterberg.',
-    alt: 'Giraffes at sunset on the ridges near Blackwood, the mountain lodge and the third night of the trail.',
+    alt: 'The fire pit terrace at Blackwood, the mountain lodge overlooking the Waterberg on the third night of the trail.',
     accentVar: '--color-day4',
     image: blackwoodImg,
     amenities: [
