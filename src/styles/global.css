@@ -3216,13 +3216,30 @@
       order: 2;
     }
   }
+  /* Media column: a fixed-ratio hero above a two-up gallery strip. The hero keeps a stable 4:3
+     crop regardless of how much text/amenities the lodge's body copy has — letting it instead
+     flex-fill "whatever height the text column happens to be" produced wildly different crops per
+     lodge (a short amenities list left a tall, oddly-cropped hero on some cards, zooming in on
+     whatever sat in the frame's vertical centre). If the text column ends up taller than the
+     image+gallery stack, the card frame (background: var(--color-cream), same as the page) just
+     shows a little more of itself below the gallery — that's cheaper than an unpredictable crop. */
+  .sanctuary__media {
+    display: flex;
+    flex-direction: column;
+  }
   .sanctuary__img,
   .sanctuary__placeholder {
     display: block;
     width: 100%;
-    height: 100%;
     aspect-ratio: 4 / 3;
     object-fit: cover;
+  }
+  /* Temminck's hero photo has a large tree filling the frame's centre; a plain centred crop
+     mostly shows tree rather than the lodge itself. Biasing the crop right/down keeps more of the
+     thatched roofline and entrance in frame. Scoped to .sanctuary so it never touches the ochre
+     accent used elsewhere (season cards, CTAs). */
+  .sanctuary[data-accent='ochre'] .sanctuary__img {
+    object-position: 68% 62%;
   }
   .sanctuary__placeholder {
     background:
@@ -3232,6 +3249,18 @@
         transparent 60%
       ),
       linear-gradient(180deg, #5a4636 0%, var(--color-earth) 100%);
+  }
+  .sanctuary__gallery {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+  }
+  .sanctuary__gallery-img {
+    display: block;
+    width: 100%;
+    height: 6.5rem;
+    object-fit: cover;
   }
   .sanctuary__body {
     padding: 1.5rem;
