@@ -1,8 +1,10 @@
 ---
 // DayCard — Part 7. One itinerary day. distanceKm null => "No walking" (Day 1).
-// Walking days may carry an elevation profile image (route height profile).
-import { Image } from 'astro:assets';
-import type { ImageMetadata } from 'astro';
+// Walking days carry an elevation profile, drawn by ElevationChart.astro (a hand-authored
+// inline SVG — see the note on ElevationProfile in data/itinerary.ts for why this replaced
+// the old Google Maps screenshot images).
+import ElevationChart from './ElevationChart.astro';
+import type { ElevationProfile } from '../data/itinerary';
 
 interface Props {
   day: number;
@@ -12,7 +14,7 @@ interface Props {
   to?: string;
   description: string;
   colorVar?: string;
-  elevation?: ImageMetadata;
+  elevationProfile?: ElevationProfile;
   elevationAlt?: string;
   elevationCaption?: string;
 }
@@ -24,7 +26,7 @@ const {
   to,
   description,
   colorVar,
-  elevation,
+  elevationProfile,
   elevationAlt,
   elevationCaption,
 } = Astro.props;
@@ -58,14 +60,18 @@ const noWalking = distanceKm === null;
     }
     <p class="daycard__desc">{description}</p>
     {
-      elevation && (
+      elevationProfile && (
         <figure class="daycard__elevation">
-          <Image
-            src={elevation}
+          <ElevationChart
+            day={day}
+            points={elevationProfile.points}
+            axisMin={elevationProfile.axisMin}
+            axisMax={elevationProfile.axisMax}
+            axisStep={elevationProfile.axisStep}
+            distanceKm={elevationProfile.distanceKm}
+            landmarkLabel={elevationProfile.landmarkLabel}
+            landmarkFrac={elevationProfile.landmarkFrac}
             alt={elevationAlt ?? `Day ${day} elevation profile`}
-            widths={[320, 480, 640, 900]}
-            sizes="(min-width: 640px) 42rem, 100vw"
-            loading="lazy"
           />
           {elevationCaption && <figcaption>{elevationCaption}</figcaption>}
         </figure>
