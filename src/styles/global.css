@@ -122,10 +122,13 @@
      labels stayed at x=24, breaking that rail. Narrowing the shared container moves the whole rail
      inward instead, so every alignment relationship is preserved and the block centres as a unit.
      Widening the prose column instead was measured and rejected: 896px puts body copy at 89ch,
-     past the 75ch upper bound. */
+     past the 75ch upper bound.
+     Narrowed again to 62.5rem (1000px) to match the approved wireframe's tighter content column —
+     a deliberate second pass on top of the reasoning above, not a reversal of it: the shared-rail
+     logic still holds, just at a smaller width. */
   @media (min-width: 1024px) {
     :root {
-      --container: 75rem;
+      --container: 62.5rem;
     }
   }
 
@@ -781,7 +784,7 @@
     font-family: var(--font-body);
     font-size: var(--text-2xs);
     font-weight: 600;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--color-green);
   }
@@ -898,40 +901,34 @@
     margin: 0;
     padding: 0;
   }
+  /* Boxed day cards, matching the approved wireframe's card language (a bordered frame per day)
+     rather than the previous rail-and-numeral timeline. The accent-colour system carries over
+     unchanged: each card's [data-accent] still drives its border stripe, numeral colour and tint
+     background — only the framing (border/radius/background) is new. */
   .daycard {
     position: relative;
     display: grid;
     grid-template-columns: 3.25rem 1fr;
     gap: 0.75rem 1.25rem;
-    padding-bottom: 2.75rem;
+    border: 1px solid var(--color-hairline);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    background-color: color-mix(in srgb, var(--accent) 4%, var(--color-cream));
+  }
+  .daycard:last-child {
+    margin-bottom: 0;
   }
   @media (min-width: 640px) {
     .daycard {
       grid-template-columns: 5rem 1fr;
       gap: 1rem 2rem;
+      padding: 1.75rem 2rem 2rem;
     }
-  }
-  /* Hairline rail connecting the day numerals. */
-  .daycard::before {
-    content: '';
-    position: absolute;
-    left: calc(1.625rem - 1px);
-    top: 0.6rem;
-    bottom: 0;
-    width: 2px;
-    background-color: var(--color-hairline);
-  }
-  @media (min-width: 640px) {
-    .daycard::before {
-      left: calc(2.5rem - 1px);
-    }
-  }
-  .daycard:last-child::before {
-    display: none;
   }
   .daycard__marker {
     position: relative;
-    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -942,7 +939,10 @@
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
+    /* Was muted charcoal, breaking the shared eyebrow-label convention; the daycard already
+       carries its own per-day [data-accent], so the label now uses it like every other
+       accent-driven eyebrow (.sanctuary__role) instead of an unrelated one-off grey. */
+    color: var(--accent-ink, var(--accent));
   }
   .daycard__num {
     font-family: var(--font-display);
@@ -950,9 +950,6 @@
     font-size: var(--text-4xl);
     line-height: 1;
     color: var(--accent-ink, var(--accent));
-    /* cream backing breaks the rail at each numeral (the "strung" look) */
-    background-color: var(--color-cream);
-    padding: 0.1rem 0 0.2rem;
   }
   .daycard__body {
     padding-top: 0.15rem;
@@ -3060,7 +3057,10 @@
   .wildlife-card {
     border: 1px solid var(--color-hairline);
     border-left: 3px solid var(--color-green);
-    border-radius: 0 1rem 1rem 0;
+    /* Uniform radius on all four corners (was squared on the accent-stripe side) — standardises
+       the card language across .wildlife-card/.season-card/.home-lodge__media, which otherwise
+       mixed three different corner treatments on the same pages. */
+    border-radius: var(--radius-lg);
     padding: 1.4rem 1.6rem;
     background-color: color-mix(in srgb, var(--color-green) 4%, var(--color-cream));
   }
@@ -3097,15 +3097,15 @@
   .season-card {
     border: 1px solid var(--color-hairline);
     border-top: 3px solid var(--color-ochre);
-    border-radius: 0 0 1rem 1rem;
+    border-radius: var(--radius-lg);
     padding: 1.5rem;
     background-color: color-mix(in srgb, var(--color-ochre) 4%, var(--color-cream));
   }
   .season-card__months {
     font-family: var(--font-body);
     font-size: var(--text-2xs);
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--color-green);
   }
@@ -3188,21 +3188,29 @@
   }
 
   /* --- Sanctuaries (Part 5.6 / 8.3) — distinct-but-cohesive feature rows --- */
+  /* Boxed card frame, matching the approved wireframe's bordered-card language (previously an
+     open, borderless two-column row). The card clips the media to its own radius via
+     overflow:hidden, so .sanctuary__img/.sanctuary__placeholder no longer need their own
+     border-radius; only .sanctuary__body carries padding, so the image still bleeds to the
+     card's edges. */
   .sanctuary {
     display: grid;
-    gap: 1.5rem;
-    align-items: center;
+    gap: 0;
+    align-items: stretch;
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background-color: var(--color-cream);
   }
   .sanctuary + .sanctuary {
-    margin-top: 4rem;
+    margin-top: 2.5rem;
   }
   @media (min-width: 768px) {
     .sanctuary {
       grid-template-columns: 1fr 1fr;
-      gap: 3rem;
     }
     .sanctuary + .sanctuary {
-      margin-top: 5.5rem;
+      margin-top: 3rem;
     }
     .sanctuary--reverse .sanctuary__media {
       order: 2;
@@ -3215,10 +3223,8 @@
     height: 100%;
     aspect-ratio: 4 / 3;
     object-fit: cover;
-    border-radius: var(--radius-xl);
   }
   .sanctuary__placeholder {
-    border: 1px solid var(--color-hairline);
     background:
       radial-gradient(
         120% 90% at 70% 14%,
@@ -3227,11 +3233,22 @@
       ),
       linear-gradient(180deg, #5a4636 0%, var(--color-earth) 100%);
   }
+  .sanctuary__body {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  @media (min-width: 768px) {
+    .sanctuary__body {
+      padding: 2rem;
+    }
+  }
   .sanctuary__role {
     font-family: var(--font-body);
-    font-size: var(--text-xs);
+    font-size: var(--text-2xs);
     font-weight: 600;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--accent-ink, var(--accent));
   }
@@ -3566,8 +3583,11 @@
     isolation: isolate;
     display: flex;
     align-items: flex-end;
-    min-height: 100vh;
-    min-height: 100svh;
+    /* Capped, not full-viewport: a 100vh/100svh hero left visitors seeing nothing but the hero on
+       many desktop/laptop screens, with the stats bar, trust signals and intro copy all below the
+       fold on first paint. Matches the wireframe's bounded, breakpoint-stepped hero (its tallest
+       simulated step was 540px) while staying responsive via clamp() rather than fixed steps. */
+    min-height: clamp(480px, 82vh, 780px);
     overflow: hidden;
   }
   .hero__media {
