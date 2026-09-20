@@ -18,7 +18,7 @@ import {
   formatRand,
   formatForeign,
   SEASON_HIGH_LABEL,
-  SEASON_HIGH_DATES,
+  SEASON_HIGH_DATE_RANGES,
   SEASON_LOW_LABEL,
   FX_RATES_AS_OF,
   type ForeignCurrency,
@@ -63,7 +63,14 @@ function priceSet(rand: number): Record<string, string> {
         <th scope="col"><span class="sr-only">Rate year</span></th>
         <th scope="col">
           {SEASON_HIGH_LABEL}
-          <span class="ratetable__seasonnote">{SEASON_HIGH_DATES}</span>
+          {/* One range per line, each non-wrapping. As a single comma-joined string this column
+              head broke mid-phrase ("15 Dec to" / "15 Jan"), which reads as two different dates;
+              stacking them is the deliberate version of the same break. */}
+          <span class="ratetable__seasonnote">
+            {SEASON_HIGH_DATE_RANGES.map((range) => (
+              <span class="ratetable__seasonrange">{range}</span>
+            ))}
+          </span>
         </th>
         <th scope="col">
           {SEASON_LOW_LABEL}

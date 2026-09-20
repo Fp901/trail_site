@@ -1,7 +1,14 @@
 ---
-// Floating WhatsApp click-to-chat button — MOBILE ONLY (md:hidden). Desktop users have the footer
-// WhatsApp link as their contact path. Fixed bottom-right, WhatsApp-green circle, inline SVG icon
-// (self-hosted, no external library). Rendered once in Layout.astro so it appears on every page.
+// Floating WhatsApp click-to-chat button — MOBILE ONLY. Desktop users have the footer WhatsApp
+// link as their contact path. Rendered once in Layout.astro so it appears on every page.
+//
+// It is a fixed overlay, so it will pass over whatever happens to be at the bottom-right of the
+// viewport: it was sitting on top of the "DAYS WALKING" stat and over body copy. Three repairs:
+//   1. It docks out of the way while you are scrolling DOWN and returns when you scroll up, so it
+//      is never parked on top of what you are reading through.
+//   2. <body> carries bottom padding on mobile, so the last content on a page always clears it.
+//   3. It is hidden outright while the mobile menu is open.
+// Sizing stays a 48px circle inside a 56px hit area, i.e. comfortably over the 44px minimum.
 import { site } from '../data/site';
 import WhatsAppIcon from './WhatsAppIcon.astro';
 ---
@@ -11,7 +18,38 @@ import WhatsAppIcon from './WhatsAppIcon.astro';
   target="_blank"
   rel="noopener"
   aria-label="Chat with us on WhatsApp"
-  class="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 md:hidden"
+  class="wa-fab"
+  data-wa-fab
 >
-  <WhatsAppIcon size={30} />
+  <WhatsAppIcon size={26} />
 </a>
+
+<script>
+  // Reveal the floating button on an upward scroll only, and dock it again as soon as the reader
+  // scrolls down or returns to the top. It is a fixed overlay, so this is the only way it can be
+  // kept off the stats bar, CTAs and form controls it was covering. The docked-by-default styling
+  // is inside @media (scripting: enabled), so with JS off the button is simply always visible.
+  function initWhatsAppDock() {
+    const w = window as unknown as { __waFabBound?: boolean };
+    if (w.__waFabBound) return;
+    w.__waFabBound = true;
+
+    const REVEAL_AFTER = 240; // px: clear of the hero + stats block before it may appear at all
+    let lastY = window.scrollY;
+
+    const sync = () => {
+      const fab = document.querySelector<HTMLElement>('[data-wa-fab]');
+      if (!fab) return;
+      const y = window.scrollY;
+      const delta = y - lastY;
+      // 6px of slack so a jittery touch scroll does not flap the button.
+      if (Math.abs(delta) <= 6 && y > REVEAL_AFTER) return;
+      if (Math.abs(delta) > 6) lastY = y;
+      fab.classList.toggle('is-shown', delta < 0 && y > REVEAL_AFTER);
+    };
+
+    window.addEventListener('scroll', sync, { passive: true });
+    sync();
+  }
+  document.addEventListener('astro:page-load', initWhatsAppDock);
+</script>

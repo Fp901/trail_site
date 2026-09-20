@@ -24,6 +24,13 @@ const jsonLd = [
 
 // Trail context per lodge — grounded in the itinerary (Day 2 crosses Groenkop to Oukraal; Day 3
 // takes the Elandsberg L-Kloof to Blackwood; Temminck's is the Day 1 arrival and Day 4 return).
+// Second, human-readable anchor per lodge. The data keys are historic ('rotavi' is Temminck's
+// Lodge), and those URLs must keep resolving, but a fragment is visible in the address bar and
+// should match the name on the page.
+const anchorAlias: Record<string, string> = {
+  rotavi: 'temmincks',
+};
+
 const context: Record<string, string> = {
   rotavi: "Day 1 arrival & Day 4 return · the valley basecamp",
   oukraal: "Day 2 · Temminck's Lodge → Oukraal, over Groenkop",
@@ -74,8 +81,8 @@ const context: Record<string, string> = {
                   src={s.heroImage}
                   alt=""
                   class="jumpnav__thumb"
-                  widths={[160, 240]}
-                  sizes="33vw"
+                  widths={[240, 400, 600]}
+                  sizes="(min-width: 640px) 25vw, 33vw"
                   loading="lazy"
                 />
               )}
@@ -92,6 +99,7 @@ const context: Record<string, string> = {
       sanctuaries.map((s, i) => (
         <SanctuaryCard
           id={s.id}
+          aliasId={anchorAlias[s.id]}
           name={s.name}
           role={s.role}
           description={s.description}

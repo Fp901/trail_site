@@ -37,6 +37,13 @@ import DayCard from './DayCard.astro';
       c.classList.add('reveal-pending');
       io.observe(c);
     });
+
+    // Safety net: whatever the observer has not reached after 1.2s is settled anyway. The
+    // pending state is a 10px lift and nothing else, so every card is fully legible throughout;
+    // this only guarantees none is left sitting off its final position.
+    window.setTimeout(() => {
+      cards.forEach((c) => c.classList.add('is-revealed'));
+    }, 1200);
   }
   document.addEventListener('astro:page-load', initTimelineReveal);
 </script>

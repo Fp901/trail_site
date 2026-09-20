@@ -1,13 +1,17 @@
 ---
-// PageHero — full-bleed photo header for interior pages (The Trail, Logistics & FAQ), matching
-// the approved wireframe's "trail-header"/"logistics-header" treatment: a shorter, capped-height
-// sibling of the Home <Hero> rather than a second full-viewport hero. The copy panel is pulled up
-// over the bottom of the photo with a negative margin and carries its own gradient background —
-// simpler than Hero's absolutely-positioned scrim, and appropriate for a shorter band where the
-// image itself still reads clearly above the fold.
-// Content (eyebrow/h1/paragraphs) is passed via the default slot so the real, unedited page copy
-// — including its own heading id, used elsewhere for aria-labelledby — passes through untouched;
-// this component only supplies the new photo + overlay layout around it.
+// PageHero — photo header for interior pages (The Trail, Logistics & FAQ).
+//
+// Rebuilt: the previous version pulled the copy panel UP over the bottom of the photo with a
+// negative margin and gave that panel its own earth gradient. Because the panel is a centred
+// .page-container and the photo is full-bleed, the gradient stopped at the container edge — so
+// above ~1200px it rendered as a muddy brown slab inset inside the photo, with a visible seam
+// down each side, light-on-dark body copy at poor contrast, and the tail of the intro paragraph
+// stranded below the slab on its own.
+//
+// Now: full-bleed photo with a LOCAL bottom gradient that fades the image into the page
+// background, then an ordinary cream block for the eyebrow, title and intro. The slotted copy
+// keeps its own dark-on-cream utility classes (text-earth / text-charcoal / text-green), so no
+// colour overrides are needed and contrast is the same as every other section on the page.
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 
@@ -20,16 +24,23 @@ const { image, imageAlt, labelledby } = Astro.props;
 ---
 
 <section class="page-hero" aria-labelledby={labelledby}>
-  <Image
-    src={image}
-    alt={imageAlt}
-    class="page-hero__media"
-    loading="eager"
-    fetchpriority="high"
-    widths={[640, 1024, 1600, 2000, 2560, 3120]}
-    sizes="100vw"
-  />
-  <div class="page-hero__content mx-auto w-full page-container px-6 md:px-8 lg:px-10">
-    <slot />
+  <div class="page-hero__figure">
+    <Image
+      src={image}
+      alt={imageAlt}
+      class="page-hero__media"
+      loading="eager"
+      fetchpriority="high"
+      widths={[640, 1024, 1600, 2000, 2560, 3024]}
+      sizes="100vw"
+    />
+    {/* Local bottom fade only — the photo settles into the cream block instead of butting it. */}
+    <div class="page-hero__fade" aria-hidden="true"></div>
+  </div>
+
+  <div class="page-hero__copy">
+    <div class="mx-auto w-full page-container px-6 md:px-8 lg:px-10">
+      <slot />
+    </div>
   </div>
 </section>

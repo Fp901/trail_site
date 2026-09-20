@@ -105,6 +105,12 @@
        were silently dropped from the build and every var() fell through to the failing accent. */
     --color-day2-ink: #7f6345;
     --color-ochre-ink: #7f6345;
+    /* Terracotta's 4.65:1 was measured on plain cream (#F5F0E6). The day-4 card paints an
+       accent-TINTED cream (#F1EADF) behind it, which is darker, and against that the same hue
+       measures 4.43:1 — under AA, in the two places it is used as text (the day numeral and the
+       distance badge). 6% earth mixed in brings it to 4.69:1 on the tinted card. The graphic
+       hue is untouched: --color-day4 still paints the map segment and the card rule. */
+    --color-day4-ink: #965839;
 
     /* Site container width. Three rules read var(--container, 96rem) and it was never defined
        anywhere, so all three silently fell back to 96rem. That value is right for the full-bleed
@@ -155,7 +161,7 @@
   }
   [data-accent='day4'] {
     --accent: var(--color-day4);
-    --accent-ink: var(--color-day4); /* 4.65:1 — clears AA */
+    --accent-ink: var(--color-day4-ink); /* 4.69:1 on the day-4 card's own tinted ground */
   }
   [data-accent='ochre'] {
     --accent: var(--color-ochre);
@@ -515,6 +521,82 @@
     font-weight: 500;
   }
 
+  /* --- Floating WhatsApp button (mobile only) ------------------------------
+     A fixed overlay, so it inevitably sits on top of whatever is at the bottom-right of the
+     viewport — it was landing on the stats bar's "DAYS WALKING" row and on body copy. Repairs:
+       1. It is revealed on an UPWARD scroll and docked away again as soon as you scroll down or
+          return to the top of the page, so it is never parked over what you are reading.
+       2. The footer reserves bottom room on mobile, so the last content always clears it.
+       3. It is hidden outright while the mobile menu is open.
+     The docked-by-default state lives inside @media (scripting: enabled): with JavaScript off
+     nothing would ever un-dock it, so in that case it stays permanently visible and the WhatsApp
+     path still works. Keying it that way also means it never paints and then vanishes. */
+  .wa-fab {
+    position: fixed;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    z-index: 45; /* above content, below the mobile menu (60) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem; /* 56px hit area around a 48px visual circle */
+    height: 3.5rem;
+    border-radius: 9999px;
+    background-color: #25d366;
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(36, 24, 17, 0.28);
+    transition:
+      transform 220ms ease,
+      opacity 220ms ease,
+      visibility 220ms ease;
+  }
+  @media (min-width: 768px) {
+    .wa-fab {
+      display: none;
+    }
+  }
+  .wa-fab:hover {
+    transform: scale(1.05);
+  }
+  @media (scripting: enabled) {
+    /* Slid clear, not merely faded, so a docked button cannot be tapped by accident. */
+    .wa-fab {
+      opacity: 0;
+      transform: translateY(150%);
+      pointer-events: none;
+    }
+    .wa-fab.is-shown,
+    /* A docked button is invisible but still in the tab order, so keyboard focus has to bring it
+       back — otherwise a keyboard or switch-access user lands on something they cannot see. */
+    .wa-fab:focus-visible {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+    .wa-fab.is-shown:hover {
+      transform: scale(1.05);
+    }
+  }
+  /* Out of the way entirely while the full-screen menu is open. */
+  body:has(.mobile-menu.is-open) .wa-fab {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wa-fab {
+      transition: none;
+    }
+  }
+  /* Reserve room under the last content on every page so the button never covers it. Applied to
+     the footer, not to <body>: body padding would paint a cream strip below the earth footer.
+     Mobile only — the button does not render at all from 768px. */
+  @media (max-width: 767.98px) {
+    body > footer {
+      padding-bottom: 5rem;
+    }
+  }
+
   /* Skip-link — visually hidden until focused, then slides into view (a11y / DoD #3). */
   .skip-link {
     position: absolute;
@@ -655,14 +737,20 @@
   }
 
   /* --- Homepage: intro (two-column with supporting photo at desktop) ------
-     Previously text-only. The wireframe pairs this copy with a supporting photo — between the
-     two paragraphs on mobile, a right-hand column spanning the full text height at desktop —
-     which this page never had. Spacing between the text pieces still comes from each element's
-     own mt-* utility (unchanged), so .home-intro itself only supplies the grid areas; the photo
-     gets its own margin since it isn't a Tailwind-utility sibling of the paragraphs. */
+     Spacing between the text pieces still comes from each element's own mt-* utility; this grid
+     only places them.
+
+     Two fixes over the first version. (1) Mobile order: the photo sat between the two paragraphs,
+     which buried it under the longest block of copy on the page — it now follows the heading,
+     before that copy. (2) Desktop: the media column spanned EVERY row, so the second paragraph
+     and the CTA were pushed down past the full height of a 3:4 portrait, leaving a tall band of
+     empty cream in the text column and stranding the closing sentence and the button below it.
+     The photo now spans the eyebrow/heading/first-paragraph rows only, and p2 + the CTA continue
+     directly under the text column. The image is absolutely positioned inside its cell so its own
+     aspect ratio cannot feed back into row sizing (which is what produced the ~1070px column). */
   .home-intro {
     display: grid;
-    grid-template-areas: 'eyebrow' 'head' 'p1' 'media' 'p2' 'cta';
+    grid-template-areas: 'eyebrow' 'head' 'media' 'p1' 'p2' 'cta';
   }
   .home-intro__eyebrow {
     grid-area: eyebrow;
@@ -686,39 +774,61 @@
   .home-intro__img {
     display: block;
     width: 100%;
-    aspect-ratio: 3 / 4;
+    /* Landscape on mobile: the source is a 2:3 portrait, and at full phone width that is a
+       520px-tall block sitting between the heading and the copy. */
+    aspect-ratio: 4 / 3;
     object-fit: cover;
+    object-position: center 55%;
     border-radius: var(--radius-lg);
   }
-  @media (min-width: 768px) {
+  /* Two columns from 1024px, not 768px: at tablet-portrait width the text column is only ~380px
+     and the display heading breaks after two or three words per line. 1024 is the same
+     content-driven step the nav uses, and for the same reason. */
+  @media (min-width: 1024px) {
     .home-intro {
-      grid-template-columns: 1.1fr 0.9fr;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
       grid-template-areas:
         'eyebrow media'
-        'head media'
-        'p1 media'
-        'p2 media'
-        'cta media';
+        'head    media'
+        'p1      media'
+        'p2      .'
+        'cta     .';
       column-gap: 2.5rem;
-      align-items: start;
     }
     .home-intro__media {
+      position: relative;
       margin-top: 0;
-      height: 100%;
+      min-height: 24rem;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
     }
     .home-intro__img {
+      position: absolute;
+      inset: 0;
       height: 100%;
-      min-height: 22rem;
+      width: 100%;
+      aspect-ratio: auto;
+      object-position: center 50%;
+      border-radius: 0;
     }
   }
 
-  /* --- Homepage: statement band (dark visual break) ----------------------- */
+  /* --- Homepage: statement band (photo chapter break) ---------------------
+     This is a PHOTOGRAPH with a line over it, not a brown bar. The scrim used to be a flat
+     78%->62% earth wash across the whole band, which buried the panorama entirely. It is now
+     two layers: a light overall wash (20-30%) so the band still reads as one dark chapter
+     break, plus a LOCAL darkening under the headline only — horizontal on desktop (the line is
+     left-aligned and ~32ch wide), vertical on mobile (the line is full width, vertically
+     centred). Measured against the brightest part of the dusk sky the text band lands at
+     ~3.8:1, which clears WCAG AA for large text: .statement-band__text is --text-3xl, i.e.
+     never below 30px at any viewport. The text-shadow is belt-and-braces for the hot spots
+     where the sun sits in frame. */
   .statement-band {
     position: relative;
     isolation: isolate;
     display: flex;
     align-items: center;
-    min-height: clamp(260px, 42vh, 440px);
+    min-height: clamp(300px, 44vh, 500px);
     overflow: hidden;
   }
   .statement-band__img {
@@ -727,17 +837,45 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    /* Explicit, not the default centre: the panorama is 2.67:1 and this band is wider still, so
+       a centre crop pushes the ridgeline to the very bottom edge. 42% keeps the sunset band and
+       the mountain line in frame at every width. */
+    object-position: center 42%;
     z-index: -2;
   }
   .statement-band__scrim {
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-earth) 78%, transparent),
-      color-mix(in srgb, var(--color-earth) 62%, transparent)
-    );
+    background:
+      /* local — darker under the left-aligned headline, clear of the photo by ~74% across */
+      linear-gradient(
+        100deg,
+        color-mix(in srgb, var(--color-earth) 55%, transparent) 0%,
+        color-mix(in srgb, var(--color-earth) 50%, transparent) 42%,
+        color-mix(in srgb, var(--color-earth) 12%, transparent) 74%,
+        transparent 100%
+      ),
+      /* overall — a light wash, well under the old flat 78% */
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-earth) 20%, transparent),
+        color-mix(in srgb, var(--color-earth) 30%, transparent)
+      );
+  }
+  /* Below 1024px the headline runs to ~85% of the band's width, so a horizontal ramp leaves its
+     right-hand end on bare sky (measured 3.1:1 at 768px). Band the darkening vertically instead:
+     the sky above and the grass below stay visible, and the line sits in the dark middle. */
+  @media (max-width: 1023.98px) {
+    .statement-band__scrim {
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-earth) 18%, transparent) 0%,
+        color-mix(in srgb, var(--color-earth) 58%, transparent) 30%,
+        color-mix(in srgb, var(--color-earth) 58%, transparent) 74%,
+        color-mix(in srgb, var(--color-earth) 22%, transparent) 100%
+      );
+    }
   }
   .statement-band__inner {
     max-width: var(--container, 96rem);
@@ -753,6 +891,7 @@
     line-height: 1.25;
     letter-spacing: -0.01em;
     color: var(--color-cream);
+    text-shadow: 0 1px 14px rgba(36, 24, 17, 0.55);
     text-wrap: balance;
   }
 
@@ -1033,16 +1172,23 @@
     padding-top: 0.15rem;
   }
   /* Scroll-reveal (Part 5.7). `reveal-pending` is only ever added by JS after checking
-     prefers-reduced-motion, so content is never hidden without it. */
+     prefers-reduced-motion, so content is never hidden without it.
+
+     The pending state used to be opacity: 0 for 600ms. That made every day card completely
+     invisible until the observer fired — and a card the observer never reached (an observer
+     bound late, a card that never satisfies the 0.15 threshold) simply stayed blank. The motion
+     is now a lift and nothing else: the card is fully opaque at every moment, and the timeline
+     script force-settles anything still pending after 1.2s.
+
+     Opacity is deliberately NOT animated, not even from 0.96. Two colours on this card sit just
+     above AA by design (the ochre-ink day numeral at 4.92:1, the "no walking" pill at 4.6:1), and
+     measuring the rendered page showed that even a 4% opacity reduction drops both under 4.5:1
+     for the length of the transition. A translate carries the same motion at no contrast cost. */
   .daycard.reveal-pending {
-    opacity: 0;
-    transform: translateY(18px);
-    transition:
-      opacity 600ms ease,
-      transform 600ms ease;
+    transform: translateY(10px);
+    transition: transform 260ms ease;
   }
   .daycard.reveal-pending.is-revealed {
-    opacity: 1;
     transform: none;
   }
   .daycard__head {
@@ -2695,13 +2841,16 @@
     border-collapse: collapse;
     font-family: var(--font-body);
   }
+  /* 34/33/33, not 40/30/30: at 390px the old split left the price columns a 75px content box
+     and "R15,900" rendered at ~72px, so overflow-wrap broke it across two lines mid-number
+     ("R15,90" / "0"). The label column has more slack to give than the prices do. */
   .ratetable th:first-child,
   .ratetable td:first-child {
-    width: 40%;
+    width: 34%;
   }
   .ratetable th:not(:first-child),
   .ratetable td:not(:first-child) {
-    width: 30%;
+    width: 33%;
   }
   .ratetable th,
   .ratetable td {
@@ -2744,6 +2893,10 @@
     letter-spacing: 0.06em;
     color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
+  .ratetable__seasonrange {
+    display: block;
+    white-space: nowrap;
+  }
   .ratetable__seasonnote {
     display: block;
     margin-top: 0.2rem;
@@ -2770,6 +2923,8 @@
   }
   .ratetable__price {
     display: block;
+    /* A price is one token: never let the cell's overflow-wrap split it. */
+    white-space: nowrap;
     font-family: var(--font-display);
     font-size: var(--text-lg);
     font-weight: 700;
@@ -2811,18 +2966,20 @@
     color: var(--color-green);
   }
 
-  /* The two availability rules. One column on mobile, two from 640px. */
+  /* The three booking steps. Stacked below 768px, then all three in ONE row — never the old
+     two-column grid, which at 640-1023px put steps 1 and 2 side by side and left step 3 alone on
+     a row of its own, reading as an afterthought rather than the third of three. */
   .bookrules {
     margin-top: 1.25rem;
     display: grid;
     gap: 1rem;
     list-style: none;
     padding: 0;
-    max-width: 56rem;
   }
-  @media (min-width: 640px) {
+  @media (min-width: 768px) {
     .bookrules {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.25rem;
     }
   }
   .bookrules li {
@@ -3298,14 +3455,17 @@
      A thumbnail strip so a guest can tap straight to the lodge they're curious about instead of
      scrolling past all three. Anchors down to each <SanctuaryCard id="…">. */
   .jumpnav {
-    display: flex;
+    display: grid;
+    /* A grid of equal tracks, not flex: flex:1 1 0 on an item whose content is an image lets the
+       image's own intrinsic width nudge the tracks apart, so the three thumbs were never quite
+       the same width. */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem;
-    margin: 2rem 0 0;
+    /* Bottom margin, previously 0: the section that holds this strip is !pb-0, so the captions
+       sat flush against the first lodge card below them. */
+    margin: 2rem 0 2.5rem;
     padding: 0;
     list-style: none;
-  }
-  .jumpnav__item {
-    flex: 1 1 0;
   }
   .jumpnav__link {
     display: block;
@@ -3315,28 +3475,22 @@
   .jumpnav__thumb {
     display: block;
     width: 100%;
-    height: 4.25rem;
+    /* A ratio, not a fixed 4.25rem height. At 68px tall against a full-width column these were
+       letterbox strips with the building cropped out of them; 3:2 matches the source photos and
+       keeps all three the same height at every width. */
+    aspect-ratio: 3 / 2;
+    height: auto;
     border-radius: var(--radius-md);
     object-fit: cover;
-    /* Each hero photo is a full 3:2 architectural shot; a plain centre crop at this strip's
-       height cuts through whatever happens to sit in the frame's vertical middle rather than the
-       feature that actually identifies the lodge (Temminck's showed mostly garden path, Oukraal
-       mostly tree canopy, Blackwood just the roof apex with the entrance cropped off). Biased
-       per-lodge below, the same way .sanctuary__img already biases the ochre lodge's hero crop. */
-    object-position: center 40%;
+    /* All three hero photos are natively 3:2, so at a 3:2 thumb the whole frame shows and no
+       per-lodge crop bias is needed. The three object-position overrides that used to live here
+       existed only to rescue a fixed 68px letterbox strip from cutting the building out; they
+       are no-ops at this ratio and are gone. */
+    object-position: center;
     border: 1px solid var(--color-hairline);
     transition:
       transform 200ms ease,
       border-color 200ms ease;
-  }
-  .jumpnav__item[data-accent='ochre'] .jumpnav__thumb {
-    object-position: center 32%; /* Temminck's: more roofline, less garden path below it */
-  }
-  .jumpnav__item[data-accent='green'] .jumpnav__thumb {
-    object-position: center 58%; /* Oukraal: keeps the "Ou Kraal" sign wall in frame, not just canopy */
-  }
-  .jumpnav__item[data-accent='day4'] .jumpnav__thumb {
-    object-position: center 62%; /* Blackwood: shows the entrance doors, not only the roof apex */
   }
   .jumpnav__link:hover .jumpnav__thumb {
     transform: scale(1.03);
@@ -3344,18 +3498,17 @@
   }
   .jumpnav__name {
     display: block;
-    margin-top: 0.4rem;
+    margin-top: 0.5rem;
     font-family: var(--font-body);
     font-size: var(--text-2xs);
     font-weight: 600;
+    line-height: 1.3;
     color: var(--color-earth);
   }
   @media (min-width: 640px) {
     .jumpnav {
       gap: 1.25rem;
-    }
-    .jumpnav__thumb {
-      height: 6rem;
+      margin-bottom: 3rem;
     }
     .jumpnav__name {
       font-size: var(--text-sm);
@@ -3376,6 +3529,23 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     background-color: var(--color-cream);
+  }
+  /* The jump-nav and the homepage teasers both deep-link to these, and the header is fixed, so
+     without this the lodge name lands underneath it. `position: relative` is here only so the
+     alias anchor below can be taken out of grid flow — .sanctuary is a grid, and a stray empty
+     <span> child would otherwise claim a cell of its own. */
+  .sanctuary {
+    position: relative;
+    scroll-margin-top: calc(var(--nav-h) + 1.5rem);
+  }
+  /* A zero-size second anchor for a card (see SanctuaryCard's aliasId). */
+  .anchor-alias {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    scroll-margin-top: calc(var(--nav-h) + 1.5rem);
   }
   .sanctuary + .sanctuary {
     margin-top: 2.5rem;
@@ -3807,6 +3977,12 @@
     height: 100%;
     width: 100%;
     object-fit: cover;
+    /* Explicit rather than the default 50%: the source is 4:3 and this band runs as wide as
+       3.2:1, so cover discards most of the frame. 45% keeps the sunset band and the Waterberg
+       ridgeline in the visible slice at every width, and drops the foreground grass into the
+       bottom of the frame where the base scrim sits. One value for all breakpoints so the crop
+       does not jump between them. */
+    object-position: center 45%;
   }
   /* Labelled placeholder backdrop — cinematic earth/ochre golden-hour wash. */
   .hero__placeholder {
@@ -3818,14 +3994,38 @@
       ),
       linear-gradient(180deg, #5a4636 0%, var(--color-earth) 55%, #241811 100%);
   }
-  /* Earth-gradient scrim — top for nav legibility, heavier at base for the text. */
+  /* Earth-gradient scrim — a top fade for the nav and a base fade into the stats bar, with the
+     middle of the frame left alone so the landscape actually reads. The base ramp used to be a
+     two-stop gradient ending at 0.18 at 60%, which means CSS held that 0.18 flat over the whole
+     upper 40% as well: on top of the 0.5 top fade the photo washed out to a beige gradient. Both
+     ramps now reach full transparency inside the frame. */
   .hero__scrim {
     position: absolute;
     inset: 0;
     z-index: -1;
     background:
-      linear-gradient(180deg, rgba(36, 24, 17, 0.5) 0%, rgba(36, 24, 17, 0) 28%),
-      linear-gradient(0deg, rgba(36, 24, 17, 0.9) 0%, rgba(36, 24, 17, 0.18) 60%);
+      /* Local to the copy block: an ellipse anchored bottom-left, full-bleed so it has no edge.
+         Measured against the rendered photo, the old flat wash left the overline at 1.3:1 and
+         parts of the headline at 1.7:1 — cream over a lit sunset sky simply needs a scrim, and
+         the only way to have that AND a photograph is to put the scrim where the words are
+         rather than over the whole frame. The right-hand third and the top quarter, which carry
+         the cloud bank and the ridgeline, are left alone. */
+      radial-gradient(
+        105% 120% at 22% 96%,
+        rgba(36, 24, 17, 0.7) 0%,
+        rgba(36, 24, 17, 0.62) 52%,
+        rgba(36, 24, 17, 0.28) 76%,
+        rgba(36, 24, 17, 0) 100%
+      ),
+      /* Top fade — nav legibility only. */
+      linear-gradient(180deg, rgba(36, 24, 17, 0.45) 0%, rgba(36, 24, 17, 0) 18%),
+      /* Base fade into the stats bar, across the full width. */
+      linear-gradient(
+        0deg,
+        rgba(36, 24, 17, 0.72) 0%,
+        rgba(36, 24, 17, 0.3) 22%,
+        rgba(36, 24, 17, 0) 46%
+      );
   }
   /* On mobile the heading rises into the brighter sky — extend a stronger base scrim higher. */
   /* 639.98px, not 640px: the file has 15 (min-width: 640px) rules, and at exactly 640px a
@@ -3833,12 +4033,17 @@
      min-width:640 rule targets .hero__scrim — but the overlap is a trap for the next edit. */
   @media (max-width: 639.98px) {
     .hero__scrim {
-      background: linear-gradient(
-        0deg,
-        rgba(36, 24, 17, 0.94) 0%,
-        rgba(36, 24, 17, 0.68) 46%,
-        rgba(36, 24, 17, 0.08) 82%
-      );
+      /* On a phone the copy runs the full width, so the ellipse has nothing to fall away from:
+         band the scrim vertically instead, and leave the top of the sky clear. */
+      background:
+        linear-gradient(180deg, rgba(36, 24, 17, 0.45) 0%, rgba(36, 24, 17, 0) 16%),
+        linear-gradient(
+          0deg,
+          rgba(36, 24, 17, 0.9) 0%,
+          rgba(36, 24, 17, 0.72) 48%,
+          rgba(36, 24, 17, 0.4) 68%,
+          rgba(36, 24, 17, 0) 88%
+        );
     }
   }
   .hero__content {
@@ -3882,21 +4087,25 @@
     gap: 1rem;
   }
 
-  /* --- Page hero (Part 8.2/8.4 — wireframe's "trail-header"/"logistics-header") ------------
-     A shorter, capped-height sibling of .hero for interior page openers (The Trail, Logistics
-     & FAQ) that were previously plain text with no photo — the wireframe treats this as new,
-     matching Home's strong visual entry instead of starting on plain text. Rather than Hero's
-     absolutely-positioned media + scrim, the copy panel is pulled up over the image with a
-     negative margin and carries its own gradient background: simpler for a fixed-height (not
-     viewport-relative) band, and it keeps the photo itself visible and bright above the fold. */
+  /* --- Page hero (Part 8.2/8.4 — interior page opener) --------------------
+     Full-bleed photo, a local bottom fade into the page background, then a normal cream block
+     for the eyebrow/title/intro. Deliberately NOT the old negative-margin overlay: that gave the
+     copy panel its own earth gradient, and because the panel is a centred .page-container the
+     gradient ended at the container edge, drawing a brown slab inset inside a full-bleed photo
+     with a seam down each side. See PageHero.astro for the full note. */
   .page-hero {
     position: relative;
+  }
+  .page-hero__figure {
+    position: relative;
+    overflow: hidden;
   }
   .page-hero__media {
     display: block;
     width: 100%;
     height: 300px;
     object-fit: cover;
+    object-position: center 45%;
   }
   @media (min-width: 640px) {
     .page-hero__media {
@@ -3908,45 +4117,29 @@
       height: 480px;
     }
   }
-  .page-hero__content {
-    position: relative;
-    margin-top: -110px;
-    padding-top: 5.5rem;
-    padding-bottom: 1.75rem;
+  /* Local to the photo, full-bleed like it, and ending in the page background — so there is no
+     seam between the image and the copy block and no coloured panel anywhere. */
+  .page-hero__fade {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 30%;
     background: linear-gradient(
-      to top,
-      color-mix(in srgb, var(--color-earth) 88%, black) 0%,
-      transparent 92%
+      to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--color-cream) 45%, transparent) 58%,
+      var(--color-cream) 100%
     );
-    color: var(--color-cream);
-    text-shadow: 0 1px 16px rgba(36, 24, 17, 0.5);
+    pointer-events: none;
+  }
+  .page-hero__copy {
+    background-color: var(--color-cream);
+    padding-block: 2rem 1.5rem;
   }
   @media (min-width: 640px) {
-    .page-hero__content {
-      margin-top: -130px;
-      padding-top: 7rem;
-      padding-bottom: 2rem;
+    .page-hero__copy {
+      padding-block: 2.75rem 2rem;
     }
-  }
-  @media (min-width: 1024px) {
-    .page-hero__content {
-      margin-top: -170px;
-      padding-top: 9.5rem;
-      padding-bottom: 2.5rem;
-    }
-  }
-  /* The slotted copy carries the real site's own dark-on-cream Tailwind utility classes
-     (text-earth/text-charcoal/text-green), since it's the same untouched heading + paragraphs
-     used when there was no photo behind them. Repainted light-on-dark here now that they sit
-     over a scrimmed image — a visual override only, no text changes. */
-  .page-hero__content :is(h1, .font-display) {
-    color: var(--color-cream);
-  }
-  .page-hero__content p {
-    color: color-mix(in srgb, var(--color-cream) 92%, transparent);
-  }
-  .page-hero__content .text-green {
-    color: color-mix(in srgb, var(--color-cream) var(--tint-strong), var(--color-ochre));
   }
 
   /* --- StatsBar (Part 7 / 8.1) --------------------------------------------- */
