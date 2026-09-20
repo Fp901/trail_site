@@ -75,7 +75,12 @@ const jsonLd = [
     <h2 id="itinerary-heading" class="font-display text-2xl text-earth sm:text-3xl">
       Day by day
     </h2>
-    <div class="mt-10 max-w-3xl sm:mt-12">
+    {/* Wider than the prose blocks above it from lg. Those are capped at max-w-3xl for reading
+        measure, but a day card is a two-column data panel, not a column of prose: at 768px the
+        elevation chart was squeezed into a 233px slot and stayed exactly that size from 1024px
+        all the way to 1920px, while 430px of the page container sat empty beside it. The
+        description keeps a sane measure regardless, because it lives in its own column. */}
+    <div class="mt-10 max-w-3xl sm:mt-12 lg:max-w-5xl xl:max-w-none">
       <ItineraryTimeline />
     </div>
   </Section>

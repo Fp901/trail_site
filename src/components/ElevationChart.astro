@@ -26,12 +26,23 @@ interface Props {
 const { day, points, axisMin, axisMax, axisStep, distanceKm, landmarkLabel, landmarkFrac, alt } =
   Astro.props;
 
+// The viewBox is a coordinate space, not a size: the SVG renders at width:100% of whatever
+// column it lands in, so every unit inside it — including text — is multiplied by
+// (rendered width / W). That is why the axis labels used to come out at 3.9px on desktop. The
+// geometry below is unchanged in proportion; the type is pulled out into CSS custom properties
+// (--elev-fs / --elev-fs-lm) that are re-set per breakpoint so the EFFECTIVE size stays ~10px
+// at every viewport, and strokes use non-scaling-stroke so they stay crisp too.
 const W = 600;
-const H = 200;
-const PAD_L = 46;
-const PAD_R = 12;
-const PAD_T = 22;
-const PAD_B = 24;
+const H = 230;
+// The elevation labels sit just ABOVE their own gridline, inside the plot, rather than in a
+// left-hand gutter. A gutter cannot work here: the label's font-size is a CSS variable that
+// changes per breakpoint (see the style block), so no fixed PAD_L is wide enough at the mobile
+// size and not absurd at the desktop one — at 16 units the old 52-unit gutter clipped "1,166 m"
+// to "!66 m". Labels inside the plot also buy the curve the full width.
+const PAD_L = 14;
+const PAD_R = 14;
+const PAD_T = 34;
+const PAD_B = 30;
 const plotW = W - PAD_L - PAD_R;
 const plotH = H - PAD_T - PAD_B;
 
@@ -77,40 +88,98 @@ const gradientId = `elevchart-fill-day${day}`;
       </linearGradient>
     </defs>
     {
-      gridLines.map((e) => (
+      gridLines.map((e, i) => (
         <>
-          <line x1={PAD_L} y1={yOf(e)} x2={W - PAD_R} y2={yOf(e)} class="elevchart__grid" />
-          <text x={PAD_L - 8} y={yOf(e) + 3.5} class="elevchart__axislabel" text-anchor="end">
-            {Math.round(e).toLocaleString()} m
-          </text>
+          <line
+            x1={PAD_L}
+            y1={yOf(e)}
+            x2={W - PAD_R}
+            y2={yOf(e)}
+            class="elevchart__grid"
+            vector-effect="non-scaling-stroke"
+          />
+          {/* The lowest gridline is the baseline: the curve starts and ends on it, so a label
+              sitting there is struck through by the line at every width. Its value is already in
+              the stats row above the chart ("1,166-1,516 m"), so nothing is lost by omitting it. */}
+          {i > 0 && (
+            <text x={PAD_L + 3} y={yOf(e) - 5} class="elevchart__axislabel" text-anchor="start">
+              {Math.round(e).toLocaleString()} m
+            </text>
+          )}
         </>
       ))
     }
     <path d={areaD} class="elevchart__area" fill={`url(#${gradientId})`} />
-    <path d={lineD} class="elevchart__line" />
-    <line x1={landmarkX} y1={landmarkY} x2={landmarkX} y2={PAD_T - 5} class="elevchart__stem" />
-    <circle cx={landmarkX} cy={landmarkY} r="4" class="elevchart__dot" />
-    <text x={landmarkX} y={PAD_T - 10} class="elevchart__landmark" text-anchor="middle">
+    <path d={lineD} class="elevchart__line" vector-effect="non-scaling-stroke" />
+    <line
+      x1={landmarkX}
+      y1={landmarkY}
+      x2={landmarkX}
+      y2={PAD_T - 6}
+      class="elevchart__stem"
+      vector-effect="non-scaling-stroke"
+    />
+    <circle cx={landmarkX} cy={landmarkY} r="5" class="elevchart__dot" vector-effect="non-scaling-stroke" />
+    <text x={landmarkX} y={PAD_T - 12} class="elevchart__landmark" text-anchor="middle">
       {landmarkLabel}
     </text>
-    <text x={PAD_L} y={H - 6} class="elevchart__axislabel" text-anchor="start">0 km</text>
-    <text x={W - PAD_R} y={H - 6} class="elevchart__axislabel" text-anchor="end">
+    <text x={PAD_L} y={H - 8} class="elevchart__axislabel" text-anchor="start">0 km</text>
+    <text x={W - PAD_R} y={H - 8} class="elevchart__axislabel" text-anchor="end">
       {distanceKm.toFixed(2)} km
     </text>
   </svg>
 </figure>
 
 <style>
+  /* Type inside an SVG is scaled by (rendered width / viewBox width) along with everything else.
+     This chart renders at width:100% of whatever column it lands in, so a single hard-coded
+     font-size cannot work: at the desktop column width the 10px labels were coming out at 3.9px.
+     --elev-fs and --elev-fs-lm are viewBox units, re-set per breakpoint to cancel the scale
+     factor, so the EFFECTIVE size on screen stays around 10.5px and 12px everywhere. Stroke
+     widths are handled by vector-effect="non-scaling-stroke" on the elements themselves. */
   .elevchart {
     margin: 0;
+    /* Mobile: the chart reclaims the day-marker column (see .daycard__media in global.css), so
+       it renders around 298px wide on a 390px phone => scale ~0.5. */
+    --elev-fs: 21px;
+    --elev-fs-lm: 24px;
+  }
+  @media (min-width: 640px) {
+    /* From here to 1024px the card body is undivided, so the chart runs close to the card's full
+       inner width and the scale factor climbs past 1. Each bracket below is the measured scale
+       at that width, inverted, so the rendered size lands at ~10.5px throughout. */
+    .elevchart {
+      --elev-fs: 12px;
+      --elev-fs-lm: 13.5px;
+    }
+  }
+  @media (min-width: 768px) {
+    .elevchart {
+      --elev-fs: 10px;
+      --elev-fs-lm: 11.5px;
+    }
+  }
+  @media (min-width: 1024px) {
+    /* The card splits into two columns here: the chart takes the media column. */
+    .elevchart {
+      --elev-fs: 18px;
+      --elev-fs-lm: 20px;
+    }
+  }
+  @media (min-width: 1280px) {
+    /* And the card widens to the full page container, so the media column grows again. */
+    .elevchart {
+      --elev-fs: 14.5px;
+      --elev-fs-lm: 16.5px;
+    }
   }
   .elevchart__stats {
     display: flex;
-    gap: 12px;
-    font-size: 0.76rem;
+    gap: 0.75rem;
+    font-size: var(--text-xs);
     color: var(--color-charcoal);
     opacity: 0.72;
-    margin-bottom: 4px;
+    margin-bottom: 0.35rem;
     font-variant-numeric: tabular-nums;
   }
   .elevchart__stats strong {
@@ -128,9 +197,9 @@ const gradientId = `elevchart-fill-day${day}`;
     stroke-width: 1;
   }
   .elevchart__axislabel {
-    font-size: 10px;
+    font-size: var(--elev-fs);
     fill: var(--color-charcoal);
-    opacity: 0.55;
+    opacity: 0.62;
     font-family: var(--font-body);
     font-variant-numeric: tabular-nums;
   }
@@ -148,23 +217,23 @@ const gradientId = `elevchart-fill-day${day}`;
   .elevchart__line {
     fill: none;
     stroke: var(--accent);
-    stroke-width: 2.5;
+    stroke-width: 2.25;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
   .elevchart__stem {
     stroke: var(--accent);
     stroke-width: 1.25;
-    stroke-dasharray: 2 2;
+    stroke-dasharray: 3 3;
     opacity: 0.7;
   }
   .elevchart__dot {
     fill: var(--accent);
     stroke: var(--color-cream);
-    stroke-width: 1.5;
+    stroke-width: 1.75;
   }
   .elevchart__landmark {
-    font-size: 10.5px;
+    font-size: var(--elev-fs-lm);
     font-weight: 600;
     fill: var(--accent-ink, var(--accent));
     font-family: var(--font-body);

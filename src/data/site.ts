@@ -18,7 +18,9 @@ export const site = {
   terrainHa: 15000,
   // Sitewide tagline (footer + hero + llms.txt). Catering is optional (Booking v2), so the old
   // "Self-catering walking safari" tagline no longer describes every booking.
-  hook: 'An all-inclusive, point-to-point walking expedition with private trail guides connecting three private safari lodges.',
+  // Non-breaking space in "Big\u00A0Five": the hero caps this line at 40ch, and the natural
+  // break landed between the two words.
+  hook: 'Three days of guided walking through a private Big\u00A0Five reserve. All-inclusive.',
 
   // Enquiries / bookings email.
   notifyEmail: 'hanlie@rooibergwander.co.za',

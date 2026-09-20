@@ -1313,6 +1313,17 @@
      renders text-only with no media column at all. */
   .daycard__media {
     margin-top: 1.1rem;
+    /* Below 1024px the chart stacks under the description, still inside the body column — which
+       starts to the right of the day-marker column, costing it 72px of a 390px phone's already
+       tight width. The marker holds only "DAY 2" at the top of the card, so the space beside it
+       is empty by the time the chart gets there: reclaim it. Reset at 1024px, where the card
+       splits into two columns and the media has a column of its own. */
+    margin-left: calc(-1 * (3.25rem + 1.25rem));
+  }
+  @media (min-width: 640px) {
+    .daycard__media {
+      margin-left: calc(-1 * (5rem + 2rem));
+    }
   }
   @media (min-width: 1024px) {
     /* Elevation profile ALWAYS left, description ALWAYS right. The media used to alternate sides
@@ -1321,8 +1332,11 @@
        headings at opposite ends of the row. One fixed order scans straight down. */
     .daycard__body--split {
       display: grid;
-      grid-template-columns: 0.85fr 1.15fr;
-      column-gap: 2.5rem;
+      /* Near-even, not 0.85/1.15: the chart is the reason this card is split in two, and at the
+         old ratio it got 42.5% of an already-narrow body. The description keeps a comfortable
+         measure at this width because it has its own column. */
+      grid-template-columns: 1fr 1.05fr;
+      column-gap: 2.25rem;
       grid-template-areas: 'media text';
       align-items: start;
     }
@@ -1332,6 +1346,7 @@
     .daycard__body--split .daycard__media {
       grid-area: media;
       margin-top: 0;
+      margin-left: 0;
     }
   }
 
@@ -3507,7 +3522,11 @@
      the building was cropped out of every frame, and the captions read as three loose labels
      rather than three things you can tap. */
   .jumpnav {
-    display: grid;
+    /* Hidden below 768px. Three cards across a 390px phone leaves each about 110px wide, at
+       which point the lodge name set on the photograph is both unreadable and overflowing its
+       frame. It is a convenience for a page with three sections on it — on a phone you simply
+       scroll — so it is removed rather than shrunk further. */
+    display: none;
     /* A grid of equal tracks, not flex: flex:1 1 0 on an item whose content is an image lets the
        image's own intrinsic width nudge the tracks apart, so the three were never quite equal. */
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3577,8 +3596,9 @@
     line-height: 1.25;
     color: var(--color-cream);
   }
-  @media (min-width: 640px) {
+  @media (min-width: 768px) {
     .jumpnav {
+      display: grid;
       gap: 1.25rem;
       margin-bottom: 3rem;
     }
