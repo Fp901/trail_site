@@ -97,56 +97,62 @@ const jsonLd = [
   </Section>
 
   <Section bg="cream" labelledby="matrix-heading" space="md" containerClass="!pt-0">
-    <h2 id="matrix-heading" class="font-display text-2xl text-earth sm:text-3xl">Rates at a glance</h2>
+    {/* One column width for the whole section: the heading used to run the full container width
+        while the rate card below it was capped at max-w-3xl, so the card read as indented under
+        its own title. Heading, card and the steps below now share the same measure. */}
+    <div class="max-w-3xl">
+      <h2 id="matrix-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        Rates at a glance
+      </h2>
 
-    <div class="mt-6 max-w-3xl">
-      <RatesTable />
+      <div class="mt-6">
+        <RatesTable />
 
-      <p class="rate-includes">
-        <strong>Every rate includes</strong> two trail guides &middot; all meals, with selected
-        South African estate wines and local beers &middot; daily baggage transport &middot; all
-        conservation levies and VAT
-      </p>
+        <p class="rate-includes">
+          <strong>Every rate includes</strong> two trail guides &middot; all meals, with selected
+          South African estate wines and local beers &middot; daily baggage transport &middot; all
+          conservation levies and VAT
+        </p>
 
-      <p class="mt-5 font-body text-base leading-relaxed text-charcoal/85">
-        <a href={withBase('/how-pricing-works')} class="underline decoration-ochre underline-offset-4">
-          How pricing works
-        </a>{' '}
-        explains each of these with a worked example.
-      </p>
+        <p class="mt-5 font-body text-base leading-relaxed text-charcoal/85">
+          {/* The link text is on one line: indenting it inside the anchor pulls the template's
+              own newline into the link, underlining a trailing space. */}
+          See <a href={withBase('/how-pricing-works')} class="underline decoration-ochre underline-offset-4">How pricing works</a> for a worked example.
+        </p>
+      </div>
+
+      {/* The practical rules, in the order a guest meets them. Deliberately plain: every sentence
+          states one fact, with no forward-looking operational detail (when more start days open,
+          how far ahead each rate band books). Those are real rules, but they belong to the
+          calendar, which simply will not offer a date that breaks them. */}
+      <h3 class="mt-12 font-display text-xl text-earth sm:text-2xl">How booking works</h3>
+      <ul class="bookrules">
+        <li>
+          <p class="bookrules__days">Step 1</p>
+          <p class="bookrules__title">Pick your group and a date</p>
+          <p class="bookrules__body">
+            A departure takes {MIN_PARTY_CATERED} to {MAX_GROUP_SIZE} guests, with two trail
+            guides. The calendar shows every date you can start on.
+          </p>
+        </li>
+        <li>
+          <p class="bookrules__days">Step 2</p>
+          <p class="bookrules__title">You may be walking with others</p>
+          <p class="bookrules__body">
+            If your group is smaller than {MAX_GROUP_SIZE}, other guests can book the same date, up
+            to {MAX_GROUP_SIZE} in total. Book all {MAX_GROUP_SIZE} places and the trail and the
+            lodges are yours alone.
+          </p>
+        </li>
+        <li>
+          <p class="bookrules__days">Step 3</p>
+          <p class="bookrules__title">Pay and you are booked</p>
+          <p class="bookrules__body">
+            Pay by card. We email your confirmation and receipt straight away.
+          </p>
+        </li>
+      </ul>
     </div>
-
-    {/* The practical rules, in the order a guest meets them. Deliberately plain: every sentence
-        states one fact, with no forward-looking operational detail (when more start days open,
-        how far ahead each rate band books). Those are real rules, but they belong to the
-        calendar, which simply will not offer a date that breaks them. */}
-    <h3 class="mt-12 font-display text-xl text-earth sm:text-2xl">How booking works</h3>
-    <ul class="bookrules">
-      <li>
-        <p class="bookrules__days">Step 1</p>
-        <p class="bookrules__title">Pick your group and a date</p>
-        <p class="bookrules__body">
-          A departure takes {MIN_PARTY_CATERED} to {MAX_GROUP_SIZE} guests, with two trail guides.
-          The calendar shows every date you can start on.
-        </p>
-      </li>
-      <li>
-        <p class="bookrules__days">Step 2</p>
-        <p class="bookrules__title">You may be walking with others</p>
-        <p class="bookrules__body">
-          If your group is smaller than {MAX_GROUP_SIZE}, other guests can book the same date, up
-          to {MAX_GROUP_SIZE} in total. Book all {MAX_GROUP_SIZE} places and the trail and the
-          lodges are yours alone.
-        </p>
-      </li>
-      <li>
-        <p class="bookrules__days">Step 3</p>
-        <p class="bookrules__title">Pay and you are booked</p>
-        <p class="bookrules__body">
-          Pay by card. We email your confirmation and receipt straight away.
-        </p>
-      </li>
-    </ul>
   </Section>
 
   {/* Booking area — live BookingWidget when configured, else a calm "coming soon" + enquiry.

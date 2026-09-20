@@ -9,12 +9,6 @@
 // instead, matching the route map's own approach (Part 8.6: "a hand-authored illustrative SVG,
 // not a mapping library") — same real distance and elevation figures (see elevationAlt), an
 // illustrative curve rather than a literal GPS trace.
-import type { ImageMetadata } from 'astro';
-import temmnicksPoolImg from '../assets/images/temmnicks-pool.jpg';
-import oukraalBedImg from '../assets/images/oukraal-bed.jpg';
-import blackwoodBedImg from '../assets/images/blackwood-bed.jpg';
-import temmnicksHeroImg from '../assets/images/temmnicks-hero.jpg';
-
 export interface ElevationProfile {
   points: [number, number][]; // [distance fraction 0..1, elevation metres], illustrative shape
   axisMin: number; // real reported low point (metres)
@@ -36,8 +30,6 @@ export interface ItineraryDay {
   elevationProfile?: ElevationProfile;
   elevationAlt?: string;
   elevationCaption?: string;
-  photo?: ImageMetadata; // a real photo of that night's lodge, paired with the elevation chart
-  photoAlt?: string;
 }
 
 export const itinerary: ItineraryDay[] = [
@@ -47,8 +39,6 @@ export const itinerary: ItineraryDay[] = [
     distanceKm: null,
     description:
       'Arrive and register at Temminck\'s Lodge, the valley basecamp, from 13h00 onwards. Park in the shaded, secure on-site parking; your vehicles stay here for the whole trail. Your two experienced trail guides run a full safety and route briefing, then the afternoon is yours at the pool, with the evening around the fire.',
-    photo: temmnicksPoolImg,
-    photoAlt: "The pool at Temminck's Lodge, where the afternoon is free after the arrival briefing.",
   },
   {
     day: 2,
@@ -56,8 +46,6 @@ export const itinerary: ItineraryDay[] = [
     distanceKm: 15,
     from: "Temminck's Lodge",
     to: 'Oukraal',
-    photo: oukraalBedImg,
-    photoAlt: 'A twin room at Oukraal, waiting at the end of the mountain crossing over Groenkop.',
     description:
       'Set off early for the traverse over Groenkop. A demanding climb, rewarded with 360° views reaching 100 km. The route passes deep kloofs, towering fig trees and striking rock formations before dropping to Oukraal, a quiet bush lodge where your luggage and dinner supplies are already waiting.',
     colorVar: '--color-day2',
@@ -86,8 +74,6 @@ export const itinerary: ItineraryDay[] = [
     distanceKm: 20,
     from: 'Oukraal',
     to: 'Blackwood',
-    photo: blackwoodBedImg,
-    photoAlt: 'A bedroom at Blackwood, the highest lodge on the trail, at the end of the high ridge traverse.',
     description:
       'Climb the high ridges through the deeply-ravined Elandsberg L-Kloof to the lookout point with stunning views over the Marakele range. Drop into the Welgedacht Ravine, cut into the rock by thousands of years of rainstorms, and reach Blackwood, the highest lodge on the trail, with a pool and an evening fire.',
     colorVar: '--color-day3',
@@ -116,8 +102,6 @@ export const itinerary: ItineraryDay[] = [
     distanceKm: 18,
     from: 'Blackwood',
     to: "Temminck's Lodge",
-    photo: temmnicksHeroImg,
-    photoAlt: "The thatched main lodge at Temminck's, back at the valley basecamp where the trail concludes.",
     description:
       'Cross the open grass plains where game is frequently seen grazing, follow the upper reaches of the Sand River, and circle the base of Groenkop back to Temminck\'s Lodge, where the trail concludes. Shower, share a final meal, collect your vehicles and depart.',
     colorVar: '--color-day4',

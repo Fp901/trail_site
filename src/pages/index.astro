@@ -68,6 +68,16 @@ const lodgeContext: Record<string, string> = {
   oukraal: 'Night 2',
   blackwood: 'Night 3',
 };
+
+// Two of the three roles already end in the night ("The Bush Lodge · Night 2"), which the card's
+// own marker states directly above. Drop the trailing night here so the teaser does not say it
+// twice; /accommodation keeps the full role, where there is no marker to duplicate.
+const teaserRole = (role: string) => role.replace(/\s*·\s*Night \d+$/, '');
+
+// Temminck's Lodge is keyed 'rotavi' in the data (its former name); /accommodation carries
+// #temmincks as a readable second anchor, so link to that where it exists.
+const anchorAlias: Record<string, string> = { rotavi: 'temmincks' };
+const anchorFor = (id: string) => anchorAlias[id] ?? id;
 ---
 
 <Layout
@@ -122,7 +132,7 @@ const lodgeContext: Record<string, string> = {
           band to six lines at 390px. It also carried the site's only mention of "RoiSan", an
           entity name that appears nowhere else and is never explained. */}
       <p class="statement-band__text">
-        15,000 hectares of Big 5 reserve, crossed on foot.
+       Big Five wilderness. Explored on foot.
       </p>
     </div>
   </section>
@@ -144,7 +154,7 @@ const lodgeContext: Record<string, string> = {
       </h2>
       <p class="home-intro__p1 mt-6 max-w-2xl font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         Rooiberg Wander is a 3-night, 3-day all-inclusive wilderness walking trail, crossed on
-        foot rather than viewed from a vehicle, across 15,000 hectares of Big 5 reserve near
+        foot rather than viewed from a vehicle, across a Big 5 reserve near
         Rooiberg in Limpopo, located just 2.5 hours from OR Tambo International Airport.
         Accommodation consists of characterful, established private bush lodges with a minimum
         booking size for 2 persons. Dining is hearty, wholesome bushveld fare served family-style
@@ -217,22 +227,28 @@ const lodgeContext: Record<string, string> = {
                 accessible name ran to ~170 characters, opening with a scene description before
                 ever saying which lodge it went to. The full alt still ships on /accommodation,
                 where the image is the content rather than a thumbnail. */}
-            <a href={withBase(`/accommodation#${s.id}`)} class="home-lodge group">
+            <a
+              href={withBase(`/accommodation#${anchorFor(s.id)}`)}
+              class="home-lodge"
+              data-accent={s.accentVar.replace('--color-', '')}
+            >
               <div class="home-lodge__media">
-                {s.homeImage && (
+                {s.heroImage && (
                   <Image
-                    src={s.homeImage}
+                    src={s.heroImage}
                     alt=""
                     class="home-lodge__img"
-                    widths={[400, 600]}
-                    sizes="(min-width: 768px) 33vw, 100vw"
+                    widths={[400, 600, 800]}
+                    sizes="(min-width: 640px) 33vw, 78vw"
                     loading="lazy"
                   />
                 )}
+                <p class="home-lodge__context">{lodgeContext[s.id]}</p>
               </div>
-              <p class="home-lodge__context">{lodgeContext[s.id]}</p>
-              <h3 class="home-lodge__name">{s.name}</h3>
-              <p class="home-lodge__role">{s.role}</p>
+              <div class="home-lodge__body">
+                <h3 class="home-lodge__name">{s.name}</h3>
+                <p class="home-lodge__role">{teaserRole(s.role)}</p>
+              </div>
             </a>
           </li>
         ))

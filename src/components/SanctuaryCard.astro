@@ -9,6 +9,11 @@ import type { GalleryPhoto, LodgeAmenity } from '../data/sanctuaries';
 
 interface Props {
   id?: string; // anchor target, so /accommodation#rotavi etc. resolve from the homepage teasers
+  // A second anchor for the same card. Temminck's Lodge is still keyed 'rotavi' throughout the
+  // data layer (its former name), so /accommodation#rotavi has to keep working for any link
+  // already in the wild — but a URL fragment is user-visible, and "#rotavi" names a lodge that
+  // no longer exists by that name anywhere in the copy. aliasId adds "#temmincks" alongside it.
+  aliasId?: string;
   name: string;
   role: string;
   description: string;
@@ -22,6 +27,7 @@ interface Props {
 }
 const {
   id,
+  aliasId,
   name,
   role,
   description,
@@ -40,6 +46,7 @@ const {
   class:list={['sanctuary', reverse && 'sanctuary--reverse']}
   data-accent={accentVar.replace('--color-', '')}
 >
+  {aliasId && <span id={aliasId} class="anchor-alias" aria-hidden="true" />}
   <div class="sanctuary__media">
     {
       heroImage ? (

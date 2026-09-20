@@ -236,7 +236,11 @@ export const sadcSelfCateredRates = RATE_YEARS.filter((y) => y <= RATE_BASE_YEAR
 
 // Season column headings for the matrix.
 export const SEASON_HIGH_LABEL = 'High season';
-export const SEASON_HIGH_DATES = '1 Apr to 31 Oct, 15 Dec to 15 Jan';
+// The two ranges are exported separately as well as joined, so the rate table can render each one
+// in its own non-wrapping span. As a single string it broke mid-phrase in the narrow column head
+// ("15 Dec to" / "15 Jan"), which reads as two different dates.
+export const SEASON_HIGH_DATE_RANGES = ['1 Apr to 31 Oct', '15 Dec to 15 Jan'] as const;
+export const SEASON_HIGH_DATES = SEASON_HIGH_DATE_RANGES.join(', ');
 export const SEASON_LOW_LABEL = 'Low season';
 
 // What the price includes / excludes. Single source shared by the Rates page, the homepage and
