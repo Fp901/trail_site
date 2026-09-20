@@ -131,9 +131,9 @@ const anchorFor = (id: string) => anchorAlias[id] ?? id;
       {/* 9 words. Was 21, which read as an over-long kicker set in display type and pushed the
           band to six lines at 390px. It also carried the site's only mention of "RoiSan", an
           entity name that appears nowhere else and is never explained. */}
-      <p class="statement-band__text">
-       Big Five wilderness. Explored on foot.
-      </p>
+      {/* Set in sentence case and uppercased in CSS, not typed in capitals: literal ALL CAPS in
+          the DOM is read out letter by letter by some screen readers and is what gets indexed. */}
+      <p class="statement-band__text">Every day ends somewhere new.</p>
     </div>
   </section>
 

@@ -66,6 +66,17 @@ for (const [f, e] of points) {
   }
 }
 
+// The landmark label is centred on its stem, which clips the moment the stem is near an edge:
+// Day 4's landmark is Blackwood at landmarkFrac 0, so a centred label ran from roughly -40 to
+// +44 in viewBox units and rendered as "ckwood". Anchoring cannot be decided from the text's
+// measured width, because the font-size is a CSS variable that changes per breakpoint — so the
+// anchor flips on POSITION instead, which needs no width: hard against the left edge the label
+// runs rightwards, hard against the right edge it runs leftwards, and anywhere else it centres.
+const nearStart = landmarkFrac <= 0.12;
+const nearEnd = landmarkFrac >= 0.88;
+const landmarkAnchor = nearStart ? 'start' : nearEnd ? 'end' : 'middle';
+const landmarkTextX = nearStart ? landmarkX + 5 : nearEnd ? landmarkX - 5 : landmarkX;
+
 const gradientId = `elevchart-fill-day${day}`;
 ---
 
@@ -88,25 +99,15 @@ const gradientId = `elevchart-fill-day${day}`;
       </linearGradient>
     </defs>
     {
-      gridLines.map((e, i) => (
-        <>
-          <line
-            x1={PAD_L}
-            y1={yOf(e)}
-            x2={W - PAD_R}
-            y2={yOf(e)}
-            class="elevchart__grid"
-            vector-effect="non-scaling-stroke"
-          />
-          {/* The lowest gridline is the baseline: the curve starts and ends on it, so a label
-              sitting there is struck through by the line at every width. Its value is already in
-              the stats row above the chart ("1,166-1,516 m"), so nothing is lost by omitting it. */}
-          {i > 0 && (
-            <text x={PAD_L + 3} y={yOf(e) - 5} class="elevchart__axislabel" text-anchor="start">
-              {Math.round(e).toLocaleString()} m
-            </text>
-          )}
-        </>
+      gridLines.map((e) => (
+        <line
+          x1={PAD_L}
+          y1={yOf(e)}
+          x2={W - PAD_R}
+          y2={yOf(e)}
+          class="elevchart__grid"
+          vector-effect="non-scaling-stroke"
+        />
       ))
     }
     <path d={areaD} class="elevchart__area" fill={`url(#${gradientId})`} />
@@ -120,9 +121,27 @@ const gradientId = `elevchart-fill-day${day}`;
       vector-effect="non-scaling-stroke"
     />
     <circle cx={landmarkX} cy={landmarkY} r="5" class="elevchart__dot" vector-effect="non-scaling-stroke" />
-    <text x={landmarkX} y={PAD_T - 12} class="elevchart__landmark" text-anchor="middle">
+    <text
+      x={landmarkTextX}
+      y={PAD_T - 12}
+      class="elevchart__landmark"
+      text-anchor={landmarkAnchor}
+    >
       {landmarkLabel}
     </text>
+    {/* Elevation labels are drawn AFTER the curve, not with their gridlines: they sit inside the
+        plot, so drawn first the line ran straight through them and the halo was painted under it.
+        The lowest gridline gets no label at all — the curve starts and ends on the baseline, so
+        that one is unreadable at any width, and its value is in the stats row above the chart. */}
+    {
+      gridLines.map((e, i) =>
+        i > 0 ? (
+          <text x={PAD_L + 3} y={yOf(e) - 5} class="elevchart__axislabel" text-anchor="start">
+            {Math.round(e).toLocaleString()} m
+          </text>
+        ) : null,
+      )
+    }
     <text x={PAD_L} y={H - 8} class="elevchart__axislabel" text-anchor="start">0 km</text>
     <text x={W - PAD_R} y={H - 8} class="elevchart__axislabel" text-anchor="end">
       {distanceKm.toFixed(2)} km
@@ -202,6 +221,13 @@ const gradientId = `elevchart-fill-day${day}`;
     opacity: 0.62;
     font-family: var(--font-body);
     font-variant-numeric: tabular-nums;
+    /* The labels sit inside the plot, so the curve can run straight through one. A halo in the
+       card's own background keeps them readable wherever the line happens to fall. Sized in em
+       so it tracks --elev-fs across the breakpoints instead of needing its own ladder. */
+    paint-order: stroke fill;
+    stroke: color-mix(in srgb, var(--accent) 4%, var(--color-cream));
+    stroke-width: 0.28em;
+    stroke-linejoin: round;
   }
   .elevchart__stop-a {
     stop-color: var(--accent);
@@ -237,5 +263,9 @@ const gradientId = `elevchart-fill-day${day}`;
     font-weight: 600;
     fill: var(--accent-ink, var(--accent));
     font-family: var(--font-body);
+    paint-order: stroke fill;
+    stroke: color-mix(in srgb, var(--accent) 4%, var(--color-cream));
+    stroke-width: 0.28em;
+    stroke-linejoin: round;
   }
 </style>
