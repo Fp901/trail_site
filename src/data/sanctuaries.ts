@@ -18,8 +18,10 @@ import oukraalGallery1 from '../assets/images/oukraal-entrance.jpg';
 import oukraalGallery2 from '../assets/images/oukraal-bed-2.jpg';
 
 import blackwoodHeroImg from '../assets/images/blackwood-lodge-hero.jpg';
-import blackwoodGallery1 from '../assets/images/blackwood-fire-pit.jpg';
-import blackwoodGallery2 from '../assets/images/blackwood-main-interior.jpg';
+// Named by subject rather than by slot: the two gallery photos shifted along by one (the fire-pit
+// terrace came out, the bedroom came in), and positional names made that change unreadable.
+import blackwoodInteriorImg from '../assets/images/blackwood-main-interior.jpg';
+import blackwoodBedImg from '../assets/images/blackwood-bed.jpg';
 
 export type AmenityIconName =
   | 'parking'
@@ -107,8 +109,14 @@ export const sanctuaries: Sanctuary[] = [
     accentVar: '--color-day4',
     heroImage: blackwoodHeroImg,
     gallery: [
-      { image: blackwoodGallery1, alt: 'The fire pit terrace at Blackwood, looking out over the Waterberg.' },
-      { image: blackwoodGallery2, alt: "The open-plan lounge and games area inside Blackwood's main building." },
+      {
+        image: blackwoodInteriorImg,
+        alt: "The open-plan lounge and games area inside Blackwood's main building.",
+      },
+      {
+        image: blackwoodBedImg,
+        alt: 'A bedroom at Blackwood: a double bed against a reclaimed-timber headboard, with woven pendant lamps and a slate floor.',
+      },
     ],
     amenities: [
       { icon: 'view', label: 'Sunset mountain views' },
