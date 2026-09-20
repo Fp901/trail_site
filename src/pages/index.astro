@@ -131,8 +131,10 @@ const anchorFor = (id: string) => anchorAlias[id] ?? id;
       {/* 9 words. Was 21, which read as an over-long kicker set in display type and pushed the
           band to six lines at 390px. It also carried the site's only mention of "RoiSan", an
           entity name that appears nowhere else and is never explained. */}
-      {/* Set in sentence case and uppercased in CSS, not typed in capitals: literal ALL CAPS in
-          the DOM is read out letter by letter by some screen readers and is what gets indexed. */}
+      {/* Sentence case, like every other display line on the site. Capitals here are the small
+          label register only — eyebrows, table heads, the stats bar, the day markers — and all
+          25 of them sit at --text-sm or below. Set in caps this one line would be the only
+          uppercase element on the site above that, by three type steps. */}
       <p class="statement-band__text">Every day ends somewhere new.</p>
     </div>
   </section>

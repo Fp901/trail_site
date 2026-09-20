@@ -889,10 +889,7 @@
     font-weight: 500;
     font-size: var(--text-3xl);
     line-height: 1.25;
-    /* Uppercase, so positive tracking rather than the display face's usual negative: capitals
-       have no ascender/descender rhythm to hold them apart. */
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: -0.01em;
     color: var(--color-cream);
     text-shadow: 0 1px 14px rgba(36, 24, 17, 0.55);
     text-wrap: balance;
