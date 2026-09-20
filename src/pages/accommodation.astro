@@ -74,15 +74,15 @@ const context: Record<string, string> = {
     <ul class="jumpnav" aria-label="Jump to a lodge">
       {
         sanctuaries.map((s) => (
-          <li class="jumpnav__item" data-accent={s.accentVar.replace('--color-', '')}>
-            <a href={`#${s.id}`} class="jumpnav__link">
+          <li data-accent={s.accentVar.replace('--color-', '')}>
+            <a href={`#${anchorAlias[s.id] ?? s.id}`} class="jumpnav__link">
               {s.heroImage && (
                 <Image
                   src={s.heroImage}
                   alt=""
                   class="jumpnav__thumb"
-                  widths={[240, 400, 600]}
-                  sizes="(min-width: 640px) 25vw, 33vw"
+                  widths={[320, 500, 720]}
+                  sizes="(min-width: 640px) 30vw, 33vw"
                   loading="lazy"
                 />
               )}

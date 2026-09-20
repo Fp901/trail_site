@@ -1315,11 +1315,16 @@
     margin-top: 1.1rem;
   }
   @media (min-width: 1024px) {
+    /* Elevation profile ALWAYS left, description ALWAYS right. The media used to alternate sides
+       day to day, which was meant to mirror the route's zig-zag but in practice meant the reader
+       had to re-find the chart and re-find the prose on every card; two adjacent days put their
+       headings at opposite ends of the row. One fixed order scans straight down. */
     .daycard__body--split {
       display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
+      grid-template-columns: 0.85fr 1.15fr;
       column-gap: 2.5rem;
-      grid-template-areas: 'text media';
+      grid-template-areas: 'media text';
+      align-items: start;
     }
     .daycard__body--split .daycard__text {
       grid-area: text;
@@ -1327,11 +1332,6 @@
     .daycard__body--split .daycard__media {
       grid-area: media;
       margin-top: 0;
-    }
-    /* Alternate which side the media sits on, day to day — mirrors the route's own zig-zag. */
-    .daycard:nth-child(even) .daycard__body--split {
-      grid-template-areas: 'media text';
-      grid-template-columns: 0.85fr 1.15fr;
     }
   }
 
@@ -3500,59 +3500,82 @@
     color: color-mix(in srgb, var(--color-charcoal) 90%, transparent);
   }
 
-  /* --- Lodges jump-nav (Part 8.3) — new, per the approved wireframe -------
-     A thumbnail strip so a guest can tap straight to the lodge they're curious about instead of
-     scrolling past all three. Anchors down to each <SanctuaryCard id="…">. */
+  /* --- Lodges jump-nav (Part 8.3) ----------------------------------------
+     Rebuilt as three image cards with the lodge name set ON the photograph, matching the home
+     page's lodge teasers so the two pages speak the same language. It was a row of short
+     letterbox thumbs with the name in small type underneath: at 68px tall (and 96px from 640px)
+     the building was cropped out of every frame, and the captions read as three loose labels
+     rather than three things you can tap. */
   .jumpnav {
     display: grid;
     /* A grid of equal tracks, not flex: flex:1 1 0 on an item whose content is an image lets the
-       image's own intrinsic width nudge the tracks apart, so the three thumbs were never quite
-       the same width. */
+       image's own intrinsic width nudge the tracks apart, so the three were never quite equal. */
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem;
-    /* Bottom margin, previously 0: the section that holds this strip is !pb-0, so the captions
-       sat flush against the first lodge card below them. */
+    /* The section holding this strip is !pb-0, so without a bottom margin the row sat flush
+       against the first lodge card below it. */
     margin: 2rem 0 2.5rem;
     padding: 0;
     list-style: none;
   }
   .jumpnav__link {
+    position: relative;
     display: block;
-    text-align: center;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-hairline);
     text-decoration: none;
+    transition:
+      border-color 250ms ease,
+      box-shadow 250ms ease,
+      transform 250ms ease;
+  }
+  .jumpnav__link:hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    box-shadow: 0 10px 30px -18px rgba(61, 43, 31, 0.45);
+    transform: translateY(-2px);
   }
   .jumpnav__thumb {
     display: block;
     width: 100%;
-    /* A ratio, not a fixed 4.25rem height. At 68px tall against a full-width column these were
-       letterbox strips with the building cropped out of them; 3:2 matches the source photos and
-       keeps all three the same height at every width. */
+    /* 3:2 — the source photos' native ratio, so nothing is cropped at any width. */
     aspect-ratio: 3 / 2;
     height: auto;
-    border-radius: var(--radius-md);
     object-fit: cover;
-    /* All three hero photos are natively 3:2, so at a 3:2 thumb the whole frame shows and no
-       per-lodge crop bias is needed. The three object-position overrides that used to live here
-       existed only to rescue a fixed 68px letterbox strip from cutting the building out; they
-       are no-ops at this ratio and are gone. */
     object-position: center;
-    border: 1px solid var(--color-hairline);
-    transition:
-      transform 200ms ease,
-      border-color 200ms ease;
+    transition: transform 500ms ease;
   }
   .jumpnav__link:hover .jumpnav__thumb {
-    transform: scale(1.03);
-    border-color: var(--accent);
+    transform: scale(1.04);
+  }
+  /* Flat where the name sits, falling away above it: these are bright midday photographs and one
+     of them has pale brick paving exactly there. */
+  .jumpnav__link::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 55%;
+    background: linear-gradient(
+      to top,
+      rgba(36, 24, 17, 0.88) 0%,
+      rgba(36, 24, 17, 0.82) 20%,
+      rgba(36, 24, 17, 0.32) 50%,
+      rgba(36, 24, 17, 0) 100%
+    );
+    pointer-events: none;
   }
   .jumpnav__name {
-    display: block;
-    margin-top: 0.5rem;
-    font-family: var(--font-body);
-    font-size: var(--text-2xs);
+    position: absolute;
+    left: 0.9rem;
+    right: 0.9rem;
+    bottom: 0.75rem;
+    z-index: 1;
+    font-family: var(--font-display);
+    font-size: var(--text-base);
     font-weight: 600;
-    line-height: 1.3;
-    color: var(--color-earth);
+    line-height: 1.25;
+    color: var(--color-cream);
   }
   @media (min-width: 640px) {
     .jumpnav {
@@ -3560,16 +3583,13 @@
       margin-bottom: 3rem;
     }
     .jumpnav__name {
-      font-size: var(--text-sm);
+      left: 1.1rem;
+      right: 1.1rem;
+      bottom: 0.9rem;
+      font-size: var(--text-xl);
     }
   }
 
-  /* --- Sanctuaries (Part 5.6 / 8.3) — distinct-but-cohesive feature rows --- */
-  /* Boxed card frame, matching the approved wireframe's bordered-card language (previously an
-     open, borderless two-column row). The card clips the media to its own radius via
-     overflow:hidden, so .sanctuary__img/.sanctuary__placeholder no longer need their own
-     border-radius; only .sanctuary__body carries padding, so the image still bleeds to the
-     card's edges. */
   .sanctuary {
     display: grid;
     gap: 0;
@@ -3578,12 +3598,10 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     background-color: var(--color-cream);
-  }
-  /* The jump-nav and the homepage teasers both deep-link to these, and the header is fixed, so
-     without this the lodge name lands underneath it. `position: relative` is here only so the
-     alias anchor below can be taken out of grid flow — .sanctuary is a grid, and a stray empty
-     <span> child would otherwise claim a cell of its own. */
-  .sanctuary {
+    /* The jump-nav and the homepage teasers both deep-link to these, and the header is fixed, so
+       without scroll-margin the lodge name lands underneath it. `position: relative` is here only
+       so .anchor-alias below can be taken out of grid flow — .sanctuary is a grid, and a stray
+       empty <span> child would otherwise claim a cell of its own. */
     position: relative;
     scroll-margin-top: calc(var(--nav-h) + 1.5rem);
   }
@@ -3620,6 +3638,10 @@
   .sanctuary__media {
     display: flex;
     flex-direction: column;
+    /* One even gap between all three photos, set here rather than as padding on the gallery, so
+       hero-to-gallery and gallery-to-gallery are the same measure. They used to be 0.5rem and
+       2px respectively, which read as a big photo with two strips glued to the bottom of it. */
+    gap: 0.625rem;
   }
   .sanctuary__img,
   .sanctuary__placeholder {
@@ -3648,17 +3670,17 @@
     flex: 0 0 auto;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    /* The 2px gap this replaces read as a stray hairline rather than a deliberate seam, and at
-       6.5rem tall the two photos were easy to miss entirely under the much larger hero above
-       them. A visible gap (showing the card's own cream background, same trick the media column
-       already uses for text overflow) plus a taller strip reads as a proper two-up gallery. */
-    padding-top: 0.5rem;
+    gap: 0.625rem; /* matches .sanctuary__media's gap — one rhythm for the whole column */
   }
   .sanctuary__gallery-img {
     display: block;
     width: 100%;
-    height: 8rem;
+    /* A ratio, not a fixed 8rem. At a fixed height the two supporting photos were a letterbox
+       strip whose crop changed with the column width, and they read as an offcut of the hero
+       rather than part of the same set. 3:2 is the photos' native ratio, so nothing is cropped
+       and the three sit together as one gallery. */
+    aspect-ratio: 3 / 2;
+    height: auto;
     border-radius: var(--radius-sm);
     object-fit: cover;
   }
@@ -4017,6 +4039,15 @@
        fold on first paint. Matches the wireframe's bounded, breakpoint-stepped hero (its tallest
        simulated step was 540px) while staying responsive via clamp() rather than fixed steps. */
     min-height: clamp(480px, 82vh, 780px);
+    /* Reserve the fixed header's height. The home page is the one route whose <main> does NOT
+       carry .pt-nav (the nav is meant to sit transparent over the photograph), so nothing else
+       keeps the hero copy clear of it. The copy is bottom-aligned inside a capped hero, so on a
+       short viewport — a laptop at 1440x600, or any window under ~700px tall — the block simply
+       grew upwards until the overline sat above the logo and the headline ran through the nav
+       links. With border-box this padding is inside min-height, so the hero does not get taller
+       at the sizes where it already fits; it only stops the copy entering the header's band.
+       Reproduced in both Chromium and Firefox: it is a viewport-height bug, not an engine one. */
+    padding-top: calc(var(--nav-h) + 1rem);
     overflow: hidden;
   }
   .hero__media {
