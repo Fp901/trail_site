@@ -976,37 +976,87 @@
       flex: none;
     }
   }
+  /* A contained card, not three loose photos with flush-left captions under them. The photo used
+     to float on the page background with the caption starting below it at page level, so the row
+     read as three unrelated rectangles rather than three objects. The image now sits flush inside
+     a bordered surface, the night marker rides ON the photo (so the caption is just name + role,
+     and the role line is no longer shadowed by an identical kicker above it), and the per-lodge
+     accent — already in sanctuaries.ts and used on /accommodation — ties the two pages together.
+
+     3:2, which is the source photos' native ratio: the previous 4:3 cropped the sides off three
+     wide architectural shots, shrinking the building in each. Nothing is cropped now. */
   .home-lodge {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-lg);
+    background-color: color-mix(in srgb, var(--color-cream) 45%, #fff);
     text-decoration: none;
+    transition:
+      border-color 250ms ease,
+      box-shadow 250ms ease,
+      transform 250ms ease;
+  }
+  .home-lodge:hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    box-shadow: 0 10px 30px -18px rgba(61, 43, 31, 0.45);
+    transform: translateY(-2px);
   }
   .home-lodge__media {
+    position: relative;
     overflow: hidden;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--color-hairline);
   }
   .home-lodge__img {
     display: block;
     width: 100%;
-    height: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 3 / 2;
     object-fit: cover;
-    transition: transform 400ms ease;
+    transition: transform 500ms ease;
   }
   .home-lodge:hover .home-lodge__img {
     transform: scale(1.04);
   }
+  /* A scrim under the night marker only — these are bright, flat midday photos and one of them
+     has pale brick paving exactly where the marker sits, which measured 2.7:1 against cream. The
+     ramp is deliberately flat over its first sixth (where the marker actually is) and then falls
+     away, so the band reads as light on the photograph rather than a bar across it. Measured
+     worst case over the palest frame: 8.9:1. */
+  .home-lodge__media::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 52%;
+    background: linear-gradient(
+      to top,
+      rgba(36, 24, 17, 0.86) 0%,
+      rgba(36, 24, 17, 0.8) 16%,
+      rgba(36, 24, 17, 0.3) 46%,
+      rgba(36, 24, 17, 0) 100%
+    );
+    pointer-events: none;
+  }
   .home-lodge__context {
-    margin-top: 0.85rem;
+    position: absolute;
+    left: 0.9rem;
+    bottom: 0.75rem;
+    z-index: 1;
     font-family: var(--font-body);
     font-size: var(--text-2xs);
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--color-green);
+    color: var(--color-cream);
+  }
+  .home-lodge__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 1rem 1.1rem 1.15rem;
   }
   .home-lodge__name {
-    margin-top: 0.35rem;
     font-family: var(--font-display);
     font-size: var(--text-xl);
     color: var(--color-earth);
@@ -1016,9 +1066,8 @@
     color: color-mix(in srgb, var(--color-earth) 78%, var(--color-ochre));
   }
   .home-lodge__role {
-    margin-top: 0.25rem;
     font-family: var(--font-body);
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
     line-height: 1.5;
     color: color-mix(in srgb, var(--color-charcoal) 75%, transparent);
   }
