@@ -55,7 +55,7 @@ import {
 } from '../data/rates';
 import { SADC_COUNTRIES, countryName } from '../data/countries';
 import { site, withBase } from '../data/site';
-import { refundPolicy, MIN_GUEST_AGE } from '../data/policies';
+import { refundPolicy, clausesFor, MIN_GUEST_AGE } from '../data/policies';
 import { itinerary } from '../data/itinerary';
 import {
   SPLIT_THRESHOLD_DAYS,
@@ -261,7 +261,7 @@ const clientRates = {
           For safety, every guest must be at least {MIN_GUEST_AGE} years old on the start date.
           <a href={withBase('/logistics#minimum-age')}>Read the age policy</a>
         </p>
-        <label class="bform__radio">
+        <label class="bform__check">
           <input type="checkbox" name="ageConfirmed" data-age-confirm aria-describedby="bf-age-hint bf-age-err" />
           <span>I confirm every guest in this booking will be {MIN_GUEST_AGE} or older by the start date.</span>
         </label>
@@ -271,7 +271,7 @@ const clientRates = {
       {/* SADC confirmation. Catered: shown only once someone is counted as SADC. Self-catered:
           always, for all 8. createCheckout refuses an SADC count without it. */}
       <div class="form-field bform__declaration" data-residency-block hidden={isCatered}>
-        <label class="bform__radio">
+        <label class="bform__check">
           <input type="checkbox" name="residencyDeclaration" data-residency-declare aria-describedby="bf-residency-err" />
           <span>
             {isCatered
@@ -505,7 +505,7 @@ const clientRates = {
           ))}
         </tbody>
       </table>
-      {refundPolicy.clauses.map((clause) => (
+      {clausesFor(catering).map((clause) => (
         <div class="bmodal__clause">
           <h4>{clause.heading}</h4>
           <p>{clause.body}</p>

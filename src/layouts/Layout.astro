@@ -25,6 +25,8 @@ interface Props {
   jsonLd?: Record<string, unknown>[];
   // Home passes true: nav sits transparent over the hero. Interior pages reserve nav height.
   navOverHero?: boolean;
+  // Replaces the footer tagline on this page (the hidden self-catered page is not all-inclusive).
+  footerHook?: string;
 }
 
 const {
@@ -36,6 +38,7 @@ const {
   noindex,
   jsonLd,
   navOverHero = false,
+  footerHook,
 } = Astro.props;
 ---
 
@@ -68,6 +71,6 @@ const {
       <slot />
     </main>
     <WhatsAppButton />
-    <Footer />
+    <Footer hook={footerHook} />
   </body>
 </html>

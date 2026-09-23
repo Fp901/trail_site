@@ -774,12 +774,21 @@
   .home-intro__img {
     display: block;
     width: 100%;
-    /* Landscape on mobile: the source is a 2:3 portrait, and at full phone width that is a
-       520px-tall block sitting between the heading and the copy. */
-    aspect-ratio: 4 / 3;
+    /* Near-portrait below 1024px. The source is a 2:3 portrait with the three people spread from
+       about 20% to 95% of its height; the old 4:3 landscape crop kept only the middle half and
+       cut off both standing guests' heads. 5:6 keeps all three (about 342x410 on a 390px phone)
+       without the full 2:3 height. */
+    aspect-ratio: 5 / 6;
     object-fit: cover;
-    object-position: center 55%;
+    object-position: center 62%;
     border-radius: var(--radius-lg);
+  }
+  /* Tablet portrait: at full container width the crop would be ~700px wide and ~850px tall, an
+     upscaled wall of photo between the heading and the copy. Cap it to a comfortable column. */
+  @media (min-width: 640px) and (max-width: 1023.98px) {
+    .home-intro__media {
+      max-width: 26rem;
+    }
   }
   /* Two columns from 1024px, not 768px: at tablet-portrait width the text column is only ~380px
      and the display heading breaks after two or three words per line. 1024 is the same
@@ -1846,6 +1855,10 @@
   }
   .bcount {
     margin-top: 0.6rem;
+    /* Sized to its three parts: .form-field is a column that stretches its children, which
+       turned the stepper into a full-width bar with the value adrift in the middle. */
+    align-self: flex-start;
+    width: max-content;
     display: inline-flex;
     align-items: center;
     border: 1px solid color-mix(in srgb, var(--color-earth) 22%, transparent);
@@ -2942,7 +2955,67 @@
     outline-offset: 2px;
   }
   .bform__declaration {
-    margin-top: 1.25rem;
+    margin-top: 1.5rem;
+  }
+  /* The age tick and the SADC tick read as one group of confirmations: a clear gap above the
+     group, then the second tick close under the first. */
+  .bform__declaration + .bform__declaration {
+    margin-top: 0.25rem;
+  }
+  .bform__declaration > .form-hint {
+    margin-bottom: 0.35rem;
+  }
+  /* Confirmation ticks (age, SADC residency). A small square box beside its sentence, in the
+     earth/cream palette. The generic `.form-field input` rule styles text inputs (full width,
+     44px tall, padding) and was also catching these, blowing the box up and pushing the text to
+     the far edge; the reset below is scoped to the tick. The whole label row is the tap target,
+     so the box can stay small and the target still clears 44px. */
+  .bform__check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-height: 2.75rem;
+    padding: 0.4rem 0;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--color-charcoal);
+  }
+  .form-field .bform__check input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: none;
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+    min-height: 0;
+    margin: 0.1rem 0 0;
+    padding: 0;
+    border: 1.5px solid color-mix(in srgb, var(--color-earth) 45%, transparent);
+    border-radius: 0.35rem;
+    background-color: #fff;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+  .form-field .bform__check input[type='checkbox']:hover {
+    border-color: var(--color-earth);
+  }
+  .form-field .bform__check input[type='checkbox']:checked {
+    border-color: var(--color-earth);
+    background-color: var(--color-earth);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23F5F0E6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
+  }
+  .form-field .bform__check input[type='checkbox']:focus-visible {
+    outline: 2px solid var(--color-ochre-deep);
+    outline-offset: 2px;
+  }
+  .form-field.has-error .bform__check input[type='checkbox'] {
+    border-color: var(--color-error);
   }
 
   /* The SADC discount note. Sits directly under the matrix as a stated term of the rate table,

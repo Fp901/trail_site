@@ -337,4 +337,5 @@ export const uncateredExclusions = [
   'Food and beverages, which you bring and cook in the fully equipped lodge kitchens',
   "Travel to and from Temminck's Lodge",
   'Personal travel insurance',
+  'Gratuities',
 ];

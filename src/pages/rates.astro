@@ -14,6 +14,9 @@ import RatesTable from '../components/RatesTable.astro';
 import BookingWidget from '../components/BookingWidget.astro';
 import BetaBanner from '../components/BetaBanner.astro';
 import InquiryForm from '../components/InquiryForm.astro';
+import PaymentTrust from '../components/PaymentTrust.astro';
+import InclusionsSection from '../components/InclusionsSection.astro';
+import RefundPolicySection from '../components/RefundPolicySection.astro';
 import {
   BOOKING_OPEN_DATE,
   NIGHTS,
@@ -27,12 +30,9 @@ import {
   exclusions,
 } from '../data/rates';
 import { todaySast, SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../lib/pricing';
-import { refundPolicy } from '../data/policies';
 import { site, withBase } from '../data/site';
 import { webPageSchema, breadcrumbSchema, offerSchema } from '../data/schema';
 // Official card-network marks (MIT-licensed set; see src/assets/payment/LICENSE.md).
-import visaMark from '../assets/payment/visa.svg';
-import mastercardMark from '../assets/payment/mastercard.svg';
 
 // Live booking renders only once Supabase + Paystack are configured; until then the page shows
 // a "coming soon" note + enquiry. Adding the env vars (then rebuilding) switches it on.
@@ -196,16 +196,7 @@ const jsonLd = [
             </div>
 
             {/* Payment trust row — secure-checkout cue at the point of payment. */}
-            <p class="payment-trust">
-              <span class="payment-trust__lock" aria-hidden="true">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3M12 14.5v2.5"/></svg>
-              </span>
-              Secure card payment via Paystack
-              <span class="payment-trust__brands">
-                <img src={visaMark.src} alt="Visa" width="42" height="27" loading="lazy" />
-                <img src={mastercardMark.src} alt="Mastercard" width="42" height="27" loading="lazy" />
-              </span>
-            </p>
+            <PaymentTrust />
           </Fragment>
         ) : (
           <div class="booking-placeholder">
@@ -242,84 +233,12 @@ const jsonLd = [
 
   {/* Included / to arrange — supporting detail. A one-line summary already sits under the rate
       table, so this full breakdown follows the widget rather than delaying it. */}
-  <Section bg="cream" labelledby="included-heading" space="md" containerClass="!pt-0">
-    <div class="grid gap-10 md:grid-cols-2">
-      <div>
-        <h2 id="included-heading" class="font-display text-2xl text-earth sm:text-3xl">
-          Included in the price
-        </h2>
-        <ul class="incl-list incl-list--in">
-          {included.map((i) => <li>{i}</li>)}
-        </ul>
-      </div>
-      <div>
-        <h2 class="font-display text-2xl text-earth sm:text-3xl">What to arrange yourself</h2>
-        <ul class="incl-list incl-list--out">
-          {excluded.map((i) => <li>{i}</li>)}
-        </ul>
-      </div>
-    </div>
-  </Section>
+  <InclusionsSection included={included} excluded={excluded} />
 
   {/* Refund & cancellation policy (Part 9 / draft in policies.ts). Also referenced at checkout.
       Two summary lines stay visible at all times; the full schedule and clauses collapse into a
       native accordion below them. Policy text itself is unchanged, just re-presented. */}
-  <Section bg="cream" labelledby="refund-heading" space="md" containerClass="!pt-0">
-    <div class="max-w-3xl">
-      <h2 id="refund-heading" class="font-display text-2xl text-earth sm:text-3xl">
-        Cancellations &amp; refunds
-      </h2>
-      <ul class="policy-summary">
-        <li>
-          Full payment is due {BALANCE_LEAD_DAYS} days before arrival: bookings made{' '}
-          {SPLIT_THRESHOLD_DAYS} or more days out pay a 50% deposit, with the balance due at the{' '}
-          {BALANCE_LEAD_DAYS}-day mark; inside {SPLIT_THRESHOLD_DAYS} days pays in full.
-        </li>
-        <li>
-          Cancel {refundPolicy.tiers[0].window.toLowerCase()} for a{' '}
-          {refundPolicy.tiers[0].refund.charAt(0).toLowerCase() + refundPolicy.tiers[0].refund.slice(1)}.
-        </li>
-      </ul>
-
-      <details class="policy-accordion">
-        <summary class="policy-accordion__summary">Full cancellation &amp; refund policy</summary>
-        <div class="policy-accordion__body">
-          <p class="font-body leading-relaxed text-charcoal/85">{refundPolicy.intro}</p>
-
-          <table class="policy-table">
-            <caption class="sr-only">Refund schedule by notice given before arrival</caption>
-            <thead>
-              <tr>
-                <th scope="col">Notice before arrival</th>
-                <th scope="col">Refund of total paid</th>
-              </tr>
-            </thead>
-            <tbody>
-              {
-                refundPolicy.tiers.map((t) => (
-                  <tr>
-                    <th scope="row">{t.window}</th>
-                    <td>{t.refund}</td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
-
-          <dl class="policy-clauses">
-            {
-              refundPolicy.clauses.map((c) => (
-                <div>
-                  <dt>{c.heading}</dt>
-                  <dd>{c.body}</dd>
-                </div>
-              ))
-            }
-          </dl>
-        </div>
-      </details>
-    </div>
-  </Section>
+  <RefundPolicySection />
 
   {/* Enquiry — last section of the page. Open (prominent) while online booking is not yet open
       (before BOOKING_OPEN_DATE); collapses behind a disclosure once booking opens. BetaBanner's

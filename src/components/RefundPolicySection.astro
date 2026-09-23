@@ -1,0 +1,70 @@
+---
+// RefundPolicySection: the two-line cancellation summary plus the full policy in a native
+// accordion. Shared by /rates and /sadc-slackpacking; the policy itself lives in data/policies.ts.
+import Section from './Section.astro';
+import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../lib/pricing';
+import { refundPolicy, clausesFor } from '../data/policies';
+
+interface Props {
+  catering?: 'catered' | 'uncatered';
+}
+const { catering = 'catered' } = Astro.props;
+const clauses = clausesFor(catering);
+---
+
+  <Section bg="cream" labelledby="refund-heading" space="md" containerClass="!pt-0">
+    <div class="max-w-3xl">
+      <h2 id="refund-heading" class="font-display text-2xl text-earth sm:text-3xl">
+        Cancellations &amp; refunds
+      </h2>
+      <ul class="policy-summary">
+        <li>
+          Full payment is due {BALANCE_LEAD_DAYS} days before arrival: bookings made{' '}
+          {SPLIT_THRESHOLD_DAYS} or more days out pay a 50% deposit, with the balance due at the{' '}
+          {BALANCE_LEAD_DAYS}-day mark; inside {SPLIT_THRESHOLD_DAYS} days pays in full.
+        </li>
+        <li>
+          Cancel {refundPolicy.tiers[0].window.toLowerCase()} for a{' '}
+          {refundPolicy.tiers[0].refund.charAt(0).toLowerCase() + refundPolicy.tiers[0].refund.slice(1)}.
+        </li>
+      </ul>
+
+      <details class="policy-accordion">
+        <summary class="policy-accordion__summary">Full cancellation &amp; refund policy</summary>
+        <div class="policy-accordion__body">
+          <p class="font-body leading-relaxed text-charcoal/85">{refundPolicy.intro}</p>
+
+          <table class="policy-table">
+            <caption class="sr-only">Refund schedule by notice given before arrival</caption>
+            <thead>
+              <tr>
+                <th scope="col">Notice before arrival</th>
+                <th scope="col">Refund of total paid</th>
+              </tr>
+            </thead>
+            <tbody>
+              {
+                refundPolicy.tiers.map((t) => (
+                  <tr>
+                    <th scope="row">{t.window}</th>
+                    <td>{t.refund}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+
+          <dl class="policy-clauses">
+            {
+              clauses.map((c) => (
+                <div>
+                  <dt>{c.heading}</dt>
+                  <dd>{c.body}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </div>
+      </details>
+    </div>
+  </Section>

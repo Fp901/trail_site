@@ -28,6 +28,15 @@ export interface RefundTier {
 export interface PolicyClause {
   heading: string;
   body: string;
+  /** Set when a clause only applies to one product. The hidden self-catered page (and its booking
+   *  widget) leaves out the catered-only clauses: there is no single supplement on that option,
+   *  and its rate is already a resident rate. */
+  cateringOnly?: 'catered';
+}
+
+// The clauses that apply to one product's page and booking widget.
+export function clausesFor(catering: 'catered' | 'uncatered'): PolicyClause[] {
+  return refundPolicy.clauses.filter((c) => !c.cateringOnly || c.cateringOnly === catering);
 }
 
 export const refundPolicy = {
@@ -72,10 +81,12 @@ export const refundPolicy = {
     },
     {
       heading: 'Rooms and single supplement',
+      cateringOnly: 'catered',
       body: `Every departure has ${ROOMS_PER_DEPARTURE} double rooms. Guests only share a room with others in their own booking. Each guest who has a room to themselves pays a single supplement of ${SINGLE_SUPPLEMENT_PCT}% of the all-inclusive rate for their start date.`,
     },
     {
       heading: 'SADC resident rate',
+      cateringOnly: 'catered',
       body: `Guests counted as SADC residents at booking receive ${SADC_DISCOUNT_PERCENT}% off their rate. Each must show a valid ID or passport proving residency in an SADC country at registration on Day 1. A guest who cannot pays a ${SADC_PREMIUM_PCT}% premium at registration.`,
     },
     {

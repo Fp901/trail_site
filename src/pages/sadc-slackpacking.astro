@@ -34,6 +34,9 @@ import {
   uncateredExclusions,
 } from '../data/rates';
 import { site, withBase } from '../data/site';
+import PaymentTrust from '../components/PaymentTrust.astro';
+import InclusionsSection from '../components/InclusionsSection.astro';
+import RefundPolicySection from '../components/RefundPolicySection.astro';
 
 const bookingEnabled = Boolean(
   import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_PAYSTACK_PUBLIC_KEY,
@@ -48,7 +51,14 @@ const description =
   'A traditional self-catering slackpacking trail across a 15,000-hectare private Big 5 reserve in the Waterberg, opened to SADC residents at an accessible regional rate.';
 ---
 
-<Layout title={title} description={description} path="/sadc-slackpacking" noindex={true}>
+<Layout
+  title={title}
+  description={description}
+  path="/sadc-slackpacking"
+  noindex={true}
+  image="/images/share-sadc-slackpacking.jpg"
+  footerHook={'Three days of guided walking through a private Big\u00A0Five reserve.'}
+>
   <Section bg="cream" labelledby="sadc-heading">
     <div class="max-w-3xl">
       <p class="eyebrow">By direct invitation</p>
@@ -114,30 +124,11 @@ const description =
         off.
       </p>
 
-      <div class="mt-8 grid gap-6 sm:grid-cols-2">
-        <div>
-          <h3 class="font-body text-sm font-bold uppercase tracking-[0.08em] text-green">
-            Included
-          </h3>
-          <ul class="incl-list incl-list--in mt-3">
-            {uncateredInclusions.map((item) => <li>{item}</li>)}
-          </ul>
-        </div>
-        <div>
-          <h3 class="font-body text-sm font-bold uppercase tracking-[0.08em] text-earth/70">
-            Not included
-          </h3>
-          <ul class="incl-list incl-list--out mt-3">
-            {uncateredExclusions.map((item) => <li>{item}</li>)}
-          </ul>
-        </div>
-      </div>
-
       <p class="mt-6 font-body text-base leading-relaxed text-charcoal/85">
-        The itinerary, the terrain and the guiding are identical to the all-inclusive safari:
-        see <a href={withBase('/the-trail')} class="underline decoration-ochre underline-offset-4">the day-by-day trail</a>
+        The itinerary, the terrain and the guiding are the same on every departure: see
+        <a href={withBase('/the-trail')} class="underline decoration-ochre underline-offset-4">the day-by-day trail</a>
         and <a href={withBase('/logistics')} class="underline decoration-ochre underline-offset-4">trail logistics and safety</a>.
-        Dining is the one difference: on this option you bring and cook your own food.
+        On this option you bring your own food and cook it in the fully equipped lodge kitchens.
       </p>
     </div>
   </Section>
@@ -157,6 +148,7 @@ const description =
             <div class="mt-8">
               <BookingWidget catering="uncatered" />
             </div>
+            <PaymentTrust />
           </Fragment>
         ) : (
           <Fragment>
@@ -179,4 +171,8 @@ const description =
       }
     </div>
   </Section>
+
+  {/* The same supporting blocks as /rates, in their self-catered versions. */}
+  <InclusionsSection included={uncateredInclusions} excluded={uncateredExclusions} />
+  <RefundPolicySection catering="uncatered" />
 </Layout>

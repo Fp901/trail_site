@@ -1,0 +1,31 @@
+---
+// InclusionsSection: "Included in the price" and "What to arrange yourself", side by side from
+// md. Each page passes its own pair (the flagship lists on /rates, the self-catered lists on the
+// hidden page), so the layout is shared and the content is not.
+import Section from './Section.astro';
+
+interface Props {
+  included: readonly string[];
+  excluded: readonly string[];
+}
+const { included, excluded } = Astro.props;
+---
+
+  <Section bg="cream" labelledby="included-heading" space="md" containerClass="!pt-0">
+    <div class="grid gap-10 md:grid-cols-2">
+      <div>
+        <h2 id="included-heading" class="font-display text-2xl text-earth sm:text-3xl">
+          Included in the price
+        </h2>
+        <ul class="incl-list incl-list--in">
+          {included.map((i) => <li>{i}</li>)}
+        </ul>
+      </div>
+      <div>
+        <h2 class="font-display text-2xl text-earth sm:text-3xl">What to arrange yourself</h2>
+        <ul class="incl-list incl-list--out">
+          {excluded.map((i) => <li>{i}</li>)}
+        </ul>
+      </div>
+    </div>
+  </Section>
