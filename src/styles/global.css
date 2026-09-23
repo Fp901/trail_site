@@ -1884,6 +1884,10 @@
     font-variant-numeric: tabular-nums;
     color: var(--color-earth);
   }
+  .bform__roomsnote {
+    margin-top: 0.6rem;
+    min-height: 1.5em; /* written by JS; reserve the line so the form does not jump */
+  }
   .bform__countries {
     margin-top: 0.5rem;
     font-family: var(--font-body);

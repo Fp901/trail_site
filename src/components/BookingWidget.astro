@@ -179,49 +179,67 @@ const clientRates = {
             </p>
           </fieldset>
 
-          {/* Own rooms. A stepper that only lands on values leaving an even number sharing, since
-              guests only share within their own booking. The hidden input is what the form reads. */}
+          {/* Rooms. The guest picks how many rooms, one step at a time, from all doubles up to one
+              each (never more than the 4 a departure has). Guests only share within their own
+              booking, so the own-room count follows: singleRooms = 2 x rooms - walkers, written to
+              the hidden input the form and the server read. The note spells out who is alone and
+              what the single supplement is. */}
           <div class="form-field bform__count">
-            <p class="bform__countlabel" id="bf-single-label">How many need their own room?</p>
-            <p class="form-hint" id="bf-single-hint">
-              Rooms are doubles and you only share within your group. Each guest in their own room
-              pays a single supplement of <span data-supplement>{formatRand(supplementHint)}</span>.
-            </p>
-            <div class="bcount" role="group" aria-labelledby="bf-single-label" aria-describedby="bf-single-hint">
-              <button type="button" class="bcount__btn" data-count-dec="single" aria-label="Fewer own rooms">
+            <p class="bform__countlabel" id="bf-rooms-label">How many rooms does your group need?</p>
+            <p class="form-hint" id="bf-rooms-hint">Rooms are doubles, shared only within your group.</p>
+            <div class="bcount" role="group" aria-labelledby="bf-rooms-label" aria-describedby="bf-rooms-hint bf-rooms-note">
+              <button type="button" class="bcount__btn" data-count-dec="rooms" aria-label="Fewer rooms">
                 <span aria-hidden="true">&minus;</span>
               </button>
-              <output class="bcount__value" data-count-value="single" aria-live="polite">{defaultSingleRooms(partyMin)}</output>
-              <button type="button" class="bcount__btn" data-count-inc="single" aria-label="More own rooms">
+              <output class="bcount__value" data-count-value="rooms" aria-live="polite">{Math.ceil(partyMin / 2)}</output>
+              <button type="button" class="bcount__btn" data-count-inc="rooms" aria-label="More rooms">
                 <span aria-hidden="true">+</span>
               </button>
             </div>
+            <p class="form-hint bform__roomsnote" id="bf-rooms-note" data-rooms-note data-supplement-default={formatRand(supplementHint)} aria-live="polite"></p>
             <input type="hidden" name="singleRooms" value={defaultSingleRooms(partyMin)} data-count-input="single" />
           </div>
 
-          {/* SADC resident discount: shown openly, with the member states behind a disclosure. */}
-          <div class="form-field bform__count bform__sadc">
+          {/* SADC residents. Asked as a plain yes or no first; the discount, the count and (below)
+              the confirmation tick appear only on a yes, so a guest from elsewhere never has to
+              read about a rate that is not theirs. The country list sits with the question because
+              a guest may need it to answer. */}
+          <fieldset class="bwalkers bform__sadc">
+            <legend class="bwalkers__legend">Does anyone in your group live in an SADC country?</legend>
+            <details class="bform__countries">
+              <summary>See the {sadcCountryNames.length} Southern African Development Community countries</summary>
+              <p>{sadcCountryNames.join(', ')}</p>
+            </details>
+            <div class="bwalkers__row">
+              <label class="bwalkers__opt">
+                <input type="radio" name="sadcAny" value="no" checked data-sadc-any />
+                <span>No</span>
+              </label>
+              <label class="bwalkers__opt">
+                <input type="radio" name="sadcAny" value="yes" data-sadc-any />
+                <span>Yes</span>
+              </label>
+            </div>
+          </fieldset>
+          <div class="form-field bform__count" data-sadc-detail hidden>
             <p class="bform__sadchead">SADC resident discount: {SADC_DISCOUNT_PERCENT}% off</p>
             <p class="form-hint">
               Guests who live in a Southern African Development Community country get
               {' '}{SADC_DISCOUNT_PERCENT}% off their rate.
             </p>
-            <details class="bform__countries">
-              <summary>See the {sadcCountryNames.length} countries</summary>
-              <p>{sadcCountryNames.join(', ')}</p>
-            </details>
             <p class="bform__countlabel" id="bf-sadc-label">How many of your group live in an SADC country?</p>
             <div class="bcount" role="group" aria-labelledby="bf-sadc-label">
               <button type="button" class="bcount__btn" data-count-dec="sadc" aria-label="Fewer SADC residents">
                 <span aria-hidden="true">&minus;</span>
               </button>
-              <output class="bcount__value" data-count-value="sadc" aria-live="polite">0</output>
+              <output class="bcount__value" data-count-value="sadc" aria-live="polite">1</output>
               <button type="button" class="bcount__btn" data-count-inc="sadc" aria-label="More SADC residents">
                 <span aria-hidden="true">+</span>
               </button>
             </div>
-            <input type="hidden" name="sadcCount" value="0" data-count-input="sadc" />
           </div>
+          {/* 0 until the guest answers yes; the server reads this, never the yes/no. */}
+          <input type="hidden" name="sadcCount" value="0" data-count-input="sadc" />
         </Fragment>
       ) : (
         /* Self-catered runs as a full group of 8 SADC residents sharing 4 rooms: there is nothing
@@ -606,7 +624,7 @@ const clientRates = {
 
     // ---- DOM ---------------------------------------------------------------------------------
     const residencyBlock = form.querySelector<HTMLElement>('[data-residency-block]');
-    const supplementEl = form.querySelector<HTMLElement>('[data-supplement]');
+    const roomsNote = form.querySelector<HTMLElement>('[data-rooms-note]');
     const singleInput = form.querySelector<HTMLInputElement>('[data-count-input="single"]');
     const sadcInput = form.querySelector<HTMLInputElement>('[data-count-input="sadc"]');
     const residencyDeclare = form.querySelector<HTMLInputElement>('[data-residency-declare]');
@@ -1160,7 +1178,7 @@ const clientRates = {
 
     function updateEstimate() {
       paintEstimate();
-      paintSupplement();
+      paintRoomsNote();
       refreshSteps();
     }
 
@@ -1199,15 +1217,15 @@ const clientRates = {
     }
 
     // One short line per collapsed step: enough to confirm the choice without reopening it.
-    // Step 1 reads "3 walkers · 1 own room · 2 SADC residents", leaving out any part that is 0.
+    // Step 1 reads "3 walkers · 2 rooms · 2 SADC residents", leaving out an SADC count of 0.
     function stepSummaryText(n: number): string {
       if (n === 1) {
         const g = groupSize();
-        const singles = singleRooms();
+        const r = myRooms();
         const sadc = sadcCount();
         return [
           `${g} ${g === 1 ? 'walker' : 'walkers'}`,
-          singles > 0 ? `${singles} own ${singles === 1 ? 'room' : 'rooms'}` : '',
+          `${r} ${r === 1 ? 'room' : 'rooms'}`,
           sadc > 0 ? `${sadc} SADC ${sadc === 1 ? 'resident' : 'residents'}` : '',
         ].filter(Boolean).join(' · ');
       }
@@ -1553,51 +1571,94 @@ const clientRates = {
     }
 
     // ---- Step 1 counters ----------------------------------------------------------------------
-    // Two steppers write to hidden inputs, which are what everything else reads. Own rooms only
-    // land on values that leave an even number sharing (guests pair up within their own booking);
-    // the SADC count runs 0 to the number of walkers. At a limit the button is aria-disabled
-    // rather than disabled, so it keeps focus and a screen reader still hears why nothing moved.
-    type CounterKey = 'single' | 'sadc';
-    const counterInputs: Record<CounterKey, HTMLInputElement | null> = { single: singleInput, sadc: sadcInput };
-    function counterOptions(key: CounterKey): number[] {
-      const n = groupSize();
-      if (key === 'sadc') return Array.from({ length: n + 1 }, (_, i) => i);
-      const out: number[] = [];
-      for (let v = n % 2; v <= n; v += 2) out.push(v);
-      return out;
-    }
+    // Two steppers. ROOMS steps by 1 from all doubles (walkers / 2, rounded up) to one each, never
+    // past the 4 a departure has; it is stored as the own-room count the server reads
+    // (singleRooms = 2 x rooms - walkers). SADC runs 0 to the number of walkers. At a limit the
+    // button is aria-disabled rather than disabled, so it keeps focus and a screen reader still
+    // hears why nothing moved.
+    type CounterKey = 'rooms' | 'sadc';
+    const counters: Record<CounterKey, { get: () => number; set: (v: number) => void; options: () => number[] }> = {
+      rooms: {
+        get: () => myRooms(),
+        set: (r) => { if (singleInput) singleInput.value = String(2 * r - groupSize()); },
+        options: () => {
+          const n = groupSize();
+          const out: number[] = [];
+          for (let r = Math.ceil(n / 2); r <= Math.min(n, R.rooms); r++) out.push(r);
+          return out;
+        },
+      },
+      // Only reachable after a yes, so it runs 1 to the number of walkers.
+      sadc: {
+        get: () => sadcCount(),
+        set: (v) => { if (sadcInput) sadcInput.value = String(v); },
+        options: () => Array.from({ length: groupSize() }, (_, i) => i + 1),
+      },
+    };
     function paintCounter(key: CounterKey): void {
-      const input = counterInputs[key];
-      if (!input) return;
-      const opts = counterOptions(key);
-      const v = Number(input.value);
+      const c = counters[key];
       const out = form!.querySelector<HTMLElement>(`[data-count-value="${key}"]`);
-      if (out) out.textContent = String(v);
+      if (!out) return; // the self-catered mount has no counters
+      const opts = c.options();
+      const v = c.get();
+      out.textContent = String(v);
       form!.querySelector(`[data-count-dec="${key}"]`)?.setAttribute('aria-disabled', v <= opts[0] ? 'true' : 'false');
       form!.querySelector(`[data-count-inc="${key}"]`)?.setAttribute('aria-disabled', v >= opts[opts.length - 1] ? 'true' : 'false');
+      if (key === 'rooms') paintRoomsNote();
     }
     function stepCounter(key: CounterKey, dir: 1 | -1): void {
-      const input = counterInputs[key];
-      if (!input) return;
-      const v = Number(input.value);
-      const opts = counterOptions(key);
+      const c = counters[key];
+      const v = c.get();
+      const opts = c.options();
       const next = dir > 0 ? opts.find((o) => o > v) : [...opts].reverse().find((o) => o < v);
       if (next === undefined) return;
-      input.value = String(next);
+      c.set(next);
       paintCounter(key);
       onCountsChanged();
     }
-    for (const key of ['single', 'sadc'] as CounterKey[]) {
+    // The yes/no in front of the SADC count. No: the count is 0 and the discount block stays
+    // hidden. Yes: the block opens at 1 and the guest counts up from there.
+    const sadcDetail = form.querySelector<HTMLElement>('[data-sadc-detail]');
+    const sadcAnyYes = (): boolean =>
+      form!.querySelector<HTMLInputElement>('input[name="sadcAny"]:checked')?.value === 'yes';
+    form.querySelectorAll<HTMLInputElement>('[data-sadc-any]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        const yes = sadcAnyYes();
+        if (sadcDetail) sadcDetail.hidden = !yes;
+        if (sadcInput) sadcInput.value = yes ? '1' : '0';
+        paintCounter('sadc');
+        onCountsChanged();
+      });
+    });
+
+    for (const key of ['rooms', 'sadc'] as CounterKey[]) {
       form.querySelector(`[data-count-dec="${key}"]`)?.addEventListener('click', () => stepCounter(key, -1));
       form.querySelector(`[data-count-inc="${key}"]`)?.addEventListener('click', () => stepCounter(key, 1));
     }
 
-    // The supplement quoted in the step 1 hint: the base-year high-season figure shipped in the
-    // markup until a date is chosen, then that date's figure.
-    const supplementDefault = supplementEl?.textContent ?? '';
-    function paintSupplement(): void {
-      if (!supplementEl) return;
-      supplementEl.textContent = selectedStartIso ? fmtR(supplementCents(selectedStartIso, false)) : supplementDefault;
+    // "3 rooms: 2 doubles and 1 guest on their own. That guest pays the single supplement of
+    // R6,360." The figure is the base-year high-season one until a date is chosen, then that
+    // date's (before any last-minute reduction, matching the price lines).
+    function paintRoomsNote(): void {
+      if (!roomsNote) return;
+      const n = groupSize();
+      const singles = singleRooms();
+      const r = myRooms();
+      const doubles = (n - singles) / 2;
+      const fig = selectedStartIso
+        ? fmtR(supplementCents(selectedStartIso, false))
+        : roomsNote.dataset.supplementDefault ?? '';
+      const parts = [
+        doubles > 0 ? `${doubles} ${doubles === 1 ? 'double' : 'doubles'}` : '',
+        singles > 0 ? `${singles} ${singles === 1 ? 'guest' : 'guests'} on their own` : '',
+      ].filter(Boolean);
+      const who =
+        singles === 0
+          ? ''
+          : singles === 1
+            ? ` That guest pays the single supplement of ${fig}.`
+            : ` Those ${singles} guests each pay the single supplement of ${fig}.`;
+      roomsNote.textContent = `${r} ${r === 1 ? 'room' : 'rooms'}: ${parts.join(' and ')}.${who}`;
     }
 
     // Anything in step 1 can move the price, the booking window and which dates fit, so every
@@ -1617,12 +1678,12 @@ const clientRates = {
 
     for (const input of Array.from(form.querySelectorAll<HTMLInputElement>('input[name="groupSize"]'))) {
       input.addEventListener('change', () => {
-        // A new walker count resets own rooms to its default (1 if odd, else 0) and keeps the SADC
-        // count within the party.
+        // A new walker count resets to the fewest rooms (all doubles, plus one on their own if the
+        // party is odd) and keeps the SADC count within the party.
         const n = groupSize();
         if (singleInput && CATERING === 'catered') singleInput.value = String(n % 2);
-        if (sadcInput && Number(sadcInput.value) > n) sadcInput.value = String(n);
-        paintCounter('single');
+        if (sadcInput && Number(sadcInput.value) > n) sadcInput.value = String(n); // stays 1+ on a yes
+        paintCounter('rooms');
         paintCounter('sadc');
         onCountsChanged();
       });
@@ -1854,7 +1915,7 @@ const clientRates = {
     });
 
     // ---- First paint -------------------------------------------------------------------------
-    paintCounter('single');
+    paintCounter('rooms');
     paintCounter('sadc');
     buildJump();
     calRender();
