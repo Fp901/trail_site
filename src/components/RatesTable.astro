@@ -32,6 +32,18 @@ import { withBase } from '../data/site';
 
 const CURRENCIES: Array<'ZAR' | ForeignCurrency> = ['ZAR', 'EUR', 'GBP', 'USD'];
 
+// Flagship row then its SADC resident row, per rate year. The first year shows; later years sit
+// behind a "Show {year} rates" toggle.
+const rowPairs = rateRows.flatMap((r, i) => [
+  { row: r, resident: false },
+  { row: sadcRateRows[i], resident: true },
+]);
+const yearGroups = rateRows.map(({ year }, i) => ({
+  year,
+  later: i > 0,
+  pairs: rowPairs.filter((p) => p.row.year === year),
+}));
+
 // Every cell's figure, once, in all four currencies — read back out by the client script via
 // data-price-zar / -eur / -gbp / -usd rather than recomputed in JS.
 function priceSet(rand: number): Record<string, string> {
@@ -59,67 +71,81 @@ function priceSet(rand: number): Record<string, string> {
     }
   </fieldset>
 
-  <table class="ratetable">
-    <caption class="sr-only">
-      All-inclusive rates per person sharing, for the whole trail, by year and season, with the
-      SADC resident rate beneath each year. VAT and conservation levies included.
-    </caption>
-    <thead>
-      <tr>
-        <th scope="col"><span class="sr-only">Rate year</span></th>
-        <th scope="col">
-          {SEASON_HIGH_LABEL}
-          {/* One range per line, each non-wrapping. As a single comma-joined string this column
-              head broke mid-phrase ("15 Dec to" / "15 Jan"), which reads as two different dates;
-              stacking them is the deliberate version of the same break. */}
-          <span class="ratetable__seasonnote">
-            {SEASON_HIGH_DATE_RANGES.map((range) => (
-              <span class="ratetable__seasonrange">{range}</span>
-            ))}
-          </span>
-        </th>
-        <th scope="col">
-          {SEASON_LOW_LABEL}
-        </th>
-      </tr>
-    </thead>
-    <tbody>
-      {
-        rateRows.flatMap((r, i) => [
-          { row: r, resident: false },
-          { row: sadcRateRows[i], resident: true },
-        ]).map(({ row: r, resident }) => (
-          <tr class={resident ? 'ratetable__row--resident' : 'ratetable__row--lead'}>
-            <th scope="row">
-              <span class="ratetable__label">{r.label}</span>
-              {resident ? (
-                <span class="ratetable__qualifier">
-                  {SADC_DISCOUNT_PERCENT}% off &middot;{' '}
-                  <a href={withBase('/logistics#sadc-resident')} class="ratetable__qualifies">
-                    Who qualifies?
-                  </a>
-                </span>
-              ) : (
-                <span class="ratetable__qualifier">all-inclusive, incl. VAT</span>
-              )}
-            </th>
-            <td>
-              <span class="ratetable__price" data-currency-price {...priceSet(r.high)}>
-                {formatRand(r.high)}
-              </span>
-              <span class="ratetable__unit">per person sharing</span>
-            </td>
-            <td>
-              <span class="ratetable__price" data-currency-price {...priceSet(r.low)}>
-                {formatRand(r.low)}
-              </span>
-              <span class="ratetable__unit">per person sharing</span>
-            </td>
-          </tr>
-        ))
-      }
-    </tbody>
-  </table>
+  {/* Rate years after the first sit behind a native disclosure, so the table opens on the year
+      most guests book. Each later year is its own table with the same fixed column widths and its
+      own header row, so it reads correctly on its own and lines up under the first when opened.
+      Collapsed rows still carry every currency's figure, so the tabs convert them too. */}
+  {
+    yearGroups.map(({ year, pairs, later }) => {
+      const Wrap = later ? 'details' : 'div';
+      return (
+        <Wrap class={later ? 'ratetable__more' : 'ratetable__first'}>
+          {later && (
+            <summary class="ratetable__moretoggle">
+              <span class="ratetable__moreshow">Show {year} rates</span>
+              <span class="ratetable__morehide">Hide {year} rates</span>
+            </summary>
+          )}
+          <table class="ratetable">
+            <caption class="sr-only">
+              {year} all-inclusive rates per person sharing, for the whole trail, by season, with
+              the SADC resident rate beneath. VAT and conservation levies included.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col"><span class="sr-only">Rate year</span></th>
+                <th scope="col">
+                  {SEASON_HIGH_LABEL}
+                  {/* One range per line, each non-wrapping. As a single comma-joined string this column
+                      head broke mid-phrase ("15 Dec to" / "15 Jan"), which reads as two different dates;
+                      stacking them is the deliberate version of the same break. */}
+                  <span class="ratetable__seasonnote">
+                    {SEASON_HIGH_DATE_RANGES.map((range) => (
+                      <span class="ratetable__seasonrange">{range}</span>
+                    ))}
+                  </span>
+                </th>
+                <th scope="col">
+                  {SEASON_LOW_LABEL}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {pairs.map(({ row: r, resident }) => (
+                <tr class={resident ? 'ratetable__row--resident' : 'ratetable__row--lead'}>
+                  <th scope="row">
+                    <span class="ratetable__label">{r.label}</span>
+                    {resident ? (
+                      <span class="ratetable__qualifier">
+                        {SADC_DISCOUNT_PERCENT}% off &middot;{' '}
+                        <a href={withBase('/logistics#sadc-resident')} class="ratetable__qualifies">
+                          Who qualifies?
+                        </a>
+                      </span>
+                    ) : (
+                      <span class="ratetable__qualifier">all-inclusive, incl. VAT</span>
+                    )}
+                  </th>
+                  <td>
+                    <span class="ratetable__price" data-currency-price {...priceSet(r.high)}>
+                      {formatRand(r.high)}
+                    </span>
+                    <span class="ratetable__unit">per person sharing</span>
+                  </td>
+                  <td>
+                    <span class="ratetable__price" data-currency-price {...priceSet(r.low)}>
+                      {formatRand(r.low)}
+                    </span>
+                    <span class="ratetable__unit">per person sharing</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Wrap>
+      );
+    })
+  }
 
   {/* Always visible, ZAR tab included: the snapshot date and the ZAR-only charge are facts about
       the whole table, not only about the converted figures. */}

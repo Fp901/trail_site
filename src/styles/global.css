@@ -2994,6 +2994,57 @@
   .ratetable__qualifies:hover {
     text-decoration-thickness: 2px;
   }
+  /* Later rate years: a native <details> under the first year's table. The toggle is a text
+     link in the ochre-underline idiom, not a button block, with a 44px touch target. */
+  .ratetable__more {
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--color-hairline);
+  }
+  .ratetable__moretoggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.75rem;
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-earth);
+    text-decoration: underline;
+    text-decoration-color: var(--color-ochre);
+    text-underline-offset: 4px;
+  }
+  .ratetable__moretoggle::-webkit-details-marker {
+    display: none;
+  }
+  .ratetable__moretoggle::after {
+    content: '';
+    width: 0.45rem;
+    height: 0.45rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-0.15rem) rotate(45deg);
+    transition: transform 0.2s ease;
+  }
+  .ratetable__more[open] > .ratetable__moretoggle::after {
+    transform: translateY(0.1rem) rotate(-135deg);
+  }
+  .ratetable__moretoggle:focus-visible {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 2px;
+  }
+  .ratetable__morehide,
+  .ratetable__more[open] .ratetable__moreshow {
+    display: none;
+  }
+  .ratetable__more[open] .ratetable__morehide {
+    display: inline;
+  }
+  /* The season date ranges already sit in the first year's header, right above. */
+  .ratetable__more .ratetable__seasonnote {
+    display: none;
+  }
   .ratetable__label {
     display: block;
     font-size: var(--text-sm);
