@@ -11,7 +11,7 @@ import { webPageSchema, breadcrumbSchema, touristAttractionSchema } from '../dat
 
 const title = 'The Safari Lodges | Three private trail lodges';
 const description =
-  "Temminck's Lodge, Oukraal and Blackwood: three characterful, established private safari lodges on Rooiberg Wander, each with a pool and free WiFi, and each reserved for your group for the night.";
+  "Temminck's Lodge, Oukraal and Rustwood: three characterful, established private safari lodges on Rooiberg Wander, each with a pool and free WiFi, and each reserved for your group for the night.";
 
 const jsonLd = [
   webPageSchema({ path: '/accommodation', name: title, description }),
@@ -23,7 +23,7 @@ const jsonLd = [
 ];
 
 // Trail context per lodge — grounded in the itinerary (Day 2 crosses Groenkop to Oukraal; Day 3
-// takes the Elandsberg L-Kloof to Blackwood; Temminck's is the Day 1 arrival and Day 4 return).
+// takes the Elandsberg L-Kloof to Rustwood; Temminck's is the Day 1 arrival and Day 4 return).
 // Second, human-readable anchor per lodge. The data keys are historic ('rotavi' is Temminck's
 // Lodge), and those URLs must keep resolving, but a fragment is visible in the address bar and
 // should match the name on the page.
@@ -34,7 +34,7 @@ const anchorAlias: Record<string, string> = {
 const context: Record<string, string> = {
   rotavi: "Day 1 arrival & Day 4 return · the valley basecamp",
   oukraal: "Day 2 · Temminck's Lodge → Oukraal, over Groenkop",
-  blackwood: 'Day 3 · Oukraal → Blackwood, via the Elandsberg L-Kloof',
+  rustwood: 'Day 3 · Oukraal → Rustwood, via the Elandsberg L-Kloof',
 };
 ---
 

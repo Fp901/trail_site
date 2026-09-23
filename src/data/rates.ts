@@ -159,8 +159,10 @@ export const FROM_PP_TRIP_DISPLAY = formatRand(FROM_PP_TRIP);
 // --- Indicative foreign-currency conversion (display only, /rates matrix) ----------------------
 // For foreign guests to gauge the cost in a currency they recognise. The site never charges in
 // anything but ZAR — Paystack's transaction currency is hardcoded 'ZAR' in lib/payments.ts. These
-// are a STATIC, manually-set approximation, not a live FX feed. Flag to the operator: check and
-// update periodically.
+// are a monthly SNAPSHOT of the European Central Bank reference rates, not a live feed: the two
+// constants below are rewritten by scripts/update-fx-rates.mjs (scheduled on the 1st of each month
+// by .github/workflows/update-fx-rates.yml) and baked in at build time. Don't hand-edit the
+// figures; run the script.
 export type ForeignCurrency = 'EUR' | 'GBP' | 'USD';
 export const CURRENCY_SYMBOLS: Record<'ZAR' | ForeignCurrency, string> = {
   ZAR: 'R',
@@ -168,12 +170,20 @@ export const CURRENCY_SYMBOLS: Record<'ZAR' | ForeignCurrency, string> = {
   GBP: '£',
   USD: '$',
 };
-export const FX_RATES_AS_OF = '2026-07-31';
+export const FX_RATES_AS_OF = '2026-09-22';
 export const ZAR_TO_FOREIGN: Record<ForeignCurrency, number> = {
-  EUR: 0.049,
-  GBP: 0.042,
-  USD: 0.053,
+  EUR: 0.05371,
+  GBP: 0.04607,
+  USD: 0.06157,
 };
+// "22 September 2026": the snapshot date as the rates table prints it. UTC, so the build
+// machine's timezone can't shift it by a day.
+export const FX_RATES_AS_OF_LABEL = new Date(`${FX_RATES_AS_OF}T00:00:00Z`).toLocaleDateString('en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
 export function convertRand(rand: number, currency: ForeignCurrency): number {
   return rand * ZAR_TO_FOREIGN[currency];
 }
@@ -225,7 +235,18 @@ export const rateRows: RateRow[] = RATE_YEARS.filter((y) => y <= RATE_BASE_YEAR 
   low: rateFor({ catering: 'catered', residency: 'international', year, highSeason: false }),
 }));
 
-export const SADC_DISCOUNT_NOTE = `A ${Math.round(SADC_DISCOUNT * 100)}% discount is offered to SADC residents`;
+export const SADC_DISCOUNT_PERCENT = Math.round(SADC_DISCOUNT * 100);
+export const SADC_DISCOUNT_NOTE = `A ${SADC_DISCOUNT_PERCENT}% discount is offered to SADC residents`;
+
+// The SADC resident rate for the same years, shown as its own row beneath each flagship row.
+// Disclosed publicly by operator decision on 23 September 2026, reversing the 16 September
+// decision to keep it off the site (CLAUDE.md Part 17.1). Same derivation as the charge.
+export const sadcRateRows: RateRow[] = rateRows.map(({ year }) => ({
+  label: `SADC residents ${year}`,
+  year,
+  high: rateFor({ catering: 'catered', residency: 'sadc', year, highSeason: true }),
+  low: rateFor({ catering: 'catered', residency: 'sadc', year, highSeason: false }),
+}));
 
 // The hidden page's own rate line, same derivation, kept here so it cannot drift from the engine.
 export const sadcSelfCateredRates = RATE_YEARS.filter((y) => y <= RATE_BASE_YEAR + 1).map((year) => ({

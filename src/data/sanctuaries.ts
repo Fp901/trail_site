@@ -1,5 +1,5 @@
 // Sanctuaries — Part 8.3 + 2026 brief. Three distinct premium nodes under one trail standard.
-// Spelling: "Blackwood" (renamed from ViervanAcht). Images supplied by the client.
+// Spelling: "Rustwood" (renamed from Blackwood, originally ViervanAcht). Images supplied by the client.
 //
 // Each lodge carries one `heroImage`, used both as the Home page lodge-card teaser and as the
 // primary photo on the lodge's own card on /accommodation, plus a `gallery` of supporting photos
@@ -17,11 +17,11 @@ import oukraalHeroImg from '../assets/images/oukraal-hero.jpg';
 import oukraalGallery1 from '../assets/images/oukraal-entrance.jpg';
 import oukraalGallery2 from '../assets/images/oukraal-bed-2.jpg';
 
-import blackwoodHeroImg from '../assets/images/blackwood-lodge-hero.jpg';
+import rustwoodHeroImg from '../assets/images/rustwood-lodge-hero.jpg';
 // Named by subject rather than by slot: the two gallery photos shifted along by one (the fire-pit
 // terrace came out, the bedroom came in), and positional names made that change unreadable.
-import blackwoodInteriorImg from '../assets/images/blackwood-main-interior.jpg';
-import blackwoodBedImg from '../assets/images/blackwood-bed.jpg';
+import rustwoodInteriorImg from '../assets/images/rustwood-main-interior.jpg';
+import rustwoodBedImg from '../assets/images/rustwood-bed.jpg';
 
 export type AmenityIconName =
   | 'parking'
@@ -100,22 +100,22 @@ export const sanctuaries: Sanctuary[] = [
           ],
   },
   {
-    id: 'blackwood',
-    name: 'Blackwood',
+    id: 'rustwood',
+    name: 'Rustwood',
     role: 'The Mountain Lodge · Night 3',
     description:
       'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range. The pool faces west across the Waterberg.',
-    alt: "The thatched entrance to Blackwood's main lodge, the mountain lodge overlooking the Waterberg on the third night of the trail.",
+    alt: "The thatched entrance to Rustwood's main lodge, the mountain lodge overlooking the Waterberg on the third night of the trail.",
     accentVar: '--color-day4',
-    heroImage: blackwoodHeroImg,
+    heroImage: rustwoodHeroImg,
     gallery: [
       {
-        image: blackwoodInteriorImg,
-        alt: "The open-plan lounge and games area inside Blackwood's main building.",
+        image: rustwoodInteriorImg,
+        alt: "The open-plan lounge and games area inside Rustwood's main building.",
       },
       {
-        image: blackwoodBedImg,
-        alt: 'A bedroom at Blackwood: a double bed against a reclaimed-timber headboard, with woven pendant lamps and a slate floor.',
+        image: rustwoodBedImg,
+        alt: 'A bedroom at Rustwood: a double bed against a reclaimed-timber headboard, with woven pendant lamps and a slate floor.',
       },
     ],
     amenities: [

@@ -28,7 +28,7 @@
 // now: 8 places, the first booking opens the date and locks its catering, later bookings join in
 // 2s. "Exclusive" is not a product — it is what a group of 8 gets by taking every place.
 //
-// The wire payload is { startDate, groupSize, catering, country, residencyDeclaration, lead* }.
+// The wire payload is { startDate, groupSize, catering, country, residencyDeclaration, ageConfirmed, lead* }.
 // Both the rate band and bookingType are derived server-side, never sent.
 import type { Catering } from '../lib/db.types';
 import {
@@ -52,7 +52,7 @@ import {
 } from '../data/rates';
 import { COUNTRIES, SADC_COUNTRIES } from '../data/countries';
 import { site, withBase } from '../data/site';
-import { refundPolicy } from '../data/policies';
+import { refundPolicy, MIN_GUEST_AGE } from '../data/policies';
 import { itinerary } from '../data/itinerary';
 import {
   SPLIT_THRESHOLD_DAYS,
@@ -207,6 +207,18 @@ const clientRates = {
           <input type="hidden" name="groupSize" value={partyMin} />
         </div>
       )}
+      {/* Child policy, both products: createCheckout refuses a booking without this tick. */}
+      <div class="form-field bform__declaration">
+        <p class="form-hint" id="bf-age-hint">
+          For safety, every guest must be at least {MIN_GUEST_AGE} years old on the start date.
+          <a href={withBase('/logistics#minimum-age')}>Read the age policy</a>
+        </p>
+        <label class="bform__radio">
+          <input type="checkbox" name="ageConfirmed" data-age-confirm aria-describedby="bf-age-hint bf-age-err" />
+          <span>I confirm every guest in this booking will be {MIN_GUEST_AGE} or older by the start date.</span>
+        </label>
+        <span class="form-error" id="bf-age-err" data-age-error aria-live="polite"></span>
+      </div>
       <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
     </div>
   </div>
@@ -585,6 +597,8 @@ const clientRates = {
     const residencyNote = form.querySelector<HTMLElement>('[data-residency-note]');
     const residencyDeclare = form.querySelector<HTMLInputElement>('[data-residency-declare]');
     const residencyError = form.querySelector<HTMLElement>('[data-residency-error]');
+    const ageConfirm = form.querySelector<HTMLInputElement>('[data-age-confirm]');
+    const ageError = form.querySelector<HTMLElement>('[data-age-error]');
 
     const joinList = form.querySelector<HTMLElement>('[data-join-list]');
     const joinEmpty = form.querySelector<HTMLElement>('[data-join-empty]');
@@ -1127,7 +1141,7 @@ const clientRates = {
     }
 
     function stepComplete(n: number): boolean {
-      if (n === 1) return true;              // a size is always selected (or fixed)
+      if (n === 1) return !!ageConfirm?.checked; // a size is always selected; the age tick is not
       if (n === 2) return residencyValid();
       if (n === 3) return !!selectedStartIso;
       if (n === 4) return detailsValid();
@@ -1226,6 +1240,11 @@ const clientRates = {
       const n = Number(el.dataset.step);
       el.querySelector<HTMLButtonElement>('[data-step-continue]')?.addEventListener('click', () => {
         if (!stepComplete(n)) {
+          if (n === 1 && !ageConfirm?.checked) {
+            if (ageError) ageError.textContent = 'Please tick the age confirmation to continue.';
+            ageConfirm?.focus();
+            return;
+          }
           if (n === 2 && !country) {
             markField(countrySelect?.closest('.form-field') ?? null, 'Please choose the country your group lives in.');
             countrySelect?.focus();
@@ -1549,6 +1568,11 @@ const clientRates = {
       void loadRateContext();
     });
 
+    ageConfirm?.addEventListener('change', () => {
+      if (ageConfirm.checked && ageError) ageError.textContent = '';
+      refreshSteps();
+    });
+
     residencyDeclare?.addEventListener('change', () => {
       if (residencyDeclare.checked && residencyError) residencyError.textContent = '';
       refreshSteps();
@@ -1708,6 +1732,11 @@ const clientRates = {
       if (resumeBtn) resumeBtn.hidden = true;
       const fd = new FormData(form);
 
+      if (!ageConfirm?.checked) {
+        setStatus('Please tick the age confirmation in step 1 to continue.');
+        goToStep(1);
+        return;
+      }
       const startVal = String(fd.get('startDate') ?? '');
       if (!startVal) {
         setStatus('Please choose a start date from the calendar.');
@@ -1750,6 +1779,7 @@ const clientRates = {
         // the authority. The browser never sends a band or a price.
         country,
         residencyDeclaration: rateCtx.requiresDeclaration,
+        ageConfirmed: ageConfirm?.checked === true,
         leadName: String(fd.get('leadName') ?? ''),
         leadEmail: String(fd.get('leadEmail') ?? ''),
         leadPhone: String(fd.get('leadPhone') ?? ''),

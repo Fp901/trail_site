@@ -2971,6 +2971,29 @@
     line-height: 1.3;
     color: color-mix(in srgb, var(--color-charcoal) var(--tint-muted), transparent);
   }
+  /* Each rate year is a pair: the flagship row, then its SADC resident row. The hairline sits
+     between years, not inside a pair, so the two rows read as one group. */
+  .ratetable .ratetable__row--lead th,
+  .ratetable .ratetable__row--lead td {
+    border-bottom: 0;
+    padding-bottom: 0.35rem;
+  }
+  .ratetable .ratetable__row--resident th,
+  .ratetable .ratetable__row--resident td {
+    padding-top: 0.35rem;
+  }
+  .ratetable__row--resident .ratetable__label {
+    font-weight: 500;
+  }
+  .ratetable__qualifies {
+    color: var(--color-earth);
+    text-decoration: underline;
+    text-decoration-color: var(--color-ochre);
+    text-underline-offset: 3px;
+  }
+  .ratetable__qualifies:hover {
+    text-decoration-thickness: 2px;
+  }
   .ratetable__label {
     display: block;
     font-size: var(--text-sm);
@@ -3474,6 +3497,10 @@
   /* --- FAQ accordion (Part 7) — native details/summary --------------------- */
   .faq {
     border-top: 1px solid var(--color-hairline);
+  }
+  /* Deep-linked items (/logistics#sadc-resident) must not land under the sticky nav. */
+  .faq__item {
+    scroll-margin-top: calc(var(--nav-h) + 1.5rem);
   }
   .faq__item {
     border-bottom: 1px solid var(--color-hairline);

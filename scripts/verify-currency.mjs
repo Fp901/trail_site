@@ -17,6 +17,7 @@ import {
   ZAR_TO_FOREIGN,
   CURRENCY_SYMBOLS,
   FX_RATES_AS_OF,
+  FX_RATES_AS_OF_LABEL,
   rateRows,
   formatRand,
   formatForeign,
@@ -83,12 +84,15 @@ assert('the client <script> never calls formatForeign itself (values are only re
 
 section('4. The conversion is flagged, not presented as exact or live');
 assert('a disclaimer element exists', /data-currency-note/.test(table));
-assert('it states the site is charged in ZAR', /charged in South\s*\n?\s*African Rand/.test(table) || /charged in South African Rand/.test(table.replace(/\s+/g, ' ')));
-assert('it names the as-of date from the constant, not a typed date', /\{FX_RATES_AS_OF\}/.test(table));
-assert('it is hidden while ZAR (the actual charge currency) is selected, shown otherwise',
-  /note\.hidden = currency === 'ZAR'/.test(table));
-assert('"approximate" or "indicative" appears, so the figure is never read as authoritative',
-  /[Aa]pproximate|[Ii]ndicative/.test(table));
+assert('it states that payments are taken in ZAR', /payments are taken in South African Rand/.test(table.replace(/\s+/g, ' ')));
+assert('it says the other currencies are for information only', /for information only/.test(table.replace(/\s+/g, ' ')));
+assert('it says converted prices move with exchange rates', /subject to change in line with exchange rates/.test(table.replace(/\s+/g, ' ')));
+assert('it names the as-of date from the constant, not a typed date',
+  /datetime=\{FX_RATES_AS_OF\}/.test(table) && /\{FX_RATES_AS_OF_LABEL\}/.test(table));
+assert('it is always visible (the snapshot date applies to the whole table, ZAR tab included)',
+  !/data-currency-note hidden/.test(table) && !/note\.hidden/.test(table));
+assert('the as-of label is a readable date built from the ISO constant',
+  /^\d{1,2} [A-Z][a-z]+ \d{4}$/.test(FX_RATES_AS_OF_LABEL));
 
 section('5. Accessibility + mobile-first');
 assert('tabs are a native fieldset/legend + radios (keyboard-operable, no custom widget)',

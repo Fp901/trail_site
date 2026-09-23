@@ -9,6 +9,11 @@
 // ----------------------------------------------------------------------------------------
 import { site } from './site';
 
+// Child policy: every guest must be at least this old on the start date (Day 1), for safety on a
+// walking trail through Big 5 terrain. Operator decision, 23 September 2026. The booking form asks
+// the lead guest to confirm it, and createCheckout refuses a booking without that confirmation.
+export const MIN_GUEST_AGE = 16;
+
 export interface RefundTier {
   window: string;
   refund: string;
@@ -58,6 +63,10 @@ export const refundPolicy = {
     {
       heading: 'Safety and conduct',
       body: 'Because the trail operates in a Big 5 environment, guests must follow all instructions from the experienced trail guides at all times, including the Two-Man Rule. Guests who place themselves or others at risk, or who materially breach safety instructions, may be removed from the trail without refund.',
+    },
+    {
+      heading: 'Minimum age',
+      body: `For safety, every guest must be at least ${MIN_GUEST_AGE} years old on the start date of the trail. A guest under ${MIN_GUEST_AGE} will be refused entry on arrival, and no refund is given for that guest's place.`,
     },
     {
       heading: 'No-show and unused services',

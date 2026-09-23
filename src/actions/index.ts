@@ -43,6 +43,7 @@ import { signInAdmin, signOutAdmin } from '../lib/auth';
 import { requireAdmin, recordAdminEvent } from '../lib/admin';
 import { recordPaymentEvent } from '../lib/audit';
 import { site } from '../data/site';
+import { MIN_GUEST_AGE } from '../data/policies';
 
 // 4-day window: Day 1 arrival → Day 4 departure. end = start + 3 days.
 function addDays(isoDate: string, days: number): string {
@@ -70,6 +71,9 @@ export const server = {
       // accepted. Named neutrally because the field name is readable in the page source, and the
       // public site does not disclose that a resident band exists.
       residencyDeclaration: z.boolean().optional(),
+      // Child policy: the lead guest confirms every guest will be at least MIN_GUEST_AGE on the
+      // start date. Optional in the schema so the refusal below can say why in plain words.
+      ageConfirmed: z.boolean().optional(),
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
       leadPhone: z.string().trim().min(7, 'Please enter a mobile number.').max(40),
@@ -114,6 +118,12 @@ export const server = {
         throw new ActionError({
           code: 'BAD_REQUEST',
           message: `Please confirm that every guest lives in ${countryName(input.country)} and can show a valid ID or passport at registration.`,
+        });
+      }
+      if (input.ageConfirmed !== true) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: `Please confirm that every guest will be at least ${MIN_GUEST_AGE} years old on the start date.`,
         });
       }
 

@@ -268,11 +268,11 @@ Reusable, typed (TS interfaces). Treatment per Part 5.
 - **`StatsBar`** — four stats from `site.ts`: `3 Nights · 3 Days Walking · 3 Private Dedicated Lodges · Max 8 Guests per Departure`.
 - **`ItineraryTimeline`** — maps `itinerary.ts`; vertical desktop+mobile; organic markers; per-day accent; Day 1 "No walking"; Day 4 immediate departure.
 - **`DayCard`** — props: `day`, `title`, `distanceKm` (null = no walking), `from?`, `to?`, `description`, `colorVar?`.
-- **`SanctuaryCard`** — props: `name`, `role`, `description`, `image`, `alt`, `accentVar`. ×3 distinct-but-cohesive. The lodges are **Temminck's Lodge, Oukraal and Blackwood** (page: `/accommodation`, nav label "The Safari Lodges").
-- **`RouteMap`** — styled static SVG from `route.ts`: loop Temminck's Lodge → Oukraal → Blackwood → Temminck's Lodge, three day-coloured segments, lodge pins, legend, `role="img"` + `<title>`/`<desc>` + text equivalent. No mapping library.
+- **`SanctuaryCard`** — props: `name`, `role`, `description`, `image`, `alt`, `accentVar`. ×3 distinct-but-cohesive. The lodges are **Temminck's Lodge, Oukraal and Rustwood** (page: `/accommodation`, nav label "The Safari Lodges").
+- **`RouteMap`** — styled static SVG from `route.ts`: loop Temminck's Lodge → Oukraal → Rustwood → Temminck's Lodge, three day-coloured segments, lodge pins, legend, `role="img"` + `<title>`/`<desc>` + text equivalent. No mapping library.
 - **`FaqAccordion`** — accessible native `<details>/<summary>`; keyboard + SR friendly.
-- **`RatesTable`** — the flagship matrix only: **rate year × season**, per person sharing for the whole trail, every figure derived from `data/rates.ts` (Part 17). The SADC discount is a note beneath the table, not extra columns. Currency tabs (ZAR/EUR/GBP/USD) are an indicative display conversion; ZAR is the only charged currency.
-- **`BookingWidget`** (island) — see Part 9 and Part 17. Takes a `catering` **prop** (`'catered'` on `/rates`, `'uncatered'` on the unlisted page): catering is never asked of the guest. Five steps: group size → **country of residence** (a native `<select>` over the ISO list; the self-catered mount offers only the 16 SADC states) → start date → details → review and pay. The price breakdown shows the rate for the guest's own band and the last-minute reduction only: it must never show a rack rate with a resident reduction beneath it. **Each mount sells exactly one product and must never name the other**: a date held by the other product's departure is drawn and announced as plain "unavailable", and the calendar legend carries three keys (open, guaranteed departure, unavailable), not four.
+- **`RatesTable`** — the flagship matrix only: **rate year × season**, per person sharing for the whole trail, every figure derived from `data/rates.ts` (Part 17). Each rate year has two rows: the flagship rate, then the derived SADC resident rate (`sadcRateRows`), whose label links to the FAQ at `/logistics#sadc-resident` (operator decision, 23 September 2026). Currency tabs (ZAR/EUR/GBP/USD) are an indicative display conversion; ZAR is the only charged currency.
+- **`BookingWidget`** (island) — see Part 9 and Part 17. Takes a `catering` **prop** (`'catered'` on `/rates`, `'uncatered'` on the unlisted page): catering is never asked of the guest. Five steps: group size, with a required tick confirming every guest will be at least **16** on the start date (`MIN_GUEST_AGE` in `data/policies.ts`; `createCheckout` refuses without it) → **country of residence** (a native `<select>` over the ISO list; the self-catered mount offers only the 16 SADC states) → start date → details → review and pay. The price breakdown shows the rate for the guest's own band and the last-minute reduction only: it must never show a rack rate with a resident reduction beneath it. **Each mount sells exactly one product and must never name the other**: a date held by the other product's departure is drawn and announced as plain "unavailable", and the calendar legend carries three keys (open, guaranteed departure, unavailable), not four.
 - **`InquiryForm`** (island, optional) — fields Name, Group Size, Target Dates, Contact Details; validation + length caps + accessible errors + honeypot + calm success; POPIA note; submits via the `createInquiry` action (stores in Supabase or emails operator); **no PII in storage on the client**; never a raw HTML `<form>` submit in a React island.
 - **`Seo`** — props `title`, `description`, `path`, `image`, `type`, `noindex`, `jsonLd[]`; emits meta + OG/Twitter + JSON-LD. **Only acceptable `set:html`** is our own serialized JSON-LD — never user input.
 
@@ -300,7 +300,7 @@ Explicitly state: guests **do not walk on the arrival day**, and **depart immedi
 |---|---|---|---|
 | **1** | Arrival &amp; Briefing | **No walking** | Arrive and register at **Temminck's Lodge**. Secure parking, full safety and route briefing by the two armed trail guides, dinner around the boma fire. |
 | **2** | The Mountain Crossing | ~15 km | Trek **Temminck's Lodge over Groenkop to Oukraal.** Luggage and provisions moved ahead. |
-| **3** | The High Ridge Traverse | ~20 km | Walk **Oukraal to Blackwood** through the Elandsberg L-Kloof, by way of the **Welgedacht lookout** over the Marakele range. |
+| **3** | The High Ridge Traverse | ~20 km | Walk **Oukraal to Rustwood** through the Elandsberg L-Kloof, by way of the **Welgedacht lookout** over the Marakele range. |
 | **4** | The Plains &amp; Departure | ~18 km | Cross the open plains along the Sand River back to **Temminck's Lodge.** Shower, share a final meal, collect vehicles and depart. |
 
 - **Acceptance:** Day 1 flagged "No walking"; timeline clean on mobile; day colours match the route map.
@@ -312,9 +312,9 @@ Three characterful, established private bush lodges under one standard (don't fa
 |---|---|---|
 | **Temminck's Lodge** | The Valley Basecamp · Start &amp; End Point | Arrival, registration, briefing; departure point. |
 | **Oukraal** | The Bush Lodge · Night 2 | Reached on Day 2 after the crossing over Groenkop, with a pool, fire-side and dinner waiting. |
-| **Blackwood** | The Mountain Lodge · Night 3 | Highest lodge on the trail, long views across the Waterberg. |
+| **Rustwood** | The Mountain Lodge · Night 3 | Highest lodge on the trail, long views across the Waterberg. |
 
-**Lodge naming is settled:** Temminck's Lodge (was Rotavi) and Blackwood (was VierVanAcht/ViervanAcht). The old names must not reappear in copy.
+**Lodge naming is settled:** Temminck's Lodge (was Rotavi) and Rustwood (was VierVanAcht/ViervanAcht, then Blackwood; renamed September 2026). The old names must not reappear in copy.
 
 **Intro sentence (memo, verbatim):** "Each of the three private lodges is fully equipped to the same premium standard including a pool and WiFi. Everything you need is waiting when you arrive." The self-catering kit (equipped kitchen, fridge, ice, firewood) is deliberately **not** listed: the flagship guest does not cook. **Acceptance:** three cards, equal standard, distinct character; descriptive `alt`; editorial variety.
 
@@ -324,13 +324,13 @@ Mandatory blocks (accordion or clean sections):
 2. **Luggage:** bags and provisions move ahead between lodges daily; a chef travels with the group.
 3. **Safety protocols (non-negotiable, prominent):** the **Two-Man Rule** — accompanied **at all times by two qualified, armed wilderness guides** for safe tracking in a Big 5 environment. The reserve is 100% malaria-free.
 
-Keep **visible** Q&A (LLMs cite it — Part 10). **Acceptance:** accordion keyboard/SR friendly; safety block emphasised.
+Keep **visible** Q&A (LLMs cite it — Part 10). Two FAQ items carry anchors the site links to: `#sadc-resident` (who counts as an SADC resident: the 16 member states by name, derived from `data/countries.ts`, with a valid ID or passport shown at registration) and `#minimum-age` (the child policy: every guest at least 16 on the start date, for safety; an under-16 guest is refused entry with no refund, also stated as a clause in `refundPolicy`). **Acceptance:** accordion keyboard/SR friendly; safety block emphasised.
 
 ### 8.5 Rates &amp; Booking (`/rates`)
 Sells the **flagship only**. The full rate table, the discount chain and the availability rules are in **Part 17**; this page renders them, never restates them as literals.
 
 - Intro: one price per person for the whole 3-night trail, VAT and levies included, from 2 guests up, varying by season. Plain, one fact per sentence: a child should be able to follow how to book.
-- `RatesTable` = rate year × season, flagship only. **No SADC note**, no discount percentage.
+- `RatesTable` = rate year × season, a flagship row and an SADC resident row per year, with a "Who qualifies?" link to the FAQ definition. The rest of the page stays international-only.
 - **No forward-looking operational copy** (when more start days open, how far ahead each band books). Those rules hold; the calendar enforces them by not offering the date.
 - "Every rate includes" line: two trail guides · all meals, with selected South African estate wines and local beers · daily baggage transport · all conservation levies and VAT.
 - The old **"Two ways to book"** block is deleted (memo p.11); one "How a departure works" block states who a departure takes and which days run.
@@ -338,11 +338,11 @@ Sells the **flagship only**. The full rate table, the discount chain and the ava
 - **Acceptance:** widget + table fully usable by keyboard/SR; no per-night figure anywhere; on-brand; calm.
 
 ### 8.6 Route data (`route.ts`) — for the styled static map
-Loop **Temminck's Lodge → Oukraal → Blackwood → Temminck's Lodge**; three day-coloured segments, with landmark labels from the business-plan route sketches (illustrative; no GPS needed):
+Loop **Temminck's Lodge → Oukraal → Rustwood → Temminck's Lodge**; three day-coloured segments, with landmark labels from the business-plan route sketches (illustrative; no GPS needed):
 - **Day 2** (`--color-day2`): Temminck's → Oukraal · Daskop dam · Groenkop summit · Exit of Groenkop climb · Scenic dam.
-- **Day 3** (`--color-day3`): Oukraal → Blackwood · Entrance to L-Kloof · Wooden bridge · Welgedacht lookout · Scenic ravine.
-- **Day 4** (`--color-day4`): Blackwood → Temminck's · Scenic riverbed walk · Scenic viewpoint · Welgedacht plains · Matopo Point · Picnic at dam.
-Three pins (Temminck's Lodge, Oukraal, Blackwood); legend Day 2/3/4; text equivalent for a11y.
+- **Day 3** (`--color-day3`): Oukraal → Rustwood · Entrance to L-Kloof · Wooden bridge · Welgedacht lookout · Scenic ravine.
+- **Day 4** (`--color-day4`): Rustwood → Temminck's · Scenic riverbed walk · Scenic viewpoint · Welgedacht plains · Matopo Point · Picnic at dam.
+Three pins (Temminck's Lodge, Oukraal, Rustwood); legend Day 2/3/4; text equivalent for a11y.
 
 ### 8.7 Imagery
 Real client photography now lives in `src/assets/images/` and is served through `astro:assets`. Outstanding gaps (chase, do not fabricate): interior/lodge photography for all three lodges (the current images are landscape and wildlife), and hi-res replacements for the low-resolution panorama and sunset files.
@@ -351,8 +351,8 @@ Real client photography now lives in `src/assets/images/` and is served through 
 | Page | Title | Description (≤155 chars) |
 |---|---|---|
 | Home | Rooiberg Wander — All-inclusive Big 5 Walking Safari | An all-inclusive walking safari in the Waterberg. 3 nights and 3 days through 15,000 ha of malaria-free Big 5 reserve, 2.5 hours from OR Tambo. |
-| The Trail | The Trail — Day-by-day walking safari itinerary | Day by day through the Rooiberg: arrival, then three 15 to 20 km mountain days over Groenkop, the high ridge to Blackwood and the open plains. |
-| The Safari Lodges | The Safari Lodges — Three private trail lodges | Temminck's Lodge, Oukraal and Blackwood: three characterful private safari lodges, each with a pool and free WiFi, reserved for your group. |
+| The Trail | The Trail — Day-by-day walking safari itinerary | Day by day through the Rooiberg: arrival, then three 15 to 20 km mountain days over Groenkop, the high ridge to Rustwood and the open plains. |
+| The Safari Lodges | The Safari Lodges — Three private trail lodges | Temminck's Lodge, Oukraal and Rustwood: three characterful private safari lodges, each with a pool and free WiFi, reserved for your group. |
 | Logistics &amp; FAQ | Trail Logistics, Safety &amp; FAQ | All-inclusive dining, daily luggage portage, two experienced trail guides under the Two-Man Rule, moderate-to-challenging grading, 100% malaria-free. |
 | Rates &amp; Booking | Rates &amp; Booking — Book the trail | An all-inclusive walking safari from R12,720 per person sharing, VAT and conservation levies included. A 30% discount applies to SADC residents. |
 | SADC option (unlisted) | SADC Self-catered Slackpacking Option | `noindex`. Never in the sitemap, the nav or llms.txt. |
@@ -441,12 +441,12 @@ Google Search Console + **Bing Webmaster Tools** (feeds Copilot/ChatGPT) verifie
 | **Category (compete via specificity)** | guided walking safari south africa · waterberg hiking trails · luxury walking safari · all-inclusive walking safari | Be the Waterberg + Big-5-trail answer. "Slackpacking" now belongs to the hidden product and is not a flagship target, though the Logistics FAQ still answers the query. |
 | **Head (don't chase; ride via listicles/GEO)** | walking safari south africa · big five safari | Third-party lists + AI citation only |
 
-**Global entities** (use consistently in copy, schema, `llms.txt`, alt): brand *The Rooiberg Wander*; categories *all-inclusive walking safari, guided walking trail, Big 5 on foot, multi-day hiking trail, point-to-point, luggage portage, malaria-free*; places *RoiSan Reserve, Waterberg, Waterberg Biosphere, Limpopo, South Africa, private Big 5 reserve, D970*; trail *Temminck's Lodge, Oukraal, Blackwood, Groenkop, Elandsberg L-Kloof, Welgedacht lookout*; features *Two-Man Rule, two armed wilderness guides, FGASA Lead Trails Guide, 15 to 20 km/day, 3 nights/3 days, max 8, conservation levies included, VAT included*; operator *Rooiberg Wander* (the operating company is being re-registered — Part 14).
+**Global entities** (use consistently in copy, schema, `llms.txt`, alt): brand *The Rooiberg Wander*; categories *all-inclusive walking safari, guided walking trail, Big 5 on foot, multi-day hiking trail, point-to-point, luggage portage, malaria-free*; places *RoiSan Reserve, Waterberg, Waterberg Biosphere, Limpopo, South Africa, private Big 5 reserve, D970*; trail *Temminck's Lodge, Oukraal, Rustwood, Groenkop, Elandsberg L-Kloof, Welgedacht lookout*; features *Two-Man Rule, two armed wilderness guides, FGASA Lead Trails Guide, 15 to 20 km/day, 3 nights/3 days, max 8, conservation levies included, VAT included*; operator *Rooiberg Wander* (the operating company is being re-registered — Part 14).
 
 **Per-page (primary → owner; questions feed GEO H2s):**
 - **Home** — primary `Big 5 slackpacking trail` (brand-led); secondary: walking safari Waterberg · exclusive guided walking trail · private game reserve walking trail. Q: What is the Rooiberg Wander? Where is it? How is it different from a normal walking safari?
 - **The Trail** — primary `3 day walking trail itinerary`; secondary: point-to-point walking trail · Rooiberg Wander route · ~20 km per day · lodge-to-lodge. Q: How long is it? How far each day? Do you walk on arrival day? Where does it start/end?
-- **The Safari Lodges** — primary `Waterberg trail lodges`; secondary: Temminck's Lodge · Oukraal · Blackwood · walking safari lodges. Q: Where do you sleep? What are the three lodges? What is included?
+- **The Safari Lodges** — primary `Waterberg trail lodges`; secondary: Temminck's Lodge · Oukraal · Rustwood · walking safari lodges. Q: Where do you sleep? What are the three lodges? What is included?
 - **Logistics &amp; FAQ** — primary `all-inclusive walking safari`; secondary: is a walking safari safe · armed guides walking safari · is this slackpacking · luggage transfer hiking trail · malaria-free Big 5. Q (answer-first): What is slackpacking? Is it safe in a Big 5 reserve? How many guides? What is the Two-Man Rule? Catered or self-catered? Who carries luggage/food? What to bring? Is the route finalised?
 - **Rates &amp; Booking** — primary `Rooiberg Wander rates` / `Big 5 walking safari cost`; secondary: walking safari price South Africa · book guided walking safari Waterberg · SADC resident rate. Q: How much? What's included? Per person or per group? Is there a local rate? How do I book?
 
@@ -521,7 +521,7 @@ Validate type/format + length-cap every field (server-side is authoritative; cli
 - Use the exact strings in Parts 8 and 17 for hook, stats, itinerary, rates, and safety copy.
 - Hook: **"An all-inclusive, point-to-point walking expedition with private trail guides connecting three private safari lodges."** (`site.hook`, rendered in both the hero and the footer.)
 - Operator-notify email: `hanlie@rooibergwander.co.za`.
-- Lodge names are **Temminck's Lodge, Oukraal, Blackwood**. "Rotavi", "VierVanAcht" and "ViervanAcht" must not appear in copy.
+- Lodge names are **Temminck's Lodge, Oukraal, Rustwood**. "Rotavi", "VierVanAcht", "ViervanAcht" and "Blackwood" must not appear in copy.
 - **No em-dashes or en-dashes in user-facing text.** Use a colon, a comma or a full stop. Write "barbeque", not "braai". Plain international English; classy and informative, never salesy.
 - **Prices are per person, sharing, for the whole trail, VAT-inclusive.** Never publish a per-night figure, an owner split, a margin, or the business plan's cost assumptions.
 - **VAT:** prices include VAT at 15% and all conservation levies. The guest document is a **payment receipt**; it becomes a tax invoice only when the operator supplies a VAT registration number. Never invent one.
@@ -553,7 +553,7 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 6. **LCP target mismatch** ("< 2.0s" vs "2.5s official / rumor of 2.0s"). **Resolved:** official "good" = **2.5s**, internal target **< 2.0s**; the 2.0s "tightening" is an unverified rumor (Part 10.3).
 7. **INP target mismatch** (200ms vs 150ms). **Resolved:** official ≤ 200ms; **internal target < 150ms**, alert > 160ms (Part 10.3).
 8. **Fonts** ("avoid Inter" vs Inter for body). **Resolved:** "avoid Inter" applies to the **hero/display** face only; **Inter is the body face** (Parts 2, 5.2, 5.3).
-9. **Sanctuary spelling** (VierVanAcht vs ViervanAcht). **Superseded by v4:** the lodges were renamed to **Temminck's Lodge** and **Blackwood**; neither old spelling survives (Parts 8.3, 12, 17).
+9. **Sanctuary spelling** (VierVanAcht vs ViervanAcht). **Superseded by v4:** the lodges were renamed to **Temminck's Lodge** and **Blackwood**, and Blackwood was later renamed **Rustwood** (September 2026); none of the old names survive (Parts 8.3, 12, 17).
 10. **Placeholder email spelling.** The original brief's misspelled placeholder has been corrected to `hanlie@rooibergwander.co.za` (corrected from original brief; Parts 8, 12).
 11. **"Conceptual route" vs taking real bookings.** **Flagged:** bookings can be taken for future dates; the route-status notice stays. Whether to open live availability while the route is conceptual is a **product decision** (Part 14).
 12. **Privacy stance** ("form data not stored" → bookings stored). **Resolved:** explicit POPIA program — minimisation, consent, retention, processors, region, Privacy page (Part 11.7).
@@ -563,13 +563,15 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 
 **This consolidated file supersedes the former six documents. Read the relevant Part, then build from Part 6 step 1.**
 
-14. **Commercial model v2 → v3 (July 2026), recorded for history.** Between the June brief and this revision the product went through two intermediate models that are no longer live: **v2** (catered/uncatered flat group rates, VAT removed after the operator confirmed no VAT registration, lodges renamed to Temminck's/Blackwood, booking opening 15 January 2027) and **v3.1** (per-person-per-night pricing, Wednesday/Thursday exclusive buyouts of exactly 8, shared departures every other day, 18/8-month booking windows). Both are superseded by Part 17. The CHANGELOG carries the detail.
+14. **Commercial model v2 → v3 (July 2026), recorded for history.** Between the June brief and this revision the product went through two intermediate models that are no longer live: **v2** (catered/uncatered flat group rates, VAT removed after the operator confirmed no VAT registration, lodges renamed to Temminck's/Blackwood (now Rustwood), booking opening 15 January 2027) and **v3.1** (per-person-per-night pricing, Wednesday/Thursday exclusive buyouts of exactly 8, shared departures every other day, 18/8-month booking windows). Both are superseded by Part 17. The CHANGELOG carries the detail.
 
 15. **Commercial model v4 (15 September 2026 memo) — the current model.** The public site sells the **all-inclusive catered safari only**, at a per-person-per-trip rate with a 30% SADC resident discount; the self-catered product moves to the unlisted `/sadc-slackpacking` page; the day-of-week exclusivity rule is replaced by a **tapered start** (Sun/Mon/Thu/Fri until 31 December 2028); booking opens **1 April 2027**; rates rise 8% in 2028 and a further 5% in 2029; booking windows become 24 months (international catered) and 12 months (every SADC product). **Full specification: Part 17.** Changed throughout: Parts 1, 5.1, 7, 8.1–8.9, 9.1–9.4, 10.5/10.7/10.8/10.11, 12, 14, 15.
 
 16. **VAT: "no VAT charged" → VAT-inclusive.** v2 removed all VAT language after the operator confirmed the entity was not VAT-registered. The 15 September memo prices everything "VAT and Conservation Levy included" and adds VAT to the rates-page includes line. **Resolved:** customer-facing copy and the payment receipt now state that prices include VAT at 15%. **Deliberately NOT resolved:** the guest document remains a *receipt*, not a SARS tax invoice, because that requires the supplier's VAT registration number and the operating company is being re-registered. Flagged in Part 14; `lib/email.ts` carries a comment naming exactly what to add when the number arrives.
 
 17. **"Exclusive" stops being a product.** v3.1 sold an exclusive buyout on Wednesdays and Thursdays for exactly 8 guests. v4 has one kind of departure: 8 places, opened by the first booking and joined by later ones. Exclusivity is simply what a party of 8 gets by taking every place, so `booking_type` is now **derived by the `bookings_slot_guard` trigger** rather than asserted by the application. The `bookings_unique_start_date` index that enforced "one exclusive booking per date" is dropped: it could no longer reject anything the seat count does not already reject.
+
+18. **Resident rate: hidden → shown in the table (23 September 2026).** Part 17.1 recorded the operator's 16 September decision never to disclose the SADC resident rate. The operator reversed it one week later: the `/rates` table now shows an SADC resident row per year, and the Logistics FAQ defines who qualifies. The disclosure is deliberately narrow (table and FAQ only); meta, JSON-LD, `llms.txt` and the booking widget are unchanged. Same day: a **child policy** (minimum age 16 on the start date) was added to the booking form's step 1 as a required tick, enforced in `createCheckout`, and to the FAQ.
 
 ---
 
@@ -585,7 +587,7 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 | **The same trail, SADC resident rate** | **No, never disclosed** | catered | sadc | 2 | 8 | 12 months | applied automatically at `/rates` |
 | **SADC self-catered slackpacking option** | **No** | uncatered | sadc | 8 | 8 | 12 months | `/sadc-slackpacking` only |
 
-**THE RESIDENT RATE IS NEVER DISCLOSED ON THE PUBLIC SITE** (operator decision, 16 September 2026). The site is written for the international market, and the resident rate is marketed separately. So: no resident-rate card, no discount percentage, no "SADC" in any rendered page, meta description, JSON-LD or `llms.txt`. The booking form asks **one plain question, country of residence**, from a full ISO country list, and the band is **derived from the answer server-side** (`data/countries.ts` → `residencyForCountry()`); the browser never sends a band, so a tampered payload cannot buy the resident rate. A guest who names a SADC country is additionally asked to confirm they can show ID at registration. `scripts/verify-surfaces.mjs` fails the build if any public page or `llms.txt` names the band.
+**The resident rate is disclosed in the rates table and the FAQ only** (operator decision, 23 September 2026, reversing the 16 September decision to keep it off the site). The `/rates` table shows an SADC resident row for each year, linked to the FAQ definition at `/logistics#sadc-resident`. Everywhere else stays international-only: no "SADC" in the rest of `/rates`, the home page, `how-pricing-works`, meta descriptions, JSON-LD or `llms.txt`, and the booking widget still never names the band. The booking form asks **one plain question, country of residence**, from a full ISO country list, and the band is **derived from the answer server-side** (`data/countries.ts` → `residencyForCountry()`); the browser never sends a band, so a tampered payload cannot buy the resident rate. A guest who names a SADC country is additionally asked to confirm they can show ID at registration. `scripts/verify-surfaces.mjs` fails the build if any of those surfaces or `llms.txt` names the band, and checks that the table's resident rows are derived and linked.
 
 **No rate data ships with the booking page at all** — not the base rate, not the resident factor, not the list of countries it applies to. Once a guest names a country, the **`getRateContext` action** returns the base rate for *that band only*, plus whether to ask for the ID confirmation and how far ahead they may book; the widget computes its estimate from that one figure. What stays client-side is the season, rate-year and last-minute arithmetic: public rules that apply to everyone and are already in the copy. A reader of the page source finds nothing, and a guest never receives the other band's numbers. This also removes the estimate-versus-charge drift risk: both now resolve from the same constants through the same code path.
 
@@ -608,7 +610,7 @@ The published table, which the engine must reproduce exactly:
 | **All inclusive 2027** | R15,900 | R12,720 |
 | **All inclusive 2028** | R17,172 | R13,737 |
 
-*A 30% discount is offered to SADC residents* (stated as a note beneath the table, never as extra columns).
+Beneath each year, an **SADC residents** row at 30% off (2027: R11,130 / R8,904; 2028: R12,020 / R9,616), derived through the same chain as the charge, never typed.
 
 ### 17.3 The discount chain
 

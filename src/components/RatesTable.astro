@@ -1,7 +1,8 @@
 ---
 // RatesTable — commercial model v4. One glanceable price matrix for the FLAGSHIP product only:
 // rate years as rows, seasons as columns, three columns wide so it fits a 380px phone without
-// sideways scrolling. Only the flagship rate appears here, one row per published rate year.
+// sideways scrolling. Each published rate year has two rows: the flagship rate, then the SADC
+// resident rate (public since the operator's 23 September 2026 decision; CLAUDE.md Part 17.1).
 // operator's memo sets it out. All figures come from data/rates.ts, which lib/pricing.ts charges
 // from, so the table and the checkout cannot drift.
 //
@@ -10,19 +11,24 @@
 //
 // Currency: ZAR is the default and only CHARGED currency (Paystack bills in ZAR — see
 // lib/payments.ts). The EUR/GBP/USD tabs are a static, indicative conversion for foreign guests
-// browsing the page; every currency's figure is pre-computed at build time into a data attribute,
+// browsing the page, from a monthly ECB snapshot (scripts/update-fx-rates.mjs); every currency's
+// figure is pre-computed at build time into a data attribute,
 // and the tiny script below only chooses which pre-rendered string to show — there is no runtime
 // conversion logic to duplicate or drift from data/rates.ts.
 import {
   rateRows,
+  sadcRateRows,
+  SADC_DISCOUNT_PERCENT,
   formatRand,
   formatForeign,
   SEASON_HIGH_LABEL,
   SEASON_HIGH_DATE_RANGES,
   SEASON_LOW_LABEL,
   FX_RATES_AS_OF,
+  FX_RATES_AS_OF_LABEL,
   type ForeignCurrency,
 } from '../data/rates';
+import { withBase } from '../data/site';
 
 const CURRENCIES: Array<'ZAR' | ForeignCurrency> = ['ZAR', 'EUR', 'GBP', 'USD'];
 
@@ -55,8 +61,8 @@ function priceSet(rand: number): Record<string, string> {
 
   <table class="ratetable">
     <caption class="sr-only">
-      All-inclusive rates per person sharing, for the whole trail, by year and season. VAT and
-      conservation levies included.
+      All-inclusive rates per person sharing, for the whole trail, by year and season, with the
+      SADC resident rate beneath each year. VAT and conservation levies included.
     </caption>
     <thead>
       <tr>
@@ -79,11 +85,23 @@ function priceSet(rand: number): Record<string, string> {
     </thead>
     <tbody>
       {
-        rateRows.map((r) => (
-          <tr>
+        rateRows.flatMap((r, i) => [
+          { row: r, resident: false },
+          { row: sadcRateRows[i], resident: true },
+        ]).map(({ row: r, resident }) => (
+          <tr class={resident ? 'ratetable__row--resident' : 'ratetable__row--lead'}>
             <th scope="row">
               <span class="ratetable__label">{r.label}</span>
-              <span class="ratetable__qualifier">all-inclusive, incl. VAT</span>
+              {resident ? (
+                <span class="ratetable__qualifier">
+                  {SADC_DISCOUNT_PERCENT}% off &middot;{' '}
+                  <a href={withBase('/logistics#sadc-resident')} class="ratetable__qualifies">
+                    Who qualifies?
+                  </a>
+                </span>
+              ) : (
+                <span class="ratetable__qualifier">all-inclusive, incl. VAT</span>
+              )}
             </th>
             <td>
               <span class="ratetable__price" data-currency-price {...priceSet(r.high)}>
@@ -103,16 +121,19 @@ function priceSet(rand: number): Record<string, string> {
     </tbody>
   </table>
 
-  <p class="ratetable__fxnote" data-currency-note hidden>
-    Approximate conversion, indicative rates set {FX_RATES_AS_OF}. You are always charged in South
-    African Rand; your card issuer applies its own exchange rate.
+  {/* Always visible, ZAR tab included: the snapshot date and the ZAR-only charge are facts about
+      the whole table, not only about the converted figures. */}
+  <p class="ratetable__fxnote" data-currency-note>
+    <strong>Exchange rates as of <time datetime={FX_RATES_AS_OF}>{FX_RATES_AS_OF_LABEL}</time>.</strong>
+    All payments are taken in South African Rand (ZAR). The euro, pound and dollar prices are
+    converted from rand at the European Central Bank reference rate on that date, refreshed
+    monthly, and are for information only. They are subject to change in line with exchange rates.
   </p>
 </div>
 
 <script>
   function initCurrencyTabs(): void {
     const wrap = document.querySelector<HTMLElement>('[data-currency-tabs]');
-    const note = document.querySelector<HTMLElement>('[data-currency-note]');
     if (!wrap || wrap.dataset.bound === 'true') return;
     wrap.dataset.bound = 'true';
 
@@ -124,7 +145,6 @@ function priceSet(rand: number): Record<string, string> {
         const value = (el.dataset as Record<string, string | undefined>)[key];
         if (value) el.textContent = value;
       });
-      if (note) note.hidden = currency === 'ZAR';
     }
 
     wrap.querySelectorAll<HTMLInputElement>('input[name="ratetable-currency"]').forEach((input) => {

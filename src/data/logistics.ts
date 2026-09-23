@@ -1,3 +1,7 @@
+import { SADC_COUNTRIES, countryName } from './countries';
+import { SADC_DISCOUNT_PERCENT } from './rates';
+import { MIN_GUEST_AGE } from './policies';
+
 // Trail logistics & FAQ content — Part 8.4 + 2026 brief. Three blocks (safety emphasised) plus
 // answer-first Q&A for GEO (Part 10.5). All copy grounded in the brief.
 
@@ -46,6 +50,8 @@ export const logisticsBlocks: LogBlock[] = [
 export type FaqAnswerPart = string | { text: string; href: string };
 
 export interface Faq {
+  /** Anchor for deep links, e.g. /logistics#sadc-resident. The accordion opens the linked item. */
+  id?: string;
   q: string;
   a: string | FaqAnswerPart[];
 }
@@ -56,6 +62,11 @@ export function faqAnswerText(a: Faq['a']): string {
   return a.map((part) => (typeof part === 'string' ? part : part.text)).join('');
 }
 
+// "A, B and C": the SADC member states by name, alphabetical, from the list the booking engine
+// prices from, so the FAQ and the charge cannot disagree about who qualifies.
+const sadcCountryNames = [...SADC_COUNTRIES].map(countryName).sort((a, b) => a.localeCompare(b));
+const sadcCountryList = `${sadcCountryNames.slice(0, -1).join(', ')} and ${sadcCountryNames.at(-1)}`;
+
 export const faqs: Faq[] = [
   {
     q: 'Is this a slackpacking trail?',
@@ -64,6 +75,11 @@ export const faqs: Faq[] = [
   {
     q: 'What are the conservation levies?',
     a: 'Your rate includes a conservation levy paid to RoiSan Reserve, the manager of the reserve. It funds anti-poaching work, fence maintenance and wildlife monitoring across the reserve.',
+  },
+  {
+    id: 'sadc-resident',
+    q: 'Who counts as an SADC resident?',
+    a: `Anyone who lives in one of the ${SADC_COUNTRIES.size} member states of the Southern African Development Community (SADC): ${sadcCountryList}. SADC residents receive a ${SADC_DISCOUNT_PERCENT}% discount on the all-inclusive rate. Choose your country of residence when you book and the rate is applied automatically. Please bring a valid ID or passport to registration at Temminck's Lodge.`,
   },
   {
     q: 'Where is the trail and how do I get there?',
@@ -96,6 +112,11 @@ export const faqs: Faq[] = [
   {
     q: 'How big is the group?',
     a: 'Two to eight guests, with two trail guides. The first booking on a date opens it, from two guests, and later bookings join until the eight places are taken. Book all eight and the trail and each lodge are reserved for your group alone.',
+  },
+  {
+    id: 'minimum-age',
+    q: 'Is there a minimum age?',
+    a: `Yes. For safety reasons, every guest must be at least ${MIN_GUEST_AGE} years old on the start date of the trail, because you walk 15 to 20 km a day on foot through a Big 5 reserve. When you book, you confirm that everyone in your party will be ${MIN_GUEST_AGE} or older by the start date. A guest under ${MIN_GUEST_AGE} will be refused entry on arrival, and no refund is given.`,
   },
   {
     q: 'Where can I stay before or after my visit?',

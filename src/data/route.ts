@@ -68,7 +68,7 @@ export interface RouteLayout {
 export const routePins: RoutePin[] = [
   { id: 'rotavi', name: "Temminck's Lodge", role: 'Start & end', isHub: true },
   { id: 'oukraal', name: 'Oukraal', role: 'Night 2' },
-  { id: 'blackwood', name: 'Blackwood', role: 'Night 3' },
+  { id: 'rustwood', name: 'Rustwood', role: 'Night 3' },
 ];
 
 export const routeSegments: RouteSegment[] = [
@@ -83,13 +83,13 @@ export const routeSegments: RouteSegment[] = [
     day: 3,
     colorVar: '--color-day3',
     from: 'Oukraal',
-    to: 'Blackwood',
+    to: 'Rustwood',
     landmarks: ['Entrance to L-Kloof', 'Welgedacht lookout', 'Scenic ravine', 'Vista picnic'],
   },
   {
     day: 4,
     colorVar: '--color-day4',
-    from: 'Blackwood',
+    from: 'Rustwood',
     to: "Temminck's Lodge",
     landmarks: [
       'Scenic riverbed walk',
@@ -101,7 +101,7 @@ export const routeSegments: RouteSegment[] = [
 ];
 
 // Landscape board, laid out from the operator's Google Earth plot (Dec 2023 screenshot):
-// Temminck's is the northern hub, Oukraal sits east of it, Blackwood (VierVanAcht) is far
+// Temminck's is the northern hub, Oukraal sits east of it, Rustwood (formerly Blackwood, VierVanAcht) is far
 // west and lower. Day 2 loops south-east over Groenkop and bulges east past the scenic dam
 // before turning north to Oukraal; Day 3 runs west from Oukraal *north of* the hub, then
 // south-west via L-Kloof and Kareedam; Day 4 drops south, rounds the southern plain and
@@ -116,7 +116,7 @@ const wide: RouteLayout = {
   pins: {
     rotavi: { x: 462, y: 140, place: 'right', lines: ["Temminck's", 'Lodge'] },
     oukraal: { x: 668, y: 104, place: 'right' },
-    blackwood: { x: 288, y: 356, place: 'right' },
+    rustwood: { x: 288, y: 356, place: 'right' },
   },
   paths: {
     2: 'M462 140 Q 470 186 537 200 Q 600 244 640 276 Q 706 306 748 262 Q 776 226 736 194 Q 706 140 668 104',
@@ -134,7 +134,7 @@ const wide: RouteLayout = {
     { d: 'M 470 252 Q 505 244 526 208 L 549 176 L 578 212 Q 604 246 640 252 Z', tone: 'mid' },
     // The western high ground the Day 3 traverse climbs into at the L-Kloof entrance.
     { d: 'M 140 254 Q 176 246 198 214 L 220 184 L 246 218 Q 272 250 306 254 Z', tone: 'mid' },
-    // Low ground south-west of Blackwood, filling the corner the loop leaves open. Lower and
+    // Low ground south-west of Rustwood, filling the corner the loop leaves open. Lower and
     // shallower than the northern ridge so the two do not read as a mirrored pair.
     {
       d: 'M 34 502 L 62 478 L 84 490 L 112 466 L 138 488 L 164 468 L 188 492 L 210 478 L 232 502 Z',
@@ -168,7 +168,7 @@ const wide: RouteLayout = {
 };
 
 // Portrait board for phones — same topology as `wide`, recomposed for a tall frame: Oukraal
-// north-east, Temminck's below and west of it, Blackwood bottom-left. Carries two place names
+// north-east, Temminck's below and west of it, Rustwood bottom-left. Carries two place names
 // instead of six; the landmark key below the map is the full text equivalent, so thinning the
 // board costs nothing and buys legibility at ~300px.
 const tall: RouteLayout = {
@@ -177,7 +177,7 @@ const tall: RouteLayout = {
   pins: {
     rotavi: { x: 208, y: 258, place: 'above', lines: ["Temminck's", 'Lodge'] },
     oukraal: { x: 344, y: 128, place: 'above' },
-    blackwood: { x: 132, y: 496, place: 'above' },
+    rustwood: { x: 132, y: 496, place: 'above' },
   },
   paths: {
     2: 'M208 258 Q 268 300 300 350 Q 344 412 396 384 Q 436 356 410 288 Q 388 194 344 128',

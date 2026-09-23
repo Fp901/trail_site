@@ -72,7 +72,11 @@ section('2. The figures that DO appear in copy come from the constants');
 assert('rates.astro derives its "from" price via rateFor()', /rateFor\(\{/.test(rates));
 assert('how-pricing-works reads FROM_PP_TRIP_DISPLAY', /FROM_PP_TRIP_DISPLAY/.test(explainer));
 assert('how-pricing-works computes its worked example from lib/pricing', /ppTripCentsFor\(/.test(explainer));
-assert('the rate table renders rateRows, not hand-written cells', /rateRows\.map/.test(table));
+assert('the rate table renders rateRows, not hand-written cells', /rateRows\.(flat)?[mM]ap/.test(table));
+// Public since the operator's 23 September 2026 decision: the table shows a derived SADC resident
+// row under each flagship row, and links to the FAQ that defines who qualifies.
+assert('the rate table renders the derived sadcRateRows beside each flagship row', /sadcRateRows\[i\]/.test(table));
+assert('the resident rows link to the FAQ definition', /withBase\('\/logistics#sadc-resident'\)/.test(table));
 assert('the SADC page derives its rate line', /rateFor\(\{/.test(sadc) && /sadcSelfCateredRates/.test(sadc));
 assert('the widget mirrors the price chain from the fetched base, never a literal',
   /rate\.baseRand \* \(R\.yearMultipliers/.test(widget) &&
@@ -124,7 +128,9 @@ assert('llms.txt does not disclose the resident rate band', !/sadc/i.test(llms))
 // is useful and never reaches the browser, so stripping comments first is the honest check.
 const shipped = (src) =>
   src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-for (const [name, src] of [['index.astro', home], ['rates.astro', rates], ['how-pricing-works.astro', explainer], ['RatesTable.astro', table]]) {
+// RatesTable.astro is no longer in this list: it discloses the resident rate by operator decision
+// (23 Sep 2026). The rest of these pages, and the booking widget below, still say nothing about it.
+for (const [name, src] of [['index.astro', home], ['rates.astro', rates], ['how-pricing-works.astro', explainer]]) {
   assert(`${name} ships no mention of the resident rate band`, !/sadc/i.test(shipped(src)));
 }
 // The widget ships NOTHING about any rate band: not in the markup, not in the client script, and

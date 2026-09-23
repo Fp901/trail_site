@@ -1,0 +1,69 @@
+name: Update FX snapshot
+
+# Refreshes the indicative EUR/GBP/USD figures on the /rates table once a month.
+# scripts/update-fx-rates.mjs pulls the European Central Bank reference rates for ZAR and rewrites
+# FX_RATES_AS_OF + ZAR_TO_FOREIGN in src/data/rates.ts; this job checks the result, commits it to
+# main and redeploys. ZAR is the only charged currency, so nothing here touches pricing or checkout.
+#
+# A commit pushed with GITHUB_TOKEN does not trigger other workflows, so the Pages deploy is
+# dispatched explicitly below. Vercel's Git integration deploys from the push itself.
+
+on:
+  schedule:
+    - cron: '0 6 1 * *' # 06:00 UTC (08:00 SAST) on the 1st of every month
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: fx-rates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fetch ECB rates and rewrite the snapshot
+        run: node scripts/update-fx-rates.mjs
+
+      - name: Check for a change
+        id: diff
+        run: |
+          if git diff --quiet -- src/data/rates.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff -- src/data/rates.ts
+          fi
+
+      - name: Verify
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          npx tsx scripts/verify-currency.mjs
+          npm run check
+
+      - name: Commit and push
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898733+github-actions[bot]@users.noreply.github.com"
+          git add src/data/rates.ts
+          git commit -m "chore(rates): monthly FX snapshot $(grep -oP "FX_RATES_AS_OF = '\K[^']+" src/data/rates.ts)"
+          git push
+
+      - name: Redeploy GitHub Pages
+        if: steps.diff.outputs.changed == 'true'
+        run: gh workflow run deploy.yml --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}

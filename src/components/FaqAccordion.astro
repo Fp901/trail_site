@@ -7,7 +7,7 @@ import { faqs } from '../data/logistics';
 <div class="faq">
   {
     faqs.map((item) => (
-      <details class="faq__item" name="faq">
+      <details class="faq__item" name="faq" id={item.id}>
         <summary class="faq__q">
           <span>{item.q}</span>
           <span class="faq__icon" aria-hidden="true" />
@@ -31,3 +31,19 @@ import { faqs } from '../data/logistics';
     ))
   }
 </div>
+
+<script>
+  // A link such as /logistics#sadc-resident (from the rates table) lands on a closed <details>.
+  // Not every browser opens it on fragment navigation, so open it here, then bring it into view.
+  function openLinkedFaq(): void {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const target = id ? document.getElementById(id) : null;
+    if (target instanceof HTMLDetailsElement && target.classList.contains('faq__item')) {
+      target.open = true;
+      target.scrollIntoView({ block: 'start' });
+    }
+  }
+  openLinkedFaq();
+  window.addEventListener('hashchange', openLinkedFaq);
+  document.addEventListener('astro:page-load', openLinkedFaq);
+</script>
