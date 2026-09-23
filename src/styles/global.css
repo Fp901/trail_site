@@ -1826,6 +1826,89 @@
     outline: 2px solid var(--color-earth);
     outline-offset: 2px;
   }
+  /* ---- Step 1 counters: own rooms and SADC residents ----------------------------------------
+     A minus / value / plus stepper in the chip idiom above, 44px buttons, tabular figures. */
+  .bform__count {
+    margin-top: 1.5rem;
+  }
+  .bform__countlabel,
+  .bform__sadchead {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-earth);
+  }
+  .bform__sadchead {
+    font-size: var(--text-base);
+  }
+  .bform__sadc .bform__countlabel {
+    margin-top: 0.9rem;
+  }
+  .bcount {
+    margin-top: 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid color-mix(in srgb, var(--color-earth) 22%, transparent);
+    border-radius: var(--radius-md);
+    background-color: #fff;
+  }
+  .bcount__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    border: 0;
+    background: none;
+    font-family: var(--font-body);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--color-earth);
+    cursor: pointer;
+  }
+  .bcount__btn[aria-disabled='true'] {
+    color: color-mix(in srgb, var(--color-earth) 30%, transparent);
+    cursor: default;
+  }
+  .bcount__btn:focus-visible {
+    outline: 2px solid var(--color-earth);
+    outline-offset: -2px;
+    border-radius: var(--radius-md);
+  }
+  .bcount__value {
+    min-width: 2.5rem;
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-earth);
+  }
+  .bform__countries {
+    margin-top: 0.5rem;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--color-charcoal);
+  }
+  .bform__countries summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--color-earth);
+    text-decoration: underline;
+    text-decoration-color: var(--color-ochre);
+    text-underline-offset: 4px;
+  }
+  .bform__countries summary:focus-visible {
+    outline: 2px solid var(--color-ochre);
+    outline-offset: 2px;
+  }
+  .bform__countries p {
+    margin-top: 0.25rem;
+    line-height: 1.6;
+  }
   .bwalkers__solo {
     margin-top: 0.75rem;
   }

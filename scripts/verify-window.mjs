@@ -29,10 +29,10 @@ function assert(label, cond, detail) {
 }
 const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 66 - t.length))}`);
 
-const sql = readFileSync(new URL('../supabase/migrations/0016_commercial_v4.sql', import.meta.url), 'utf8');
+const sql = readFileSync(new URL('../supabase/migrations/0017_rooms_supplement_sadc_count.sql', import.meta.url), 'utf8');
 const pick = (re) => { const m = sql.match(re); return m ? m[1] : null; };
 
-section('1. Constants in 0016 match src/data/rates.ts');
+section('1. Constants in 0017 match src/data/rates.ts');
 const sqlOpen = pick(/c_booking_open\s+constant date := date '([\d-]+)'/);
 const sqlLead = pick(/c_min_lead_days\s+constant int\s+:= (\d+)/);
 const sqlIntl = pick(/c_months_intl\s+constant int\s+:= (\d+)/);
@@ -60,15 +60,18 @@ const sqlEarliest = max(addDays(today, Number(sqlLead)), sqlOpen);
 assert(`floor: SQL ${sqlEarliest} === earliestBookableDate() ${earliestBookableDate()}`,
   sqlEarliest === earliestBookableDate());
 
-for (const [catering, residency, months] of [
-  ['catered', 'international', Number(sqlIntl)],
-  ['catered', 'sadc', Number(sqlSadc)],
-  ['uncatered', 'sadc', Number(sqlSadc)],
+for (const [catering, sadcCount, months] of [
+  ['catered', 0, Number(sqlIntl)],
+  ['catered', 1, Number(sqlSadc)],
+  ['catered', 8, Number(sqlSadc)],
+  ['uncatered', 8, Number(sqlSadc)],
 ]) {
   const sqlLatest = addMonths(max(today, sqlOpen), months);
-  const tsLatest = latestBookableDate(catering, residency);
-  assert(`ceiling (${catering}/${residency}): SQL ${sqlLatest} === latestBookableDate() ${tsLatest}`, sqlLatest === tsLatest);
+  const tsLatest = latestBookableDate(catering, sadcCount);
+  assert(`ceiling (${catering}, ${sadcCount} SADC): SQL ${sqlLatest} === latestBookableDate() ${tsLatest}`, sqlLatest === tsLatest);
 }
+assert('the 12-month ceiling applies as soon as anyone is counted as SADC',
+  /when new\.catering = 'catered' and new\.sadc_count = 0 then c_months_intl/.test(sql));
 
 section('3. The exemptions that keep admin paths and paid bookings working');
 assert('window guard is INSERT-only (would otherwise block paid bookings from confirming)',
@@ -82,9 +85,9 @@ assert('ceiling is anchored to greatest(today, launch gate), not today alone',
 
 section('4. Error codes the app maps');
 const actions = readFileSync(new URL('../src/actions/index.ts', import.meta.url), 'utf8');
-assert('0016 raises RW_WINDOW_TOO_SOON', /RW_WINDOW_TOO_SOON/.test(sql));
-assert('0016 raises RW_WINDOW_TOO_FAR', /RW_WINDOW_TOO_FAR/.test(sql));
-assert('0016 raises RW_TAPER_DAY', /RW_TAPER_DAY/.test(sql));
+assert('0017 raises RW_WINDOW_TOO_SOON', /RW_WINDOW_TOO_SOON/.test(sql));
+assert('0017 raises RW_WINDOW_TOO_FAR', /RW_WINDOW_TOO_FAR/.test(sql));
+assert('0017 raises RW_TAPER_DAY', /RW_TAPER_DAY/.test(sql));
 assert('createCheckout maps RW_WINDOW_TOO_SOON', /RW_WINDOW_TOO_SOON/.test(actions));
 assert('createCheckout maps RW_WINDOW_TOO_FAR', /RW_WINDOW_TOO_FAR/.test(actions));
 assert('createCheckout maps RW_TAPER_DAY', /RW_TAPER_DAY/.test(actions));

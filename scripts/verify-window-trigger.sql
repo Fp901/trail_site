@@ -1,7 +1,7 @@
--- bookings_window_guard conformance harness (migration 0016).
+-- bookings_window_guard conformance harness (migration 0017: the 12-month ceiling follows
+-- sadc_count > 0 rather than the stored band).
 --
--- NOT YET EXECUTED. Migration 0016 has not been applied to Supabase, so nothing in this file has
--- run against it. Apply 0016, then paste this whole file into the Supabase SQL editor.
+-- Apply migrations through 0017, then paste this whole file into the Supabase SQL editor.
 -- Everything is wrapped in a transaction that rolls back, so no test rows survive.
 --
 -- Boundary cases are computed RELATIVE TO TODAY so the harness stays valid whenever it is run,
@@ -13,19 +13,28 @@
 begin;
 
 create temporary table w_res(label text, ok boolean, detail text);
+-- Session-private and rolled back at the end, so no client can ever reach it. RLS is enabled
+-- only so the Supabase SQL editor does not stop to ask; the owner running this is not bound by it.
+alter table w_res enable row level security;
 
 create or replace function w_try(
   p_label text, p_start date, p_catering text, p_type text, p_size int,
-  p_should_fail boolean, p_expect_code text default null, p_processor text default 'paystack'
+  p_should_fail boolean, p_expect_code text default null, p_processor text default 'paystack',
+  p_sadc int default null
 ) returns void language plpgsql as $fn$
 declare v_err text;
 begin
   begin
+    -- Self-catered is always 8 SADC; catered defaults to no SADC guests unless p_sadc says so.
+    -- Parties here are even, so single_rooms 0 is a valid mix.
     insert into public.bookings
-      (start_date, end_date, group_size, booking_type, catering, lead_name, lead_email,
-       status, total_cents, amount_due_cents, currency, processor, processor_reference)
+      (start_date, end_date, group_size, single_rooms, sadc_count, booking_type, catering,
+       lead_name, lead_email, status, total_cents, amount_due_cents, currency, processor,
+       processor_reference)
     values
-      (p_start, p_start + 3, p_size, p_type, p_catering, 'WHarness', 'wharness@example.com',
+      (p_start, p_start + 3, p_size, 0,
+       coalesce(p_sadc, case when p_catering = 'uncatered' then p_size else 0 end),
+       p_type, p_catering, 'WHarness', 'wharness@example.com',
        'pending', 0, 0, 'ZAR', p_processor, 'wharness_' || gen_random_uuid());
     v_err := null;
   exception when others then v_err := SQLERRM;
@@ -54,8 +63,8 @@ declare
   v_open     date := date '2027-04-01';
   v_earliest date := greatest(v_today + 7, v_open);
   v_anchor   date := greatest(v_today, v_open);
-  v_lat_un   date := (v_anchor + interval '12 months')::date;   -- every SADC product
-  v_lat_cat  date := (v_anchor + interval '24 months')::date;   -- international catered
+  v_lat_un   date := (v_anchor + interval '12 months')::date;   -- any SADC guest, and self-catered
+  v_lat_cat  date := (v_anchor + interval '24 months')::date;   -- catered, no SADC guests
   v_shared   date;
 begin
   raise notice 'today=%  earliest=%  latest(sadc)=%  latest(intl catered)=%',
@@ -84,10 +93,15 @@ begin
   while extract(isodow from v_shared) in (2, 3, 6) loop v_shared := v_shared - 1; end loop;
   perform w_try('A4 two days BEFORE the floor -> reject', v_shared, 'catered', 'shared', 2, true, 'RW_WINDOW_TOO_SOON');
 
-  perform w_try('A5 yesterday -> reject', v_today - 1, 'catered', 'shared', 2, true, 'RW_WINDOW_TOO_SOON');
+  -- Stepped back off a taper day like the others: the taper check runs first, so on a Tuesday,
+  -- Wednesday or Saturday "yesterday" would be refused as RW_TAPER_DAY and mask this test.
+  v_shared := v_today - 1;
+  while extract(isodow from v_shared) in (2, 3, 6) loop v_shared := v_shared - 1; end loop;
+  perform w_try('A5 a past start day -> reject', v_shared, 'catered', 'shared', 2, true, 'RW_WINDOW_TOO_SOON');
 
   -- ==========================================================================================
-  -- B. THE PER-PRODUCT CEILING. 12 months for every SADC product, 24 for international catered.
+  -- B. THE CEILING. 12 months as soon as anyone is counted as SADC (always, self-catered); 24
+  --    for a catered party with no SADC guests.
   -- ==========================================================================================
   v_shared := v_lat_un;
   while extract(isodow from v_shared) in (2, 3, 6) loop v_shared := v_shared - 1; end loop;
@@ -96,7 +110,15 @@ begin
 
   -- The same date that is too far for self-catered is comfortably inside the catered window:
   -- this is the asymmetry that makes the ceiling per-catering rather than global.
-  perform w_try('B3 international catered on that SAME date -> ACCEPT', v_lat_un + 1, 'catered', 'shared', 2, false);
+  perform w_try('B3 catered, no SADC guests, on that SAME date -> ACCEPT', v_lat_un + 1, 'catered', 'shared', 2, false);
+  -- One SADC guest is enough to bring the 12-month ceiling in (13 to 24 months out -> refused).
+  perform w_try('B6 catered with 1 SADC guest on that SAME date -> reject', v_lat_un + 1, 'catered', 'shared', 2,
+                true, 'RW_WINDOW_TOO_FAR', 'paystack', 1);
+  -- Its own date just inside the ceiling: B1's self-catered group has locked the ceiling date.
+  v_shared := v_lat_un - 7;
+  while extract(isodow from v_shared) in (2, 3, 6) loop v_shared := v_shared - 1; end loop;
+  perform w_try('B7 catered with 1 SADC guest just inside the 12-month ceiling -> ACCEPT', v_shared, 'catered', 'shared', 2,
+                false, null, 'paystack', 1);
 
   v_shared := v_lat_cat;
   while extract(isodow from v_shared) in (2, 3, 6) loop v_shared := v_shared - 1; end loop;
@@ -104,7 +126,7 @@ begin
   perform w_try('B5 international catered 1 day PAST the ceiling -> reject', v_lat_cat + 1, 'catered', 'shared', 2, true, 'RW_WINDOW_TOO_FAR');
 
   -- ==========================================================================================
-  -- C. THE EXEMPTIONS. Each guards a regression documented in 0016's header.
+  -- C. THE EXEMPTIONS. Each guards a regression documented in 0016's header (kept in 0017).
   -- ==========================================================================================
   -- C1: comp bookings bypass the floor (adminCreateCompBooking books from today).
   perform w_try('C1 COMP booking inside the floor -> ACCEPT (exemption 2)',
@@ -170,7 +192,9 @@ begin
   insert into public.bookings
     (start_date, end_date, group_size, booking_type, catering, lead_name, lead_email, status,
      total_cents, amount_due_cents, currency, processor, processor_reference)
-  values (v_today + 2, v_today + 5, 4, 'shared', 'uncatered', 'WH', 'wh2@example.com',
+  -- Catered 4: a self-catered 4 would be refused by the SLOT guard (it opens at 8), which is not
+  -- what this test is about.
+  values (v_today + 2, v_today + 5, 4, 'shared', 'catered', 'WH', 'wh2@example.com',
           'pending', 0, 0, 'ZAR', 'comp', 'wh2_' || gen_random_uuid())
   returning id into v_id;
 

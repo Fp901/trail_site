@@ -1,4 +1,4 @@
-// departure_inventory view contract (migration 0016, reshaped from 0015) + its client.
+// departure_inventory view contract (migration 0017, reshaped from 0015/0016) + its client.
 // Run: npx tsx scripts/verify-inventory.mjs
 //
 // The view itself needs a live database (see the SQL harnesses), so this asserts the two things
@@ -15,7 +15,7 @@ function assert(label, cond) {
 }
 const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 66 - t.length))}`);
 
-const sql = readFileSync(new URL('../supabase/migrations/0016_commercial_v4.sql', import.meta.url), 'utf8');
+const sql = readFileSync(new URL('../supabase/migrations/0017_rooms_supplement_sadc_count.sql', import.meta.url), 'utf8');
 const widget = readFileSync(new URL('../src/components/BookingWidget.astro', import.meta.url), 'utf8');
 
 section('1. The view is DERIVED, not materialised');
@@ -25,7 +25,7 @@ assert('selects from bookings as the source of truth', /from public\.bookings/.t
 assert('expands blocked_dates ranges to days', /generate_series\(b\.start_date, b\.end_date/.test(sql));
 
 section('2. The §10 record shape, plus the one flagged addition');
-for (const col of ['start_date', 'seats_left', 'locked_catering', 'seats_taken', 'is_blocked']) {
+for (const col of ['start_date', 'seats_left', 'locked_catering', 'seats_taken', 'rooms_taken', 'is_blocked']) {
   assert(`exposes ${col}`, new RegExp(`\\b${col}\\b`).test(sql));
 }
 assert('seats_taken is a real count, not derived from seats_left at the edge',
@@ -48,8 +48,9 @@ assert('widget no longer fetches shared_slot_availability', !/shared_slot_availa
 assert('the view is replaced, not duplicated', /drop view if exists public\.departure_inventory;/.test(sql));
 
 section('5. The client reads the new shape, once');
-assert('fetches departure_inventory with all five columns',
-  /departure_inventory\?select=start_date,seats_taken,seats_left,locked_catering,is_blocked/.test(widget));
+assert('rooms_taken sums each booking\'s rooms', /sum\(rooms\)::int\s+as rooms_taken/.test(sql));
+assert('fetches departure_inventory with all six columns',
+  /departure_inventory\?select=start_date,seats_taken,seats_left,rooms_taken,locked_catering,is_blocked/.test(widget));
 assert('cache: no-store retained (a cancellation must free the date immediately)',
   /cache: 'no-store'/.test(widget));
 assert('defines a single OPEN_DEPARTURE fallback for absent dates', /const OPEN_DEPARTURE: Departure/.test(widget));
@@ -72,7 +73,7 @@ assert('the "Recommended" ranking badge is gone', !/Recommended/.test(widget));
 
 console.log(
   failed === 0
-    ? '\nALL INVENTORY-CONTRACT CHECKS PASSED\n(View behaviour still needs a live DB — apply 0016 then run the SQL harnesses.)'
+    ? '\nALL INVENTORY-CONTRACT CHECKS PASSED\n(View behaviour still needs a live DB — apply 0017 then run the SQL harnesses.)'
     : `\n${failed} CHECK(S) FAILED`,
 );
 process.exit(failed === 0 ? 0 : 1);

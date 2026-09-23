@@ -1,5 +1,11 @@
 import { SADC_COUNTRIES, countryName } from './countries';
-import { SADC_DISCOUNT_PERCENT } from './rates';
+import {
+  SADC_DISCOUNT_PERCENT,
+  SADC_PREMIUM_PCT,
+  SINGLE_SUPPLEMENT_PCT,
+  ROOMS_PER_DEPARTURE,
+  MAX_GROUP_SIZE,
+} from './rates';
 import { MIN_GUEST_AGE } from './policies';
 
 // Trail logistics & FAQ content — Part 8.4 + 2026 brief. Three blocks (safety emphasised) plus
@@ -79,7 +85,7 @@ export const faqs: Faq[] = [
   {
     id: 'sadc-resident',
     q: 'Who counts as an SADC resident?',
-    a: `Anyone who lives in one of the ${SADC_COUNTRIES.size} member states of the Southern African Development Community (SADC): ${sadcCountryList}. SADC residents receive a ${SADC_DISCOUNT_PERCENT}% discount on the all-inclusive rate. Choose your country of residence when you book and the rate is applied automatically. Please bring a valid ID or passport to registration at Temminck's Lodge.`,
+    a: `Anyone who lives in one of the ${SADC_COUNTRIES.size} member states of the Southern African Development Community (SADC): ${sadcCountryList}. SADC residents receive a ${SADC_DISCOUNT_PERCENT}% discount on the all-inclusive rate. When you book, tell us how many of your group live in an SADC country and the rate is applied to them. Please bring a valid ID or passport to registration at Temminck's Lodge. A guest who cannot show one pays a ${SADC_PREMIUM_PCT}% premium at registration.`,
   },
   {
     q: 'Where is the trail and how do I get there?',
@@ -111,7 +117,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How big is the group?',
-    a: 'Two to eight guests, with two trail guides. The first booking on a date opens it, from two guests, and later bookings join until the eight places are taken. Book all eight and the trail and each lodge are reserved for your group alone.',
+    a: `Up to ${MAX_GROUP_SIZE} guests in ${ROOMS_PER_DEPARTURE} double rooms, with two trail guides. You only share a room with your own group, and each guest in their own room pays a ${SINGLE_SUPPLEMENT_PCT}% single supplement. The first booking on a date opens it, from two guests; later bookings, including single walkers, join while rooms last. Take all ${ROOMS_PER_DEPARTURE} rooms and the trail and each lodge are reserved for your group alone.`,
   },
   {
     id: 'minimum-age',

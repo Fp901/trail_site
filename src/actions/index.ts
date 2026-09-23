@@ -5,7 +5,6 @@ import { z } from 'astro:schema';
 import crypto from 'node:crypto';
 import {
   computeQuote,
-  basePpTripRand,
   BALANCE_LEAD_DAYS,
   earliestBookableDate,
   latestBookableDate,
@@ -13,14 +12,15 @@ import {
   bookingTypeFor,
   windowMonthsFor,
 } from '../lib/pricing';
-import { isCountryCode, countryName, residencyForCountry } from '../data/countries';
 import {
   MAX_GROUP_SIZE,
   MIN_PARTY_SIZE,
-  RATE_BASE_YEAR,
-  MIN_TO_JOIN,
+  ROOMS_PER_DEPARTURE,
   minPartySize,
-  productLabel,
+  minToJoin,
+  roomsFor,
+  isValidRoomMix,
+  defaultSingleRooms,
   START_DAYS_DISPLAY,
   TAPER_END_DISPLAY,
 } from '../data/rates';
@@ -63,13 +63,12 @@ export const server = {
       startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose a valid start date.'),
       groupSize: z.number().int().min(MIN_PARTY_SIZE).max(MAX_GROUP_SIZE),
       catering: z.enum(['catered', 'uncatered']),
-      // The guest picks a COUNTRY; the rate band is derived from it server-side. The browser never
-      // sends the band, so a tampered payload cannot buy the resident rate by asserting one.
-      country: z.string().trim().length(2).toUpperCase(),
-      // Ticked by a guest booking at a resident rate: they confirm everyone in the party lives
-      // there and can show ID at check-in. Proof is checked in person; this records the term was
-      // accepted. Named neutrally because the field name is readable in the page source, and the
-      // public site does not disclose that a resident band exists.
+      // How many guests need their own room, and how many are SADC residents. Counts, never a
+      // price or a rate band: the server prices every line itself.
+      singleRooms: z.number().int().min(0).max(MAX_GROUP_SIZE),
+      sadcCount: z.number().int().min(0).max(MAX_GROUP_SIZE),
+      // Ticked when sadcCount > 0: those guests live in an SADC country and will show ID or a
+      // passport at registration. Proof is checked in person; this records the term was accepted.
       residencyDeclaration: z.boolean().optional(),
       // Child policy: the lead guest confirms every guest will be at least MIN_GUEST_AGE on the
       // start date. Optional in the schema so the refusal below can say why in plain words.
@@ -97,29 +96,33 @@ export const server = {
       const supabase = getSupabaseAdmin();
       const now = new Date().toISOString();
 
-      // THE RATE BAND IS DERIVED HERE, from the country, and nowhere else. data/countries.ts holds
-      // the single mapping; the widget uses it only to show an estimate.
-      if (!isCountryCode(input.country)) {
-        throw new ActionError({ code: 'BAD_REQUEST', message: 'Please choose a country from the list.' });
+      // 1. Room mix. Guests who share pair up within the booking, so the number sharing is even.
+      if (
+        input.sadcCount > input.groupSize ||
+        !isValidRoomMix(input.groupSize, input.singleRooms)
+      ) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message:
+            'Guests who share pair up within your group, so please choose a number of own rooms that leaves an even number sharing.',
+        });
       }
-      const residency = residencyForCountry(input.country);
-
-      // Product validity (commercial model v4): the site sells catered to anyone and self-catered
-      // to SADC residents only. There is no international self-catered rate to fall back to — a
-      // guest who cannot show proof of residence at check-in is charged at international rates on
-      // the day, which is an operator matter, not something the booking engine can price.
-      if (input.catering === 'uncatered' && residency !== 'sadc') {
+      // 2. Self-catered is a full group of 8 SADC residents sharing 4 rooms.
+      if (input.catering === 'uncatered' && (input.sadcCount !== input.groupSize || input.singleRooms !== 0)) {
         throw new ActionError({
           code: 'BAD_REQUEST',
           message: 'This option is open to residents of the SADC region only.',
         });
       }
-      if (residency === 'sadc' && input.residencyDeclaration !== true) {
+      // 3. Anyone counted as SADC needs the residency confirmation.
+      if (input.sadcCount > 0 && input.residencyDeclaration !== true) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `Please confirm that every guest lives in ${countryName(input.country)} and can show a valid ID or passport at registration.`,
+          message:
+            'Please confirm that the guests you counted as SADC residents live in an SADC country and can show ID or a passport at registration.',
         });
       }
+      const rooms = roomsFor(input.groupSize, input.singleRooms);
       if (input.ageConfirmed !== true) {
         throw new ActionError({
           code: 'BAD_REQUEST',
@@ -141,7 +144,7 @@ export const server = {
       // international catered, 12 for every SADC product). ISO YYYY-MM-DD strings compare
       // lexicographically, so string comparison is safe.
       const earliest = earliestBookableDate();
-      const latest = latestBookableDate(input.catering, residency);
+      const latest = latestBookableDate(input.catering, input.sadcCount);
       if (input.startDate < earliest) {
         throw new ActionError({
           code: 'BAD_REQUEST',
@@ -151,48 +154,56 @@ export const server = {
       if (input.startDate > latest) {
         throw new ActionError({
           code: 'BAD_REQUEST',
-          message: `Bookings open up to ${windowMonthsFor(input.catering, residency)} months ahead. Please choose an earlier date.`,
+          message: `Bookings open up to ${windowMonthsFor(input.catering, input.sadcCount)} months ahead. Please choose an earlier date.`,
         });
       }
 
-      // Every open start day now works the same way: 8 places, the first booking opens the date
-      // and locks its catering, later bookings join in 2s. Check what is already held so we can
-      // give a specific message before even trying the insert; the DB slot guard is the final
-      // authority against a concurrent race between this check and the insert below.
+      // 4. Rooms and walkers. A date has 4 double rooms and takes at most 8 walkers; the first
+      // booking opens it (2 catered, 8 self-catered) and locks its catering, later bookings join
+      // from 1. Check what is already held so we can give a specific message before the insert;
+      // the DB slot guard is the final authority against a race between this check and the insert.
       const { data: activeRows } = await supabase
         .from('bookings')
-        .select('group_size, catering')
+        .select('group_size, rooms, catering')
         .eq('start_date', input.startDate)
         .or(`status.eq.confirmed,and(status.eq.pending,hold_expires_at.gt.${now})`);
       const seatsTaken = (activeRows ?? []).reduce((sum, r) => sum + r.group_size, 0);
+      const roomsTaken = (activeRows ?? []).reduce((sum, r) => sum + r.rooms, 0);
       const lockedCatering = activeRows && activeRows.length > 0 ? activeRows[0].catering : null;
 
       if (seatsTaken === 0) {
-        // Opening a date: the minimum is a property of the product (2 catered, 8 self-catered).
         const openMin = minPartySize(input.catering);
         if (input.groupSize < openMin) {
-          const alt =
-            input.catering === 'uncatered'
-              ? ' The self-catered option runs as a full group of 8.'
-              : '';
           throw new ActionError({
             code: 'BAD_REQUEST',
-            message: `Opening a new date takes at least ${openMin} people.${alt}`,
+            message:
+              input.catering === 'catered'
+                ? 'Single walkers can join a guaranteed departure. Please choose a date marked Guaranteed departure.'
+                // Only reachable from the hidden page's self-catered mount.
+                : `Opening a new date takes at least ${openMin} people. The self-catered option runs as a full group of ${openMin}.`,
           });
         }
       } else {
-        if (input.groupSize < MIN_TO_JOIN) {
-          throw new ActionError({
-            code: 'BAD_REQUEST',
-            message: `Joining a departure that has already started takes at least ${MIN_TO_JOIN} people.`,
-          });
-        }
         if (lockedCatering && input.catering !== lockedCatering) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `That date is already booked ${lockedCatering === 'catered' ? 'catered' : 'self-catered'}. Choose a matching option, or pick another date.`,
+            // Never names the other product: each page sells one (the calendar says the same).
+            message: 'That date is already taken by another group. Please choose another date.',
           });
         }
+        const joinMin = minToJoin(input.catering);
+        if (input.groupSize < joinMin) {
+          throw new ActionError({
+            code: 'BAD_REQUEST',
+            message: `Joining a departure that has already started takes at least ${joinMin} people.`,
+          });
+        }
+      }
+      if (roomsTaken + rooms > ROOMS_PER_DEPARTURE) {
+        throw new ActionError({
+          code: 'CONFLICT',
+          message: `Only ${Math.max(0, ROOMS_PER_DEPARTURE - roomsTaken)} room(s) left on that date. Your group needs ${rooms}.`,
+        });
       }
       if (seatsTaken + input.groupSize > MAX_GROUP_SIZE) {
         throw new ActionError({
@@ -201,20 +212,19 @@ export const server = {
         });
       }
 
-      // Exclusivity is derived, not sold: a party that opens a date with all 8 places has the
-      // trail to itself. The DB trigger derives the same value and is authoritative.
-      const bookingType = bookingTypeFor(input.groupSize, seatsTaken);
-
       // SERVER is the price authority (Part 11.4). startDate drives the rate year, the season and
       // the split-payment rule: a trip 45+ days out pays a 50% deposit now + 50% balance later;
-      // inside 45 days pays in full.
+      // inside 45 days pays in full. Exclusivity (all 4 rooms) is derived here for the insert and
+      // again, authoritatively, by the DB trigger.
       const quote = computeQuote({
-        bookingType,
         catering: input.catering,
-        residency,
         groupSize: input.groupSize,
+        singleRooms: input.singleRooms,
+        sadcCount: input.sadcCount,
+        roomsTaken,
         startDate: input.startDate,
       });
+      const bookingType = quote.bookingType;
 
       // One active booking per email. Blocks confirmed bookings (any date) and live pending holds
       // (hold_expires_at still in the future). Expired pending rows are not matched, so a genuine
@@ -270,8 +280,10 @@ export const server = {
           booking_type: bookingType,
           catering: quote.catering,
           residency: quote.residency,
-          lead_country: input.country,
-          residency_declared_at: residency === 'sadc' ? now : null,
+          single_rooms: quote.singleRooms,
+          sadc_count: quote.sadcCount,
+          residency_declared_at: quote.sadcCount > 0 ? now : null,
+          age_confirmed_at: now,
           lead_name: leadName,
           lead_email: leadEmail,
           lead_phone: leadPhone,
@@ -292,6 +304,15 @@ export const server = {
       if (error || !data) {
         // Friendly messages for the inventory guards; generic conflict otherwise.
         const msg = (error?.message ?? '') as string;
+        if (msg.includes('RW_ROOMS_FULL')) {
+          const left = msg.match(/only (\d+)/)?.[1];
+          throw new ActionError({
+            code: 'CONFLICT',
+            message: left
+              ? `Only ${left} room(s) left on that date. Your group needs ${rooms}.`
+              : 'Not enough rooms left on that date. Please choose another date.',
+          });
+        }
         if (msg.includes('RW_FULL') || msg.includes('RW_GROUP_TOO_LARGE')) {
           const left = msg.match(/only (\d+)/)?.[1];
           throw new ActionError({
@@ -304,7 +325,7 @@ export const server = {
         if (msg.includes('RW_CATERING_LOCKED')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'That date was just booked with a different catering choice. Please choose another date.',
+            message: 'That date was just taken by another group. Please choose another date.',
           });
         }
         if (msg.includes('RW_OPEN_MIN') || msg.includes('RW_TOPUP_MIN')) {
@@ -460,63 +481,6 @@ export const server = {
       });
 
       return { authorizationUrl: init.authorizationUrl, reference: newReference };
-    },
-  }),
-
-  // Resolve the pricing context for ONE country, server-side.
-  //
-  // WHY THIS EXISTS. The booking page used to ship the resident-rate factor and the list of
-  // countries it applies to in a `data-rates` attribute, because the on-page estimate is computed
-  // in the browser. That put the whole rate policy in view-source on a page written for the
-  // international market, which is exactly what the operator asked not to disclose (16 Sep 2026).
-  //
-  // So the page now ships NO rate data at all. Once a guest names their country, this returns the
-  // base rate for THAT GUEST'S BAND ONLY, and the widget computes its estimate from that. A guest
-  // never receives the other band's numbers, and a competitor reading the page source finds
-  // nothing to read. The seasonal, rate-year and last-minute rules stay client-side: they are
-  // public, they apply to everyone, and they are already stated in the copy.
-  //
-  // It is also the only figure that can drift: the estimate a guest reads is now derived from the
-  // same constants createCheckout charges from, resolved by the same code path.
-  getRateContext: defineAction({
-    accept: 'json',
-    input: z.object({
-      country: z.string().trim().length(2).toUpperCase(),
-      catering: z.enum(['catered', 'uncatered']),
-    }),
-    handler: async (input, ctx) => {
-      // Cheap and read-only, but it is public and unauthenticated, so it is still capped.
-      const ip = clientIp(ctx.request);
-      if (!(await rateLimit(`ratectx:${ip}`, 40, 60))) {
-        throw new ActionError({
-          code: 'TOO_MANY_REQUESTS',
-          message: 'Too many requests. Please wait a moment and try again.',
-        });
-      }
-
-      if (!isCountryCode(input.country)) {
-        throw new ActionError({ code: 'BAD_REQUEST', message: 'Please choose a country from the list.' });
-      }
-      const residency = residencyForCountry(input.country);
-
-      if (input.catering === 'uncatered' && residency !== 'sadc') {
-        throw new ActionError({
-          code: 'BAD_REQUEST',
-          message: 'This option is open to residents of the SADC region only.',
-        });
-      }
-
-      return {
-        // The per-person, whole-trip base rate for this band, before the seasonal, rate-year and
-        // last-minute rules the widget applies itself.
-        baseRand: basePpTripRand(input.catering, residency, `${RATE_BASE_YEAR}-07-01`),
-        // Whether this country's rate carries the show-your-ID condition. Sent as a boolean rather
-        // than a band name, so the browser is told what to ASK, never what band it is in.
-        requiresDeclaration: residency === 'sadc',
-        // How far ahead this guest may book. Also band-dependent, also resolved here.
-        latestDate: latestBookableDate(input.catering, residency),
-        windowMonths: windowMonthsFor(input.catering, residency),
-      };
     },
   }),
 
@@ -1030,8 +994,8 @@ export const server = {
         if ((error as { code?: string }).code === '23505') {
           throw new ActionError({ code: 'CONFLICT', message: 'Another active booking already starts on that date.' });
         }
-        // Slot-guard trigger (0016): capacity is 8 per start date, the first booking locks the
-        // date's catering, and booking_type is re-derived on the move. The window guard exempts
+        // Slot-guard trigger (0017): a date holds 4 rooms and 8 walkers, the first booking locks
+        // the date's catering, and booking_type is re-derived on the move. The window guard exempts
         // UPDATEs, so an admin may move a booking to a taper day or outside the public window.
         const msg = error.message ?? '';
         if (msg.includes('RW_OPEN_MIN')) {
@@ -1043,7 +1007,7 @@ export const server = {
         if (msg.includes('RW_TOPUP_MIN')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `Joining that date needs at least ${MIN_TO_JOIN} people.`,
+            message: `Joining a self-catered date needs the full ${minPartySize('uncatered')} people.`,
           });
         }
         if (msg.includes('RW_CATERING_LOCKED')) {
@@ -1052,10 +1016,10 @@ export const server = {
             message: 'That date is already booked with a different catering choice.',
           });
         }
-        if (msg.includes('RW_FULL') || msg.includes('RW_GROUP_TOO_LARGE')) {
+        if (msg.includes('RW_FULL') || msg.includes('RW_ROOMS_FULL') || msg.includes('RW_GROUP_TOO_LARGE')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Not enough places left on that date for this group.',
+            message: 'Not enough places or rooms left on that date for this group.',
           });
         }
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'Could not move the booking.' });
@@ -1346,6 +1310,7 @@ export const server = {
       const reason = input.reason.trim();
       const nowIso = new Date().toISOString();
       const endDate = addDays(input.startDate, 3);
+      const compSingleRooms = input.catering === 'catered' ? defaultSingleRooms(input.groupSize) : 0;
 
       const { data: created, error } = await supabase
         .from('bookings')
@@ -1353,8 +1318,13 @@ export const server = {
           start_date: input.startDate,
           end_date: endDate,
           group_size: input.groupSize,
+          // Comps take the default room mix (one own room for an odd party) and count the whole
+          // party as SADC when the operator picks the SADC band. The admin form has no room or
+          // SADC-count inputs yet.
+          single_rooms: compSingleRooms,
+          sadc_count: input.residency === 'sadc' || input.catering === 'uncatered' ? input.groupSize : 0,
           // Derived by the slot guard; this value is only a sensible default for the insert.
-          booking_type: bookingTypeFor(input.groupSize, 0),
+          booking_type: bookingTypeFor(roomsFor(input.groupSize, compSingleRooms)),
           catering: input.catering,
           residency: input.residency,
           residency_declared_at: input.residency === 'sadc' ? nowIso : null,
@@ -1386,10 +1356,10 @@ export const server = {
             message: 'That date is already booked with a different catering choice.',
           });
         }
-        if (msg.includes('RW_FULL') || msg.includes('RW_GROUP_TOO_LARGE')) {
+        if (msg.includes('RW_FULL') || msg.includes('RW_ROOMS_FULL') || msg.includes('RW_GROUP_TOO_LARGE')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: 'Not enough places left on that date for this group.',
+            message: 'Not enough places or rooms left on that date for this group.',
           });
         }
         if (msg.includes('RW_OPEN_MIN') || msg.includes('RW_TOPUP_MIN')) {

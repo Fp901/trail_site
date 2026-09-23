@@ -8,6 +8,12 @@
 // before launch. Renders on the Rates page (step 10) and is referenced at checkout.
 // ----------------------------------------------------------------------------------------
 import { site } from './site';
+import {
+  ROOMS_PER_DEPARTURE,
+  SINGLE_SUPPLEMENT_PCT,
+  SADC_DISCOUNT_PERCENT,
+  SADC_PREMIUM_PCT,
+} from './rates';
 
 // Child policy: every guest must be at least this old on the start date (Day 1), for safety on a
 // walking trail through Big 5 terrain. Operator decision, 23 September 2026. The booking form asks
@@ -30,7 +36,7 @@ export const refundPolicy = {
   contactEmail: site.notifyEmail,
 
   intro:
-    'Rooiberg Wander is booked as places on a departure: the first booking on a date opens it and every later booking joins it, up to eight guests in total. A group that books all eight places has the trail and each lodge to itself. Full payment is due 45 days before arrival: bookings made 45 or more days before arrival are secured with a 50% deposit, with the balance due 45 days before arrival; bookings made inside 45 days are paid in full at booking. Payment is non-refundable from 45 days before arrival. Because every booking commits guides, lodge staff and places on a departure we can rarely resell at short notice, cancellations are subject to the schedule below, though we always try to find a fair outcome first. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
+    'Rooiberg Wander is booked as places on a departure of four double rooms: the first booking on a date opens it and every later booking joins it, up to eight guests in total. Guests only share a room within their own booking. A group that books all four rooms has the trail and each lodge to itself. Full payment is due 45 days before arrival: bookings made 45 or more days before arrival are secured with a 50% deposit, with the balance due 45 days before arrival; bookings made inside 45 days are paid in full at booking. Payment is non-refundable from 45 days before arrival. Because every booking commits guides, lodge staff and places on a departure we can rarely resell at short notice, cancellations are subject to the schedule below, though we always try to find a fair outcome first. All cancellations must be made in writing and take effect on the date we receive them. “Arrival” means Day 1, the arrival day of your booked window.',
 
   // Refund of the total amount paid to date, by notice given before arrival (Day 1). The
   // schedule mirrors the payment model: full payment (and non-refundability) starts at 45 days.
@@ -63,6 +69,14 @@ export const refundPolicy = {
     {
       heading: 'Safety and conduct',
       body: 'Because the trail operates in a Big 5 environment, guests must follow all instructions from the experienced trail guides at all times, including the Two-Man Rule. Guests who place themselves or others at risk, or who materially breach safety instructions, may be removed from the trail without refund.',
+    },
+    {
+      heading: 'Rooms and single supplement',
+      body: `Every departure has ${ROOMS_PER_DEPARTURE} double rooms. Guests only share a room with others in their own booking. Each guest who has a room to themselves pays a single supplement of ${SINGLE_SUPPLEMENT_PCT}% of the all-inclusive rate for their start date.`,
+    },
+    {
+      heading: 'SADC resident rate',
+      body: `Guests counted as SADC residents at booking receive ${SADC_DISCOUNT_PERCENT}% off their rate. Each must show a valid ID or passport proving residency in an SADC country at registration on Day 1. A guest who cannot pays a ${SADC_PREMIUM_PCT}% premium at registration.`,
     },
     {
       heading: 'Minimum age',

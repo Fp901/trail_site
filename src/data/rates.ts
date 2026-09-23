@@ -13,12 +13,14 @@
 // mistake away from the page. The operator's own rate table is per trip (R15,900 / R12,720), so
 // this is also the form the numbers were signed off in.
 //
-// Three products = catering x residency:
-//   catered   + international : the flagship. Min 2, max 8. Bookable 24 months ahead.
-//   catered   + sadc          : the same trail, 30% off. Min 2, max 8. Bookable 12 months ahead.
-//   uncatered + sadc          : hidden page only. Exactly 8. Bookable 12 months ahead.
-// International self-catered is not a product: the hidden page states the 100% premium that
-// applies to a guest who cannot show SADC proof at check-in, and the site never sells it.
+// Two products, by catering (rooms and SADC count, 23 September 2026):
+//   catered   : the flagship. 1 to 8 walkers in up to 4 double rooms. Guests say how many need
+//               their own room (40% single supplement each) and how many are SADC residents
+//               (30% off their own rate), so one booking can mix both rates. Bookable 24 months
+//               ahead, or 12 if anyone in the party is counted as SADC.
+//   uncatered : hidden page only. Exactly 8 SADC residents sharing 4 rooms. Bookable 12 months.
+// A guest counted as SADC who cannot show ID or a passport at registration pays a 50% premium
+// on the day (SADC_PREMIUM_PCT); that is an operator matter, not something the engine prices.
 //
 // The server-side price authority (lib/pricing.ts) reuses these constants, so display and the
 // real charged amount can never drift. Never expose owner splits or internal margins (Part 12).
@@ -26,6 +28,16 @@ import type { Catering, Residency } from '../lib/db.types';
 
 export const NIGHTS = 3; // Day 1 arrival to Day 4 departure
 export const MAX_GROUP_SIZE = 8; // FGASA safety cap: 2 armed guides : 8 walkers
+// Every departure has 4 double rooms across the lodges. Guests only share a room within their own
+// booking, so a date fills on ROOMS as well as walkers: 4 guests in their own rooms take the
+// whole trail. The DB slot guard (migration 0017) caps both.
+export const ROOMS_PER_DEPARTURE = 4;
+// A guest in their own room pays this on top of the all-inclusive rate for that date, after the
+// year, season and last-minute rules, floored to the rand. Catered only.
+export const SINGLE_SUPPLEMENT_PCT = 40;
+// Charged at registration to a guest counted as SADC who cannot show ID or a passport. Stated in
+// the booking terms and the confirmation tick; never computed by the engine.
+export const SADC_PREMIUM_PCT = 50;
 
 // --- Booking opens ----------------------------------------------------------------------------
 // The site-wide gate: online booking is accepted for start dates from here on. Earlier dates are
@@ -95,16 +107,42 @@ export const LAST_MINUTE_MAX_DAYS = 21;
 export const LAST_MINUTE_DISCOUNT = 0.22;
 
 // --- Group formation ---------------------------------------------------------------------------
-// Minimum party size is a property of the PRODUCT, not the date: a catered booking takes 2, a
-// self-catered booking takes the full 8 (the margin only works at a full group, and it keeps
-// catered and self-catered guests from ever sharing a departure).
+// OPENING an empty date is a property of the PRODUCT: a catered booking takes 2 (any room mix), a
+// self-catered booking takes the full 8. JOINING a date somebody else opened takes 1 catered, so a
+// solo walker can only book a guaranteed departure. Self-catered cannot be joined: 8 fills it.
 export const MIN_PARTY_CATERED = 2;
 export const MIN_PARTY_UNCATERED = 8;
-export const MIN_TO_JOIN = 2; // joining a date somebody else opened, catered only in practice
-export const MIN_PARTY_SIZE = MIN_PARTY_CATERED; // smallest party the policy has any route for
+export const MIN_TO_JOIN = 1; // catered
+export const MIN_PARTY_SIZE = MIN_TO_JOIN; // smallest party the policy has any route for
 
 export function minPartySize(catering: Catering): number {
   return catering === 'catered' ? MIN_PARTY_CATERED : MIN_PARTY_UNCATERED;
+}
+
+export function minToJoin(catering: Catering): number {
+  return catering === 'catered' ? MIN_TO_JOIN : MIN_PARTY_UNCATERED;
+}
+
+// --- Rooms -------------------------------------------------------------------------------------
+// Guests who share pair up within the booking, so everyone not in their own room fills a double.
+export function roomsFor(groupSize: number, singleRooms: number): number {
+  return singleRooms + (groupSize - singleRooms) / 2;
+}
+
+// A valid mix leaves an even number sharing. Mirrored by the bookings_room_mix CHECK in 0017.
+export function isValidRoomMix(groupSize: number, singleRooms: number): boolean {
+  return (
+    Number.isInteger(groupSize) &&
+    Number.isInteger(singleRooms) &&
+    singleRooms >= 0 &&
+    singleRooms <= groupSize &&
+    (groupSize - singleRooms) % 2 === 0
+  );
+}
+
+// The widget's starting point: an odd party needs one own room, an even one needs none.
+export function defaultSingleRooms(groupSize: number): number {
+  return groupSize % 2;
 }
 
 // --- Product identity --------------------------------------------------------------------------
@@ -216,6 +254,13 @@ export function rateFor(opts: {
   if (opts.residency === 'sadc' && opts.catering === 'catered') rand *= 1 - SADC_DISCOUNT;
   if (opts.lastMinute) rand *= 1 - LAST_MINUTE_DISCOUNT;
   return roundRateRand(rand);
+}
+
+// The single supplement for a date's rate year and season, before any last-minute reduction:
+// 40% of the all-inclusive international rate, floored to the rand. 2027 high season: R6,360.
+export function singleSupplementFor(opts: { year: number; highSeason: boolean; lastMinute?: boolean }): number {
+  const rate = rateFor({ catering: 'catered', residency: 'international', ...opts });
+  return roundRateRand((rate * SINGLE_SUPPLEMENT_PCT) / 100);
 }
 
 export interface RateRow {

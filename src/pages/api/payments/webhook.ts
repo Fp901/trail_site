@@ -22,7 +22,7 @@ const MS_PER_DAY = 86_400_000;
 // Columns needed for both the deposit (first payment) and balance (second payment) branches.
 const BOOKING_COLS =
   'id, status, amount_due_cents, total_cents, lead_email, lead_name, start_date, pretrip_token, ' +
-  'group_size, booking_type, catering, residency, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at';
+  'group_size, single_rooms, sadc_count, booking_type, catering, residency, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at';
 
 export const prerender = false;
 
@@ -211,6 +211,8 @@ export const POST: APIRoute = async ({ request }) => {
         bookingType: booking.booking_type,
         catering: booking.catering,
         residency: booking.residency ?? undefined,
+        singleRooms: booking.single_rooms,
+        sadcCount: booking.sadc_count,
       });
     } catch (err) {
       console.error('[webhook] balance receipt email failed', err);
@@ -302,6 +304,8 @@ export const POST: APIRoute = async ({ request }) => {
         bookingType: booking.booking_type,
         catering: booking.catering,
         residency: booking.residency ?? undefined,
+        singleRooms: booking.single_rooms,
+        sadcCount: booking.sadc_count,
       });
     } catch (err) {
       console.error('[webhook] guest confirmation email failed', err);
@@ -316,6 +320,8 @@ export const POST: APIRoute = async ({ request }) => {
         bookingType: booking.booking_type,
         catering: booking.catering,
         residency: booking.residency ?? undefined,
+        singleRooms: booking.single_rooms,
+        sadcCount: booking.sadc_count,
         bookingId: booking.id,
         paymentPlan: booking.payment_plan,
         totalCents: booking.total_cents,
@@ -353,6 +359,8 @@ export const POST: APIRoute = async ({ request }) => {
         bookingType: booking.booking_type,
         catering: booking.catering,
         residency: booking.residency ?? undefined,
+        singleRooms: booking.single_rooms,
+        sadcCount: booking.sadc_count,
       });
     } catch (err) {
       console.error('[webhook] receipt email failed', err);

@@ -6,9 +6,11 @@
 // 3-night trail; this module resolves it for a given start date and multiplies by party size.
 // Nothing here divides by nights.
 //
-// Resolution order (policy order, mirrored by the operator's own rate table):
+// Resolution order (policy order, mirrored by the operator's own rate table), per person:
 //   base(catering) -> rate year -> season -> SADC discount -> last-minute discount
-//   -> floor to the whole rand  -> x group size
+//   -> floor to the whole rand
+// A booking then adds its lines: SADC guests at the SADC rate, everyone else at the international
+// rate, plus a single supplement (40% of the international rate, floored) per own room.
 // Flooring once, at the end of the per-person chain, is what makes 12,720 x 1.08 = R13,737 rather
 // than R13,738, matching the memo's published table, and it always rounds the guest's way.
 //
@@ -31,7 +33,13 @@ import {
   TAPER_BLOCKED_ISODOW,
   MAX_GROUP_SIZE,
   MIN_TO_JOIN,
+  ROOMS_PER_DEPARTURE,
+  SINGLE_SUPPLEMENT_PCT,
   minPartySize,
+  minToJoin,
+  roomsFor,
+  isValidRoomMix,
+  defaultSingleRooms,
   roundRateRand,
 } from '../data/rates';
 
@@ -98,20 +106,21 @@ function windowAnchor(now: Date = new Date()): string {
   return today > BOOKING_OPEN_DATE ? today : BOOKING_OPEN_DATE;
 }
 
-// How far ahead a product books: international catered 24 months, every SADC product 12.
-export function windowMonthsFor(catering: Catering, residency: Residency): number {
-  return catering === 'catered' && residency === 'international'
+// How far ahead a booking may start: 24 months for a catered party with no SADC guests, 12 as soon
+// as anyone is counted as SADC, and 12 for self-catered (always 8 SADC guests).
+export function windowMonthsFor(catering: Catering, sadcCount: number): number {
+  return catering === 'catered' && sadcCount === 0
     ? INTL_CATERED_WINDOW_MONTHS
     : SADC_WINDOW_MONTHS;
 }
 
-// The latest start date bookable for a product — rolling, anchored to windowAnchor().
+// The latest start date bookable — rolling, anchored to windowAnchor().
 export function latestBookableDate(
   catering: Catering,
-  residency: Residency,
+  sadcCount: number,
   now: Date = new Date(),
 ): string {
-  return addMonthsIso(windowAnchor(now), windowMonthsFor(catering, residency));
+  return addMonthsIso(windowAnchor(now), windowMonthsFor(catering, sadcCount));
 }
 
 // ISO day-of-week, Monday = 1 ... Sunday = 7 (matches Postgres isodow, used the same way in the
@@ -187,21 +196,37 @@ export function ppTripCentsFor(
   return toCents(roundRateRand(rand));
 }
 
-// --- Group formation ---------------------------------------------------------------------------
-// Minimum party size is a property of the product (2 catered, 8 self-catered); joining a date
-// someone else opened always takes 2. The DB trigger re-implements the same rule independently in
-// SQL (it is the last line of defence and cannot import from here), so any change to these
-// numbers must be mirrored in migration 0016.
-export { minPartySize, MIN_TO_JOIN, MAX_GROUP_SIZE };
-
-// A booking that opens a date with the full complement has the trail to itself. There is no
-// separate "buyout" product any more: exclusivity is a consequence of booking all 8 places.
-export function isExclusiveParty(groupSize: number, seatsTaken: number): boolean {
-  return seatsTaken === 0 && groupSize >= MAX_GROUP_SIZE;
+// Single supplement per own room, in cents: 40% of the fully resolved international catered rate
+// for that date (year, season and last-minute already applied), floored to the rand.
+export function supplementCentsFor(startDate: string, now: Date = new Date()): number {
+  const intlRand = ppTripCentsFor('catered', 'international', startDate, now) / 100;
+  return toCents(roundRateRand((intlRand * SINGLE_SUPPLEMENT_PCT) / 100));
 }
 
-export function bookingTypeFor(groupSize: number, seatsTaken: number): BookingType {
-  return isExclusiveParty(groupSize, seatsTaken) ? 'exclusive' : 'shared';
+// --- Group formation ---------------------------------------------------------------------------
+// Opening a date: 2 catered (any room mix), 8 self-catered. Joining: 1 catered. A date holds at
+// most 4 rooms and 8 walkers. The DB trigger re-implements the same rules independently in SQL
+// (it is the last line of defence and cannot import from here), so any change to these numbers
+// must be mirrored in migration 0017.
+export {
+  minPartySize,
+  minToJoin,
+  MIN_TO_JOIN,
+  MAX_GROUP_SIZE,
+  ROOMS_PER_DEPARTURE,
+  roomsFor,
+  isValidRoomMix,
+  defaultSingleRooms,
+};
+
+// A booking that takes all 4 rooms has the trail to itself. Exclusivity is a consequence of the
+// room count, not a product.
+export function isExclusiveParty(rooms: number, roomsTaken = 0): boolean {
+  return roomsTaken === 0 && rooms >= ROOMS_PER_DEPARTURE;
+}
+
+export function bookingTypeFor(rooms: number, roomsTaken = 0): BookingType {
+  return isExclusiveParty(rooms, roomsTaken) ? 'exclusive' : 'shared';
 }
 
 export type PaymentPlan = 'full' | 'deposit_balance';
@@ -209,19 +234,24 @@ export type PaymentPlan = 'full' | 'deposit_balance';
 export interface Quote {
   bookingType: BookingType;
   catering: Catering;
+  // Stored band for the booking row: 'sadc' when anyone is counted as SADC. The real split is
+  // sadcCount; the column is kept for reporting and the email copy.
   residency: Residency;
   groupSize: number;
+  singleRooms: number;
+  sadcCount: number;
+  intlCount: number;
+  rooms: number;
   totalCents: number; // the full amount the customer owes, VAT and levies included
   depositPercent: number;
   amountDueCents: number; // the FIRST charge: deposit (deposit_balance) or full total (full)
   currency: string;
-  // Named components so the booking UI can show the breakdown as separate lines (never one
-  // unexplained figure): basePpTripCents is after year/season/SADC but before the last-minute
-  // discount; ppTripCents is the final resolved rate that actually multiplies out.
-  basePpTripCents: number;
-  ppTripCents: number;
+  // Named per-person components, so the booking UI can show every line (never one unexplained
+  // figure). All are final: year, season and last-minute already applied, floored to the rand.
+  intlPpCents: number; // all-inclusive (or self-catered) rate
+  sadcPpCents: number; // same with the SADC 30% off (catered); equal to intlPpCents self-catered
+  supplementCents: number; // per own room; 0 for self-catered
   lastMinuteDiscountApplied: boolean;
-  sadcDiscountApplied: boolean;
   highSeason: boolean;
   rateYear: number;
   // Split payment. When no startDate is supplied (display contexts) the plan defaults to 'full'.
@@ -231,36 +261,49 @@ export interface Quote {
   balanceDueDate: string | null; // ISO date, BALANCE_LEAD_DAYS before startDate, when split
 }
 
-// SERVER price authority. totalCents = groupSize x ppTrip(catering, residency, startDate).
-// bookingType does not affect price: a group of 8 pays 8 places whether or not that happens to
-// give them the trail to themselves.
-// Pass `startDate` to price the correct year/season and to apply the split-payment rule (gap >=
-// SPLIT_THRESHOLD_DAYS -> 50% deposit now, 50% balance later; inside the window -> pay in full).
-// Display contexts with no startDate get a representative high-season, base-year estimate.
+// SERVER price authority.
+//   total = sadcCount x sadcRate + (groupSize - sadcCount) x intlRate + singleRooms x supplement
+// Each rate is resolved completely (year -> season -> SADC -> last-minute -> floor) before it
+// multiplies; nothing below rounds again. Self-catered has no supplement and no SADC reduction
+// (its rate is already a resident rate). Pass `startDate` to price the correct year and season
+// and to apply the split-payment rule; without it, a base-year high-season estimate is returned.
+// Room-mix and party-size VALIDITY is checked by the caller (createCheckout) and the DB; this
+// function only prices what it is given.
 export function computeQuote(input: {
-  bookingType?: BookingType;
   catering: Catering;
-  residency: Residency;
   groupSize: number;
-  seatsTaken?: number;
+  singleRooms?: number;
+  sadcCount?: number;
+  roomsTaken?: number;
   startDate?: string;
   now?: Date;
 }): Quote {
   const now = input.now ?? new Date();
-  const { catering, residency } = input;
+  const { catering, groupSize } = input;
+  const singleRooms = catering === 'catered' ? input.singleRooms ?? defaultSingleRooms(groupSize) : 0;
+  const sadcCount = catering === 'catered' ? input.sadcCount ?? 0 : groupSize;
+  const intlCount = groupSize - sadcCount;
+  const rooms = roomsFor(groupSize, singleRooms);
 
-  // Resolve the per-person trip rate COMPLETELY first (base -> year -> season -> SADC ->
-  // last-minute -> floor), then multiply. Nothing below this point rounds again.
   const fallbackDate = `${RATE_BASE_YEAR}-07-01`; // base year, high season: the headline rate
   const priceDate = input.startDate ?? fallbackDate;
-  const basePpTripCents = toCents(basePpTripRand(catering, residency, priceDate));
-  const ppTripCents = input.startDate
-    ? ppTripCentsFor(catering, residency, input.startDate, now)
-    : basePpTripCents;
   const lastMinuteDiscountApplied =
     !!input.startDate && isWithinLastMinuteWindow(input.startDate, now);
+  const pp = (residency: Residency) =>
+    input.startDate
+      ? ppTripCentsFor(catering, residency, input.startDate, now)
+      : toCents(basePpTripRand(catering, residency, priceDate));
 
-  const totalCents = ppTripCents * input.groupSize;
+  const intlPpCents = pp('international');
+  const sadcPpCents = pp('sadc');
+  const supplementCents =
+    catering === 'catered'
+      ? input.startDate
+        ? supplementCentsFor(input.startDate, now)
+        : toCents(roundRateRand((intlPpCents / 100) * SINGLE_SUPPLEMENT_PCT / 100))
+      : 0;
+
+  const totalCents = sadcCount * sadcPpCents + intlCount * intlPpCents + singleRooms * supplementCents;
 
   // Split decision. Deposit is rounded; balance is the remainder so the two always reconcile to
   // totalCents exactly.
@@ -273,18 +316,22 @@ export function computeQuote(input: {
     isSplit && input.startDate ? addDaysIso(input.startDate, -BALANCE_LEAD_DAYS) : null;
 
   return {
-    bookingType: input.bookingType ?? bookingTypeFor(input.groupSize, input.seatsTaken ?? 0),
+    bookingType: bookingTypeFor(rooms, input.roomsTaken ?? 0),
     catering,
-    residency,
-    groupSize: input.groupSize,
+    residency: sadcCount > 0 ? 'sadc' : 'international',
+    groupSize,
+    singleRooms,
+    sadcCount,
+    intlCount,
+    rooms,
     totalCents,
     depositPercent: totalCents > 0 ? Math.round((depositCents / totalCents) * 100) : 0,
     amountDueCents: depositCents,
     currency: CURRENCY,
-    basePpTripCents,
-    ppTripCents,
+    intlPpCents,
+    sadcPpCents,
+    supplementCents,
     lastMinuteDiscountApplied,
-    sadcDiscountApplied: residency === 'sadc' && catering === 'catered',
     highSeason: isHighSeason(priceDate),
     rateYear: rateYearFor(priceDate),
     paymentPlan,

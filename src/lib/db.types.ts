@@ -69,10 +69,11 @@ export const PAYMENT_EVENT_TYPES = [
 ] as const;
 export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
 
-// ---- bookings (36 columns) --------------------------------------------------------------------
+// ---- bookings (40 columns) --------------------------------------------------------------------
 // 0001 base (18) + 0003 pretrip_token + 0004 three reminder guards (renamed by 0007)
 // + 0008 nine split-payment columns + 0010 lead_phone + 0013 booking_type & catering
-// + 0016 lead_country & residency_declared_at.
+// + 0016 lead_country & residency_declared_at
+// + 0017 single_rooms, sadc_count, age_confirmed_at & the generated rooms column.
 
 export const BOOKING_COLUMNS = [
   // 0001_init
@@ -118,6 +119,11 @@ export const BOOKING_COLUMNS = [
   // 0016_commercial_v4
   'lead_country',
   'residency_declared_at',
+  // 0017_rooms_supplement_sadc_count
+  'single_rooms',
+  'sadc_count',
+  'age_confirmed_at',
+  'rooms',
 ] as const;
 
 export interface BookingRow {
@@ -126,8 +132,8 @@ export interface BookingRow {
   start_date: string; // date, Day 1 (arrival)
   end_date: string; // date, Day 4 (departure)
   group_size: number;
-  // Live again under commercial model v4: 'sadc' unlocks the 30% discount and the self-catered
-  // product. Null only on pre-v4 rows.
+  // 'sadc' when anyone in the party is counted as SADC (sadc_count > 0), else 'international'.
+  // The real split is sadc_count. Null only on pre-v4 rows.
   residency: Residency | null;
   lead_name: string;
   lead_email: string;
@@ -158,11 +164,19 @@ export interface BookingRow {
   lead_phone: string | null;
   booking_type: BookingType;
   catering: Catering;
-  // ISO 3166-1 alpha-2 country of residence given at checkout. `residency` is derived from it.
+  // ISO 3166-1 alpha-2 country of residence, asked at checkout until 0017. Null on newer rows.
   lead_country: string | null;
-  // When the guest ticked the residency declaration at checkout (null for international bookings
-  // and for pre-v4 rows).
+  // When the guest ticked the SADC residency declaration at checkout (null when nobody in the
+  // party was counted as SADC, and for pre-v4 rows).
   residency_declared_at: string | null;
+  // 0017: guests in their own room (the rest share doubles within the booking).
+  single_rooms: number;
+  // 0017: guests counted as SADC residents. `residency` is 'sadc' whenever this is above 0.
+  sadc_count: number;
+  // 0017: when the lead guest confirmed every guest will be at least 16 on the start date.
+  age_confirmed_at: string | null;
+  // 0017: GENERATED, single_rooms + (group_size - single_rooms) / 2. Never written.
+  rooms: number;
 }
 
 // ---- inquiries (9) ----------------------------------------------------------------------------

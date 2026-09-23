@@ -78,8 +78,9 @@ assert('the rate table renders rateRows, not hand-written cells', /rateRows\.(fl
 assert('the rate table renders the derived sadcRateRows beside each flagship row', /sadcRateRows\[i\]/.test(table));
 assert('the resident rows link to the FAQ definition', /withBase\('\/logistics#sadc-resident'\)/.test(table));
 assert('the SADC page derives its rate line', /rateFor\(\{/.test(sadc) && /sadcSelfCateredRates/.test(sadc));
-assert('the widget mirrors the price chain from the fetched base, never a literal',
-  /rate\.baseRand \* \(R\.yearMultipliers/.test(widget) &&
+assert('the widget mirrors the price chain from the shipped base rate, never a literal',
+  /R\.baseRate \* \(R\.yearMultipliers/.test(widget) &&
+  /baseRate: BASE_PP_TRIP\[catering\]/.test(widget) &&
   !new RegExp(`\\b${BASE_PP_TRIP.catered}\\b`).test(widget));
 
 section('3. Discounts, minimums and dates are read, not retyped');
@@ -128,37 +129,31 @@ assert('llms.txt does not disclose the resident rate band', !/sadc/i.test(llms))
 // is useful and never reaches the browser, so stripping comments first is the honest check.
 const shipped = (src) =>
   src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-// RatesTable.astro is no longer in this list: it discloses the resident rate by operator decision
-// (23 Sep 2026). The rest of these pages, and the booking widget below, still say nothing about it.
-for (const [name, src] of [['index.astro', home], ['rates.astro', rates], ['how-pricing-works.astro', explainer]]) {
+// The rates table, the FAQ and (since the rooms model, 23 Sep 2026) the booking widget and the
+// rates page's "How booking works" steps show the SADC discount openly. The home page and the
+// pricing explainer still say nothing about it.
+for (const [name, src] of [['index.astro', home], ['how-pricing-works.astro', explainer]]) {
   assert(`${name} ships no mention of the resident rate band`, !/sadc/i.test(shipped(src)));
 }
-// The widget ships NOTHING about any rate band: not in the markup, not in the client script, and
-// not in the data-rates blob. Its frontmatter still imports the country list (to render the
-// <option>s and, on the hidden mount, to restrict them), but frontmatter runs on the server and is
-// never sent. So the check is: everything from the closing frontmatter fence onwards is clean.
-const widgetShipped = shipped(widget).split('---').slice(2).join('---');
-assert('the widget ships no mention of the resident rate band, markup or script',
-  !/sadc/i.test(widgetShipped));
-assert('no user-facing widget string names the band',
-  ![...shipped(widget).matchAll(/setStatus\('([^']*)'/g)].some(([, msg]) => /sadc/i.test(msg)));
+assert('the widget states the SADC discount and reads its percentage from the constant',
+  /SADC resident discount: \{SADC_DISCOUNT_PERCENT\}% off/.test(widget));
+assert('the widget lists the SADC countries from data/countries.ts, never typed',
+  /\[\.\.\.SADC_COUNTRIES\]\.map\(countryName\)/.test(widget) && !/Botswana/.test(widget));
 
-// The decisive one: the page must ship no rate DATA either, or the policy is readable in source
-// whatever the identifiers are called. The base rate now arrives from getRateContext, per band,
-// only after a guest names a country.
-const blob = shipped(widget).slice(0, shipped(widget).indexOf('---', 3));
-for (const banned of ['BASE_PP_TRIP', 'SADC_DISCOUNT', 'residentFactor', 'residentCountries']) {
-  assert(`the data-rates blob does not ship ${banned}`, !widget.includes(`${banned},`) || !blob.includes(banned));
-}
-assert('the widget fetches its rate context from the server',
-  /actions\.getRateContext\(\{ country, catering: CATERING \}\)/.test(widget));
-assert('the estimate refuses to render without a fetched context',
-  /if \(!rate\) return 0;/.test(widget));
+// Rates are public, so the page may ship them for the estimate. What must never happen is the
+// browser deciding the price: getRateContext is gone, and createCheckout takes counts only.
+assert('getRateContext is gone from the server and the widget',
+  !/getRateContext/.test(actions) && !/getRateContext/.test(shipped(widget)));
 const checkoutInput = actions.slice(actions.indexOf('createCheckout: defineAction'), actions.indexOf('handler: async (input, ctx)'));
-assert('createCheckout takes a country, never a rate band, from the browser',
-  /country: z\.string\(\)/.test(checkoutInput) && !/residency: z\./.test(checkoutInput));
-assert('both server paths derive the band from the country',
-  (actions.match(/residencyForCountry\(input\.country\)/g) || []).length >= 2);
+assert('createCheckout takes counts, never a price or a rate band, from the browser',
+  /singleRooms: z\.number\(\)/.test(checkoutInput) &&
+  /sadcCount: z\.number\(\)/.test(checkoutInput) &&
+  !/residency: z\./.test(checkoutInput) &&
+  !/(price|total|amount)\w*: z\./i.test(checkoutInput) &&
+  !/country: z\./.test(checkoutInput));
+assert('the widget payload sends counts, not a price',
+  /singleRooms: singleRooms\(\),/.test(widget) && /sadcCount: sadcCount\(\),/.test(widget) &&
+  !/totalCents:|price:/.test(widget.slice(widget.indexOf('const payload = {'), widget.indexOf('const payload = {') + 900)));
 assert('the declaration field is named neutrally, since page source is readable by a visitor',
   /name="residencyDeclaration"/.test(widget) && /residencyDeclaration: z\.boolean/.test(readFileSync(new URL('../src/actions/index.ts', import.meta.url), 'utf8')));
 assert('FROM_PP_TRIP is the low-season flagship rate, derived',

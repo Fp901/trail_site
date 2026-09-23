@@ -30,6 +30,9 @@ import {
   earliestBookableDate,
   bookingTypeFor,
   daysUntil,
+  roomsFor,
+  isValidRoomMix,
+  defaultSingleRooms,
 } from '../src/lib/pricing.ts';
 import {
   NIGHTS,
@@ -43,6 +46,10 @@ import {
   MAX_GROUP_SIZE,
   MIN_PARTY_CATERED,
   MIN_PARTY_UNCATERED,
+  MIN_TO_JOIN,
+  ROOMS_PER_DEPARTURE,
+  SINGLE_SUPPLEMENT_PCT,
+  singleSupplementFor,
   TAPER_END_DATE,
   INTL_CATERED_WINDOW_MONTHS,
   SADC_WINDOW_MONTHS,
@@ -103,10 +110,10 @@ assert('SADC self-catered 2027 high = R4,950, low = R3,960',
   rand(ppTripCentsFor('uncatered', 'sadc', LOW_2027, NOW)) === 3960);
 assert('the SADC discount does NOT apply to the self-catered product (already a resident rate)',
   ppTripCentsFor('uncatered', 'sadc', HIGH_2027, NOW) === BASE_PP_TRIP.uncatered * 100);
-assert('quote flags sadcDiscountApplied only for SADC catered',
-  computeQuote({ catering: 'catered', residency: 'sadc', groupSize: 2, startDate: HIGH_2027, now: NOW }).sadcDiscountApplied === true &&
-  computeQuote({ catering: 'catered', residency: 'international', groupSize: 2, startDate: HIGH_2027, now: NOW }).sadcDiscountApplied === false &&
-  computeQuote({ catering: 'uncatered', residency: 'sadc', groupSize: 8, startDate: HIGH_2027, now: NOW }).sadcDiscountApplied === false);
+assert('a quote prices SADC guests at the SADC rate and the rest at the international rate',
+  rand(computeQuote({ catering: 'catered', groupSize: 2, singleRooms: 0, sadcCount: 1, startDate: HIGH_2027, now: NOW }).totalCents) === 15900 + 11130);
+assert('self-catered: every guest at the self-catered rate, no SADC reduction on top',
+  rand(computeQuote({ catering: 'uncatered', groupSize: 8, startDate: HIGH_2027, now: NOW }).totalCents) === 8 * 4950);
 
 section('C. Season boundaries (1 Apr - 31 Oct, 15 Dec - 15 Jan)');
 for (const [iso, want] of [
@@ -157,38 +164,60 @@ assert(`the taper ends after ${TAPER_END_DATE}`, isTaperBlocked('2028-12-26') &&
 assert('isAllowedStartDay is the taper, stated positively',
   isAllowedStartDay('2027-07-15') && !isAllowedStartDay('2027-07-13'));
 {
-  const intl = latestBookableDate('catered', 'international', NOW);
-  const sadc = latestBookableDate('catered', 'sadc', NOW);
-  assert(`international catered books ${INTL_CATERED_WINDOW_MONTHS} months out, SADC ${SADC_WINDOW_MONTHS}`,
+  const intl = latestBookableDate('catered', 0, NOW);
+  const sadc = latestBookableDate('catered', 1, NOW);
+  assert(`a catered party with no SADC guests books ${INTL_CATERED_WINDOW_MONTHS} months out; one SADC guest makes it ${SADC_WINDOW_MONTHS}`,
     intl > sadc, `intl ${intl} vs sadc ${sadc}`);
   assert('both windows anchor to the booking-open gate before launch, so each opens at full length',
     intl.startsWith('2029-04') && sadc.startsWith('2028-04'), `intl ${intl}, sadc ${sadc}`);
   assert('self-catered uses the SADC window whoever asks',
-    latestBookableDate('uncatered', 'sadc', NOW) === sadc);
+    latestBookableDate('uncatered', 8, NOW) === sadc);
   assert('earliest bookable date is the launch gate while launch is ahead',
     earliestBookableDate(NOW) === '2027-04-01');
 }
 
 section('G. No price anywhere carries cents, and the split reconciles');
 {
-  const q = computeQuote({ catering: 'catered', residency: 'international', groupSize: 5, startDate: HIGH_2028, now: NOW });
+  const q = computeQuote({ catering: 'catered', groupSize: 5, singleRooms: 1, sadcCount: 2, startDate: HIGH_2028, now: NOW });
   assert('total is whole rands', q.totalCents % 100 === 0);
   assert('deposit + balance == total exactly', q.depositCents + q.balanceCents === q.totalCents);
   assert('a trip 45+ days out is a deposit plan', q.paymentPlan === 'deposit_balance');
-  assert('total = per-person rate x group size', q.totalCents === q.ppTripCents * 5);
-  const near = computeQuote({ catering: 'catered', residency: 'sadc', groupSize: 2, startDate: at(10), now: lmNow });
+  assert('total = SADC x sadcRate + others x intlRate + own rooms x supplement',
+    q.totalCents === 2 * q.sadcPpCents + 3 * q.intlPpCents + 1 * q.supplementCents);
+  const near = computeQuote({ catering: 'catered', groupSize: 2, singleRooms: 0, sadcCount: 2, startDate: at(10), now: lmNow });
   assert('a trip inside 45 days pays in full', near.paymentPlan === 'full' && near.balanceCents === 0);
 }
 
-section('H. Group formation and derived exclusivity');
-assert(`catered takes ${MIN_PARTY_CATERED}, self-catered ${MIN_PARTY_UNCATERED}, capacity ${MAX_GROUP_SIZE}`,
-  MIN_PARTY_CATERED === 2 && MIN_PARTY_UNCATERED === 8 && MAX_GROUP_SIZE === 8);
-assert('a party that opens a date with every place is exclusive',
-  bookingTypeFor(MAX_GROUP_SIZE, 0) === 'exclusive');
-assert('a party that opens a date with fewer places shares it',
-  bookingTypeFor(2, 0) === 'shared');
-assert('a party joining an already-open date shares it, whatever its size',
-  bookingTypeFor(6, 2) === 'shared');
+section('H. Group formation and derived exclusivity (rooms)');
+assert(`opening takes ${MIN_PARTY_CATERED} catered, ${MIN_PARTY_UNCATERED} self-catered; joining ${MIN_TO_JOIN}; capacity ${MAX_GROUP_SIZE} walkers in ${ROOMS_PER_DEPARTURE} rooms`,
+  MIN_PARTY_CATERED === 2 && MIN_PARTY_UNCATERED === 8 && MIN_TO_JOIN === 1 && MAX_GROUP_SIZE === 8 && ROOMS_PER_DEPARTURE === 4);
+assert('a booking that takes all 4 rooms is exclusive', bookingTypeFor(4) === 'exclusive');
+assert('a booking with fewer rooms shares the date', bookingTypeFor(3) === 'shared');
+assert('rooms = own rooms + sharers / 2', roomsFor(3, 1) === 2 && roomsFor(4, 4) === 4 && roomsFor(8, 0) === 4 && roomsFor(1, 1) === 1);
+
+section('J. Rooms, single supplement and the SADC count');
+assert('3 walkers, 2 own rooms is refused (an odd number would share)', !isValidRoomMix(3, 2));
+assert('3 walkers, 1 own room is valid; 4 walkers, 4 own rooms is valid', isValidRoomMix(3, 1) && isValidRoomMix(4, 4));
+assert('the default is 1 own room for an odd party, 0 for an even one', defaultSingleRooms(3) === 1 && defaultSingleRooms(4) === 0);
+{
+  const q = computeQuote({ catering: 'catered', groupSize: 3, singleRooms: 1, sadcCount: 2, startDate: HIGH_2027, now: NOW });
+  assert('3 walkers, 1 own room, 2 SADC, 2027 high season = R44,520 (2 x 11,130 + 15,900 + 6,360)',
+    rand(q.totalCents) === 44520, `got R${rand(q.totalCents)}`);
+  assert('the 2027 high-season supplement is R6,360 (40% of R15,900)', rand(q.supplementCents) === 6360);
+  assert('the display helper agrees', singleSupplementFor({ year: 2027, highSeason: true }) === 6360);
+  const solo = computeQuote({ catering: 'catered', groupSize: 1, singleRooms: 1, sadcCount: 0, startDate: HIGH_2027, now: NOW });
+  assert('a solo walker pays the international rate plus one supplement', rand(solo.totalCents) === 15900 + 6360 && solo.rooms === 1);
+  const four = computeQuote({ catering: 'catered', groupSize: 4, singleRooms: 4, sadcCount: 0, startDate: HIGH_2027, now: NOW });
+  assert('4 walkers in 4 own rooms take all 4 rooms and are exclusive', four.rooms === 4 && four.bookingType === 'exclusive');
+  const sc = computeQuote({ catering: 'uncatered', groupSize: 8, singleRooms: 3, sadcCount: 0, startDate: HIGH_2027, now: NOW });
+  assert('self-catered ignores room and SADC inputs: 8 SADC sharing 4 rooms, no supplement',
+    sc.sadcCount === 8 && sc.singleRooms === 0 && sc.supplementCents === 0 && sc.rooms === 4);
+  const lm = computeQuote({ catering: 'catered', groupSize: 1, singleRooms: 1, sadcCount: 0, startDate: at(14), now: lmNow });
+  const lmIntl = Math.floor(15900 * (1 - LAST_MINUTE_DISCOUNT));
+  assert('last-minute applies before the supplement is taken (40% of the reduced rate, floored)',
+    rand(lm.supplementCents) === Math.floor(lmIntl * 0.4) && rand(lm.totalCents) === lmIntl + Math.floor(lmIntl * 0.4));
+  assert('the supplement is 40%', SINGLE_SUPPLEMENT_PCT === 40);
+}
 
 section('I. Constants match the memo');
 assert('base rates are R15,900 catered and R4,950 self-catered per person per trip',

@@ -1,46 +1,49 @@
 ---
 // BookingWidget — commercial model v4 (memo to Francois, 15 September 2026). Vanilla-JS island.
 //
-// WHAT THE GUEST DECIDES. Four things, in this order: how many walkers, where they live, which
-// start date, and who to contact. Catering is NOT a question any more — it is a property of the
-// PAGE: /rates mounts this widget catered (the flagship), and the hidden /sadc-slackpacking page
-// mounts it self-catered. That is what retires the old Path A / Path B split: with catering
-// fixed, the minimum party size is fixed with it, so every party that can see this widget can
-// open a date.
+// WHAT THE GUEST DECIDES (rooms model, 23 September 2026). Four steps: the group (walkers, how
+// many need their own room, how many are SADC residents, and the age and SADC confirmations),
+// a start date, contact details, then review and pay. Catering is NOT a question: it is a
+// property of the PAGE. /rates mounts this widget catered (the flagship), and the hidden
+// /sadc-slackpacking page mounts it self-catered, fixed at 8 SADC residents sharing 4 rooms.
 //
-// COUNTRY OF RESIDENCE SETS THE RATE, SILENTLY. The site is written for the international market,
-// and the resident rate is marketed separately, so the form never shows that two bands exist: no
-// resident-rate card, no discount percentage, no band name a visitor can read. It asks one plain
-// question, which country the group lives in, and the price simply is what it is.
+// ROOMS. A departure has 4 double rooms and takes at most 8 walkers. Guests only share within
+// their own booking, so a party uses singleRooms + (walkers - singleRooms) / 2 rooms, and a date
+// fills on rooms. A solo walker can only join a date someone has already booked.
 //
-// NO RATE DATA SHIPS WITH THIS PAGE. Not the base rate, not the resident factor, not the list of
-// countries it applies to. Once a guest names a country, `getRateContext` returns the base rate
-// for THAT BAND ONLY, plus whether to ask for the ID confirmation and how far ahead they may
-// book; the estimate is computed from that. A reader of the page source finds nothing, and a
-// guest never receives the other band's numbers.
+// PRICES ARE PUBLIC AND SHIP WITH THE PAGE. The all-inclusive rate, the SADC 30% and the 40%
+// single supplement are all stated on the rates page, so the estimate is computed here from the
+// constants in data/rates.ts. The server recomputes every line at checkout and never reads a
+// figure from the browser; the browser sends counts, not a price or a rate band.
 //
-// What stays client-side is the season, rate-year and last-minute arithmetic: public rules that
-// apply to everyone and are already stated in the copy.
-//
-// AVAILABILITY. One read of the derived `departure_inventory` view (migration 0016), which is
+// AVAILABILITY. One read of the derived `departure_inventory` view (migration 0017), which is
 // SPARSE — an absent date has no state and is wide open. The contract is applied in exactly one
-// place, departureFor(), which everything downstream goes through. Every date works the same way
-// now: 8 places, the first booking opens the date and locks its catering, later bookings join in
-// 2s. "Exclusive" is not a product — it is what a group of 8 gets by taking every place.
+// place, departureFor(), which everything downstream goes through. "Exclusive" is not a product:
+// it is what a party gets by taking all 4 rooms.
 //
-// The wire payload is { startDate, groupSize, catering, country, residencyDeclaration, ageConfirmed, lead* }.
-// Both the rate band and bookingType are derived server-side, never sent.
+// The wire payload is { startDate, catering, groupSize, singleRooms, sadcCount,
+// residencyDeclaration, ageConfirmed, lead* }. bookingType is derived server-side, never sent.
 import type { Catering } from '../lib/db.types';
 import {
   NIGHTS,
   MAX_GROUP_SIZE,
   MIN_TO_JOIN,
+  ROOMS_PER_DEPARTURE,
+  SINGLE_SUPPLEMENT_PCT,
+  SADC_PREMIUM_PCT,
+  SADC_DISCOUNT,
+  SADC_DISCOUNT_PERCENT,
+  BASE_PP_TRIP,
   minPartySize,
+  minToJoin,
+  defaultSingleRooms,
+  singleSupplementFor,
   SEASON_DISCOUNT,
   RATE_YEAR_MULTIPLIER,
   RATE_BASE_YEAR,
   RATE_LAST_YEAR,
   SADC_WINDOW_MONTHS,
+  INTL_CATERED_WINDOW_MONTHS,
   LAST_MINUTE_MIN_DAYS,
   LAST_MINUTE_MAX_DAYS,
   LAST_MINUTE_DISCOUNT,
@@ -50,7 +53,7 @@ import {
   START_DAYS_DISPLAY,
   formatRand,
 } from '../data/rates';
-import { COUNTRIES, SADC_COUNTRIES } from '../data/countries';
+import { SADC_COUNTRIES, countryName } from '../data/countries';
 import { site, withBase } from '../data/site';
 import { refundPolicy, MIN_GUEST_AGE } from '../data/policies';
 import { itinerary } from '../data/itinerary';
@@ -70,9 +73,10 @@ const { catering = 'catered' } = Astro.props;
 
 const isCatered = catering === 'catered';
 const partyMin = minPartySize(catering);
-// The self-catered product is open to SADC residents only, so that mount offers only those
-// countries rather than letting a guest choose one that will be refused at submit.
-const countryOptions = isCatered ? COUNTRIES : COUNTRIES.filter(([code]) => SADC_COUNTRIES.has(code));
+// The SADC member states by name, alphabetical, from the list the FAQ also reads.
+const sadcCountryNames = [...SADC_COUNTRIES].map(countryName).sort((a, b) => a.localeCompare(b));
+// The supplement quoted before a date is chosen: base year, high season.
+const supplementHint = singleSupplementFor({ year: RATE_BASE_YEAR, highSeason: true });
 const earliest = earliestBookableDate();
 
 // Where each night is spent, DERIVED from the itinerary rather than retyped: night N is the lodge
@@ -93,8 +97,15 @@ const clientRates = {
   nights: NIGHTS,
   catering,
   maxGroup: MAX_GROUP_SIZE,
+  rooms: ROOMS_PER_DEPARTURE,
   partyMin,
-  joinMin: MIN_TO_JOIN,
+  joinMin: minToJoin(catering),
+  // Public rates, per person for the whole trail, before year, season and last-minute. The server
+  // recomputes every figure at checkout; these only drive the on-screen estimate.
+  baseRate: BASE_PP_TRIP[catering],
+  sadcDiscount: isCatered ? SADC_DISCOUNT : 0,
+  supplementPct: isCatered ? SINGLE_SUPPLEMENT_PCT : 0,
+  sadcPercent: SADC_DISCOUNT_PERCENT,
   yearMultipliers: RATE_YEAR_MULTIPLIER,
   baseYear: RATE_BASE_YEAR,
   lastYear: RATE_LAST_YEAR,
@@ -109,11 +120,13 @@ const clientRates = {
   splitDays: SPLIT_THRESHOLD_DAYS,
   balanceLeadDays: BALANCE_LEAD_DAYS,
   earliest,
-  // The calendar has to draw something before a country is known, so it ships the SHORTER of the
-  // two ceilings; the server extends it once the guest's own window is known. Erring short means
-  // we never advertise a date the guest then cannot book.
-  defaultLatest: latestBookableDate(catering, 'sadc'),
-  defaultMonths: SADC_WINDOW_MONTHS,
+  // Booking window: 24 months for a catered party with no SADC guests, 12 as soon as anyone is
+  // counted as SADC (and always for self-catered). Step 1 is answered first, so the right one is
+  // known before the calendar draws.
+  latestIntl: latestBookableDate(catering, 0),
+  latestSadc: latestBookableDate(catering, 1),
+  monthsIntl: isCatered ? INTL_CATERED_WINDOW_MONTHS : SADC_WINDOW_MONTHS,
+  monthsSadc: SADC_WINDOW_MONTHS,
   nightLodges,
   departureLodge,
 };
@@ -132,10 +145,12 @@ const clientRates = {
 
 <form id="booking-form" class="bform" data-rates={JSON.stringify(clientRates)} novalidate>
   {/* ==== Step 1 — Your group. ================================================================
-      The five steps below are a guided accordion: the current step is open, completed steps
+      The four steps below are a guided accordion: the current step is open, completed steps
       collapse to a one-line summary with an Edit link, later steps are visible but locked. All of
       that is added by JS at runtime — the markup ships with every step OPEN, so if the script
-      fails the form degrades to the plain long-scroll version rather than an unusable stub. */}
+      fails the form degrades to the plain long-scroll version rather than an unusable stub.
+      Step 1 carries every answer that changes the price or the calendar (walkers, own rooms,
+      SADC count), so by step 2 the calendar can show prices and the right booking window. */}
   <div class="bstep" data-step="1">
     <div class="bstep__bar">
       <p class="bstep__heading"><span class="bstep__num">1</span>. Your group</p>
@@ -144,69 +159,84 @@ const clientRates = {
     </div>
     <div class="bstep__body" data-step-body>
       {isCatered ? (
-        <fieldset class="bwalkers">
-          <legend class="bwalkers__legend">How many walkers?</legend>
-          {/* Discrete buttons, deliberately NOT a slider: seven values is a poor slider range and
-              a slider is worse for keyboard and screen-reader users. Radio inputs give native
-              arrow-key navigation for free. */}
-          <div class="bwalkers__row">
-            {Array.from({ length: MAX_GROUP_SIZE - partyMin + 1 }, (_, i) => i + partyMin).map((n) => (
-              <label class="bwalkers__opt">
-                <input type="radio" name="groupSize" value={n} checked={n === partyMin} />
-                <span>{n}</span>
-              </label>
-            ))}
-          </div>
-          <p class="bstep__hint">
-            Eight is the most any departure takes: two guides to eight walkers. Book all eight and
-            the trail and each lodge are yours alone.
-          </p>
-          <p class="bwalkers__solo">
-            <button type="button" class="blink" data-solo-toggle aria-expanded="false" aria-controls="bf-solo-panel">
-              Travelling solo?
-            </button>
-          </p>
-          {/* Honest explanation + the existing createInquiry capture. Deliberately does NOT invent
-              a single supplement — that needs a policy amendment. */}
-          <div class="bsolo" id="bf-solo-panel" data-solo-panel hidden>
-            <p class="bsolo__lead">
-              Every departure needs at least {partyMin} walkers, so we can't take a solo booking
-              online yet. Leave your details and we'll let you know when a departure has room to
-              pair you with another group.
+        <Fragment>
+          <fieldset class="bwalkers">
+            <legend class="bwalkers__legend">How many walkers?</legend>
+            {/* Discrete buttons, deliberately NOT a slider: eight values is a poor slider range and
+                a slider is worse for keyboard and screen-reader users. Radio inputs give native
+                arrow-key navigation for free. */}
+            <div class="bwalkers__row">
+              {Array.from({ length: MAX_GROUP_SIZE - MIN_TO_JOIN + 1 }, (_, i) => i + MIN_TO_JOIN).map((n) => (
+                <label class="bwalkers__opt">
+                  <input type="radio" name="groupSize" value={n} checked={n === partyMin} />
+                  <span>{n}</span>
+                </label>
+              ))}
+            </div>
+            <p class="bstep__hint">
+              Eight is the most any departure takes: two guides to eight walkers. A single walker
+              can join a date another group has already booked.
             </p>
-            <div class="form-field">
-              <label for="bf-solo-name">Name</label>
-              <input id="bf-solo-name" type="text" maxlength="120" autocomplete="name" aria-describedby="bf-solo-name-err" />
-              <span class="form-error" id="bf-solo-name-err" aria-live="polite"></span>
+          </fieldset>
+
+          {/* Own rooms. A stepper that only lands on values leaving an even number sharing, since
+              guests only share within their own booking. The hidden input is what the form reads. */}
+          <div class="form-field bform__count">
+            <p class="bform__countlabel" id="bf-single-label">How many need their own room?</p>
+            <p class="form-hint" id="bf-single-hint">
+              Rooms are doubles and you only share within your group. Each guest in their own room
+              pays a single supplement of <span data-supplement>{formatRand(supplementHint)}</span>.
+            </p>
+            <div class="bcount" role="group" aria-labelledby="bf-single-label" aria-describedby="bf-single-hint">
+              <button type="button" class="bcount__btn" data-count-dec="single" aria-label="Fewer own rooms">
+                <span aria-hidden="true">&minus;</span>
+              </button>
+              <output class="bcount__value" data-count-value="single" aria-live="polite">{defaultSingleRooms(partyMin)}</output>
+              <button type="button" class="bcount__btn" data-count-inc="single" aria-label="More own rooms">
+                <span aria-hidden="true">+</span>
+              </button>
             </div>
-            <div class="form-field">
-              <label for="bf-solo-email">Email</label>
-              <input id="bf-solo-email" type="email" maxlength="180" autocomplete="email" aria-describedby="bf-solo-email-err" />
-              <span class="form-error" id="bf-solo-email-err" aria-live="polite"></span>
-            </div>
-            <div class="form-field">
-              <label for="bf-solo-months">Which months work for you?</label>
-              <span class="form-hint">e.g. September or October 2027, or flexible</span>
-              <input id="bf-solo-months" type="text" maxlength="120" />
-            </div>
-            <div class="hp" aria-hidden="true">
-              <label>Company<input id="bf-solo-company" tabindex="-1" autocomplete="off" /></label>
-            </div>
-            <button type="button" class="btn btn-secondary" data-solo-submit>Keep me posted</button>
-            <p class="bform__status" data-solo-status role="status" aria-live="polite"></p>
+            <input type="hidden" name="singleRooms" value={defaultSingleRooms(partyMin)} data-count-input="single" />
           </div>
-        </fieldset>
+
+          {/* SADC resident discount: shown openly, with the member states behind a disclosure. */}
+          <div class="form-field bform__count bform__sadc">
+            <p class="bform__sadchead">SADC resident discount: {SADC_DISCOUNT_PERCENT}% off</p>
+            <p class="form-hint">
+              Guests who live in a Southern African Development Community country get
+              {' '}{SADC_DISCOUNT_PERCENT}% off their rate.
+            </p>
+            <details class="bform__countries">
+              <summary>See the {sadcCountryNames.length} countries</summary>
+              <p>{sadcCountryNames.join(', ')}</p>
+            </details>
+            <p class="bform__countlabel" id="bf-sadc-label">How many of your group live in an SADC country?</p>
+            <div class="bcount" role="group" aria-labelledby="bf-sadc-label">
+              <button type="button" class="bcount__btn" data-count-dec="sadc" aria-label="Fewer SADC residents">
+                <span aria-hidden="true">&minus;</span>
+              </button>
+              <output class="bcount__value" data-count-value="sadc" aria-live="polite">0</output>
+              <button type="button" class="bcount__btn" data-count-inc="sadc" aria-label="More SADC residents">
+                <span aria-hidden="true">+</span>
+              </button>
+            </div>
+            <input type="hidden" name="sadcCount" value="0" data-count-input="sadc" />
+          </div>
+        </Fragment>
       ) : (
-        /* Self-catered runs as a full group of 8: there is nothing to choose, so the field is a
-           fixed value with the reason stated, not a select with one option. */
+        /* Self-catered runs as a full group of 8 SADC residents sharing 4 rooms: there is nothing
+           to choose, so the values are fixed with the reason stated. */
         <div class="bstep__static">
           <p class="bstep__sub">
             The self-catered option runs as a full group of {partyMin}: two guides to eight
             walkers, with the trail and each lodge reserved for your group.
           </p>
           <input type="hidden" name="groupSize" value={partyMin} />
+          <input type="hidden" name="singleRooms" value="0" data-count-input="single" />
+          <input type="hidden" name="sadcCount" value={partyMin} data-count-input="sadc" />
         </div>
       )}
+
       {/* Child policy, both products: createCheckout refuses a booking without this tick. */}
       <div class="form-field bform__declaration">
         <p class="form-hint" id="bf-age-hint">
@@ -219,52 +249,30 @@ const clientRates = {
         </label>
         <span class="form-error" id="bf-age-err" data-age-error aria-live="polite"></span>
       </div>
-      <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
-    </div>
-  </div>
 
-  {/* ==== Step 2 — Where you live (the rate). ================================================= */}
-  <div class="bstep" data-step="2">
-    <div class="bstep__bar">
-      <p class="bstep__heading"><span class="bstep__num">2</span>. Country of residence</p>
-      <p class="bstep__summary" data-step-summary hidden></p>
-      <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
-    </div>
-    <div class="bstep__body" data-step-body>
-      <div class="form-field bform__country">
-        <label for="bf-country">Country of residence</label>
-        <select id="bf-country" name="country" required aria-describedby="bf-country-err">
-          <option value="">Select a country</option>
-          {countryOptions.map(([code, name]) => <option value={code}>{name}</option>)}
-        </select>
-        <span class="form-error" id="bf-country-err" aria-live="polite"></span>
-      </div>
-
-      {/* Shown only once a guest has named a country whose rate carries the ID condition. An
-          international visitor never sees it, and therefore never learns another rate exists. */}
-      <div class="form-field bform__declaration" data-residency-block hidden>
-        <p class="form-hint" data-residency-note></p>
+      {/* SADC confirmation. Catered: shown only once someone is counted as SADC. Self-catered:
+          always, for all 8. createCheckout refuses an SADC count without it. */}
+      <div class="form-field bform__declaration" data-residency-block hidden={isCatered}>
         <label class="bform__radio">
-          <input type="checkbox" name="residencyDeclaration" data-residency-declare />
+          <input type="checkbox" name="residencyDeclaration" data-residency-declare aria-describedby="bf-residency-err" />
           <span>
-            I confirm every guest in this booking lives there, and can show a valid ID or passport
-            at registration on Day 1.
+            {isCatered
+              ? `I confirm these guests live in an SADC country and will show ID or a passport at registration on Day 1. Any guest who cannot will pay a ${SADC_PREMIUM_PCT}% premium at registration.`
+              : `I confirm all ${partyMin} guests live in an SADC country and will show ID or a passport at registration on Day 1. Any guest who cannot will pay a ${SADC_PREMIUM_PCT}% premium at registration.`}
           </span>
         </label>
-        <span class="form-error" data-residency-error aria-live="polite"></span>
+        <span class="form-error" id="bf-residency-err" data-residency-error aria-live="polite"></span>
       </div>
 
-      {/* The country can change how far ahead dates open, so the calendar may move underneath the
-          guest. When it does, say so in words rather than letting the grid silently change. */}
-      <p class="bstep__notice" data-path-notice role="status" aria-live="polite" hidden></p>
+      <p class="bstep__notice" data-step-notice role="status" aria-live="polite" hidden></p>
       <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
     </div>
   </div>
 
-  {/* ==== Step 3 — Choose a start date. ======================================================= */}
-  <div class="bstep" data-step="3">
+  {/* ==== Step 2 — Choose a start date. ======================================================= */}
+  <div class="bstep" data-step="2">
     <div class="bstep__bar">
-      <p class="bstep__heading" id="bf-cal-label"><span class="bstep__num">3</span>. Choose a start date</p>
+      <p class="bstep__heading" id="bf-cal-label"><span class="bstep__num">2</span>. Choose a start date</p>
       <p class="bstep__summary" data-step-summary hidden></p>
       <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
     </div>
@@ -350,14 +358,15 @@ const clientRates = {
           <p class="bform__status" data-notify-status role="status" aria-live="polite"></p>
         </div>
       </div>
+      <p class="bstep__notice" data-step-notice role="status" aria-live="polite" hidden></p>
       <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
     </div>
   </div>
 
-  {/* ==== Step 4 — Your details. ============================================================== */}
-  <div class="bstep" data-step="4">
+  {/* ==== Step 3 — Your details. ============================================================== */}
+  <div class="bstep" data-step="3">
     <div class="bstep__bar">
-      <p class="bstep__heading" id="bf-details-label"><span class="bstep__num">4</span>. Your details</p>
+      <p class="bstep__heading" id="bf-details-label"><span class="bstep__num">3</span>. Your details</p>
       <p class="bstep__summary" data-step-summary hidden></p>
       <button type="button" class="blink bstep__edit" data-step-edit hidden>Edit</button>
     </div>
@@ -388,14 +397,15 @@ const clientRates = {
       <div class="hp" aria-hidden="true">
         <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
       </div>
+      <p class="bstep__notice" data-step-notice role="status" aria-live="polite" hidden></p>
       <button type="button" class="btn btn-primary bstep__continue" data-step-continue>Continue</button>
     </div>
   </div>
 
-  {/* ==== Step 5 — Review and pay. ============================================================ */}
-  <div class="bstep" data-step="5">
+  {/* ==== Step 4 — Review and pay. ============================================================ */}
+  <div class="bstep" data-step="4">
     <div class="bstep__bar">
-      <p class="bstep__heading"><span class="bstep__num">5</span>. Review and pay</p>
+      <p class="bstep__heading"><span class="bstep__num">4</span>. Review and pay</p>
     </div>
     <div class="bstep__body" data-step-body>
       {/* Trip shape at a glance: one line per night with its lodge and date, plus the departure
@@ -494,7 +504,7 @@ const clientRates = {
   import { actions } from 'astro:actions';
 
   // Anon, PUBLIC creds only (never the service-role key). `departure_inventory` is RLS-granted to
-  // anon and exposes ONLY dates, seat counts and a catering label — no PII.
+  // anon and exposes ONLY dates, seat and room counts and a catering label — no PII.
   const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
   const SUPABASE_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
@@ -527,10 +537,11 @@ const clientRates = {
   };
 
   // One record per start date that carries any state, straight from the derived
-  // `departure_inventory` view (migration 0016).
+  // `departure_inventory` view (migration 0017).
   interface Departure {
     seatsTaken: number; // 0..8 — the guaranteed-departure line quotes this
     seatsLeft: number; // 0..8; forced to 0 on a blocked date
+    roomsTaken: number; // 0..4 — a date fills on rooms
     lockedCatering: Catering | null; // null = nobody has opened this date
     isBlocked: boolean; // operator-blocked
   }
@@ -541,6 +552,7 @@ const clientRates = {
   const OPEN_DEPARTURE: Departure = {
     seatsTaken: 0,
     seatsLeft: 8,
+    roomsTaken: 0,
     lockedCatering: null,
     isBlocked: false,
   };
@@ -550,7 +562,7 @@ const clientRates = {
     if (!SUPABASE_URL || !SUPABASE_ANON) return inv;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/departure_inventory?select=start_date,seats_taken,seats_left,locked_catering,is_blocked`,
+        `${SUPABASE_URL}/rest/v1/departure_inventory?select=start_date,seats_taken,seats_left,rooms_taken,locked_catering,is_blocked`,
         {
           headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
           cache: 'no-store', // always fresh — a cancellation must free the date immediately
@@ -563,6 +575,7 @@ const clientRates = {
           start_date: string;
           seats_taken: number;
           seats_left: number;
+          rooms_taken: number;
           locked_catering: Catering | null;
           is_blocked: boolean;
         }[]) {
@@ -570,6 +583,7 @@ const clientRates = {
           inv.set(r.start_date, {
             seatsTaken: r.seats_taken ?? 0,
             seatsLeft: r.seats_left,
+            roomsTaken: r.rooms_taken ?? 0,
             lockedCatering: r.locked_catering ?? null,
             isBlocked: !!r.is_blocked,
           });
@@ -591,10 +605,10 @@ const clientRates = {
     const CATERING_WORD = CATERING === 'catered' ? 'catered' : 'self-catered';
 
     // ---- DOM ---------------------------------------------------------------------------------
-    const pathNotice = form.querySelector<HTMLElement>('[data-path-notice]');
-    const countrySelect = form.querySelector<HTMLSelectElement>('#bf-country');
     const residencyBlock = form.querySelector<HTMLElement>('[data-residency-block]');
-    const residencyNote = form.querySelector<HTMLElement>('[data-residency-note]');
+    const supplementEl = form.querySelector<HTMLElement>('[data-supplement]');
+    const singleInput = form.querySelector<HTMLInputElement>('[data-count-input="single"]');
+    const sadcInput = form.querySelector<HTMLInputElement>('[data-count-input="sadc"]');
     const residencyDeclare = form.querySelector<HTMLInputElement>('[data-residency-declare]');
     const residencyError = form.querySelector<HTMLElement>('[data-residency-error]');
     const ageConfirm = form.querySelector<HTMLInputElement>('[data-age-confirm]');
@@ -648,22 +662,9 @@ const clientRates = {
     const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Johannesburg' });
 
     // ---- State -------------------------------------------------------------------------------
-    // Country is what the guest picks. Everything that depends on their rate band comes back from
-    // the server in ONE object, and the page holds nothing about any other band.
-    interface RateContext {
-      baseRand: number;       // per person, whole trip, before season/year/last-minute
-      requiresDeclaration: boolean;
-      latestDate: string;     // how far ahead THIS guest may book
-      windowMonths: number;
-    }
-    let country = '';
-    let rate: RateContext | null = null;
-    let rateInFlight = false;
+    // Everything that changes the price or the calendar is answered in step 1 and read back off
+    // the form, so there is one source for each value: the radios and the two hidden inputs.
     let selectedStartIso = '';
-
-    // `priced` stands in for the old `residency` flag: it answers "can we put a number on screen
-    // yet", which is the only question the rest of the widget ever asked of it.
-    const priced = () => rate !== null;
 
     let inventory = new Map<string, Departure>();
     let availabilityInFlight: Promise<void> | null = null;
@@ -703,16 +704,46 @@ const clientRates = {
       return gap >= R.lastMinuteMinDays && gap <= R.lastMinuteMaxDays;
     }
 
-    // Per person, whole trip, in cents. The BASE comes from the server for this guest's band; the
-    // season, rate-year and last-minute rules are applied here, exactly as lib/pricing.ts does, in
-    // the same order and with the same floor. Returns 0 while no context has been fetched, and
-    // every caller is guarded on priced() so that value is never rendered.
-    function ppTripCents(iso: string, withLastMinute = true): number {
-      if (!rate) return 0;
-      let rand = rate.baseRand * (R.yearMultipliers[String(rateYearFor(iso))] ?? 1);
+    // Per person, whole trip, in cents, exactly as lib/pricing.ts resolves it: base -> rate year ->
+    // season -> SADC (catered) -> last-minute -> floor to the rand.
+    type Band = 'international' | 'sadc';
+    function ppTripCents(iso: string, band: Band, withLastMinute = true): number {
+      let rand = R.baseRate * (R.yearMultipliers[String(rateYearFor(iso))] ?? 1);
       if (!isHighSeasonIso(iso)) rand *= 1 - R.seasonDiscount;
+      if (band === 'sadc') rand *= 1 - R.sadcDiscount;
       if (withLastMinute && withinLastMinuteWindow(iso)) rand *= 1 - R.lastMinuteDiscount;
       return Math.floor(rand) * 100;
+    }
+
+    // Single supplement per own room: 40% of that date's international rate, floored. 0 for
+    // self-catered.
+    function supplementCents(iso: string, withLastMinute = true): number {
+      if (!R.supplementPct) return 0;
+      return Math.floor((ppTripCents(iso, 'international', withLastMinute) / 100) * R.supplementPct / 100) * 100;
+    }
+
+    // The booking's price lines for one date, all counts read from step 1. `before` is the same
+    // total without the last-minute reduction, so that reduction can be shown as its own line.
+    interface Priced {
+      intl: number; sadc: number; singles: number;
+      intlPp: number; sadcPp: number; supp: number;
+      before: number; total: number;
+    }
+    function priceFor(iso: string): Priced {
+      const n = groupSize();
+      const sadc = sadcCount();
+      const singles = singleRooms();
+      const intl = n - sadc;
+      const sum = (lm: boolean) =>
+        intl * ppTripCents(iso, 'international', lm) + sadc * ppTripCents(iso, 'sadc', lm) + singles * supplementCents(iso, lm);
+      return {
+        intl, sadc, singles,
+        intlPp: ppTripCents(iso, 'international', false),
+        sadcPp: ppTripCents(iso, 'sadc', false),
+        supp: supplementCents(iso, false),
+        before: sum(false),
+        total: sum(true),
+      };
     }
 
     // ---- Field validation --------------------------------------------------------------------
@@ -766,14 +797,26 @@ const clientRates = {
       return Number(fixed?.value || R.partyMin);
     }
 
-    // Until a country is known we use the conservative shipped ceiling; after that, the one the
-    // server resolved for this guest.
+    function singleRooms(): number {
+      return Number(singleInput?.value || 0);
+    }
+
+    function sadcCount(): number {
+      return Number(sadcInput?.value || 0);
+    }
+
+    // Rooms this party uses: everyone not in their own room shares a double within the booking.
+    function myRooms(): number {
+      return singleRooms() + (groupSize() - singleRooms()) / 2;
+    }
+
+    // 12 months as soon as anyone is counted as SADC (always, self-catered), otherwise 24.
     function latestFor(): string {
-      return rate?.latestDate ?? R.defaultLatest;
+      return sadcCount() > 0 ? R.latestSadc : R.latestIntl;
     }
 
     function monthsFor(): number {
-      return rate?.windowMonths ?? R.defaultMonths;
+      return sadcCount() > 0 ? R.monthsSadc : R.monthsIntl;
     }
 
     // Tapered start: Tuesday, Wednesday and Saturday are not start days up to R.taperEnd.
@@ -782,26 +825,34 @@ const clientRates = {
       return (R.taperDows as number[]).includes(isoDow(iso));
     }
 
-    function showPathNotice(msg: string) {
-      if (!pathNotice) return;
-      pathNotice.textContent = msg;
-      pathNotice.hidden = false;
+    // Each step has its own notice line, so a message always appears in the step the guest is on.
+    function stepNotice(n: number): HTMLElement | null {
+      return form!.querySelector<HTMLElement>(`.bstep[data-step="${n}"] [data-step-notice]`);
+    }
+    function showPathNotice(msg: string, n = currentStep) {
+      const el = stepNotice(n);
+      if (!el) return;
+      el.textContent = msg;
+      el.hidden = false;
     }
     function hidePathNotice() {
-      if (!pathNotice) return;
-      pathNotice.textContent = '';
-      pathNotice.hidden = true;
+      form!.querySelectorAll<HTMLElement>('[data-step-notice]').forEach((el) => {
+        el.textContent = '';
+        el.hidden = true;
+      });
     }
 
     // ---- Cell classification -----------------------------------------------------------------
     // open:           nobody has started this date and this party can open it.
-    // joinable:       already running, matching catering, enough places for this party.
+    // joinable:       already running, matching catering, enough rooms for this party.
     // cateringLocked: held by a departure this guest cannot join. Kept as its own STATE because
     //   the reason differs from "full" and data-state is useful when debugging, but it is drawn
     //   and described exactly like any other unavailable date: each mount sells one product, and
     //   naming the other one would advertise a product this page does not sell.
-    // full:           running and matching, but not enough places for this party.
-    // needsOpen:      nobody has started it and this party is below the opening minimum.
+    // full:           running and matching, but not enough rooms for this party. Rooms are always
+    //                 the binding limit: a party fitting the free rooms always fits the walkers.
+    // needsOpen:      nobody has started it and this party is below the opening minimum (for a
+    //                 solo walker: single walkers can only join a guaranteed departure).
     // closed:         blocked, not a start day, too soon, or beyond the window. Always says which.
     type CellState = 'open' | 'joinable' | 'cateringLocked' | 'full' | 'needsOpen' | 'closed';
     type ClosedReason = 'blocked' | 'taperDay' | 'tooSoon' | 'outOfWindow';
@@ -809,13 +860,15 @@ const clientRates = {
       state: CellState;
       seatsTaken: number;
       seatsLeft: number;
+      roomsLeft: number;
       lockedCatering?: Catering | null;
       reason?: ClosedReason;
     }
 
     function classifyDate(iso: string): Classification {
       const d = departureFor(iso);
-      const base = { seatsTaken: d.seatsTaken, seatsLeft: d.seatsLeft, lockedCatering: d.lockedCatering };
+      const roomsLeft = d.isBlocked ? 0 : Math.max(0, R.rooms - d.roomsTaken);
+      const base = { seatsTaken: d.seatsTaken, seatsLeft: d.seatsLeft, roomsLeft, lockedCatering: d.lockedCatering };
       if (d.isBlocked) return { ...base, state: 'closed', reason: 'blocked' };
       if (isTaperBlocked(iso)) return { ...base, state: 'closed', reason: 'taperDay' };
       if (iso < R.earliest) return { ...base, state: 'closed', reason: 'tooSoon' };
@@ -829,7 +882,9 @@ const clientRates = {
         return { ...base, state: 'cateringLocked' };
       }
       if (n < R.joinMin) return { ...base, state: 'needsOpen' };
-      return n <= d.seatsLeft ? { ...base, state: 'joinable' } : { ...base, state: 'full' };
+      return myRooms() <= roomsLeft && n <= d.seatsLeft
+        ? { ...base, state: 'joinable' }
+        : { ...base, state: 'full' };
     }
 
     // Six logical states, three appearances: `open` and `joinable` are both actionable but read
@@ -844,9 +899,10 @@ const clientRates = {
 
     const actionable = (c: Classification) => c.state === 'open' || c.state === 'joinable';
 
-    // The memo's exact wording, shown the moment a date has a booking on it.
+    // The memo's exact wording, shown the moment a date has a booking on it. "Available" counts
+    // the free rooms as doubles, because a new party can only use a free room.
     function guaranteedLine(c: Classification): string {
-      return `Guaranteed Departure: ${c.seatsTaken} of ${R.maxGroup} spots booked. ${c.seatsLeft} spots available.`;
+      return `Guaranteed Departure: ${c.seatsTaken} of ${R.maxGroup} spots booked. ${2 * c.roomsLeft} spots available.`;
     }
 
     function lastMinuteSpoken(): string {
@@ -855,11 +911,12 @@ const clientRates = {
 
     function cellReasonText(c: Classification): string {
       if (c.state === 'needsOpen') {
-        return c.seatsTaken === 0
-          ? `needs ${R.partyMin} or more walkers to open`
-          : `already running, joining takes at least ${R.joinMin} walkers`;
+        if (c.seatsTaken > 0) return `already running, joining takes at least ${R.joinMin} walkers`;
+        return groupSize() === 1
+          ? 'single walkers can join a guaranteed departure'
+          : `needs ${R.partyMin} or more walkers to open`;
       }
-      if (c.state === 'full') return `only ${c.seatsLeft} place(s) left, your group needs ${groupSize()}`;
+      if (c.state === 'full') return `only ${c.roomsLeft} room(s) left, your group needs ${myRooms()}`;
       if (c.state === 'cateringLocked') return 'already taken by another group';
       if (c.reason === 'blocked') return 'not running that week';
       if (c.reason === 'taperDay') return `not a start day: departures run ${R.startDays} until ${R.taperEndDisplay}`;
@@ -883,25 +940,34 @@ const clientRates = {
 
     // The named price lines for one date, used by BOTH the preview card and the review step, so
     // the figure a guest reads before choosing and the one they pay from are one computation.
+    // One line per rate that applies, then any last-minute reduction, then the total. Used by the
+    // date preview AND the review step, so the figure a guest reads before choosing a date and the
+    // one they pay from are one computation. Each line reads "count x rate" at the date's rate
+    // before the last-minute reduction; that reduction is its own named line.
     function priceRows(iso: string, n: number): HTMLElement[] {
       const rows: HTMLElement[] = [];
-      // The rate for THIS booking, already carrying whatever band the country resolved to. The
-      // rack rate and the resident reduction are deliberately not shown as separate lines: the
-      // guest is quoted one price, and the site never advertises that another band exists.
-      const beforeLastMinute = ppTripCents(iso, false);
-      const final = ppTripCents(iso, true);
-      rows.push(previewRow(
-        `${CATERING === 'catered' ? 'All-inclusive' : 'Self-catered'} rate`,
-        `${fmtR(beforeLastMinute)} per person`));
+      const p = priceFor(iso);
+      // Only the hidden page's mount says "self-catered"; the public mount never names it.
+      const rateName = CATERING === 'catered' ? 'All-inclusive rate' : 'Self-catered rate';
+      if (CATERING === 'uncatered') {
+        rows.push(previewRow(`${rateName}, ${n} x ${fmtR(p.sadcPp)}`, fmtR(n * p.sadcPp)));
+      } else {
+        if (p.intl > 0) rows.push(previewRow(`${rateName}, ${p.intl} x ${fmtR(p.intlPp)}`, fmtR(p.intl * p.intlPp)));
+        if (p.sadc > 0) {
+          rows.push(previewRow(
+            `SADC resident rate (${R.sadcPercent}% off), ${p.sadc} x ${fmtR(p.sadcPp)}`,
+            fmtR(p.sadc * p.sadcPp)));
+        }
+        if (p.singles > 0) rows.push(previewRow(`Single supplement, ${p.singles} x ${fmtR(p.supp)}`, fmtR(p.singles * p.supp)));
+      }
       // The last-minute reduction IS named: every guest can qualify for it, it is visible on the
       // calendar, and an unexplained drop in the total is worse than naming it.
-      if (final < beforeLastMinute) {
+      if (p.total < p.before) {
         rows.push(previewRow(
           `Last-minute, ${Math.round(R.lastMinuteDiscount * 100)}% less`,
-          `- ${fmtR(beforeLastMinute - final)}`, 'credit'));
-        rows.push(previewRow('Your rate', `${fmtR(final)} per person`, 'rate'));
+          `- ${fmtR(p.before - p.total)}`, 'credit'));
       }
-      rows.push(previewRow(`${n} ${n === 1 ? 'walker' : 'walkers'}`, fmtR(final * n), 'total'));
+      rows.push(previewRow(`Total, ${n} ${n === 1 ? 'walker' : 'walkers'}`, fmtR(p.total), 'total'));
       return rows;
     }
 
@@ -928,7 +994,7 @@ const clientRates = {
       };
       tag(isHighSeasonIso(iso) ? 'High season' : 'Low season');
       if (withinLastMinuteWindow(iso)) tag('Last-minute rate', 'lm');
-      if (c.seatsTaken === 0 && n >= R.maxGroup) tag('Exclusive use', 'excl');
+      if (c.seatsTaken === 0 && myRooms() >= R.rooms) tag('Exclusive use', 'excl');
       previewBody.appendChild(tags);
 
       if (c.seatsTaken > 0) {
@@ -938,13 +1004,8 @@ const clientRates = {
         previewBody.appendChild(places);
       }
 
-      if (actionable(c) && priced()) {
+      if (actionable(c)) {
         for (const row of priceRows(iso, n)) previewBody.appendChild(row);
-      } else if (actionable(c) && !priced()) {
-        const note = document.createElement('p');
-        note.className = 'bpreview__note';
-        note.textContent = 'Choose your rate in step 2 to see the price for this date.';
-        previewBody.appendChild(note);
       } else {
         const note = document.createElement('p');
         note.className = 'bpreview__note';
@@ -994,13 +1055,13 @@ const clientRates = {
         calSelectedEl.textContent =
           c.seatsTaken > 0
             ? `${human}. ${guaranteedLine(c)}`
-            : groupSize() >= R.maxGroup
-              ? `${human}. You are taking all ${R.maxGroup} places, so the trail is yours alone.`
+            : myRooms() >= R.rooms
+              ? `${human}. You are taking all ${R.rooms} rooms, so the trail is yours alone.`
               : `${human}. You are opening this departure.`;
       }
       calRender();
       updateEstimate();
-      goToStep(4);
+      goToStep(3);
     }
 
     // ---- Soonest-available list --------------------------------------------------------------
@@ -1024,12 +1085,10 @@ const clientRates = {
         meta.textContent = c.seatsTaken > 0 ? guaranteedLine(c) : 'Open, nobody has started it';
         body.append(date, meta);
         card.appendChild(body);
-        if (priced()) {
-          const price = document.createElement('span');
-          price.className = 'bjoin-card__price';
-          price.textContent = `${fmtR(ppTripCents(iso))} pp`;
-          card.appendChild(price);
-        }
+        const price = document.createElement('span');
+        price.className = 'bjoin-card__price';
+        price.textContent = `${fmtR(priceFor(iso).total)} total`;
+        card.appendChild(price);
         card.addEventListener('click', () => calSelectDate(iso));
         joinList.appendChild(card);
       }
@@ -1056,7 +1115,7 @@ const clientRates = {
       if (lastMinuteNote) lastMinuteNote.hidden = true;
       if (breakdownEl) breakdownEl.textContent = '';
 
-      if (!selectedStartIso || !priced()) {
+      if (!selectedStartIso) {
         if (estimate) estimate.textContent = '—';
         if (paymentLabel) paymentLabel.textContent = 'Total:';
         if (balanceNote) balanceNote.hidden = true;
@@ -1065,8 +1124,7 @@ const clientRates = {
         return;
       }
 
-      const pp = ppTripCents(selectedStartIso);
-      const totalCents = pp * n;
+      const totalCents = priceFor(selectedStartIso).total;
 
       // Never one unexplained figure: the same priceRows() the date card uses.
       if (breakdownEl) {
@@ -1102,10 +1160,11 @@ const clientRates = {
 
     function updateEstimate() {
       paintEstimate();
+      paintSupplement();
       refreshSteps();
     }
 
-    // ---- Guided accordion (5 steps) ----------------------------------------------------------
+    // ---- Guided accordion (4 steps) ----------------------------------------------------------
     // The markup ships with every step open and unclassed. Everything below is additive: the
     // `bform--stepped` class switches the collapse CSS on, so if this script throws before that
     // line the guest still gets the full long-scroll form rather than a stuck one.
@@ -1127,39 +1186,36 @@ const clientRates = {
       );
     }
 
+    // The SADC tick is needed whenever anyone is counted as SADC (always, self-catered).
     function residencyValid(): boolean {
-      if (!country || !rate) return false;
-      if (rate.requiresDeclaration && !residencyDeclare?.checked) return false;
-      return true;
-    }
-
-    // The country's own name, read back off the option the guest chose rather than kept in a
-    // second lookup table that could drift from the list actually rendered.
-    function countryLabel(): string {
-      const opt = countrySelect?.selectedOptions?.[0];
-      return opt && opt.value ? opt.textContent?.trim() ?? opt.value : '';
+      return sadcCount() === 0 || !!residencyDeclare?.checked;
     }
 
     function stepComplete(n: number): boolean {
-      if (n === 1) return !!ageConfirm?.checked; // a size is always selected; the age tick is not
-      if (n === 2) return residencyValid();
-      if (n === 3) return !!selectedStartIso;
-      if (n === 4) return detailsValid();
+      if (n === 1) return !!ageConfirm?.checked && residencyValid();
+      if (n === 2) return !!selectedStartIso;
+      if (n === 3) return detailsValid();
       return true;
     }
 
     // One short line per collapsed step: enough to confirm the choice without reopening it.
+    // Step 1 reads "3 walkers · 1 own room · 2 SADC residents", leaving out any part that is 0.
     function stepSummaryText(n: number): string {
       if (n === 1) {
         const g = groupSize();
-        return `${g} ${g === 1 ? 'walker' : 'walkers'}`;
+        const singles = singleRooms();
+        const sadc = sadcCount();
+        return [
+          `${g} ${g === 1 ? 'walker' : 'walkers'}`,
+          singles > 0 ? `${singles} own ${singles === 1 ? 'room' : 'rooms'}` : '',
+          sadc > 0 ? `${sadc} SADC ${sadc === 1 ? 'resident' : 'residents'}` : '',
+        ].filter(Boolean).join(' · ');
       }
-      if (n === 2) return countryLabel();
-      if (n === 3) {
+      if (n === 2) {
         if (!selectedStartIso) return '';
         return humanDate(selectedStartIso, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
       }
-      if (n === 4) return [nameInput.value.trim(), emailInput.value.trim()].filter(Boolean).join(' · ');
+      if (n === 3) return [nameInput.value.trim(), emailInput.value.trim()].filter(Boolean).join(' · ');
       return '';
     }
 
@@ -1232,9 +1288,8 @@ const clientRates = {
     // Continue: block the advance and say why, rather than moving on to a step that cannot be
     // completed. The messages name the missing thing; they never just refuse.
     const BLOCKED: Record<number, string> = {
-      2: 'Choose the country your group lives in to continue.',
-      3: 'Choose a start date to continue.',
-      4: 'Please complete your details to continue.',
+      2: 'Choose a start date to continue.',
+      3: 'Please complete your details to continue.',
     };
     for (const el of stepEls) {
       const n = Number(el.dataset.step);
@@ -1245,22 +1300,17 @@ const clientRates = {
             ageConfirm?.focus();
             return;
           }
-          if (n === 2 && !country) {
-            markField(countrySelect?.closest('.form-field') ?? null, 'Please choose the country your group lives in.');
-            countrySelect?.focus();
-            return;
-          }
-          if (n === 2 && rate?.requiresDeclaration && !residencyDeclare?.checked) {
-            if (residencyError) residencyError.textContent = 'Please tick the confirmation to continue.';
+          if (n === 1 && !residencyValid()) {
+            if (residencyError) residencyError.textContent = 'Please tick the SADC confirmation to continue.';
             residencyDeclare?.focus();
             return;
           }
-          if (n === 4) {
+          if (n === 3) {
             markField(nameInput.closest('.form-field'), firstErr(nameInput.value, nameRules));
             markField(emailInput.closest('.form-field'), firstErr(emailInput.value, emailRules));
             markField(phoneInput.closest('.form-field'), firstErr(phoneInput.value, phoneRules));
           }
-          showPathNotice(BLOCKED[n] ?? 'Please complete this step to continue.');
+          showPathNotice(BLOCKED[n] ?? 'Please complete this step to continue.', n);
           return;
         }
         hidePathNotice();
@@ -1318,13 +1368,12 @@ const clientRates = {
         cell.appendChild(dayNum);
 
         if (actionable(c)) {
-          const n = groupSize();
-          const priceWord = priced() ? `, ${fmtR(ppTripCents(iso))} per person` : '';
+          const priceWord = `, ${fmtR(priceFor(iso).total)} for your group`;
           const what =
             c.seatsTaken > 0
-              ? `, guaranteed departure, ${c.seatsTaken} of ${R.maxGroup} places booked, ${c.seatsLeft} available`
-              : n >= R.maxGroup
-                ? ', open, and your group takes every place'
+              ? `, guaranteed departure, ${c.seatsTaken} of ${R.maxGroup} places booked, ${2 * c.roomsLeft} available`
+              : myRooms() >= R.rooms
+                ? ', open, and your group takes every room'
                 : ', open, nobody has started it';
           const lm = withinLastMinuteWindow(iso) ? lastMinuteSpoken() : '';
           cell.setAttribute('aria-label', `${human}${what}${priceWord}${lm}`);
@@ -1503,70 +1552,81 @@ const clientRates = {
       calUpdateNextAvail();
     }
 
-    // ---- Wiring ------------------------------------------------------------------------------
-    for (const input of Array.from(form.querySelectorAll<HTMLInputElement>('input[name="groupSize"]'))) {
-      input.addEventListener('change', () => {
-        hidePathNotice();
-        calRefresh();
-        joinRefresh();
-        updateEstimate();
-      });
+    // ---- Step 1 counters ----------------------------------------------------------------------
+    // Two steppers write to hidden inputs, which are what everything else reads. Own rooms only
+    // land on values that leave an even number sharing (guests pair up within their own booking);
+    // the SADC count runs 0 to the number of walkers. At a limit the button is aria-disabled
+    // rather than disabled, so it keeps focus and a screen reader still hears why nothing moved.
+    type CounterKey = 'single' | 'sadc';
+    const counterInputs: Record<CounterKey, HTMLInputElement | null> = { single: singleInput, sadc: sadcInput };
+    function counterOptions(key: CounterKey): number[] {
+      const n = groupSize();
+      if (key === 'sadc') return Array.from({ length: n + 1 }, (_, i) => i);
+      const out: number[] = [];
+      for (let v = n % 2; v <= n; v += 2) out.push(v);
+      return out;
+    }
+    function paintCounter(key: CounterKey): void {
+      const input = counterInputs[key];
+      if (!input) return;
+      const opts = counterOptions(key);
+      const v = Number(input.value);
+      const out = form!.querySelector<HTMLElement>(`[data-count-value="${key}"]`);
+      if (out) out.textContent = String(v);
+      form!.querySelector(`[data-count-dec="${key}"]`)?.setAttribute('aria-disabled', v <= opts[0] ? 'true' : 'false');
+      form!.querySelector(`[data-count-inc="${key}"]`)?.setAttribute('aria-disabled', v >= opts[opts.length - 1] ? 'true' : 'false');
+    }
+    function stepCounter(key: CounterKey, dir: 1 | -1): void {
+      const input = counterInputs[key];
+      if (!input) return;
+      const v = Number(input.value);
+      const opts = counterOptions(key);
+      const next = dir > 0 ? opts.find((o) => o > v) : [...opts].reverse().find((o) => o < v);
+      if (next === undefined) return;
+      input.value = String(next);
+      paintCounter(key);
+      onCountsChanged();
+    }
+    for (const key of ['single', 'sadc'] as CounterKey[]) {
+      form.querySelector(`[data-count-dec="${key}"]`)?.addEventListener('click', () => stepCounter(key, -1));
+      form.querySelector(`[data-count-inc="${key}"]`)?.addEventListener('click', () => stepCounter(key, 1));
     }
 
-    // Asking the server for this guest's rate context is what keeps the other band off the page.
-    // It is one round-trip per country change, and the calendar is repainted from the answer.
-    async function loadRateContext(): Promise<void> {
-      if (!country) {
-        rate = null;
-        if (residencyBlock) residencyBlock.hidden = true;
-        if (residencyDeclare) residencyDeclare.checked = false;
-        calRefresh();
-        joinRefresh();
-        updateEstimate();
-        return;
+    // The supplement quoted in the step 1 hint: the base-year high-season figure shipped in the
+    // markup until a date is chosen, then that date's figure.
+    const supplementDefault = supplementEl?.textContent ?? '';
+    function paintSupplement(): void {
+      if (!supplementEl) return;
+      supplementEl.textContent = selectedStartIso ? fmtR(supplementCents(selectedStartIso, false)) : supplementDefault;
+    }
+
+    // Anything in step 1 can move the price, the booking window and which dates fit, so every
+    // change repaints the calendar; calRefresh clears a chosen date that no longer fits and says so.
+    function onCountsChanged(): void {
+      if (CATERING === 'catered' && residencyBlock) {
+        const needed = sadcCount() > 0;
+        residencyBlock.hidden = !needed;
+        if (!needed && residencyDeclare) residencyDeclare.checked = false;
+        if (!needed && residencyError) residencyError.textContent = '';
       }
-
-      rateInFlight = true;
-      markField(countrySelect?.closest('.form-field') ?? null, null);
-      const { data, error } = await actions.getRateContext({ country, catering: CATERING });
-      rateInFlight = false;
-
-      if (error || !data) {
-        // Never guess a rate. Say what happened, leave step 2 incomplete, and let them retry by
-        // choosing again.
-        rate = null;
-        markField(
-          countrySelect?.closest('.form-field') ?? null,
-          error?.message || 'We could not load rates for that country. Please try again.',
-        );
-        if (residencyBlock) residencyBlock.hidden = true;
-        calRefresh();
-        joinRefresh();
-        updateEstimate();
-        return;
-      }
-
-      rate = data as RateContext;
-
-      // The confirmation appears only for a country whose rate carries the ID condition. Clearing
-      // it on the way out means a guest who switches country cannot leave a stale tick behind.
-      if (residencyBlock) residencyBlock.hidden = !rate.requiresDeclaration;
-      if (!rate.requiresDeclaration && residencyDeclare) residencyDeclare.checked = false;
-      if (rate.requiresDeclaration && residencyNote) {
-        residencyNote.textContent = `You selected ${countryLabel()}.`;
-      }
-
+      hidePathNotice();
       calRefresh();
       joinRefresh();
       updateEstimate();
     }
 
-    countrySelect?.addEventListener('change', () => {
-      country = countrySelect.value;
-      hidePathNotice();
-      if (residencyError) residencyError.textContent = '';
-      void loadRateContext();
-    });
+    for (const input of Array.from(form.querySelectorAll<HTMLInputElement>('input[name="groupSize"]'))) {
+      input.addEventListener('change', () => {
+        // A new walker count resets own rooms to its default (1 if odd, else 0) and keeps the SADC
+        // count within the party.
+        const n = groupSize();
+        if (singleInput && CATERING === 'catered') singleInput.value = String(n % 2);
+        if (sadcInput && Number(sadcInput.value) > n) sadcInput.value = String(n);
+        paintCounter('single');
+        paintCounter('sadc');
+        onCountsChanged();
+      });
+    }
 
     ageConfirm?.addEventListener('change', () => {
       if (ageConfirm.checked && ageError) ageError.textContent = '';
@@ -1578,9 +1638,8 @@ const clientRates = {
       refreshSteps();
     });
 
-    // ---- Interest capture (solo panel + the empty soonest-available state) --------------------
-    // Both go through the EXISTING createInquiry action; no new endpoint, and no invented single
-    // supplement.
+    // ---- Interest capture (the empty soonest-available state) ---------------------------------
+    // Goes through the EXISTING createInquiry action; no new endpoint.
     function bindInterestCapture(opts: {
       submitBtn: HTMLButtonElement | null;
       statusEl: HTMLElement | null;
@@ -1645,30 +1704,6 @@ const clientRates = {
       compose: (months, n) =>
         `Notify me when a ${CATERING_WORD} departure opens for a group of ${n}${months ? `, ideally around ${months}` : ''}.`,
       success: "Thanks. We'll be in touch as soon as a matching date opens.",
-    });
-
-    // Solo panel. The message says plainly that this is a solo enquiry so the operator is not left
-    // guessing why a party of one is asking.
-    const soloToggle = form.querySelector<HTMLButtonElement>('[data-solo-toggle]');
-    const soloPanel = form.querySelector<HTMLElement>('[data-solo-panel]');
-    soloToggle?.addEventListener('click', () => {
-      if (!soloPanel) return;
-      const open = soloPanel.hidden;
-      soloPanel.hidden = !open;
-      soloToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open) soloPanel.querySelector<HTMLInputElement>('input')?.focus();
-    });
-    bindInterestCapture({
-      submitBtn: form.querySelector<HTMLButtonElement>('[data-solo-submit]'),
-      statusEl: form.querySelector<HTMLElement>('[data-solo-status]'),
-      nameEl: form.querySelector<HTMLInputElement>('#bf-solo-name'),
-      emailEl: form.querySelector<HTMLInputElement>('#bf-solo-email'),
-      monthsEl: form.querySelector<HTMLInputElement>('#bf-solo-months'),
-      honeypotEl: form.querySelector<HTMLInputElement>('#bf-solo-company'),
-      idleLabel: 'Keep me posted',
-      compose: (months) =>
-        `Solo walker enquiry: looking to join a departure as one person${months ? `, ideally around ${months}` : ''}. Happy to be paired with another group.`,
-      success: "Thanks. We'll let you know when a departure has room for one.",
     });
 
     // ---- Cancellation-policy dialog ----------------------------------------------------------
@@ -1737,24 +1772,14 @@ const clientRates = {
         goToStep(1);
         return;
       }
+      if (!residencyValid()) {
+        setStatus('Please tick the SADC confirmation in step 1 to continue.');
+        goToStep(1);
+        return;
+      }
       const startVal = String(fd.get('startDate') ?? '');
       if (!startVal) {
         setStatus('Please choose a start date from the calendar.');
-        goToStep(3);
-        return;
-      }
-      if (!country || !rate) {
-        setStatus(
-          rateInFlight
-            ? 'Still checking rates for that country. Please try again in a moment.'
-            : 'Please choose the country your group lives in.',
-        );
-        goToStep(2);
-        return;
-      }
-      const rateCtx = rate; // narrowed for the payload below
-      if (rateCtx.requiresDeclaration && !residencyDeclare?.checked) {
-        setStatus('Please tick the confirmation in step 2 to continue.');
         goToStep(2);
         return;
       }
@@ -1775,10 +1800,11 @@ const clientRates = {
         startDate: startVal,
         groupSize: groupSize(),
         catering: CATERING,
-        // The COUNTRY goes on the wire; the server derives the rate band from it again, and is
-        // the authority. The browser never sends a band or a price.
-        country,
-        residencyDeclaration: rateCtx.requiresDeclaration,
+        // Counts only. The server prices every line itself; the browser never sends a price or
+        // a rate band.
+        singleRooms: singleRooms(),
+        sadcCount: sadcCount(),
+        residencyDeclaration: sadcCount() > 0 && residencyDeclare?.checked === true,
         ageConfirmed: ageConfirm?.checked === true,
         leadName: String(fd.get('leadName') ?? ''),
         leadEmail: String(fd.get('leadEmail') ?? ''),
@@ -1828,6 +1854,8 @@ const clientRates = {
     });
 
     // ---- First paint -------------------------------------------------------------------------
+    paintCounter('single');
+    paintCounter('sadc');
     buildJump();
     calRender();
     calUpdateNextAvail();

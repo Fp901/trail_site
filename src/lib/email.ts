@@ -3,7 +3,7 @@
 // CR/LF stripped from any header-bound value (Part 11.9). Lazy key read; no-ops in dev without key.
 import { site } from '../data/site';
 import { routePins } from '../data/route';
-import { inclusions } from '../data/rates';
+import { inclusions, SADC_PREMIUM_PCT } from '../data/rates';
 import { BALANCE_LEAD_DAYS } from './pricing';
 
 export interface EmailMessage {
@@ -207,6 +207,14 @@ function inclusionsBlock(): string {
 
 // ---- sendEmail (base) ---------------------------------------------------------------
 
+
+// Guests at the SADC rate: the 0017 count when the booking has one, else the pre-0017 band (a
+// whole party). Receipts and emails for older bookings keep reading correctly.
+function sadcGuests(opts: { residency?: string; sadcCount?: number; groupSize?: number }): number {
+  if (typeof opts.sadcCount === 'number') return opts.sadcCount;
+  return opts.residency === 'sadc' ? opts.groupSize ?? 0 : 0;
+}
+
 export async function sendEmail(msg: EmailMessage): Promise<void> {
   const key = import.meta.env.EMAIL_API_KEY;
   const from = import.meta.env.EMAIL_FROM ?? 'Rooiberg Wander <no-reply@rooibergwander.co.za>';
@@ -254,6 +262,9 @@ export async function sendBookingConfirmation(opts: {
   bookingType?: string; // 'exclusive' | 'shared'
   catering?: string; // 'catered' | 'uncatered'
   residency?: string; // 'sadc' | 'international'
+  // 0017: guests in their own room, and guests counted as SADC residents.
+  singleRooms?: number;
+  sadcCount?: number;
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
   const tripInfo = tripInfoUrl(opts.pretripToken);
@@ -291,8 +302,11 @@ export async function sendBookingConfirmation(opts: {
       ...(opts.catering
         ? ([['Trail', opts.catering === 'catered' ? 'All-inclusive catered' : 'Self-catered slackpacking']] as Array<[string, string]>)
         : []),
-      ...(opts.residency === 'sadc'
-        ? ([['Rate', 'SADC resident rate']] as Array<[string, string]>)
+      ...(opts.singleRooms
+        ? ([['Own rooms', `${opts.singleRooms} (single supplement)`]] as Array<[string, string]>)
+        : []),
+      ...(sadcGuests(opts) > 0
+        ? ([['SADC resident rate', `${sadcGuests(opts)} ${sadcGuests(opts) === 1 ? 'guest' : 'guests'}`]] as Array<[string, string]>)
         : []),
       ['Payment', opts.complimentary ? 'Complimentary' : isDeposit ? '50% deposit paid' : 'Paid in full'],
     ]) +
@@ -305,8 +319,8 @@ export async function sendBookingConfirmation(opts: {
     (opts.catering === 'uncatered'
       ? small('Food and drink are yours to bring on a self-catered trail. Lodge staff handle kitchen prep, the barbeque and the cleaning.')
       : '') +
-    (opts.residency === 'sadc'
-      ? small('You booked at the SADC resident rate. Please bring a valid South African ID or SADC passport for every guest: we check these at registration on Day 1.')
+    (sadcGuests(opts) > 0
+      ? small(`${sadcGuests(opts) === 1 ? 'One guest is' : `${sadcGuests(opts)} guests are`} booked at the SADC resident rate. Each must bring a valid ID or passport showing residency in an SADC country: we check these at registration on Day 1. A guest who cannot show one pays a ${SADC_PREMIUM_PCT}% premium at registration.`)
       : '') +
     hr +
     `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Next: complete your pre-trip details</p>` +
@@ -416,6 +430,9 @@ export async function sendBookingOperatorNotification(opts: {
   bookingType: string; // 'exclusive' | 'shared'
   catering: string; // 'catered' | 'uncatered'
   residency?: string; // 'sadc' | 'international'
+  // 0017: guests in their own room, and guests counted as SADC residents.
+  singleRooms?: number;
+  sadcCount?: number;
   bookingId: string;
   paymentPlan: string;
   totalCents: number;
@@ -434,7 +451,8 @@ export async function sendBookingOperatorNotification(opts: {
       ['Group size', String(opts.groupSize)],
       ['Type', opts.bookingType === 'shared' ? 'Shared departure' : 'Exclusive use'],
       ['Product', opts.catering === 'catered' ? 'All-inclusive catered' : 'Self-catered slackpacking'],
-      ['Rate', opts.residency === 'sadc' ? 'SADC resident' : 'International'],
+      ['Own rooms', String(opts.singleRooms ?? 0)],
+      ['SADC residents', String(sadcGuests(opts))],
       ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
       ['Plan', opts.paymentPlan],
       ['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`],
@@ -562,6 +580,9 @@ export async function sendPaymentReceipt(opts: {
   bookingType?: string; // 'exclusive' (default) | 'shared'
   catering?: string; // 'catered' | 'uncatered'
   residency?: string; // 'sadc' | 'international'
+  // 0017: guests in their own room, and guests counted as SADC residents.
+  singleRooms?: number;
+  sadcCount?: number;
 }): Promise<void> {
   const issued = new Date(opts.issuedAt);
   const ym = issued.toISOString().slice(0, 7).replace('-', '');
@@ -578,7 +599,10 @@ export async function sendPaymentReceipt(opts: {
   // and "exclusive" is simply a group that booked all 8 places.
   const cateringLabel =
     opts.catering === 'uncatered' ? 'self-catered slackpacking' : 'all-inclusive catered safari';
-  const rateLabel = opts.residency === 'sadc' ? ', SADC resident rate' : '';
+  const sadc = sadcGuests(opts);
+  const rateLabel =
+    (sadc > 0 ? `, ${sadc} at the SADC resident rate` : '') +
+    (opts.singleRooms ? `, ${opts.singleRooms} single supplement${opts.singleRooms === 1 ? '' : 's'}` : '');
   const occupancyLabel = opts.bookingType === 'exclusive' ? ', exclusive use' : '';
   const productLabel = `${cateringLabel} (${guestsLabel})${occupancyLabel}${rateLabel}`;
   const descriptionLine =

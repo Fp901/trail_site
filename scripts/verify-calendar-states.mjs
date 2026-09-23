@@ -59,12 +59,12 @@ for (const v of VISUALS) {
 section('3. The cell face stays calm; status lives in the label');
 assert('day number is the only text node put in a cell', /dayNum\.textContent = String\(day\)/.test(widget));
 assert('no price string is written onto a cell face',
-  !/cell\.appendChild\([\s\S]{0,80}fmtR\(/.test(widget));
+  !/cell\.appendChild\([^)]*fmtR\(/.test(widget) && !/dayNum\.textContent = [^;]*fmtR/.test(widget));
 assert('every actionable cell gets an aria-label', /cell\.setAttribute\('aria-label'/.test(widget));
 assert('an actionable label names the places left or that the date is open',
   /guaranteed departure, \$\{c\.seatsTaken\} of \$\{R\.maxGroup\} places booked/.test(widget));
-assert('an actionable label names the price once a rate context has been fetched',
-  /const priceWord = priced\(\) \? `, \$\{fmtR\(ppTripCents\(iso\)\)\} per person`/.test(widget));
+assert('an actionable label names the group\'s total for that date',
+  /const priceWord = `, \$\{fmtR\(priceFor\(iso\)\.total\)\} for your group`/.test(widget));
 assert('aria-pressed marks the selected date', /cell\.setAttribute\('aria-pressed'/.test(widget));
 
 section('4. An unavailable cell states its reason and stays reachable');
@@ -87,7 +87,11 @@ assert('the legend has exactly one key per appearance',
 assert('legend is aria-hidden (each cell already states its own status)',
   /<div class="bcal__legend" aria-hidden="true">/.test(widget));
 assert('the guaranteed-departure wording matches the memo exactly',
-  /Guaranteed Departure: \$\{c\.seatsTaken\} of \$\{R\.maxGroup\} spots booked\. \$\{c\.seatsLeft\} spots available\./.test(widget));
+  /Guaranteed Departure: \$\{c\.seatsTaken\} of \$\{R\.maxGroup\} spots booked\. \$\{2 \* c\.roomsLeft\} spots available\./.test(widget));
+assert('a full date names the rooms left and the rooms this group needs',
+  /only \$\{c\.roomsLeft\} room\(s\) left, your group needs \$\{myRooms\(\)\}/.test(widget));
+assert('a solo walker on an unbooked date is told to join a guaranteed departure',
+  /single walkers can join a guaranteed departure/.test(widget));
 
 section('6. Keyboard reachability of the grid');
 assert('the grid is one roving tab stop', /cell\.tabIndex = iso === calFocusIso \? 0 : -1/.test(widget));
