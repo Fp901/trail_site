@@ -3774,7 +3774,16 @@
   .faq__q::-webkit-details-marker {
     display: none;
   }
+  /* No text caret on a disclosure heading. With caret browsing on (Chrome: F7), a click drops a
+     blinking caret where it lands; inside the rotated chevron span below that showed as a
+     slanted flashing line over the arrow. */
+  summary {
+    caret-color: transparent;
+  }
   .faq__icon {
+    /* Decorative only: clicks go through to the <summary>, and nothing here can hold a caret. */
+    pointer-events: none;
+    user-select: none;
     flex: none;
     width: 0.6rem;
     height: 0.6rem;

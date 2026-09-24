@@ -14,6 +14,8 @@ import {
   NIGHTS,
   MAX_GROUP_SIZE,
   MIN_PARTY_CATERED,
+  ROOMS_PER_DEPARTURE,
+  SINGLE_SUPPLEMENT_PCT,
   MIN_TO_JOIN,
   RATE_BASE_YEAR,
   RATE_YEARS,
@@ -183,14 +185,16 @@ const jsonLd = [
       <p class="mt-4 font-body leading-relaxed text-charcoal">
         <strong>Just the people you are booking for.</strong> The rate is per person sharing, for
         the whole trail, so a party of {MIN_PARTY_CATERED} pays for {MIN_PARTY_CATERED} even on a
-        date where others join later. A departure carries up to {MAX_GROUP_SIZE} walkers in total,
-        with two trail guides.
+        date where others join later. A departure carries up to {MAX_GROUP_SIZE} walkers in
+        {' '}{ROOMS_PER_DEPARTURE} double rooms, with two trail guides.
       </p>
       <p class="mt-4 font-body leading-relaxed text-charcoal/85">
-        The first booking on a date opens it, from {MIN_PARTY_CATERED} guests. Once a date has
-        {' '}{MIN_PARTY_CATERED} guests it is a guaranteed departure, and any party of{' '}
-        {MIN_TO_JOIN} or more can join it while places last. Book all {MAX_GROUP_SIZE} places and
-        the trail and each lodge are reserved for your group alone, with nobody joining you.
+        The first booking on a date opens it, from {MIN_PARTY_CATERED} guests. Once a date has a
+        booking it is a guaranteed departure, and anyone, including a single walker, can join it
+        while rooms last. You only ever share a room with your own group, and each guest in a room
+        of their own pays a {SINGLE_SUPPLEMENT_PCT}% single supplement. Take all
+        {' '}{ROOMS_PER_DEPARTURE} rooms and the trail and each lodge are reserved for your group
+        alone, with nobody joining you.
       </p>
       <p class="mt-4 font-body leading-relaxed text-charcoal/85">
         Departures run {START_DAYS_DISPLAY} until {TAPER_END_DISPLAY}, and every weekday from 2029.
