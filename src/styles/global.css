@@ -849,7 +849,9 @@
     /* Explicit, not the default centre: the panorama is 2.67:1 and this band is wider still, so
        a centre crop pushes the ridgeline to the very bottom edge. 42% keeps the sunset band and
        the mountain line in frame at every width. */
-    object-position: center 42%;
+    /* Rustwood at dusk: sit the crop low enough on wide screens to keep the horizon and the lit
+       pool in frame, not just the sails and sky. Phones and tablets show the full height anyway. */
+    object-position: center 56%;
     z-index: -2;
   }
   .statement-band__scrim {

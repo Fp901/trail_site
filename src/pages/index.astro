@@ -15,7 +15,9 @@ import { BOOKING_OPEN_DISPLAY, BETA_OPEN_DISPLAY } from '../data/rates';
 import { SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from '../lib/pricing';
 import { sanctuaries } from '../data/sanctuaries';
 import heroImage from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
-import panorama from '../assets/images/rooiberg-dusk-panorama.jpg';
+// The statement band closes the day, so it shows one: Rustwood lit up at dusk. It used to be a
+// mountain panorama that read as a second copy of the hero.
+import bandPhoto from '../assets/images/rustwood-pool-dusk-band.jpg';
 import introPhoto from '../assets/images/walking-route-3.jpg';
 import {
   organizationSchema,
@@ -120,8 +122,8 @@ const anchorFor = (id: string) => anchorAlias[id] ?? id;
   <section class="statement-band" aria-label="About the trail">
     <Image
       class="statement-band__img"
-      src={panorama}
-      alt="A wide view over layered mountain ridges at dusk in the Waterberg, Limpopo."
+      src={bandPhoto}
+      alt="Rustwood at dusk: the lodge lit up behind its shade sails, a fire burning, and the pool catching the last light over the Waterberg."
       widths={[768, 1280, 1920, 2560, 3024]}
       sizes="100vw"
       loading="lazy"
