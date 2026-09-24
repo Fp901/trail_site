@@ -22,6 +22,28 @@ import rustwoodHeroImg from '../assets/images/rustwood-lodge-hero.jpg';
 // terrace came out, the bedroom came in), and positional names made that change unreadable.
 import rustwoodInteriorImg from '../assets/images/rustwood-main-interior.jpg';
 import rustwoodBedImg from '../assets/images/rustwood-bed.jpg';
+// Lightbox-only photos (the "View all photos" viewer on /accommodation). Client photography,
+// chosen to show rooms, pools and outdoor spaces: no mounted trophies and no kitchens.
+import temPoolGarden from '../assets/images/lodges/temmincks-pool-garden.jpg';
+import temLapa from '../assets/images/lodges/temmincks-lapa.jpg';
+import temCottageGarden from '../assets/images/lodges/temmincks-cottage-garden.jpg';
+import temThatchedSuite from '../assets/images/lodges/temmincks-thatched-suite.jpg';
+import temGiraffe from '../assets/images/lodges/temmincks-giraffe.jpg';
+import oukFourPoster from '../assets/images/lodges/oukraal-four-poster.jpg';
+import oukTwinRoom from '../assets/images/lodges/oukraal-twin-room.jpg';
+import oukBougainvillea from '../assets/images/lodges/oukraal-bougainvillea.jpg';
+import oukGardenPool from '../assets/images/lodges/oukraal-garden-pool.jpg';
+import oukHideView from '../assets/images/lodges/oukraal-hide-view.jpg';
+import oukLapa from '../assets/images/lodges/oukraal-lapa.jpg';
+import oukFirePit from '../assets/images/lodges/oukraal-fire-pit.jpg';
+import rusInfinityPool from '../assets/images/lodges/rustwood-infinity-pool.jpg';
+import rusPoolDeck from '../assets/images/lodges/rustwood-pool-deck.jpg';
+import rusSuiteView from '../assets/images/lodges/rustwood-suite-view.jpg';
+import rusSuite from '../assets/images/lodges/rustwood-suite.jpg';
+import rusBathView from '../assets/images/lodges/rustwood-bath-view.jpg';
+import rusFirePitDusk from '../assets/images/lodges/rustwood-fire-pit-dusk.jpg';
+import rusLounge from '../assets/images/lodges/rustwood-lounge.jpg';
+import rusPoolNight from '../assets/images/lodges/rustwood-pool-night.jpg';
 
 export type AmenityIconName =
   | 'parking'
@@ -54,6 +76,7 @@ export interface Sanctuary {
   accentVar: string;
   heroImage?: ImageMetadata; // primary photo, used on both the Home page teaser and /accommodation
   gallery?: GalleryPhoto[]; // supporting photos shown alongside the hero
+  morePhotos?: GalleryPhoto[]; // extra photos shown only in the enlarged viewer
   amenities: LodgeAmenity[];
 }
 
@@ -70,6 +93,13 @@ export const sanctuaries: Sanctuary[] = [
     gallery: [
       { image: temmnicksGallery1, alt: "A thatched guest gazebo along the path at Temminck's Lodge." },
       { image: temmnicksGallery2, alt: "One of the guest cottages at Temminck's Lodge, tucked among the trees." },
+    ],
+    morePhotos: [
+      { image: temPoolGarden, alt: "The pool at Temminck's Lodge, set among aloes and red rock, with the thatched lapa behind." },
+      { image: temLapa, alt: "The open-sided thatched lapa at Temminck's Lodge." },
+      { image: temCottageGarden, alt: "A thatched cottage at Temminck's Lodge behind a flowering garden path." },
+      { image: temThatchedSuite, alt: "A double-storey thatched suite at Temminck's Lodge, reached by a timber stair." },
+      { image: temGiraffe, alt: "A giraffe browsing among the trees beside a chalet at Temminck's Lodge." },
     ],
     amenities: [
       { icon: 'parking', label: 'Secure shaded parking' },
@@ -91,6 +121,15 @@ export const sanctuaries: Sanctuary[] = [
     gallery: [
       { image: oukraalGallery1, alt: 'The palm-lined driveway and grounds at Oukraal.' },
       { image: oukraalGallery2, alt: 'A twin bedroom at Oukraal, with African art and reading lamps.' },
+    ],
+    morePhotos: [
+      { image: oukFourPoster, alt: 'A four-poster double bed at Oukraal, with giraffe-print cushions and bedside lamps.' },
+      { image: oukTwinRoom, alt: 'A twin room at Oukraal, with woven headboards and fresh towels on each bed.' },
+      { image: oukBougainvillea, alt: 'Pink bougainvillea framing a guest cottage across the paved courtyard at Oukraal.' },
+      { image: oukGardenPool, alt: 'The garden pool at Oukraal, edged with lawn and bushveld trees.' },
+      { image: oukHideView, alt: 'The view from the hide at Oukraal over a wetland and grassland.' },
+      { image: oukLapa, alt: 'The thatched lapa at Oukraal, set for dinner with a long table and wicker chairs.' },
+      { image: oukFirePit, alt: 'The stone fire pit on the terrace at Oukraal, ringed by safari chairs.' },
     ],
     amenities: [
       { icon: 'pool', label: 'Swimming pool' },
@@ -117,6 +156,16 @@ export const sanctuaries: Sanctuary[] = [
         image: rustwoodBedImg,
         alt: 'A bedroom at Rustwood: a double bed against a reclaimed-timber headboard, with woven pendant lamps and a slate floor.',
       },
+    ],
+    morePhotos: [
+      { image: rusInfinityPool, alt: "Rustwood's infinity pool and shade sails, looking out across the Waterberg." },
+      { image: rusPoolDeck, alt: 'The pool deck at Rustwood, with the thatched lodge reflected in the water.' },
+      { image: rusSuiteView, alt: 'A suite at Rustwood with its glass doors folded open onto a private deck and the valley.' },
+      { image: rusSuite, alt: 'A suite at Rustwood, with woven stools at the foot of the bed and a walk-in shower.' },
+      { image: rusBathView, alt: 'A freestanding bath at Rustwood beside a window onto the hills.' },
+      { image: rusFirePitDusk, alt: 'The fire pit at Rustwood at dusk, above the valley.' },
+      { image: rusLounge, alt: "The lounge and dining area in Rustwood's main building, under a high timber ceiling." },
+      { image: rusPoolNight, alt: 'The pool at Rustwood lit up at night, under the shade sails.' },
     ],
     amenities: [
       { icon: 'view', label: 'Sunset mountain views' },

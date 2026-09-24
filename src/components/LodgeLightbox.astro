@@ -1,0 +1,127 @@
+---
+// LodgeLightbox: one full-screen photo viewer shared by every lodge card on /accommodation.
+// A card opts in with data-lightbox-photos (its photos, built at build time by SanctuaryCard) and
+// any number of [data-lightbox-open] buttons carrying the index to open at.
+//
+// A native <dialog> opened with showModal() gives the focus trap, Escape to close, the backdrop
+// and focus returning to the button that opened it, with no focus code of our own. On top of that:
+// previous/next buttons, arrow keys, swipe, a caption with "3 of 10" (announced politely), and the
+// neighbouring photos preloaded so stepping through does not stall.
+---
+
+<dialog class="lightbox" data-lightbox aria-label="Lodge photos">
+  <div class="lightbox__frame" data-lb-frame>
+    <button type="button" class="lightbox__close" data-lb-close aria-label="Close photos">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <button type="button" class="lightbox__nav lightbox__nav--prev" data-lb-prev aria-label="Previous photo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <figure class="lightbox__figure">
+      <img class="lightbox__img" data-lb-img alt="" decoding="async" draggable="false" />
+      <figcaption class="lightbox__caption">
+        <span class="lightbox__lodge" data-lb-lodge></span>
+        <span class="lightbox__alt" data-lb-alt></span>
+        <span class="lightbox__count" data-lb-count aria-live="polite"></span>
+      </figcaption>
+    </figure>
+    <button type="button" class="lightbox__nav lightbox__nav--next" data-lb-next aria-label="Next photo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</dialog>
+
+<script>
+  interface ViewerPhoto { src: string; srcset: string; width: number; height: number; alt: string }
+  interface ViewerData { lodge: string; photos: ViewerPhoto[] }
+
+  function initLightbox(): void {
+    const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox]');
+    if (!dialog || dialog.dataset.bound === 'true') return;
+    dialog.dataset.bound = 'true';
+
+    const img = dialog.querySelector<HTMLImageElement>('[data-lb-img]')!;
+    const lodgeEl = dialog.querySelector<HTMLElement>('[data-lb-lodge]')!;
+    const altEl = dialog.querySelector<HTMLElement>('[data-lb-alt]')!;
+    const countEl = dialog.querySelector<HTMLElement>('[data-lb-count]')!;
+    const prevBtn = dialog.querySelector<HTMLButtonElement>('[data-lb-prev]')!;
+    const nextBtn = dialog.querySelector<HTMLButtonElement>('[data-lb-next]')!;
+    const frame = dialog.querySelector<HTMLElement>('[data-lb-frame]')!;
+
+    let data: ViewerData = { lodge: '', photos: [] };
+    let index = 0;
+
+    const preload = (i: number) => {
+      const p = data.photos[(i + data.photos.length) % data.photos.length];
+      if (!p) return;
+      const pre = new Image();
+      pre.sizes = '100vw';
+      pre.srcset = p.srcset;
+      pre.src = p.src;
+    };
+
+    function show(i: number): void {
+      const n = data.photos.length;
+      index = (i + n) % n;
+      const p = data.photos[index];
+      img.srcset = p.srcset;
+      img.sizes = '(min-width: 1024px) 80vw, 100vw';
+      img.src = p.src;
+      img.width = p.width;
+      img.height = p.height;
+      img.alt = p.alt;
+      lodgeEl.textContent = data.lodge;
+      altEl.textContent = p.alt;
+      countEl.textContent = `${index + 1} of ${n}`;
+      const single = n < 2;
+      prevBtn.hidden = single;
+      nextBtn.hidden = single;
+      preload(index + 1);
+      preload(index - 1);
+    }
+
+    document.querySelectorAll<HTMLButtonElement>('[data-lightbox-open]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const card = btn.closest<HTMLElement>('[data-lightbox-photos]');
+        if (!card?.dataset.lightboxPhotos) return;
+        data = JSON.parse(card.dataset.lightboxPhotos) as ViewerData;
+        dialog.setAttribute('aria-label', `${data.lodge} photos`);
+        show(Number(btn.dataset.index || 0));
+        dialog.showModal();
+      });
+    });
+
+    prevBtn.addEventListener('click', () => show(index - 1));
+    nextBtn.addEventListener('click', () => show(index + 1));
+    dialog.querySelector('[data-lb-close]')?.addEventListener('click', () => dialog.close());
+
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); show(index - 1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); show(index + 1); }
+    });
+
+    // A click on the dark surround (not the photo, caption or a button) closes, as people expect.
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog || e.target === frame) dialog.close();
+    });
+
+    // Swipe: a mostly-horizontal drag of 50px or more steps one photo.
+    // The photo is draggable="false" so a mouse drag is not taken over by the browser's own
+    // image drag; a cancelled pointer (e.g. the browser claiming the gesture) just resets.
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    frame.addEventListener('pointerdown', (e) => { tracking = true; startX = e.clientX; startY = e.clientY; });
+    frame.addEventListener('pointercancel', () => { tracking = false; });
+    frame.addEventListener('pointerup', (e) => {
+      if (!tracking) return;
+      tracking = false;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) show(index + (dx < 0 ? 1 : -1));
+    });
+  }
+
+  initLightbox();
+  document.addEventListener('astro:page-load', initLightbox);
+</script>

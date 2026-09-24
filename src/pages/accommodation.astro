@@ -6,6 +6,7 @@ import { Image } from 'astro:assets';
 import Layout from '../layouts/Layout.astro';
 import Section from '../components/Section.astro';
 import SanctuaryCard from '../components/SanctuaryCard.astro';
+import LodgeLightbox from '../components/LodgeLightbox.astro';
 import { sanctuaries } from '../data/sanctuaries';
 import { webPageSchema, breadcrumbSchema, touristAttractionSchema } from '../data/schema';
 
@@ -107,6 +108,7 @@ const context: Record<string, string> = {
           accentVar={s.accentVar}
           heroImage={s.heroImage}
           gallery={s.gallery}
+          morePhotos={s.morePhotos}
           context={context[s.id]}
           amenities={s.amenities}
           reverse={i % 2 === 1}
@@ -114,4 +116,5 @@ const context: Record<string, string> = {
       ))
     }
   </Section>
+  <LodgeLightbox />
 </Layout>
