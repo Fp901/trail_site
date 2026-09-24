@@ -3309,6 +3309,49 @@
     color: color-mix(in srgb, var(--color-charcoal) 80%, transparent);
   }
 
+  /* The longer explanation on a step card sits behind a native disclosure, so the three cards
+     read at a glance. */
+  .bookrules__more {
+    margin-top: 0.5rem;
+  }
+  .bookrules__more summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.75rem;
+    cursor: pointer;
+    list-style: none;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-earth);
+    text-decoration: underline;
+    text-decoration-color: var(--color-ochre);
+    text-underline-offset: 4px;
+  }
+  .bookrules__more summary::-webkit-details-marker {
+    display: none;
+  }
+  .bookrules__more summary::after {
+    content: '';
+    width: 0.4rem;
+    height: 0.4rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-0.12rem) rotate(45deg);
+    transition: transform 0.2s ease;
+  }
+  .bookrules__more[open] summary::after {
+    transform: translateY(0.08rem) rotate(-135deg);
+  }
+  .bookrules__more summary:focus-visible {
+    outline: 2px solid var(--color-ochre-deep);
+    outline-offset: 2px;
+  }
+  .bookrules__more .bookrules__body {
+    margin-top: 0.1rem;
+  }
+
   /* Launch-offer banner (Home page) */
   /* Beta launch notice — a slim full-bleed bar, not a boxed card with its own buttons. It sits
      between the dark stats band and the first content section, so it stays visible without

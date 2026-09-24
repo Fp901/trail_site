@@ -19,7 +19,7 @@
 //               (30% off their own rate), so one booking can mix both rates. Bookable 24 months
 //               ahead, or 12 if anyone in the party is counted as SADC.
 //   uncatered : hidden page only. Exactly 8 SADC residents sharing 4 rooms. Bookable 12 months.
-// A guest counted as SADC who cannot show ID or a passport at registration pays a 50% premium
+// A guest counted as SADC who cannot show ID or a passport at registration pays a 100% premium
 // on the day (SADC_PREMIUM_PCT); that is an operator matter, not something the engine prices.
 //
 // The server-side price authority (lib/pricing.ts) reuses these constants, so display and the
@@ -37,7 +37,7 @@ export const ROOMS_PER_DEPARTURE = 4;
 export const SINGLE_SUPPLEMENT_PCT = 40;
 // Charged at registration to a guest counted as SADC who cannot show ID or a passport. Stated in
 // the booking terms and the confirmation tick; never computed by the engine.
-export const SADC_PREMIUM_PCT = 50;
+export const SADC_PREMIUM_PCT = 100;
 
 // --- Booking opens ----------------------------------------------------------------------------
 // The site-wide gate: online booking is accepted for start dates from here on. Earlier dates are

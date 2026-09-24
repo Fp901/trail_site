@@ -88,8 +88,8 @@ const pct = (d) => `${Math.round(d * 100)}%`;
 // (The resident-rate percentage is not quoted on any public page at all — asserted below.)
 assert('the last-minute percentage is derived in the widget',
   /Math\.round\(LAST_MINUTE_DISCOUNT \* 100\)/.test(widget) || /Math\.round\(R\.lastMinuteDiscount \* 100\)/.test(widget));
-assert('group size comes from MAX_GROUP_SIZE / MIN_PARTY_CATERED on the rates page',
-  /MAX_GROUP_SIZE/.test(rates) && /MIN_PARTY_CATERED/.test(rates));
+assert('group size comes from MAX_GROUP_SIZE / MIN_TO_JOIN on the rates page',
+  /MAX_GROUP_SIZE/.test(rates) && /MIN_TO_JOIN/.test(rates));
 assert('the launch date on the homepage reads BOOKING_OPEN_DISPLAY', /BOOKING_OPEN_DISPLAY/.test(home));
 // /rates deliberately does not state the start-day rule at all (operator decision, 16 Sep 2026:
 // keep that page as simple as possible; the calendar enforces it by not offering the date). So

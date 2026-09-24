@@ -25,7 +25,9 @@ import {
   START_DAYS_DISPLAY,
   TAPER_END_DISPLAY,
   BOOKING_OPEN_DISPLAY,
-  SEASON_HIGH_DATES,
+  SEASON_HIGH_LABEL,
+  SEASON_HIGH_DATE_RANGES,
+  SEASON_LOW_LABEL,
   LAST_MINUTE_DISCOUNT,
   formatRand,
   rateFor,
@@ -43,7 +45,6 @@ const bookingEnabled = Boolean(
 );
 const inquiryEnabled = Boolean(import.meta.env.PUBLIC_SUPABASE_URL);
 
-const baseHigh = rateFor({ catering: 'uncatered', residency: 'sadc', year: RATE_BASE_YEAR, highSeason: true });
 const baseLow = rateFor({ catering: 'uncatered', residency: 'sadc', year: RATE_BASE_YEAR, highSeason: false });
 
 const title = 'SADC Self-catered Slackpacking Option | Rooiberg Wander';
@@ -101,27 +102,64 @@ const description =
         The rate
       </h2>
       <p class="mt-4 font-body leading-relaxed text-charcoal">
-        {formatRand(baseHigh)} per person sharing in high season and {formatRand(baseLow)} in low
-        season, for the whole {NIGHTS}-night trail, VAT and all conservation levies included.
-        High season is {SEASON_HIGH_DATES}.
+        From {formatRand(baseLow)} per person sharing, for the whole {NIGHTS}-night trail, VAT and
+        all conservation levies included.
       </p>
-      <ul class="mt-5 font-body leading-relaxed text-charcoal/85">
-        {
-          sadcSelfCateredRates.map((r) => (
-            <li>
-              {r.year}: {formatRand(r.high)} high season &middot; {formatRand(r.low)} low season,
-              per person sharing
-            </li>
-          ))
-        }
-      </ul>
+
+      {/* Same visual system as the /rates table (RatesTable.astro), without the currency tabs:
+          this rate is charged in rand to local groups. Every figure is derived, never typed. */}
+      <div class="ratetable-wrap mt-6">
+        <table class="ratetable">
+          <caption class="sr-only">
+            Self-catered rates per person sharing, for the whole trail, by year and season. VAT
+            and conservation levies included.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col"><span class="sr-only">Rate year</span></th>
+              <th scope="col">
+                {SEASON_HIGH_LABEL}
+                <span class="ratetable__seasonnote">
+                  {SEASON_HIGH_DATE_RANGES.map((range) => (
+                    <span class="ratetable__seasonrange">{range}</span>
+                  ))}
+                </span>
+              </th>
+              <th scope="col">{SEASON_LOW_LABEL}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              sadcSelfCateredRates.map((r) => (
+                <tr>
+                  <th scope="row">
+                    <span class="ratetable__label">{r.year}</span>
+                    <span class="ratetable__qualifier">self-catered, incl. VAT</span>
+                  </th>
+                  <td>
+                    <span class="ratetable__price">{formatRand(r.high)}</span>
+                    <span class="ratetable__unit">per person sharing</span>
+                  </td>
+                  <td>
+                    <span class="ratetable__price">{formatRand(r.low)}</span>
+                    <span class="ratetable__unit">per person sharing</span>
+                  </td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+        <p class="ratetable__fxnote">
+          Book 8 to 21 days before arrival for a further {Math.round(LAST_MINUTE_DISCOUNT * 100)}% off.
+          All payments are in South African Rand (ZAR).
+        </p>
+      </div>
+
       <p class="mt-5 font-body leading-relaxed text-charcoal/85">
         Groups of exactly {MIN_PARTY_UNCATERED}, which is also the maximum any departure takes
         ({MAX_GROUP_SIZE} walkers to two guides), so the trail and each lodge are yours alone.
         Departures run {START_DAYS_DISPLAY} until {TAPER_END_DISPLAY}, bookable up to{' '}
-        {SADC_WINDOW_MONTHS} months ahead, for start dates from {BOOKING_OPEN_DISPLAY}. A booking
-        made 8 to 21 days before arrival gets a further {Math.round(LAST_MINUTE_DISCOUNT * 100)}%
-        off.
+        {SADC_WINDOW_MONTHS} months ahead, for start dates from {BOOKING_OPEN_DISPLAY}.
       </p>
 
       <p class="mt-6 font-body text-base leading-relaxed text-charcoal/85">
