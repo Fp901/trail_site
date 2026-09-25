@@ -160,7 +160,7 @@ export const server = {
 
       // 4. Rooms and walkers. A date has 4 double rooms and takes at most 8 walkers; the first
       // booking opens it (2 catered, 8 self-catered) and locks its catering, later bookings join
-      // from 1. Check what is already held so we can give a specific message before the insert;
+      // from 2. Check what is already held so we can give a specific message before the insert;
       // the DB slot guard is the final authority against a race between this check and the insert.
       const { data: activeRows } = await supabase
         .from('bookings')
@@ -178,7 +178,7 @@ export const server = {
             code: 'BAD_REQUEST',
             message:
               input.catering === 'catered'
-                ? 'Single walkers can join a guaranteed departure. Please choose a date marked Guaranteed departure.'
+                ? `Opening a new date takes at least ${openMin} people.`
                 // Only reachable from the hidden page's self-catered mount.
                 : `Opening a new date takes at least ${openMin} people. The self-catered option runs as a full group of ${openMin}.`,
           });
@@ -1007,7 +1007,7 @@ export const server = {
         if (msg.includes('RW_TOPUP_MIN')) {
           throw new ActionError({
             code: 'CONFLICT',
-            message: `Joining a self-catered date needs the full ${minPartySize('uncatered')} people.`,
+            message: `Joining that date needs at least ${minToJoin('catered')} people (the full ${minPartySize('uncatered')} if self-catered).`,
           });
         }
         if (msg.includes('RW_CATERING_LOCKED')) {

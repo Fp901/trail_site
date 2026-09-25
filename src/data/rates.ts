@@ -14,12 +14,12 @@
 // this is also the form the numbers were signed off in.
 //
 // Two products, by catering (rooms and SADC count, 23 September 2026):
-//   catered   : the flagship. 1 to 8 walkers in up to 4 double rooms. Guests say how many need
+//   catered   : the flagship. 2 to 8 walkers in up to 4 double rooms. Guests say how many need
 //               their own room (40% single supplement each) and how many are SADC residents
 //               (30% off their own rate), so one booking can mix both rates. Bookable 24 months
 //               ahead, or 12 if anyone in the party is counted as SADC.
 //   uncatered : hidden page only. Exactly 8 SADC residents sharing 4 rooms. Bookable 12 months.
-// A guest counted as SADC who cannot show ID or a passport at registration pays a 100% premium
+// A guest counted as SADC who cannot show ID or a passport at registration pays a 50% premium
 // on the day (SADC_PREMIUM_PCT); that is an operator matter, not something the engine prices.
 //
 // The server-side price authority (lib/pricing.ts) reuses these constants, so display and the
@@ -37,7 +37,7 @@ export const ROOMS_PER_DEPARTURE = 4;
 export const SINGLE_SUPPLEMENT_PCT = 40;
 // Charged at registration to a guest counted as SADC who cannot show ID or a passport. Stated in
 // the booking terms and the confirmation tick; never computed by the engine.
-export const SADC_PREMIUM_PCT = 100;
+export const SADC_PREMIUM_PCT = 50;
 
 // --- Booking opens ----------------------------------------------------------------------------
 // The site-wide gate: online booking is accepted for start dates from here on. Earlier dates are
@@ -108,12 +108,13 @@ export const LAST_MINUTE_DISCOUNT = 0.22;
 
 // --- Group formation ---------------------------------------------------------------------------
 // OPENING an empty date is a property of the PRODUCT: a catered booking takes 2 (any room mix), a
-// self-catered booking takes the full 8. JOINING a date somebody else opened takes 1 catered, so a
-// solo walker can only book a guaranteed departure. Self-catered cannot be joined: 8 fills it.
+// self-catered booking takes the full 8. JOINING a date somebody else opened also takes 2 catered
+// (25 September 2026: solo walkers are no longer booked online; the widget's "Travelling solo?"
+// panel takes their details as an enquiry instead). Self-catered cannot be joined: 8 fills it.
 export const MIN_PARTY_CATERED = 2;
 export const MIN_PARTY_UNCATERED = 8;
-export const MIN_TO_JOIN = 1; // catered
-export const MIN_PARTY_SIZE = MIN_TO_JOIN; // smallest party the policy has any route for
+export const MIN_TO_JOIN = 2; // catered
+export const MIN_PARTY_SIZE = MIN_PARTY_CATERED; // smallest party the policy has any route for
 
 export function minPartySize(catering: Catering): number {
   return catering === 'catered' ? MIN_PARTY_CATERED : MIN_PARTY_UNCATERED;

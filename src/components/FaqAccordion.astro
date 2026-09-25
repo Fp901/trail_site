@@ -19,9 +19,9 @@ import { faqs } from '../data/logistics';
                   typeof part === 'string' ? (
                     part
                   ) : (
-                    <a href={part.href} target="_blank" rel="noopener">
-                      {part.text}
-                    </a>
+                    // One line on purpose: whitespace inside the <a> would be underlined and
+                    // leave a gap before the punctuation that follows ("Qwabi , 5 km").
+                    <a href={part.href} target="_blank" rel="noopener" class="faq__link">{part.text}<span class="sr-only"> (opens in a new tab)</span></a>
                   ),
                 )
               : item.a}

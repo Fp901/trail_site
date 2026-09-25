@@ -32,14 +32,16 @@ function assert(label, cond, detail) {
 }
 const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 66 - t.length))}`);
 
-const sql = readFileSync(new URL('../supabase/migrations/0017_rooms_supplement_sadc_count.sql', import.meta.url), 'utf8');
+// The slot guard's current definition is 0018; the room-mix CHECK and generated column are 0017's.
+const sql = readFileSync(new URL('../supabase/migrations/0018_join_minimum_two.sql', import.meta.url), 'utf8');
+const sql17 = readFileSync(new URL('../supabase/migrations/0017_rooms_supplement_sadc_count.sql', import.meta.url), 'utf8');
 const actions = readFileSync(new URL('../src/actions/index.ts', import.meta.url), 'utf8');
 const pick = (re) => { const m = sql.match(re); return m ? Number(m[1]) : null; };
 
 section('1. The TypeScript rules');
 assert(`catered opens from ${MIN_PARTY_CATERED}`, minPartySize('catered') === MIN_PARTY_CATERED);
 assert(`self-catered opens from ${MIN_PARTY_UNCATERED} (a full group)`, minPartySize('uncatered') === MIN_PARTY_UNCATERED);
-assert(`joining an open catered date takes ${MIN_TO_JOIN} (a solo walker may join)`, MIN_TO_JOIN === 1 && minToJoin('catered') === 1);
+assert(`joining an open catered date takes ${MIN_TO_JOIN} (solo walkers are not booked online)`, MIN_TO_JOIN === 2 && minToJoin('catered') === 2);
 assert('a self-catered date cannot be joined (the full 8 is needed)', minToJoin('uncatered') === MIN_PARTY_UNCATERED);
 assert(`capacity is ${MAX_GROUP_SIZE} walkers (two guides to eight)`, MAX_GROUP_SIZE === 8);
 assert(`a date has ${ROOMS_PER_DEPARTURE} double rooms`, ROOMS_PER_DEPARTURE === 4);
@@ -47,7 +49,7 @@ assert('rooms = own rooms + sharers / 2, sharers even', roomsFor(5, 1) === 3 && 
 assert('self-catered minimum equals capacity, so it is always a whole-trail booking',
   MIN_PARTY_UNCATERED === MAX_GROUP_SIZE);
 
-section('2. The same numbers inside the 0017 trigger');
+section('2. The same numbers inside the current slot guard (0018)');
 const sqlCapacity = pick(/c_capacity\s+constant int := (\d+)/);
 const sqlCatered = pick(/c_min_catered\s+constant int := (\d+)/);
 const sqlUncatered = pick(/c_min_uncatered\s+constant int := (\d+)/);
@@ -59,9 +61,9 @@ assert(`join minimum: SQL ${sqlJoin} === TS ${MIN_TO_JOIN}`, sqlJoin === MIN_TO_
 const sqlRooms = pick(/c_rooms\s+constant int := (\d+)/);
 assert(`rooms: SQL ${sqlRooms} === TS ${ROOMS_PER_DEPARTURE}`, sqlRooms === ROOMS_PER_DEPARTURE);
 assert('the room-mix CHECK keeps sharers even and counts in range',
-  /\(group_size - single_rooms\) % 2 = 0/.test(sql) && /single_rooms between 0 and group_size/.test(sql) && /sadc_count between 0 and group_size/.test(sql));
+  /\(group_size - single_rooms\) % 2 = 0/.test(sql17) && /single_rooms between 0 and group_size/.test(sql17) && /sadc_count between 0 and group_size/.test(sql17));
 assert('the generated rooms column matches roomsFor()',
-  /rooms int generated always as \(single_rooms \+ \(group_size - single_rooms\) \/ 2\) stored/.test(sql));
+  /rooms int generated always as \(single_rooms \+ \(group_size - single_rooms\) \/ 2\) stored/.test(sql17));
 
 section('3. The trigger enforces one rule per date, and derives booking_type');
 assert('counts EVERY active row on the date, not only the shared ones',

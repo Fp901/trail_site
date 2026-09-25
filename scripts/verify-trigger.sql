@@ -1,11 +1,11 @@
--- bookings_slot_guard conformance harness — rooms model (migration 0017, 23 September 2026).
+-- bookings_slot_guard conformance harness — rooms model (migrations 0017 + 0018: joining takes 2).
 --
 -- WHY THIS IS A .sql FILE AND NOT PART OF THE tsx SCRIPTS
 -- The trigger is the last line of defence and deliberately re-implements the rules in plpgsql,
 -- independently of src/lib/pricing.ts. It therefore cannot be tested from Node.
 --
 -- HOW TO RUN
---   1. Apply supabase/migrations/0017_rooms_supplement_sadc_count.sql
+--   1. Apply supabase/migrations/0017_rooms_supplement_sadc_count.sql and 0018_join_minimum_two.sql
 --   2. Paste this whole file into the Supabase SQL editor and run it
 --   3. The last two result sets print the verdict and one row per check.
 -- It wraps everything in a transaction and ROLLS BACK, so it never leaves test rows behind.
@@ -20,8 +20,8 @@
 -- THE RACE ("two parties racing for the last room: exactly one succeeds") needs two sessions,
 -- which the SQL editor cannot run from one script. Section E proves the sequential half (the
 -- second grab of the last room is refused). To test true concurrency, open two SQL editor tabs:
---   tab 1:  begin; insert <a 1-room party on 2027-12-02>;          -- do not commit yet
---   tab 2:  begin; insert <another 1-room party on 2027-12-02>;    -- blocks on the advisory lock
+--   tab 1:  begin; insert <a 2-walker, 1-room party on 2027-12-02>; -- do not commit yet
+--   tab 2:  begin; insert <another such party on 2027-12-02>;      -- blocks on the advisory lock
 --   tab 1:  commit;                                                  -- tab 2 now raises RW_ROOMS_FULL
 -- after seeding 2027-12-02 with 3 rooms. Roll both back afterwards.
 
@@ -108,7 +108,8 @@ select t_seed(date '2027-08-05', 3, 3, 'catered');
 select t_try('B3 party needing 1 room (2 sharing) on a 3-room date -> ACCEPT', date '2027-08-05', 2, 0, 'catered', 'shared', false);
 
 select t_seed(date '2027-08-09', 2, 0, 'catered');
-select t_try('B4 solo walker joining a guaranteed departure -> ACCEPT',  date '2027-08-09', 1, 1, 'catered',   'shared', false);
+select t_try('B4 solo walker joining a guaranteed departure -> reject',  date '2027-08-09', 1, 1, 'catered',   'shared', true, 'RW_TOPUP_MIN');
+select t_try('B6 two walkers joining a guaranteed departure -> ACCEPT',  date '2027-08-09', 2, 0, 'catered',   'shared', false);
 
 select t_seed(date '2027-08-12', 8, 0, 'uncatered');
 select t_try('B5 a second self-catered group on a full date -> reject',  date '2027-08-12', 8, 0, 'uncatered', 'shared', true, 'RW_ROOMS_FULL');
@@ -154,8 +155,8 @@ from public.bookings where lead_email = 'derive3@example.com';
 --    second is refused. (True concurrency: see the two-tab procedure in the header.)
 -- ============================================================================================
 select t_seed(date '2027-12-02', 3, 3, 'catered');
-select t_try('E1 first party for the last room -> ACCEPT',               date '2027-12-02', 1, 1, 'catered',   'shared', false);
-select t_try('E2 second party for the same room -> reject',              date '2027-12-02', 1, 1, 'catered',   'shared', true, 'RW_ROOMS_FULL');
+select t_try('E1 first party (2 sharing) for the last room -> ACCEPT',   date '2027-12-02', 2, 0, 'catered',   'shared', false);
+select t_try('E2 second party for the same room -> reject',              date '2027-12-02', 2, 0, 'catered',   'shared', true, 'RW_ROOMS_FULL');
 
 -- ============================================================================================
 -- RESULTS

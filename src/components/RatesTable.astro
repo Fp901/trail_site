@@ -27,6 +27,7 @@ import {
   FX_RATES_AS_OF,
   FX_RATES_AS_OF_LABEL,
   type ForeignCurrency,
+  SINGLE_SUPPLEMENT_PCT,
 } from '../data/rates';
 import { withBase } from '../data/site';
 
@@ -149,6 +150,12 @@ function priceSet(rand: number): Record<string, string> {
 
   {/* Always visible, ZAR tab included: the snapshot date and the ZAR-only charge are facts about
       the whole table, not only about the converted figures. */}
+  {/* Operator wording (25 September 2026), with the percentage read from the constant. */}
+  <p class="ratetable__supplement">
+    A Single Supplement of {SINGLE_SUPPLEMENT_PCT}% of the All-inclusive rate applies to all
+    bookings regardless of SADC residency.
+  </p>
+
   <p class="ratetable__fxnote" data-currency-note>
     <strong>Exchange rates as of <time datetime={FX_RATES_AS_OF}>{FX_RATES_AS_OF_LABEL}</time>.</strong>
     All payments are taken in South African Rand (ZAR). The euro, pound and dollar prices are

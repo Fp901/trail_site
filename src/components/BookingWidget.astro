@@ -9,7 +9,7 @@
 //
 // ROOMS. A departure has 4 double rooms and takes at most 8 walkers. Guests only share within
 // their own booking, so a party uses singleRooms + (walkers - singleRooms) / 2 rooms, and a date
-// fills on rooms. A solo walker can only join a date someone has already booked.
+// fills on rooms. Every booking takes at least 2; a solo walker leaves details via "Travelling solo?".
 //
 // PRICES ARE PUBLIC AND SHIP WITH THE PAGE. The all-inclusive rate, the SADC 30% and the 40%
 // single supplement are all stated on the rates page, so the estimate is computed here from the
@@ -166,7 +166,7 @@ const clientRates = {
                 a slider is worse for keyboard and screen-reader users. Radio inputs give native
                 arrow-key navigation for free. */}
             <div class="bwalkers__row">
-              {Array.from({ length: MAX_GROUP_SIZE - MIN_TO_JOIN + 1 }, (_, i) => i + MIN_TO_JOIN).map((n) => (
+              {Array.from({ length: MAX_GROUP_SIZE - partyMin + 1 }, (_, i) => i + partyMin).map((n) => (
                 <label class="bwalkers__opt">
                   <input type="radio" name="groupSize" value={n} checked={n === partyMin} />
                   <span>{n}</span>
@@ -174,9 +174,42 @@ const clientRates = {
               ))}
             </div>
             <p class="bstep__hint">
-              Eight is the most any departure takes: two guides to eight walkers. A single walker
-              can join a date another group has already booked.
+              Eight is the most any departure takes: two guides to eight walkers.
             </p>
+          <p class="bwalkers__solo">
+            <button type="button" class="blink" data-solo-toggle aria-expanded="false" aria-controls="bf-solo-panel">
+              Travelling solo?
+            </button>
+          </p>
+          {/* Solo walkers are not booked online (25 September 2026): the panel explains why and
+              takes their details through the existing createInquiry action instead. */}
+          <div class="bsolo" id="bf-solo-panel" data-solo-panel hidden>
+            <p class="bsolo__lead">
+              Every departure needs at least {partyMin} walkers, so we can't take a solo booking
+              online yet. Leave your details and we'll let you know when a departure has room to
+              pair you with another group.
+            </p>
+            <div class="form-field">
+              <label for="bf-solo-name">Name</label>
+              <input id="bf-solo-name" type="text" maxlength="120" autocomplete="name" aria-describedby="bf-solo-name-err" />
+              <span class="form-error" id="bf-solo-name-err" aria-live="polite"></span>
+            </div>
+            <div class="form-field">
+              <label for="bf-solo-email">Email</label>
+              <input id="bf-solo-email" type="email" maxlength="180" autocomplete="email" aria-describedby="bf-solo-email-err" />
+              <span class="form-error" id="bf-solo-email-err" aria-live="polite"></span>
+            </div>
+            <div class="form-field">
+              <label for="bf-solo-months">Which months work for you?</label>
+              <span class="form-hint">e.g. September or October 2027, or flexible</span>
+              <input id="bf-solo-months" type="text" maxlength="120" />
+            </div>
+            <div class="hp" aria-hidden="true">
+              <label>Company<input id="bf-solo-company" tabindex="-1" autocomplete="off" /></label>
+            </div>
+            <button type="button" class="btn btn-secondary" data-solo-submit>Keep me posted</button>
+            <p class="bform__status" data-solo-status role="status" aria-live="polite"></p>
+          </div>
           </fieldset>
 
           {/* Rooms. The guest picks how many rooms, one step at a time, from all doubles up to one
@@ -274,9 +307,7 @@ const clientRates = {
         <label class="bform__check">
           <input type="checkbox" name="residencyDeclaration" data-residency-declare aria-describedby="bf-residency-err" />
           <span>
-            {isCatered
-              ? `I confirm these guests live in an SADC country and will show ID or a passport at registration on Day 1. Any guest who cannot will pay a ${SADC_PREMIUM_PCT}% premium at registration.`
-              : `I confirm all ${partyMin} guests live in an SADC country and will show ID or a passport at registration on Day 1. Any guest who cannot will pay a ${SADC_PREMIUM_PCT}% premium at registration.`}
+            {`I confirm SADC resident guests will show an ID or passport at registration. Any SADC resident guest who cannot, will pay a ${SADC_PREMIUM_PCT}% premium.`}
           </span>
         </label>
         <span class="form-error" id="bf-residency-err" data-residency-error aria-live="polite"></span>
@@ -869,8 +900,7 @@ const clientRates = {
     //   naming the other one would advertise a product this page does not sell.
     // full:           running and matching, but not enough rooms for this party. Rooms are always
     //                 the binding limit: a party fitting the free rooms always fits the walkers.
-    // needsOpen:      nobody has started it and this party is below the opening minimum (for a
-    //                 solo walker: single walkers can only join a guaranteed departure).
+    // needsOpen:      this party is below the opening (or joining) minimum.
     // closed:         blocked, not a start day, too soon, or beyond the window. Always says which.
     type CellState = 'open' | 'joinable' | 'cateringLocked' | 'full' | 'needsOpen' | 'closed';
     type ClosedReason = 'blocked' | 'taperDay' | 'tooSoon' | 'outOfWindow';
@@ -929,9 +959,8 @@ const clientRates = {
 
     function cellReasonText(c: Classification): string {
       if (c.state === 'needsOpen') {
-        if (c.seatsTaken > 0) return `already running, joining takes at least ${R.joinMin} walkers`;
-        return groupSize() === 1
-          ? 'single walkers can join a guaranteed departure'
+        return c.seatsTaken > 0
+          ? `already running, joining takes at least ${R.joinMin} walkers`
           : `needs ${R.partyMin} or more walkers to open`;
       }
       if (c.state === 'full') return `only ${c.roomsLeft} room(s) left, your group needs ${myRooms()}`;
@@ -1699,8 +1728,8 @@ const clientRates = {
       refreshSteps();
     });
 
-    // ---- Interest capture (the empty soonest-available state) ---------------------------------
-    // Goes through the EXISTING createInquiry action; no new endpoint.
+    // ---- Interest capture (solo panel + the empty soonest-available state) --------------------
+    // Both go through the EXISTING createInquiry action; no new endpoint.
     function bindInterestCapture(opts: {
       submitBtn: HTMLButtonElement | null;
       statusEl: HTMLElement | null;
@@ -1765,6 +1794,30 @@ const clientRates = {
       compose: (months, n) =>
         `Notify me when a ${CATERING_WORD} departure opens for a group of ${n}${months ? `, ideally around ${months}` : ''}.`,
       success: "Thanks. We'll be in touch as soon as a matching date opens.",
+    });
+
+    // Solo panel. The message says plainly that this is a solo enquiry so the operator is not left
+    // guessing why a party of one is asking.
+    const soloToggle = form.querySelector<HTMLButtonElement>('[data-solo-toggle]');
+    const soloPanel = form.querySelector<HTMLElement>('[data-solo-panel]');
+    soloToggle?.addEventListener('click', () => {
+      if (!soloPanel) return;
+      const open = soloPanel.hidden;
+      soloPanel.hidden = !open;
+      soloToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) soloPanel.querySelector<HTMLInputElement>('input')?.focus();
+    });
+    bindInterestCapture({
+      submitBtn: form.querySelector<HTMLButtonElement>('[data-solo-submit]'),
+      statusEl: form.querySelector<HTMLElement>('[data-solo-status]'),
+      nameEl: form.querySelector<HTMLInputElement>('#bf-solo-name'),
+      emailEl: form.querySelector<HTMLInputElement>('#bf-solo-email'),
+      monthsEl: form.querySelector<HTMLInputElement>('#bf-solo-months'),
+      honeypotEl: form.querySelector<HTMLInputElement>('#bf-solo-company'),
+      idleLabel: 'Keep me posted',
+      compose: (months) =>
+        `Solo walker enquiry: looking to join a departure as one person${months ? `, ideally around ${months}` : ''}. Happy to be paired with another group.`,
+      success: "Thanks. We'll let you know when a departure has room for one.",
     });
 
     // ---- Cancellation-policy dialog ----------------------------------------------------------

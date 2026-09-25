@@ -90,8 +90,8 @@ assert('the guaranteed-departure wording matches the memo exactly',
   /Guaranteed Departure: \$\{c\.seatsTaken\} of \$\{R\.maxGroup\} spots booked\. \$\{2 \* c\.roomsLeft\} spots available\./.test(widget));
 assert('a full date names the rooms left and the rooms this group needs',
   /only \$\{c\.roomsLeft\} room\(s\) left, your group needs \$\{myRooms\(\)\}/.test(widget));
-assert('a solo walker on an unbooked date is told to join a guaranteed departure',
-  /single walkers can join a guaranteed departure/.test(widget));
+assert('solo walkers are not booked: chips start at the party minimum and the solo panel is back',
+  /i \+ partyMin\)\.map/.test(widget) && /data-solo-panel/.test(widget) && !/single walkers can join/.test(widget));
 
 section('6. Keyboard reachability of the grid');
 assert('the grid is one roving tab stop', /cell\.tabIndex = iso === calFocusIso \? 0 : -1/.test(widget));

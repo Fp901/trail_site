@@ -143,7 +143,7 @@ export const sanctuaries: Sanctuary[] = [
     name: 'Rustwood',
     role: 'The Mountain Lodge · Night 3',
     description:
-      'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range. The pool faces west across the Waterberg.',
+      'The highest lodge on the trail, up on the ridges with long views across the Waterberg. You arrive on Day 3 along the high-ridge traverse, by way of the Welgedacht lookout over the Marakele range. The pool faces north across the Waterberg.',
     alt: "The thatched entrance to Rustwood's main lodge, the mountain lodge overlooking the Waterberg on the third night of the trail.",
     accentVar: '--color-day4',
     heroImage: rustwoodHeroImg,

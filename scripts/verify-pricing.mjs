@@ -190,7 +190,7 @@ section('G. No price anywhere carries cents, and the split reconciles');
 
 section('H. Group formation and derived exclusivity (rooms)');
 assert(`opening takes ${MIN_PARTY_CATERED} catered, ${MIN_PARTY_UNCATERED} self-catered; joining ${MIN_TO_JOIN}; capacity ${MAX_GROUP_SIZE} walkers in ${ROOMS_PER_DEPARTURE} rooms`,
-  MIN_PARTY_CATERED === 2 && MIN_PARTY_UNCATERED === 8 && MIN_TO_JOIN === 1 && MAX_GROUP_SIZE === 8 && ROOMS_PER_DEPARTURE === 4);
+  MIN_PARTY_CATERED === 2 && MIN_PARTY_UNCATERED === 8 && MIN_TO_JOIN === 2 && MAX_GROUP_SIZE === 8 && ROOMS_PER_DEPARTURE === 4);
 assert('a booking that takes all 4 rooms is exclusive', bookingTypeFor(4) === 'exclusive');
 assert('a booking with fewer rooms shares the date', bookingTypeFor(3) === 'shared');
 assert('rooms = own rooms + sharers / 2', roomsFor(3, 1) === 2 && roomsFor(4, 4) === 4 && roomsFor(8, 0) === 4 && roomsFor(1, 1) === 1);

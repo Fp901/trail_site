@@ -204,10 +204,10 @@ export function supplementCentsFor(startDate: string, now: Date = new Date()): n
 }
 
 // --- Group formation ---------------------------------------------------------------------------
-// Opening a date: 2 catered (any room mix), 8 self-catered. Joining: 1 catered. A date holds at
+// Opening a date: 2 catered (any room mix), 8 self-catered. Joining: 2 catered. A date holds at
 // most 4 rooms and 8 walkers. The DB trigger re-implements the same rules independently in SQL
 // (it is the last line of defence and cannot import from here), so any change to these numbers
-// must be mirrored in migration 0017.
+// must be mirrored in the slot guard (migration 0018).
 export {
   minPartySize,
   minToJoin,

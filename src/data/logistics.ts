@@ -117,7 +117,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How big is the group?',
-    a: `Up to ${MAX_GROUP_SIZE} guests in ${ROOMS_PER_DEPARTURE} double rooms, with two trail guides. You only share a room with your own group, and each guest in their own room pays a ${SINGLE_SUPPLEMENT_PCT}% single supplement. The first booking on a date opens it, from two guests; later bookings, including single walkers, join while rooms last. Take all ${ROOMS_PER_DEPARTURE} rooms and the trail and each lodge are reserved for your group alone.`,
+    a: `Up to ${MAX_GROUP_SIZE} guests in ${ROOMS_PER_DEPARTURE} double rooms, with two trail guides. You only share a room with your own group, and each guest in their own room pays a ${SINGLE_SUPPLEMENT_PCT}% single supplement. Every booking is for two guests or more: the first on a date opens it, and later bookings join while rooms last. Take all ${ROOMS_PER_DEPARTURE} rooms and the trail and each lodge are reserved for your group alone.`,
   },
   {
     id: 'minimum-age',

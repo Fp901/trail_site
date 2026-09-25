@@ -21,7 +21,7 @@ import {
   BOOKING_OPEN_DATE,
   NIGHTS,
   MAX_GROUP_SIZE,
-  MIN_TO_JOIN,
+  MIN_PARTY_CATERED,
   ROOMS_PER_DEPARTURE,
   RATE_BASE_YEAR,
   formatRand,
@@ -71,7 +71,7 @@ const jsonLd = [
   offerSchema({
     price: intlLow,
     name: 'Rooiberg Wander: all-inclusive catered walking safari, per person sharing',
-    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail: all meals with selected South African wines and beers, two trail guides, daily baggage transport, all conservation levies and VAT. From ${MIN_TO_JOIN} guest up to ${MAX_GROUP_SIZE}.`,
+    description: `From this rate per person sharing, for the whole ${NIGHTS}-night trail: all meals with selected South African wines and beers, two trail guides, daily baggage transport, all conservation levies and VAT. From ${MIN_PARTY_CATERED} guests up to ${MAX_GROUP_SIZE}.`,
   }),
 ];
 ---
@@ -87,7 +87,7 @@ const jsonLd = [
       </h1>
       <p class="mt-6 font-body text-lg leading-relaxed text-charcoal sm:text-xl">
         One price per person for the whole {NIGHTS}-night trail, VAT and conservation levies
-        included. You pay for the people in your group, from {MIN_TO_JOIN} guest up. The price
+        included. You pay for the people in your group, from {MIN_PARTY_CATERED} guests up. The price
         depends on the season you walk in.
       </p>
     </div>
@@ -152,7 +152,7 @@ const jsonLd = [
             <p class="bookrules__body">
               If you take fewer than {ROOMS_PER_DEPARTURE} rooms, other guests can book the same
               date. Take all {ROOMS_PER_DEPARTURE} rooms and the trail and the lodges are yours
-              alone. A single walker can join a date another group has booked.
+              alone.
             </p>
           </details>
         </li>
