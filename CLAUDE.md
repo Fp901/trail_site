@@ -502,6 +502,16 @@ HTTPS everywhere + HSTS preload; HTTP→HTTPS redirect; no mixed content; custom
 ### 11.9 Form/booking input rules
 Validate type/format + length-cap every field (server-side is authoritative; client validation is UX). Honeypot on public forms; encode echoed values; no PII in browser storage. Strip CR/LF from any user value used in email headers; send only to the fixed configured recipient.
 
+### 11.11 One-time discount codes (migration 0020, 25 September 2026)
+Single-use codes worth **50% or 100%** off a booking's whole total, entered in step 4 of either widget. Generated only by `scripts/discount-codes.mjs` (run locally with `.env`; no admin page). The rules, all policed by `scripts/verify-discounts.mjs` (static) and `scripts/verify-discount.sql` (live, rolls back):
+- **Unguessable, hashed:** `RW-` + 16 characters from a 31-symbol alphabet (~79 bits). Only a SHA-256 hash and the last 4 characters are stored; the full code is printed once by the script and cannot be recovered.
+- **Default-deny:** `discount_codes` has RLS on, no policies, nothing granted to anon/authenticated. `reserve_discount_code()` is service-role only with a pinned `search_path`.
+- **Rate limited:** every attempt (the `checkDiscountCode` preview and `createCheckout`) shares 5/min and 20/day per IP, on top of the checkout limits. Malformed input is refused before any query.
+- **No oracle:** unknown, used, reserved, expired and void codes all return "That code isn't valid or has already been used."
+- **Server sets the percent:** the browser sends the code only; the percentage comes from the claimed row.
+- **Atomic single use:** a code is claimed by one `UPDATE ... RETURNING` (available, or reserved with a lapsed hold, and unexpired), reserved for the booking hold plus 30 minutes, **redeemed** by the webhook on payment (or at once for a free booking), and **released** by `/booking/cancel` or a failed insert.
+- **Free bookings** (100%) skip Paystack: inserted `confirmed` with `processor = 'code'` and a `free_` reference. `'code'` is **not** exempt from the window guard (only `'comp'` is), so the taper, windows and T-7 still apply.
+
 ### 11.10 Pre-deploy security checklist
 - [ ] CSP enabled, Paystack/Supabase origins allowed, no console violations; edge headers live; securityheaders.com grade A.
 - [ ] HTTPS + HSTS; HTTP redirects.
@@ -514,6 +524,7 @@ Validate type/format + length-cap every field (server-side is authoritative; cli
 - [ ] Privacy notice + consent near submit; Privacy page linked; retention + data-request contact resolved; processor/region noted.
 - [ ] No PII/card data logged; security events logged without PII; webhook-failure monitoring on.
 - [ ] Custom 404; no stack traces/framework internals exposed.
+- [ ] Migration 0020 applied and `scripts/verify-discount.sql` passes; discount codes generated and stored privately (11.11).
 
 ---
 
@@ -586,6 +597,7 @@ Small logical commits, one page/component each; conventional messages (`feat: ho
 - **The guest states counts, not a country.** The country question is gone. The widget asks how many rooms the group needs (stored as the derived own-room count) and, only after a yes to "does anyone live in an SADC country?", how many are SADC residents; `createCheckout` takes `{ startDate, catering, groupSize, singleRooms, sadcCount, residencyDeclaration, ageConfirmed, lead*, company }`. Never a price or a band. `getRateContext` is removed; public rates ship with the page for the estimate, and the server recomputes everything.
 - **Pricing:** per date, `intlRate` (year, season, last-minute, floor), `sadcRate` (same with 30% off, catered), `supplement = floor(intlRate x 0.40)` (`SINGLE_SUPPLEMENT_PCT`). Total = `sadcCount x sadcRate + (groupSize - sadcCount) x intlRate + singleRooms x supplement`. Self-catered unchanged, no supplement. Check: 2027 high, 3 walkers, 1 own room, 2 SADC = R44,520.
 - **Window:** 12 months if `sadcCount > 0`, otherwise 24 (catered). Other window rules unchanged.
+- **Discount codes (0020):** a one-time code takes 50% or 100% off the **whole** total, applied last (after SADC, last-minute and the supplement), with the discounted total floored to the rand; the deposit split is then worked out on the discounted total. Check: R44,520 at 50% = R22,260; at 100% = R0, confirmed without payment. `computeQuote({ ..., discountPercent })`; security rules in §11.11.
 - **SADC proof:** a guest counted as SADC who cannot show ID or a passport at registration pays a **50% premium** (`SADC_PREMIUM_PCT`; briefly 100% on 24 September, back to 50% on 25 September 2026), on both products. Stated in the widget tick, the booking terms and the FAQ; never computed.
 - **Disclosure:** the SADC discount is now shown openly in the widget, the rates table, the rates page's "How booking works" and the FAQ. The home page, the pricing explainer, meta, JSON-LD and `llms.txt` stay international-only.
 - **Where it lives:** `data/rates.ts` (constants, `roomsFor`, `isValidRoomMix`, `defaultSingleRooms`, `singleSupplementFor`), `lib/pricing.ts` (`computeQuote`, `supplementCentsFor`, `windowMonthsFor(catering, sadcCount)`), `actions/index.ts` (`createCheckout`), migration 0017 (CHECK, slot guard with `RW_ROOMS_FULL`, window guard, `departure_inventory.rooms_taken`). `verify-pricing`, `verify-minimums`, `verify-window`, `verify-inventory`, `verify-surfaces` and `verify-calendar-states` police it; the SQL harnesses test the triggers on a live database.

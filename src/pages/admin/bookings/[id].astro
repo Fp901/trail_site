@@ -101,11 +101,16 @@ const bookingRows: [string, string][] = booking
       ['Lead guest', booking.lead_name],
       ['Lead email', booking.lead_email],
       ['Lead phone', booking.lead_phone ?? '—'],
+      ...(booking.discount_percent > 0
+        ? ([['Discount code', `${booking.discount_percent}% off (${fmtMoney(booking.discount_cents)})`]] as Array<[string, string]>)
+        : []),
       ['Total', fmtMoney(booking.total_cents)],
       [
         'Payment plan',
         booking.processor === 'comp'
           ? 'Complimentary (no payment)'
+          : booking.processor === 'code'
+            ? 'Covered by discount code (no payment)'
           : booking.payment_plan === 'deposit_balance'
             ? 'Deposit + balance'
             : 'Full payment',
@@ -155,7 +160,8 @@ const canEdit = !!booking && booking.status !== 'cancelled';
 const canCancel = !!booking && (booking.status === 'pending' || booking.status === 'confirmed');
 const canMove = canCancel;
 const isConfirmed = !!booking && booking.status === 'confirmed';
-const isComp = !!booking && booking.processor === 'comp';
+// No receipt for bookings with no payment: comps, and bookings fully covered by a discount code.
+const isComp = !!booking && (booking.processor === 'comp' || booking.processor === 'code');
 const hasOpenBalance =
   isConfirmed &&
   booking!.payment_plan === 'deposit_balance' &&

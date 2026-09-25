@@ -32,6 +32,7 @@ import {
   PAYMENT_PLANS,
   PRETRIP_DETAIL_COLUMNS,
   RATE_LIMIT_COLUMNS,
+  DISCOUNT_CODE_COLUMNS,
   RESIDENCIES,
 } from '../src/lib/db.types.ts';
 
@@ -126,6 +127,7 @@ const tableTuples = {
   payment_events: PAYMENT_EVENT_COLUMNS,
   admin_audit: ADMIN_AUDIT_COLUMNS,
   rate_limits: RATE_LIMIT_COLUMNS,
+  discount_codes: DISCOUNT_CODE_COLUMNS,
 };
 
 for (const [table, tuple] of Object.entries(tableTuples)) {
@@ -144,7 +146,7 @@ for (const [table, tuple] of Object.entries(tableTuples)) {
   );
 }
 
-assert('bookings carries exactly 40 columns', BOOKING_COLUMNS.length === 40);
+assert('bookings carries exactly 43 columns', BOOKING_COLUMNS.length === 43);
 assert('no column is listed twice in any tuple', Object.values(tableTuples).every((t) => new Set(t).size === t.length));
 // The columns 0013 added are the ones the dashboard was blind to; pin them explicitly.
 assert('booking_type and catering (0013) are modelled', BOOKING_COLUMNS.includes('booking_type') && BOOKING_COLUMNS.includes('catering'));

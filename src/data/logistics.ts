@@ -39,8 +39,8 @@ export const logisticsBlocks: LogBlock[] = [
   {
     id: 'safety',
     kicker: 'Safety',
-    title: 'Two trail guides, the whole way',
-    body: 'Two experienced trail guides are with you at all times. This is the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. The reserve is also 100% malaria-free.',
+    title: 'Two FGASA qualified trail guides, the whole way',
+    body: 'Two experienced, FGASA qualified trail guides are with you at all times. This is the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. The reserve is also 100% malaria-free.',
     emphasis: true,
   },
   {
@@ -76,7 +76,7 @@ const sadcCountryList = `${sadcCountryNames.slice(0, -1).join(', ')} and ${sadcC
 export const faqs: Faq[] = [
   {
     q: 'Is this a slackpacking trail?',
-    a: 'Yes. Your luggage moves ahead to the next lodge each day, so you walk with a daypack. Rooiberg Wander is all-inclusive: every meal, both trail guides and all conservation levies are part of the rate, and you sleep in established private safari lodges.',
+    a: 'Yes. Your luggage moves ahead to the next lodge each day, so you walk with a daypack. Rooiberg Wander is all-inclusive: every meal, both FGASA qualified trail guides and all conservation levies are part of the rate, and you sleep in established private safari lodges.',
   },
   {
     q: 'What are the conservation levies?',
@@ -105,7 +105,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'Is a walking safari in a Big 5 reserve safe?',
-    a: 'Yes. Two qualified trail guides are with you at all times under the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. Walking in Big 5 territory carries risk, but your two guides are trained to read the terrain and animal behaviour, and will adjust your route and pace throughout the walk.',
+    a: 'Yes. Two FGASA qualified trail guides are with you at all times under the Two-Man Rule, the standard for tracking on foot in a Big 5 reserve. Walking in Big 5 territory carries risk, but your two guides are trained to read the terrain and animal behaviour, and will adjust your route and pace throughout the walk.',
   },
   {
     q: 'Who carries the luggage and food?',
@@ -117,7 +117,7 @@ export const faqs: Faq[] = [
   },
   {
     q: 'How big is the group?',
-    a: `Up to ${MAX_GROUP_SIZE} guests in ${ROOMS_PER_DEPARTURE} double rooms, with two trail guides. You only share a room with your own group, and each guest in their own room pays a ${SINGLE_SUPPLEMENT_PCT}% single supplement. Every booking is for two guests or more: the first on a date opens it, and later bookings join while rooms last. Take all ${ROOMS_PER_DEPARTURE} rooms and the trail and each lodge are reserved for your group alone.`,
+    a: `Up to ${MAX_GROUP_SIZE} guests in ${ROOMS_PER_DEPARTURE} double rooms, with two FGASA qualified trail guides. You only share a room with your own group, and each guest in their own room pays a ${SINGLE_SUPPLEMENT_PCT}% single supplement. Every booking is for two guests or more: the first on a date opens it, and later bookings join while rooms last. Take all ${ROOMS_PER_DEPARTURE} rooms and the trail and each lodge are reserved for your group alone.`,
   },
   {
     id: 'minimum-age',

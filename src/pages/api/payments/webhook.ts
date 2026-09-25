@@ -13,6 +13,7 @@ import {
 } from '../../../lib/email';
 import { sendBalancePaymentLink } from '../../../lib/balance';
 import { recordPaymentEvent } from '../../../lib/audit';
+import { redeemCode } from '../../../lib/discounts';
 import { site } from '../../../data/site';
 
 // 45-day lead: the balance link is sent this far before start_date (mirrors pricing.BALANCE_LEAD_DAYS).
@@ -22,7 +23,8 @@ const MS_PER_DAY = 86_400_000;
 // Columns needed for both the deposit (first payment) and balance (second payment) branches.
 const BOOKING_COLS =
   'id, status, amount_due_cents, total_cents, lead_email, lead_name, start_date, pretrip_token, ' +
-  'group_size, single_rooms, sadc_count, booking_type, catering, residency, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at';
+  'group_size, single_rooms, sadc_count, booking_type, catering, residency, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at, ' +
+  'discount_code_id, discount_percent, discount_cents';
 
 export const prerender = false;
 
@@ -262,6 +264,9 @@ export const POST: APIRoute = async ({ request }) => {
       .eq('id', booking.id)
       .eq('status', 'pending');
 
+    // A discount code reserved for this booking is now used for good (migration 0020).
+    if (booking.discount_code_id) await redeemCode(booking.discount_code_id, booking.id);
+
     await recordPaymentEvent({
       eventType: 'confirmed',
       bookingId: booking.id,
@@ -306,6 +311,7 @@ export const POST: APIRoute = async ({ request }) => {
         residency: booking.residency ?? undefined,
         singleRooms: booking.single_rooms,
         sadcCount: booking.sadc_count,
+        discountPercent: booking.discount_percent,
       });
     } catch (err) {
       console.error('[webhook] guest confirmation email failed', err);
@@ -326,6 +332,8 @@ export const POST: APIRoute = async ({ request }) => {
         paymentPlan: booking.payment_plan,
         totalCents: booking.total_cents,
         depositCents: booking.deposit_paid_cents,
+        discountPercent: booking.discount_percent,
+        discountCents: booking.discount_cents,
       });
     } catch (err) {
       console.error('[webhook] operator notification email failed', err);

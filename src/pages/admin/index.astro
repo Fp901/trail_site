@@ -50,6 +50,7 @@ const LIST_COLS = [
   'hold_expires_at',
   'processor',
   'booking_type',
+  'discount_percent',
 ] as const satisfies readonly (keyof BookingRow)[];
 
 type Row = Pick<BookingRow, (typeof LIST_COLS)[number]>;
@@ -260,6 +261,7 @@ const filterHref = (s: StatusFilter) => {
                   <td data-label="Status">
                     <span class:list={['admin-badge', `admin-badge--${r.status}`]}>{r.status}</span>
                     {r.processor === 'comp' && <span class="admin-badge admin-badge--comp">comp</span>}
+                    {r.discount_percent > 0 && <span class="admin-badge admin-badge--comp">code {r.discount_percent}%</span>}
                     {r.booking_type === 'shared' && <span class="admin-badge admin-badge--shared">shared</span>}
                   </td>
                   <td data-label="Group">{r.group_size}</td>

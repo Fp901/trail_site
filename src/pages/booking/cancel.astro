@@ -18,6 +18,7 @@ import Section from '../../components/Section.astro';
 import { getSupabaseAdmin } from '../../lib/supabase';
 import { site } from '../../data/site';
 import { rateLimit, clientIp } from '../../lib/ratelimit';
+import { releaseCode } from '../../lib/discounts';
 
 export const prerender = false;
 
@@ -44,11 +45,13 @@ if (reference && withinLimit) {
       .update({ status: 'cancelled', hold_expires_at: null })
       .eq('processor_reference', reference)
       .eq('status', 'pending')
-      .select('id')
+      .select('id, discount_code_id')
       .maybeSingle();
 
     if (updated) {
       outcome = 'cancelled';
+      // Give back a discount code this checkout had reserved, so the guest can use it again.
+      if (updated.discount_code_id) await releaseCode(updated.discount_code_id);
     } else {
       // Not a pending original booking — either it's a balance reference, or the row is in some
       // other state (already cancelled, already confirmed by the webhook in the meantime). Look

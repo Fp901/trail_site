@@ -29,6 +29,7 @@ import { payments } from '../lib/payments';
 import {
   sendInquiryNotification,
   sendBookingConfirmation,
+  sendBookingOperatorNotification,
   sendPretripReminder,
   sendBalancePaidConfirmation,
   sendPaymentReceipt,
@@ -39,6 +40,17 @@ import {
 } from '../lib/email';
 import { sendBalancePaymentLink } from '../lib/balance';
 import { rateLimit, clientIp } from '../lib/ratelimit';
+import {
+  CODE_REJECTED_MESSAGE,
+  CODE_RATE_LIMITED_MESSAGE,
+  codeAttemptAllowed,
+  hashIfWellFormed,
+  previewCode,
+  reserveCode,
+  attachCode,
+  releaseCode,
+  redeemCode,
+} from '../lib/discounts';
 import { signInAdmin, signOutAdmin } from '../lib/auth';
 import { requireAdmin, recordAdminEvent } from '../lib/admin';
 import { recordPaymentEvent } from '../lib/audit';
@@ -76,6 +88,8 @@ export const server = {
       leadName: z.string().trim().min(2, 'Please enter your full name.').max(120),
       leadEmail: z.string().trim().email('Please enter a valid email address.').max(180),
       leadPhone: z.string().trim().min(7, 'Please enter a mobile number.').max(40),
+      // A one-time discount code, as typed. The CODE only: the server looks up its percentage.
+      discountCode: z.string().trim().max(40).optional(),
       company: z.string().max(0).optional(), // honeypot — must be empty
     }),
     handler: async (input, ctx) => {
@@ -92,6 +106,17 @@ export const server = {
       }
 
       if (input.company) throw new ActionError({ code: 'BAD_REQUEST', message: 'Invalid submission.' });
+
+      // Discount code, first pass: the shared code-attempt limit, then a shape check. Nothing is
+      // claimed yet (that happens just before the insert, once every other check has passed).
+      let codeHash: string | null = null;
+      if (input.discountCode) {
+        if (!(await codeAttemptAllowed(ip))) {
+          throw new ActionError({ code: 'TOO_MANY_REQUESTS', message: CODE_RATE_LIMITED_MESSAGE });
+        }
+        codeHash = hashIfWellFormed(input.discountCode);
+        if (!codeHash) throw new ActionError({ code: 'BAD_REQUEST', message: CODE_REJECTED_MESSAGE });
+      }
 
       const supabase = getSupabaseAdmin();
       const now = new Date().toISOString();
@@ -216,14 +241,15 @@ export const server = {
       // the split-payment rule: a trip 45+ days out pays a 50% deposit now + 50% balance later;
       // inside 45 days pays in full. Exclusivity (all 4 rooms) is derived here for the insert and
       // again, authoritatively, by the DB trigger.
-      const quote = computeQuote({
+      const quoteInput = {
         catering: input.catering,
         groupSize: input.groupSize,
         singleRooms: input.singleRooms,
         sadcCount: input.sadcCount,
         roomsTaken,
         startDate: input.startDate,
-      });
+      };
+      let quote = computeQuote(quoteInput);
       const bookingType = quote.bookingType;
 
       // One active booking per email. Blocks confirmed bookings (any date) and live pending holds
@@ -262,9 +288,25 @@ export const server = {
       const leadPhone = input.leadPhone.trim();
 
       const holdMinutes = Number(import.meta.env.HOLD_MINUTES ?? 30);
-      const reference = `rw_${crypto.randomUUID()}`;
+      const holdExpiresAt = new Date(Date.now() + holdMinutes * 60_000);
       const startDate = input.startDate;
       const endDate = addDays(startDate, 3);
+
+      // Discount code, second pass: claim it atomically (reserve_discount_code, migration 0020)
+      // and reprice with the percentage from ITS row. From here on, every failure path gives the
+      // code back. A code that takes the total to R0 skips Paystack: the booking is confirmed
+      // now, as processor 'code' (NOT 'comp', so the taper and booking windows still apply).
+      let code: { id: string; percent: 50 | 100 } | null = null;
+      if (codeHash) {
+        const reserved = await reserveCode(codeHash, holdExpiresAt);
+        if (!reserved || reserved.percent === 0) {
+          throw new ActionError({ code: 'BAD_REQUEST', message: CODE_REJECTED_MESSAGE });
+        }
+        code = { id: reserved.id, percent: reserved.percent };
+        quote = computeQuote({ ...quoteInput, discountPercent: code.percent });
+      }
+      const isFree = !!code && quote.totalCents === 0;
+      const reference = isFree ? `free_${crypto.randomUUID()}` : `rw_${crypto.randomUUID()}`;
 
       // Insert pending booking. The DB slot-guard trigger serializes concurrent seat-grabs under
       // an advisory lock, caps each date at 8 seats, enforces the catering lock and DERIVES
@@ -287,19 +329,25 @@ export const server = {
           lead_name: leadName,
           lead_email: leadEmail,
           lead_phone: leadPhone,
-          status: 'pending',
+          status: isFree ? 'confirmed' : 'pending',
           total_cents: quote.totalCents,
           amount_due_cents: quote.amountDueCents,
           currency: quote.currency,
           payment_plan: quote.paymentPlan,
           deposit_paid_cents: quote.depositCents,
           balance_due_cents: quote.balanceCents,
-          processor: 'paystack',
+          discount_code_id: code?.id ?? null,
+          discount_percent: quote.discountPercent,
+          discount_cents: quote.discountCents,
+          ...(isFree
+            ? { processor: 'code', amount_paid_cents: 0, confirmed_at: now, hold_expires_at: null }
+            : { processor: 'paystack', hold_expires_at: holdExpiresAt.toISOString() }),
           processor_reference: reference,
-          hold_expires_at: new Date(Date.now() + holdMinutes * 60_000).toISOString(),
         })
-        .select('id')
+        .select('id, pretrip_token')
         .single();
+
+      if ((error || !data) && code) await releaseCode(code.id);
 
       if (error || !data) {
         // Friendly messages for the inventory guards; generic conflict otherwise.
@@ -362,6 +410,64 @@ export const server = {
       }
 
       const siteUrl = import.meta.env.PUBLIC_SITE_URL ?? site.url;
+
+      if (code) {
+        if (!isFree) {
+          // Linked for support; the webhook redeems it when the payment is confirmed.
+          await attachCode(code.id, data.id);
+        } else {
+          // Fully covered by the code: nothing to pay, so it is used now and the emails go now.
+          // Best-effort, like the webhook: a failed email must not undo a confirmed booking.
+          await redeemCode(code.id, data.id);
+          try {
+            await sendBookingConfirmation({
+              to: leadEmail,
+              leadName,
+              startDate,
+              pretripToken: data.pretrip_token,
+              paymentPlan: 'full',
+              bookingType: quote.bookingType,
+              catering: quote.catering,
+              residency: quote.residency,
+              singleRooms: quote.singleRooms,
+              sadcCount: quote.sadcCount,
+              discountPercent: quote.discountPercent,
+              freeByCode: true,
+            });
+          } catch (err) {
+            console.error('[checkout] free booking guest confirmation failed', (err as Error).message);
+          }
+          try {
+            await sendBookingOperatorNotification({
+              to: import.meta.env.BOOKINGS_NOTIFY_TO ?? site.notifyEmail,
+              leadName,
+              leadEmail,
+              startDate,
+              groupSize: input.groupSize,
+              bookingType: quote.bookingType,
+              catering: quote.catering,
+              residency: quote.residency,
+              singleRooms: quote.singleRooms,
+              sadcCount: quote.sadcCount,
+              bookingId: data.id,
+              paymentPlan: 'full',
+              totalCents: 0,
+              discountPercent: quote.discountPercent,
+              discountCents: quote.discountCents,
+            });
+          } catch (err) {
+            console.error('[checkout] free booking operator notification failed', (err as Error).message);
+            await recordPaymentEvent({
+              eventType: 'operator_notification_failed',
+              bookingId: data.id,
+              processorReference: reference,
+              detail: { error: (err as Error).message },
+            });
+          }
+          return { authorizationUrl: `${siteUrl}/booking/confirm?reference=${reference}`, reference };
+        }
+      }
+
       const init = await payments.initCheckout({
         email: leadEmail,
         amountCents: quote.amountDueCents,
@@ -371,6 +477,25 @@ export const server = {
       });
 
       return { authorizationUrl: init.authorizationUrl, reference };
+    },
+  }),
+
+  // Discount code preview for the booking widget. Read-only: tells the guest the code's percentage
+  // so the estimate can show it, but claims nothing (createCheckout does that). Shares the
+  // code-attempt limit with createCheckout (5/min, 20/day per IP), and every kind of failure
+  // returns the same answer, so it cannot be used to learn anything about the code space.
+  checkDiscountCode: defineAction({
+    accept: 'json',
+    input: z.object({ code: z.string().trim().max(40) }),
+    handler: async (input, ctx) => {
+      if (!(await codeAttemptAllowed(clientIp(ctx.request)))) {
+        throw new ActionError({ code: 'TOO_MANY_REQUESTS', message: CODE_RATE_LIMITED_MESSAGE });
+      }
+      const hash = hashIfWellFormed(input.code);
+      const percent = hash ? await previewCode(hash) : null;
+      return percent
+        ? { valid: true as const, percent }
+        : { valid: false as const, message: CODE_REJECTED_MESSAGE };
     },
   }),
 
@@ -827,7 +952,7 @@ export const server = {
       const { data: b } = await supabase
         .from('bookings')
         .select(
-          'id, status, lead_email, lead_name, start_date, pretrip_token, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at, total_cents, amount_paid_cents, group_size, confirmed_at, processor, booking_type, catering',
+          'id, status, lead_email, lead_name, start_date, pretrip_token, payment_plan, deposit_paid_cents, balance_due_cents, balance_due_date, balance_paid_at, total_cents, amount_paid_cents, group_size, confirmed_at, processor, booking_type, catering, discount_percent',
         )
         .eq('id', input.bookingId)
         .maybeSingle();
@@ -836,8 +961,14 @@ export const server = {
         throw new ActionError({ code: 'BAD_REQUEST', message: 'Emails can only be re-sent for confirmed bookings.' });
       }
       const isComp = b.processor === 'comp';
-      if (isComp && input.kind === 'receipt') {
-        throw new ActionError({ code: 'BAD_REQUEST', message: 'Complimentary bookings have no payment receipt (no payment was made).' });
+      const isFreeByCode = b.processor === 'code';
+      if ((isComp || isFreeByCode) && input.kind === 'receipt') {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: isComp
+            ? 'Complimentary bookings have no payment receipt (no payment was made).'
+            : 'This booking was fully covered by a discount code, so there is no payment receipt.',
+        });
       }
 
       try {
@@ -852,6 +983,8 @@ export const server = {
             balanceCents: b.balance_due_cents ?? undefined,
             balanceDueDate: b.balance_due_date,
             complimentary: isComp,
+            freeByCode: isFreeByCode,
+            discountPercent: b.discount_percent,
             bookingType: b.booking_type,
             catering: b.catering,
           });

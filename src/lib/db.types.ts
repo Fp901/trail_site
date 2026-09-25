@@ -69,7 +69,7 @@ export const PAYMENT_EVENT_TYPES = [
 ] as const;
 export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
 
-// ---- bookings (40 columns) --------------------------------------------------------------------
+// ---- bookings (43 columns) --------------------------------------------------------------------
 // 0001 base (18) + 0003 pretrip_token + 0004 three reminder guards (renamed by 0007)
 // + 0008 nine split-payment columns + 0010 lead_phone + 0013 booking_type & catering
 // + 0016 lead_country & residency_declared_at
@@ -124,6 +124,10 @@ export const BOOKING_COLUMNS = [
   'sadc_count',
   'age_confirmed_at',
   'rooms',
+  // 0020_discount_codes
+  'discount_code_id',
+  'discount_percent',
+  'discount_cents',
 ] as const;
 
 export interface BookingRow {
@@ -177,6 +181,10 @@ export interface BookingRow {
   age_confirmed_at: string | null;
   // 0017: GENERATED, single_rooms + (group_size - single_rooms) / 2. Never written.
   rooms: number;
+  // 0020: the one-time code this booking used, and what it took off (0 / 50 / 100 percent).
+  discount_code_id: string | null;
+  discount_percent: number;
+  discount_cents: number;
 }
 
 // ---- inquiries (9) ----------------------------------------------------------------------------
@@ -312,6 +320,41 @@ export interface AdminAuditRow {
   booking_id: string | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
+  note: string | null;
+}
+
+// ---- discount_codes (11) -----------------------------------------------------------------------
+// 0020. Only a SHA-256 hash of each code is stored; the plaintext exists once, in the output of
+// scripts/discount-codes.mjs. RLS on, no policies: server (service role) access only.
+
+export const DISCOUNT_CODE_STATUSES = ['available', 'reserved', 'redeemed', 'void'] as const;
+export type DiscountCodeStatus = (typeof DISCOUNT_CODE_STATUSES)[number];
+
+export const DISCOUNT_CODE_COLUMNS = [
+  'id',
+  'created_at',
+  'code_hash',
+  'code_hint',
+  'percent',
+  'status',
+  'booking_id',
+  'reserved_until',
+  'redeemed_at',
+  'expires_at',
+  'note',
+] as const;
+
+export interface DiscountCodeRow {
+  id: string;
+  created_at: string;
+  code_hash: string; // sha256 hex of the normalised code
+  code_hint: string; // last 4 characters, for support only
+  percent: 50 | 100;
+  status: DiscountCodeStatus;
+  booking_id: string | null;
+  reserved_until: string | null;
+  redeemed_at: string | null;
+  expires_at: string | null;
   note: string | null;
 }
 

@@ -219,6 +219,29 @@ assert('the default is 1 own room for an odd party, 0 for an even one', defaultS
   assert('the supplement is 40%', SINGLE_SUPPLEMENT_PCT === 40);
 }
 
+section('J. One-time discount codes (migration 0020)');
+{
+  const base = { catering: 'catered', groupSize: 3, singleRooms: 1, sadcCount: 2, startDate: HIGH_2027, now: NOW };
+  const half = computeQuote({ ...base, discountPercent: 50 });
+  assert('a 50% code halves R44,520 to R22,260, the whole total including the supplement',
+    rand(half.totalCents) === 22260 && rand(half.discountCents) === 22260 && rand(half.totalBeforeDiscountCents) === 44520);
+  assert('the deposit split is worked out on the discounted total',
+    half.paymentPlan === 'deposit_balance' && half.depositCents + half.balanceCents === half.totalCents &&
+    rand(half.depositCents) === 11130);
+  const free = computeQuote({ ...base, discountPercent: 100 });
+  assert('a 100% code makes the booking free, paid in full (nothing to split)',
+    free.totalCents === 0 && free.amountDueCents === 0 && free.paymentPlan === 'full' && rand(free.discountCents) === 44520);
+  const none = computeQuote(base);
+  assert('no code: no discount, the total is unchanged',
+    none.discountPercent === 0 && none.discountCents === 0 && none.totalCents === none.totalBeforeDiscountCents);
+  // An odd-rand total: the discounted total floors to the whole rand (the guest's favour).
+  const odd = computeQuote({ catering: 'catered', groupSize: 1, singleRooms: 1, sadcCount: 1, startDate: HIGH_2027, now: NOW });
+  const oddHalf = computeQuote({ catering: 'catered', groupSize: 1, singleRooms: 1, sadcCount: 1, startDate: HIGH_2027, now: NOW, discountPercent: 50 });
+  assert('50% of an odd total floors to the whole rand, and the parts still reconcile',
+    oddHalf.totalCents === Math.floor(odd.totalCents / 2 / 100) * 100 &&
+    oddHalf.totalCents % 100 === 0 && oddHalf.totalCents + oddHalf.discountCents === odd.totalCents);
+}
+
 section('I. Constants match the memo');
 assert('base rates are R15,900 catered and R4,950 self-catered per person per trip',
   BASE_PP_TRIP.catered === 15900 && BASE_PP_TRIP.uncatered === 4950);

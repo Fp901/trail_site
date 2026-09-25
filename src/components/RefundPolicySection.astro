@@ -18,14 +18,17 @@ const clauses = clausesFor(catering);
         Cancellations &amp; refunds
       </h2>
       <ul class="policy-summary">
+        {/* Operator wording (25 September 2026); the day counts read from lib/pricing.ts. */}
         <li>
           Full payment is due {BALANCE_LEAD_DAYS} days before arrival: bookings made{' '}
-          {SPLIT_THRESHOLD_DAYS} or more days out pay a 50% deposit, with the balance due at the{' '}
-          {BALANCE_LEAD_DAYS}-day mark; inside {SPLIT_THRESHOLD_DAYS} days pays in full.
+          {SPLIT_THRESHOLD_DAYS} or more days out before arrival pay a 50% deposit, with the balance
+          due at the {BALANCE_LEAD_DAYS}-day mark; bookings made inside {SPLIT_THRESHOLD_DAYS} days:
+          full payment required.
         </li>
         <li>
-          Cancel {refundPolicy.tiers[0].window.toLowerCase()} for a{' '}
-          {refundPolicy.tiers[0].refund.charAt(0).toLowerCase() + refundPolicy.tiers[0].refund.slice(1)}.
+          Full refund, less a 5% administration fee, for cancellations made
+          {' '}{SPLIT_THRESHOLD_DAYS} or more days before arrival. No refund for cancellations within
+          {' '}{SPLIT_THRESHOLD_DAYS} days of arrival date.
         </li>
       </ul>
 

@@ -35,18 +35,24 @@ const withinLimit = reference
   ? await rateLimit(`confirm:min:${clientIp(Astro.request)}`, 20, 60)
   : true;
 
+// A booking fully covered by a 100% discount code (reference `free_<uuid>`) never went to
+// Paystack: createCheckout confirmed it itself. There is nothing to verify, so read the DB only.
+const isFreeByCode = !!reference && reference.startsWith('free_');
+
 if (reference && withinLimit) {
-  try {
-    const result = await payments.verifyTransaction(reference);
-    if (result.status !== 'success') {
-      // Payment was cancelled or abandoned inside Paystack — redirect to the cancel page which
-      // releases the hold immediately and shows a clear "no payment taken" message.
-      return Astro.redirect(`/booking/cancel?reference=${encodeURIComponent(reference)}`);
+  if (!isFreeByCode) {
+    try {
+      const result = await payments.verifyTransaction(reference);
+      if (result.status !== 'success') {
+        // Payment was cancelled or abandoned inside Paystack — redirect to the cancel page which
+        // releases the hold immediately and shows a clear "no payment taken" message.
+        return Astro.redirect(`/booking/cancel?reference=${encodeURIComponent(reference)}`);
+      }
+    } catch {
+      // Paystack's verify call itself failed (network/transient) — inconclusive, not a denial.
+      // Fall through to the DB check below; the webhook's own independent verification is what
+      // actually matters, and polling will pick up the true state either way.
     }
-  } catch {
-    // Paystack's verify call itself failed (network/transient) — inconclusive, not a denial.
-    // Fall through to the DB check below; the webhook's own independent verification is what
-    // actually matters, and polling will pick up the true state either way.
   }
 
   try {
@@ -106,11 +112,19 @@ const heading = state === 'confirmed' ? 'Your booking is confirmed' : 'Payment r
       <div data-confirm-body>
         {
           state === 'confirmed' ? (
-            <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
-              Thank you. Your payment was received and your exclusive booking is secured. A
-              confirmation email and receipt are on their way. We look forward to welcoming
-              your group to the Waterberg.
-            </p>
+            isFreeByCode ? (
+              <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+                Thank you. Your discount code covered the full amount, so no payment was needed,
+                and your booking is secured. A confirmation email is on its way. We look forward
+                to welcoming your group to the Waterberg.
+              </p>
+            ) : (
+              <p class="mt-6 font-body text-lg leading-relaxed text-charcoal">
+                Thank you. Your payment was received and your exclusive booking is secured. A
+                confirmation email and receipt are on their way. We look forward to welcoming
+                your group to the Waterberg.
+              </p>
+            )
           ) : (
             <p class="mt-6 font-body text-lg leading-relaxed text-charcoal" data-confirm-awaiting-text>
               Thank you. Your payment has been received. We're confirming it with the bank now;

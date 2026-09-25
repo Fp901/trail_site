@@ -315,7 +315,7 @@ export const SEASON_LOW_LABEL = 'Low season';
 // selected local wines and beers are IN and the old self-catering lines are gone.
 export const inclusions = [
   'A guided walk, with each safari lodge reserved for your group overnight',
-  'Two experienced trail guides throughout',
+  'Two experienced, FGASA qualified trail guides throughout',
   'All meals, with selected South African estate wines and local beers',
   'Daily transport of your baggage and provisions between lodges',
   'All reserve conservation levies, and VAT',
@@ -329,7 +329,7 @@ export const exclusions = [
 // The same two lists for the hidden self-catered product, where food and drink are the guest's.
 export const uncateredInclusions = [
   'A guided walk, with each safari lodge reserved for your group overnight',
-  'Two armed FGASA field guides throughout',
+  'Two armed, FGASA qualified field guides throughout',
   'Daily luggage and cooler-box portage between lodges',
   'Bedding, free ice, wood, cleaning staff and WiFi',
   'All reserve conservation levies, and VAT',

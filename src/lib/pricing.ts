@@ -230,6 +230,7 @@ export function bookingTypeFor(rooms: number, roomsTaken = 0): BookingType {
 }
 
 export type PaymentPlan = 'full' | 'deposit_balance';
+export type DiscountPercent = 0 | 50 | 100;
 
 export interface Quote {
   bookingType: BookingType;
@@ -242,7 +243,12 @@ export interface Quote {
   sadcCount: number;
   intlCount: number;
   rooms: number;
-  totalCents: number; // the full amount the customer owes, VAT and levies included
+  totalCents: number; // the full amount the customer owes, VAT and levies included, after any code
+  // One-time discount code (migration 0020). The percent comes from the code's DB row, never the
+  // browser. totalBeforeDiscountCents - discountCents == totalCents.
+  discountPercent: DiscountPercent;
+  discountCents: number;
+  totalBeforeDiscountCents: number;
   depositPercent: number;
   amountDueCents: number; // the FIRST charge: deposit (deposit_balance) or full total (full)
   currency: string;
@@ -277,6 +283,7 @@ export function computeQuote(input: {
   roomsTaken?: number;
   startDate?: string;
   now?: Date;
+  discountPercent?: DiscountPercent;
 }): Quote {
   const now = input.now ?? new Date();
   const { catering, groupSize } = input;
@@ -303,12 +310,20 @@ export function computeQuote(input: {
         : toCents(roundRateRand((intlPpCents / 100) * SINGLE_SUPPLEMENT_PCT / 100))
       : 0;
 
-  const totalCents = sadcCount * sadcPpCents + intlCount * intlPpCents + singleRooms * supplementCents;
+  const totalBeforeDiscountCents =
+    sadcCount * sadcPpCents + intlCount * intlPpCents + singleRooms * supplementCents;
+
+  // A discount code comes off the whole total, last. The discounted total is floored to the whole
+  // rand, so any rounding favours the guest; the discount is the exact remainder.
+  const discountPercent: DiscountPercent = input.discountPercent ?? 0;
+  const totalCents =
+    Math.floor((totalBeforeDiscountCents * (100 - discountPercent)) / 100 / 100) * 100;
+  const discountCents = totalBeforeDiscountCents - totalCents;
 
   // Split decision. Deposit is rounded; balance is the remainder so the two always reconcile to
   // totalCents exactly.
   const gapDays = input.startDate ? daysUntil(input.startDate, now) : 0;
-  const isSplit = !!input.startDate && gapDays >= SPLIT_THRESHOLD_DAYS;
+  const isSplit = !!input.startDate && gapDays >= SPLIT_THRESHOLD_DAYS && totalCents > 0;
   const depositCents = isSplit ? Math.round(totalCents * DEPOSIT_FRACTION) : totalCents;
   const balanceCents = isSplit ? totalCents - depositCents : 0;
   const paymentPlan: PaymentPlan = isSplit ? 'deposit_balance' : 'full';
@@ -325,6 +340,9 @@ export function computeQuote(input: {
     intlCount,
     rooms,
     totalCents,
+    discountPercent,
+    discountCents,
+    totalBeforeDiscountCents,
     depositPercent: totalCents > 0 ? Math.round((depositCents / totalCents) * 100) : 0,
     amountDueCents: depositCents,
     currency: CURRENCY,

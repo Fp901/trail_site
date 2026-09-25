@@ -174,7 +174,7 @@ const clientRates = {
               ))}
             </div>
             <p class="bstep__hint">
-              Eight is the most any departure takes: two guides to eight walkers.
+              Eight is the most any departure takes: two FGASA qualified guides to eight walkers.
             </p>
           <p class="bwalkers__solo">
             <button type="button" class="blink" data-solo-toggle aria-expanded="false" aria-controls="bf-solo-panel">
@@ -279,7 +279,7 @@ const clientRates = {
            to choose, so the values are fixed with the reason stated. */
         <div class="bstep__static">
           <p class="bstep__sub">
-            The self-catered option runs as a full group of {partyMin}: two guides to eight
+            The self-catered option runs as a full group of {partyMin}: two FGASA qualified guides to eight
             walkers, with the trail and each lodge reserved for your group.
           </p>
           <input type="hidden" name="groupSize" value={partyMin} />
@@ -487,6 +487,23 @@ const clientRates = {
           at booking. Choose a start date to see your exact amounts.
         </p>
         <p class="bform__vat">All rates include VAT at 15% and all reserve conservation levies.</p>
+
+        {/* One-time discount code. The browser sends the CODE only; the server looks up its
+            percentage, claims it and reprices (createCheckout). Apply is a preview that claims
+            nothing. Both calls share a strict per-IP limit, and every failure reads the same. */}
+        <details class="bform__countries bcode" data-code>
+          <summary>Have a discount code?</summary>
+          <div class="form-field bcode__field">
+            <label for="bf-code">Discount code</label>
+            <div class="bcode__row">
+              <input id="bf-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false"
+                maxlength="40" aria-describedby="bf-code-msg" data-code-input />
+              <button type="button" class="btn btn-secondary bcode__apply" data-code-apply>Apply</button>
+            </div>
+            <p class="bcode__msg" id="bf-code-msg" role="status" aria-live="polite" data-code-msg></p>
+            <button type="button" class="blink" data-code-remove hidden>Remove code</button>
+          </div>
+        </details>
       </div>
 
       <input id="bf-start" name="startDate" type="hidden" required />
@@ -771,6 +788,14 @@ const clientRates = {
       return Math.floor((ppTripCents(iso, 'international', withLastMinute) / 100) * R.supplementPct / 100) * 100;
     }
 
+    // Discount code state. codePercent is the preview's answer, for the estimate only: the server
+    // never reads it. appliedCode is what is sent, and only once Apply has accepted it.
+    let codePercent: 0 | 50 | 100 = 0;
+    let appliedCode = '';
+    function discounted(totalCents: number): number {
+      return Math.floor((totalCents * (100 - codePercent)) / 100 / 100) * 100;
+    }
+
     // The booking's price lines for one date, all counts read from step 1. `before` is the same
     // total without the last-minute reduction, so that reduction can be shown as its own line.
     interface Priced {
@@ -991,7 +1016,7 @@ const clientRates = {
     // date preview AND the review step, so the figure a guest reads before choosing a date and the
     // one they pay from are one computation. Each line reads "count x rate" at the date's rate
     // before the last-minute reduction; that reduction is its own named line.
-    function priceRows(iso: string, n: number): HTMLElement[] {
+    function priceRows(iso: string, n: number, withCode = false): HTMLElement[] {
       const rows: HTMLElement[] = [];
       const p = priceFor(iso);
       // Only the hidden page's mount says "self-catered"; the public mount never names it.
@@ -1014,7 +1039,13 @@ const clientRates = {
           `Last-minute, ${Math.round(R.lastMinuteDiscount * 100)}% less`,
           `- ${fmtR(p.before - p.total)}`, 'credit'));
       }
-      rows.push(previewRow(`Total, ${n} ${n === 1 ? 'walker' : 'walkers'}`, fmtR(p.total), 'total'));
+      // A discount code applies on the review step only (withCode), to the whole total, floored
+      // to the rand in the guest's favour: the same rule as computeQuote.
+      const pct = withCode ? codePercent : 0;
+      if (pct > 0) {
+        rows.push(previewRow(`Discount code (${pct}% off)`, `- ${fmtR(p.total - discounted(p.total))}`, 'credit'));
+      }
+      rows.push(previewRow(`Total, ${n} ${n === 1 ? 'walker' : 'walkers'}`, fmtR(pct > 0 ? discounted(p.total) : p.total), 'total'));
       return rows;
     }
 
@@ -1171,14 +1202,23 @@ const clientRates = {
         return;
       }
 
-      const totalCents = priceFor(selectedStartIso).total;
+      const totalCents = discounted(priceFor(selectedStartIso).total);
 
       // Never one unexplained figure: the same priceRows() the date card uses.
       if (breakdownEl) {
-        for (const row of priceRows(selectedStartIso, n)) breakdownEl.appendChild(row);
+        for (const row of priceRows(selectedStartIso, n, true)) breakdownEl.appendChild(row);
       }
       if (lastMinuteNote) lastMinuteNote.hidden = !withinLastMinuteWindow(selectedStartIso);
       if (estimate) estimate.textContent = fmtR(totalCents);
+
+      // Fully covered by a code: nothing to pay, so no checkout step (createCheckout confirms it).
+      if (totalCents === 0) {
+        if (paymentLabel) paymentLabel.textContent = 'To pay:';
+        if (balanceNote) balanceNote.hidden = true;
+        if (depositHint) depositHint.hidden = true;
+        if (submit) submit.textContent = 'Confirm booking';
+        return;
+      }
 
       const isDeposit = daysBetween(todayIso, selectedStartIso) >= R.splitDays;
       const depositCents = isDeposit ? Math.round(totalCents / 2) : totalCents;
@@ -1924,17 +1964,24 @@ const clientRates = {
         leadEmail: String(fd.get('leadEmail') ?? ''),
         leadPhone: String(fd.get('leadPhone') ?? ''),
         company: (fd.get('company') as string) || undefined,
+        // The code only, never its percentage: the server looks that up and reprices.
+        discountCode: appliedCode || undefined,
       };
 
       if (submit) {
         submit.disabled = true;
-        submit.textContent = 'Taking you to checkout…';
+        submit.textContent = submit.textContent === 'Confirm booking' ? 'Confirming your booking…' : 'Taking you to checkout…';
       }
 
       const { data, error } = await actions.createCheckout(payload);
 
       if (error) {
         setStatus(error.message || 'Something went wrong. Please try again.');
+        // The code was refused at checkout (used in the meantime, or the limit was hit): drop it
+        // so the estimate is honest again, and say so beside the field too.
+        if (appliedCode && / code/.test(error.message ?? '')) {
+          clearCode(error.message);
+        }
         // The duplicate-booking conflict for a live pending hold offers a resume path — kept in
         // sync with the exact message actions/index.ts throws for that case.
         if (resumeBtn && error.message?.includes('waiting for payment')) resumeBtn.hidden = false;
@@ -1948,9 +1995,79 @@ const clientRates = {
       }
       if (data?.authorizationUrl) {
         // Store the reference so on back-navigation we can offer to resume the same booking.
-        sessionStorage.setItem(PENDING_KEY, data.reference ?? '');
+        // A booking fully covered by a code is already confirmed: nothing to resume.
+        if (!data.reference?.startsWith('free_')) sessionStorage.setItem(PENDING_KEY, data.reference ?? '');
         window.location.href = data.authorizationUrl;
       }
+    });
+
+    // ---- Discount code ------------------------------------------------------------------------
+    const codeInput = form.querySelector<HTMLInputElement>('[data-code-input]');
+    const codeApply = form.querySelector<HTMLButtonElement>('[data-code-apply]');
+    const codeMsg = form.querySelector<HTMLElement>('[data-code-msg]');
+    const codeRemove = form.querySelector<HTMLButtonElement>('[data-code-remove]');
+
+    function clearCode(message = '') {
+      codePercent = 0;
+      appliedCode = '';
+      if (codeInput) codeInput.readOnly = false;
+      if (codeApply) codeApply.hidden = false;
+      if (codeRemove) codeRemove.hidden = true;
+      if (codeMsg) {
+        codeMsg.textContent = message;
+        codeMsg.dataset.kind = message ? 'error' : '';
+      }
+      updateEstimate();
+    }
+
+    async function applyCode() {
+      if (!codeInput || !codeApply || !codeMsg) return;
+      const raw = codeInput.value.trim();
+      if (!raw) {
+        codeMsg.textContent = 'Please enter your code.';
+        codeMsg.dataset.kind = 'error';
+        return;
+      }
+      codeApply.disabled = true;
+      codeMsg.textContent = 'Checking…';
+      codeMsg.dataset.kind = '';
+      const { data, error } = await actions.checkDiscountCode({ code: raw });
+      codeApply.disabled = false;
+      if (error || !data?.valid) {
+        codePercent = 0;
+        appliedCode = '';
+        codeMsg.textContent = error?.message || data?.message || "That code isn't valid or has already been used.";
+        codeMsg.dataset.kind = 'error';
+        updateEstimate();
+        return;
+      }
+      codePercent = data.percent;
+      appliedCode = raw;
+      codeInput.readOnly = true;
+      codeApply.hidden = true;
+      if (codeRemove) codeRemove.hidden = false;
+      codeMsg.textContent =
+        data.percent === 100
+          ? 'Code applied: 100% off. There is nothing to pay.'
+          : `Code applied: ${data.percent}% off your total.`;
+      codeMsg.dataset.kind = 'success';
+      updateEstimate();
+    }
+
+    codeApply?.addEventListener('click', () => void applyCode());
+    // Enter in the code field applies the code; it must not submit the whole booking.
+    codeInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!appliedCode) void applyCode();
+      }
+    });
+    codeRemove?.addEventListener('click', () => {
+      if (codeInput) {
+        codeInput.value = '';
+        codeInput.focus();
+      }
+      clearCode();
     });
 
     resumeBtn?.addEventListener('click', async () => {

@@ -1928,6 +1928,44 @@
     margin-top: 0.25rem;
     line-height: 1.6;
   }
+  /* Discount code (step 4): the disclosure reuses .bform__countries; field and button on one row. */
+  .bcode {
+    margin-top: 1rem;
+  }
+  .bcode__field {
+    margin-top: 0.5rem;
+  }
+  .bcode__row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  .bcode__row input {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .bcode__row input[readonly] {
+    background-color: var(--color-cream);
+  }
+  .bcode__apply {
+    flex: 0 0 auto;
+    min-height: 2.75rem;
+  }
+  .bcode__msg {
+    margin-top: 0.4rem;
+    min-height: 1.25rem;
+    font-size: var(--text-sm);
+    color: var(--color-charcoal);
+  }
+  .bcode__msg[data-kind='error'] {
+    color: var(--color-error);
+  }
+  .bcode__msg[data-kind='success'] {
+    color: var(--color-green);
+    font-weight: 600;
+  }
   .bwalkers__solo {
     margin-top: 0.75rem;
   }

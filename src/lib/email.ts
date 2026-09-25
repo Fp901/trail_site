@@ -265,6 +265,9 @@ export async function sendBookingConfirmation(opts: {
   // 0017: guests in their own room, and guests counted as SADC residents.
   singleRooms?: number;
   sadcCount?: number;
+  // 0020: a one-time discount code. freeByCode: a 100% code, so no payment was taken.
+  discountPercent?: number;
+  freeByCode?: boolean;
 }): Promise<void> {
   const url = pretripUrl(opts.pretripToken);
   const tripInfo = tripInfoUrl(opts.pretripToken);
@@ -308,7 +311,19 @@ export async function sendBookingConfirmation(opts: {
       ...(sadcGuests(opts) > 0
         ? ([['SADC resident rate', `${sadcGuests(opts)} ${sadcGuests(opts) === 1 ? 'guest' : 'guests'}`]] as Array<[string, string]>)
         : []),
-      ['Payment', opts.complimentary ? 'Complimentary' : isDeposit ? '50% deposit paid' : 'Paid in full'],
+      ...(opts.discountPercent
+        ? ([['Discount code', `${opts.discountPercent}% off`]] as Array<[string, string]>)
+        : []),
+      [
+        'Payment',
+        opts.complimentary
+          ? 'Complimentary'
+          : opts.freeByCode
+            ? 'Covered by discount code'
+            : isDeposit
+              ? '50% deposit paid'
+              : 'Paid in full',
+      ],
     ]) +
     paymentBlock +
     hr +
@@ -330,7 +345,7 @@ export async function sendBookingConfirmation(opts: {
     `<p style="margin:0 0 8px;font-size:17px;font-weight:700;color:#3D2B1F;font-family:Georgia,'Times New Roman',serif;">Your trip-info page</p>` +
     p('Your itinerary, packing list, and private gate coordinates are all on your personal trip-info page. Bookmark it for your drive up.') +
     `<p style="margin:0 0 24px;font-size:14px;"><a href="${tripInfo}" style="color:#4A5D23;word-break:break-all;">${tripInfo}</a></p>` +
-    (opts.complimentary ? '' : small('A receipt accompanies your payment confirmation from Paystack.'));
+    (opts.complimentary || opts.freeByCode ? '' : small('A receipt accompanies your payment confirmation from Paystack.'));
 
   await sendEmail({
     to: opts.to,
@@ -437,13 +452,22 @@ export async function sendBookingOperatorNotification(opts: {
   paymentPlan: string;
   totalCents: number;
   depositCents?: number;
+  // 0020: a one-time discount code (percent, and the last 4 characters for support).
+  discountPercent?: number;
+  discountCents?: number;
+  discountHint?: string | null;
 }): Promise<void> {
   const isDeposit = opts.paymentPlan === 'deposit_balance';
+  const freeByCode = opts.discountPercent === 100 && opts.totalCents === 0;
 
   const body =
     eyebrow('New booking') +
     h1('Booking confirmed.') +
-    p('A new booking has been confirmed and paid. The guest has been sent their confirmation email and pre-trip link.') +
+    p(
+      freeByCode
+        ? 'A new booking has been confirmed with a 100% discount code, so no payment was taken. The guest has been sent their confirmation email and pre-trip link.'
+        : 'A new booking has been confirmed and paid. The guest has been sent their confirmation email and pre-trip link.',
+    ) +
     infoTable([
       ['Guest', escapeHtml(opts.leadName)],
       ['Email', escapeHtml(opts.leadEmail)],
@@ -453,7 +477,20 @@ export async function sendBookingOperatorNotification(opts: {
       ['Product', opts.catering === 'catered' ? 'All-inclusive catered' : 'Self-catered slackpacking'],
       ['Own rooms', String(opts.singleRooms ?? 0)],
       ['SADC residents', String(sadcGuests(opts))],
-      ['Payment', isDeposit ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)` : `Paid in full: ${randFromCents(opts.totalCents)}`],
+      ...(opts.discountPercent
+        ? ([[
+            'Discount code',
+            `${opts.discountPercent}% off (${randFromCents(opts.discountCents ?? 0)})${opts.discountHint ? `, code ending ${escapeHtml(opts.discountHint)}` : ''}`,
+          ]] as Array<[string, string]>)
+        : []),
+      [
+        'Payment',
+        freeByCode
+          ? 'Covered by discount code'
+          : isDeposit
+            ? `Deposit paid: ${randFromCents(opts.depositCents ?? 0)} (50%)`
+            : `Paid in full: ${randFromCents(opts.totalCents)}`,
+      ],
       ['Plan', opts.paymentPlan],
       ['Booking ID', `<span style="font-family:monospace;font-size:12px;">${opts.bookingId}</span>`],
     ]);

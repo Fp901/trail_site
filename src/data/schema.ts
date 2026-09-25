@@ -99,7 +99,7 @@ export const touristTripSchema = {
   '@type': 'TouristTrip',
   name: site.name,
   description:
-    'A 3-night, 3-day all-inclusive point-to-point walking safari through 15,000 ha of malaria-free Big 5 mountain wilderness near Rooiberg, Limpopo (the Waterberg), about 2.5 hours from OR Tambo International Airport. Roughly 15 to 20 km a day between three private safari lodges, with luggage moved ahead each day; groups of 2 to 8 with two experienced trail guides at all times, all meals and conservation levies included. Perfect for families, friends or corporate groups.',
+    'A 3-night, 3-day all-inclusive point-to-point walking safari through 15,000 ha of malaria-free Big 5 mountain wilderness near Rooiberg, Limpopo (the Waterberg), about 2.5 hours from OR Tambo International Airport. Roughly 15 to 20 km a day between three private safari lodges, with luggage moved ahead each day; groups of 2 to 8 with two experienced, FGASA qualified trail guides at all times, all meals and conservation levies included. Perfect for families, friends or corporate groups.',
   touristType: ['Walking safari', 'Multi-day hiking trail', 'Point-to-point trail'],
   provider: { '@id': ORG_ID },
 };

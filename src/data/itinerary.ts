@@ -38,7 +38,7 @@ export const itinerary: ItineraryDay[] = [
     title: 'Arrival & Briefing',
     distanceKm: null,
     description:
-      'Arrive and register at Temminck\'s Lodge, the valley basecamp, from 13h00 onwards. Park in the shaded, secure on-site parking; your vehicles stay here for the whole trail. Your two experienced trail guides run a full safety and route briefing, then the afternoon is yours at the pool, with the evening around the fire.',
+      'Arrive and register at Temminck\'s Lodge, the valley basecamp, from 13h00 onwards. Park in the shaded, secure on-site parking; your vehicles stay here for the whole trail. Your two experienced, FGASA qualified trail guides run a full safety and route briefing, then the afternoon is yours at the pool, with the evening around the fire.',
   },
   {
     day: 2,
