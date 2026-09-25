@@ -81,6 +81,16 @@ export default defineConfig({
         !page.includes('/trip-info') &&
         !page.includes('/sadc-slackpacking') &&
         !page.includes('/admin'),
+      // List each page exactly as its canonical tag names it (Seo.astro: no trailing slash,
+      // except the home page). Both forms load, and a sitemap that lists the slash form while
+      // the page declares the other makes Search Console report every entry as "Alternate page
+      // with proper canonical" and index none of them from the sitemap.
+      serialize(item) {
+        const u = new URL(item.url);
+        if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.slice(0, -1);
+        item.url = u.href;
+        return item;
+      },
     }),
   ],
 
