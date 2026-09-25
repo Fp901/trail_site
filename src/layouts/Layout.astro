@@ -14,6 +14,11 @@ import WhatsAppButton from '../components/WhatsAppButton.astro';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/fraunces/full.css';
 import '../styles/global.css';
+// The two Latin font files every page renders with, preloaded so they start downloading with the
+// HTML instead of waiting for the stylesheet that names them (PageSpeed: "Network dependency
+// tree", fonts at the end of a ~900ms chain). Same files the @font-face rules above resolve to.
+import interLatin from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
+import frauncesLatin from '@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2?url';
 
 interface Props {
   title: string;
@@ -50,6 +55,8 @@ const {
     <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
     <link rel="alternate icon" href={withBase('/favicon.ico')} />
     <meta name="generator" content={Astro.generator} />
+    <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={frauncesLatin} as="font" type="font/woff2" crossorigin />
     <Seo
       title={title}
       description={description}

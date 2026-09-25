@@ -50,11 +50,12 @@
 
 ## Pages
 
-- Home: /
-- The Trail (day-by-day itinerary + route map): /the-trail
-- The Safari Lodges (Temminck's Lodge, Oukraal, Rustwood): /accommodation
-- Trail Logistics, Safety & FAQ (dining, safety, grading, malaria-free): /logistics
-- Rates & Booking (pricing, what's included, cancellation policy): /rates
+- [Home](https://rooibergwander.co.za/): what the Rooiberg Wander is, where it is, and how it works
+- [The Trail](https://rooibergwander.co.za/the-trail): the day-by-day itinerary and route map
+- [The Safari Lodges](https://rooibergwander.co.za/accommodation): Temminck's Lodge, Oukraal and Rustwood
+- [Trail Logistics, Safety & FAQ](https://rooibergwander.co.za/logistics): dining, safety, grading, malaria-free, and answers to common questions
+- [Rates & Booking](https://rooibergwander.co.za/rates): pricing, what is included, the cancellation policy, and online booking
+- [How pricing works](https://rooibergwander.co.za/how-pricing-works): a worked example of the rate, seasons and deposits
 
 ## Location
 

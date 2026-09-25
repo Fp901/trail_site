@@ -1,4 +1,5 @@
-// departure_inventory view contract (migration 0017, reshaped from 0015/0016) + its client.
+// departure_inventory view contract (migration 0019: invoker view over a private definer
+// function; shape from 0015-0017) + its client.
 // Run: npx tsx scripts/verify-inventory.mjs
 //
 // The view itself needs a live database (see the SQL harnesses), so this asserts the two things
@@ -15,7 +16,7 @@ function assert(label, cond) {
 }
 const section = (t) => console.log(`\n--- ${t} ${'-'.repeat(Math.max(0, 66 - t.length))}`);
 
-const sql = readFileSync(new URL('../supabase/migrations/0017_rooms_supplement_sadc_count.sql', import.meta.url), 'utf8');
+const sql = readFileSync(new URL('../supabase/migrations/0019_inventory_security_invoker.sql', import.meta.url), 'utf8');
 const widget = readFileSync(new URL('../src/components/BookingWidget.astro', import.meta.url), 'utf8');
 
 section('1. The view is DERIVED, not materialised');
@@ -39,7 +40,15 @@ assert('granted to anon + authenticated', /grant select on public\.departure_inv
 for (const pii of ['lead_name', 'lead_email', 'lead_phone', 'processor_reference', 'pretrip_token']) {
   assert(`does NOT expose ${pii}`, !new RegExp(`\\b${pii}\\b`).test(sql));
 }
-assert('carries the SECURITY DEFINER / contract comment for the linter', /comment on view public\.departure_inventory is/.test(sql));
+assert('carries the contract comment', /comment on view public\.departure_inventory is/.test(sql));
+assert('the public view is SECURITY INVOKER (clears the Supabase "Security Definer View" finding)',
+  /create view public\.departure_inventory\s+with \(security_invoker = on\)/.test(sql));
+assert('the owner-rights aggregate is a SECURITY DEFINER function in the unexposed private schema',
+  /create or replace function private\.departure_inventory_rows\(\)/.test(sql) && /security definer/.test(sql));
+assert('the definer function pins an empty search_path (no search_path hijack)', /set search_path = ''/.test(sql));
+assert('the function is not executable by PUBLIC, only anon + authenticated',
+  /revoke all on function private\.departure_inventory_rows\(\) from public;/.test(sql) &&
+  /grant execute on function private\.departure_inventory_rows\(\) to anon, authenticated;/.test(sql));
 assert('the comment documents the SPARSE contract', /SPARSE/.test(sql));
 
 section('4. The superseded views stay retired (dropped by 0015)');
@@ -73,7 +82,7 @@ assert('the "Recommended" ranking badge is gone', !/Recommended/.test(widget));
 
 console.log(
   failed === 0
-    ? '\nALL INVENTORY-CONTRACT CHECKS PASSED\n(View behaviour still needs a live DB — apply 0017 then run the SQL harnesses.)'
+    ? '\nALL INVENTORY-CONTRACT CHECKS PASSED\n(View behaviour still needs a live DB — apply 0019 then run the SQL harnesses.)'
     : `\n${failed} CHECK(S) FAILED`,
 );
 process.exit(failed === 0 ? 0 : 1);

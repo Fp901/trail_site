@@ -69,6 +69,13 @@ export default defineConfig({
   // Adapter = Vercel (swap to @astrojs/netlify in one line if preferred). Omitted for static.
   ...(isStatic ? {} : { adapter: vercel() }),
 
+  // Inline the site stylesheet into each page instead of a separate render-blocking request
+  // (PageSpeed: "Render-blocking requests", ~300ms on the 25 KB Section.css). The native CSP hashes
+  // inlined styles like any other, so no 'unsafe-inline' is needed.
+  build: {
+    inlineStylesheets: 'always',
+  },
+
   integrations: [
     sitemap({
       // Exclude transactional API + booking routes (Part 10.1), and the unlisted SADC page,
