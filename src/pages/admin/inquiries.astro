@@ -146,5 +146,5 @@ const openCount = inquiries.filter((i) => !i.handled_at).length;
     });
   }
 
-  document.addEventListener('astro:page-load', initInquiries);
+  initInquiries();
 </script>

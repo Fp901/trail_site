@@ -45,5 +45,5 @@ import DayCard from './DayCard.astro';
       cards.forEach((c) => c.classList.add('is-revealed'));
     }, 1200);
   }
-  document.addEventListener('astro:page-load', initTimelineReveal);
+  initTimelineReveal();
 </script>

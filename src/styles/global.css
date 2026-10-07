@@ -4973,6 +4973,16 @@
 }
 
 /* -----------------------------------------------------------------------------
+   Soft cross-fade between pages: a native cross-document view transition, no JS
+   and no CSP impact. Browsers without support simply navigate normally.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+/* -----------------------------------------------------------------------------
    Honour reduced-motion (Part 5.7). Near-instant, no parallax/scroll animation.
    -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {

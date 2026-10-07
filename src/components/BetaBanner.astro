@@ -33,5 +33,5 @@ const isBetaAtBuildTime = todaySast() < BOOKING_OPEN_DATE;
     if (notice) notice.hidden = !isBeta;
     if (disclosure) disclosure.open = isBeta;
   }
-  document.addEventListener('astro:page-load', initBetaNotice);
+  initBetaNotice();
 </script>

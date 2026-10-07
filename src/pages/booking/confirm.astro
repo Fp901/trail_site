@@ -223,5 +223,5 @@ const heading = state === 'confirmed' ? 'Your booking is confirmed' : 'Payment r
     window.setTimeout(poll, POLL_INTERVAL_MS);
   }
 
-  document.addEventListener('astro:page-load', initConfirmPoll);
+  initConfirmPoll();
 </script>

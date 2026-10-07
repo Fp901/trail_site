@@ -135,5 +135,5 @@ import WhatsAppIcon from './WhatsAppIcon.astro';
     closeEl.addEventListener('click', close);
     menuEl.querySelectorAll('a').forEach((a) => a.addEventListener('click', close));
   }
-  document.addEventListener('astro:page-load', initMobileMenu);
+  initMobileMenu();
 </script>

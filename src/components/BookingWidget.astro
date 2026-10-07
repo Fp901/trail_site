@@ -2096,12 +2096,12 @@ const clientRates = {
     void syncAvailability();
   }
 
-  document.addEventListener('astro:page-load', initBooking);
+  initBooking();
 
   // bfcache restore: the guest pressed back from the Paystack page. The browser thaws the frozen
-  // DOM (button still disabled) without firing astro:page-load, so re-enable the button and re-run
+  // DOM (button still disabled) without re-running this module, so re-enable the button and re-run
   // initBooking (which also re-checks the resume prompt). For full-reload back-navigation,
-  // astro:page-load fires instead and initBooking already handles it.
+  // the module runs afresh and initBooking already handles it.
   window.addEventListener('pageshow', (e) => {
     if (!(e as PageTransitionEvent).persisted) return;
     const form = document.getElementById('booking-form') as HTMLFormElement | null;

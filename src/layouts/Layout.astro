@@ -1,8 +1,7 @@
 ---
 // Base shell — Part 6 step 2. <html lang="en-ZA"> document, head meta, self-hosted
-// fonts + global tokens, View Transitions, skip-link, and the <main> content slot.
+// fonts + global tokens, skip-link, and the <main> content slot.
 // Nav (step 3) and Footer (step 5) slot into this layout in their build-order steps.
-import { ClientRouter } from 'astro:transitions';
 import { site, withBase } from '../data/site';
 import Seo from '../components/Seo.astro';
 import Nav from '../components/Nav.astro';
@@ -66,9 +65,10 @@ const {
       noindex={noindex}
       jsonLd={jsonLd}
     />
-    {/* NOTE (Part 11.2): native CSP is not yet fully compatible with <ClientRouter />.
-        Reconcile at step 13 (hash injected scripts or gate transitions where CSP flags). */}
-    <ClientRouter />
+    {/* No <ClientRouter /> (Part 11.2): each page's <meta> CSP only lists the hashes of its own
+        inlined <style>/<script>. A client-side swap keeps the FIRST page's CSP, so the next page's
+        styles and scripts were blocked until a refresh. Page fades come from the CSS cross-document
+        @view-transition rule in global.css instead, which needs no JS. */}
   </head>
   <body>
     <a href="#main" class="skip-link">Skip to content</a>
