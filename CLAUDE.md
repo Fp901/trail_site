@@ -712,7 +712,7 @@ See Part 14. The two that block work: the **VAT registration number** (turns rec
 
 ---
 
-## Part 18 — AI marketing team (milestone 1, October 2026)
+## Part 18: AI marketing team (milestone 1, October 2026)
 
 Seven saved Claude agents ("employees") draft marketing for the owner. **They never publish or send anything.** Every output is either a `pending` row in `marketing.drafts` or a note in their own memory, and a person approves, edits or rejects each draft at `/admin/marketing`.
 
@@ -737,5 +737,9 @@ Seven saved Claude agents ("employees") draft marketing for the owner. **They ne
 - **Memory.** One shared playbook store (only the Head of Marketing writes it) and one notebook store per employee, all Managed Agents memory stores seeded with the brand summary. Approve, edit and reject reasons from `/admin/marketing` land in `marketing.feedback` and the runner appends them to the Copywriter's notebook before each Copywriter run.
 - **Data.** Everything lives in the `marketing` schema, RLS on, nothing granted to `anon` or `authenticated`. Enquirers are contacted for marketing only if they ticked the unticked-by-default opt-in (`inquiries.marketing_opt_in`, enforced server-side in `createInquiry`).
 - **New dependencies (A06):** `@anthropic-ai/sdk` and `tsx` (dev only; used by the marketing scripts and GitHub Actions, never shipped to the browser).
+
+**Owner review.** `/admin/marketing` (admin auth) lists pending drafts with the Editor's verdict; approve, edit then approve, or reject, each with an optional reason (`adminDecideDraft`). A daily Vercel cron (`/api/cron/marketing-drafts`, `CRON_SECRET`) emails `ADMIN_EMAILS` the waiting count, never the draft text.
+
+**Setup (once).** Apply `0021_marketing.sql`; add `marketing` to Supabase Settings > API > Exposed schemas; set `MARKETING_TOOLS_TOKEN` in Vercel and GitHub secrets; run the workflow manually with job `sync` and `dry_run` unticked; review a week of dry-run output before setting `MARKETING_LIVE`.
 
 **Verification:** `npx tsx scripts/verify-marketing.mjs` (code rules unit cases, the 0021 schema against `db.types.ts`, the tool server's five tools and auth, the agents' models and caps, the workflow's dry-run default and schedules).

@@ -1,4 +1,4 @@
--- The Rooiberg Wander — AI marketing team, milestone 1 (October 2026, CLAUDE.md Part 18)
+-- The Rooiberg Wander: AI marketing team, milestone 1 (October 2026, CLAUDE.md Part 18)
 --
 -- WHY
 --   Seven Claude agents draft marketing for the owner. They never publish or send: every output
