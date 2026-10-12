@@ -1,0 +1,343 @@
+// The Rooiberg tool server's five tools (CLAUDE.md Part 18). The agents reach them over MCP through
+// src/pages/api/marketing/mcp.ts. Four are read-only; save_draft can only INSERT a pending draft.
+// There is deliberately no publish, post, email or send tool: a person approves every draft at
+// /admin/marketing, and nothing here can change a draft once it is saved.
+//
+// FACTS ARE NEVER MEMORISED. Every call reads src/data and the live departure_inventory view, so a
+// rate or itinerary change reaches the agents on their next call with nothing to re-teach. The
+// facts pack carries the international flagship only: no SADC rate, nothing self-catered, no
+// /sadc-slackpacking (Part 12, Part 17.1).
+import { z } from 'astro/zod';
+import { site, stats } from '../data/site';
+import { itinerary } from '../data/itinerary';
+import { sanctuaries } from '../data/sanctuaries';
+import { logisticsBlocks, faqs, faqAnswerText, seasons } from '../data/logistics';
+import {
+  rateRows,
+  formatRand,
+  FROM_PP_TRIP_DISPLAY,
+  SEASON_HIGH_DATES,
+  SINGLE_SUPPLEMENT_PCT,
+  MAX_GROUP_SIZE,
+  MIN_PARTY_CATERED,
+  ROOMS_PER_DEPARTURE,
+  BOOKING_OPEN_DISPLAY,
+  START_DAYS_DISPLAY,
+  TAPER_END_DISPLAY,
+  inclusions,
+  exclusions,
+} from '../data/rates';
+import { earliestBookableDate, latestBookableDate, todaySast } from './pricing';
+import { getSupabaseAdmin, getSupabaseAnon } from './supabase';
+import { checkDraft, describeViolations } from './brand-rules';
+import { rateLimit } from './ratelimit';
+import {
+  MARKETING_AUTHORS,
+  MARKETING_DRAFT_KINDS,
+  type DepartureInventoryRow,
+  type MarketingDraftRow,
+} from './db.types';
+
+export interface ToolResult {
+  text: string;
+  isError?: boolean;
+}
+
+const json = (value: unknown): ToolResult => ({ text: JSON.stringify(value, null, 2) });
+const fail = (text: string): ToolResult => ({ text, isError: true });
+
+// Anything that mentions the hidden product or the resident band never leaves this module.
+const PUBLIC_SAFE = (s: string) => !/\bSADC\b|self[\s-]?cater|sadc-slackpacking|uncatered/i.test(s);
+
+// ---- get_open_departures ------------------------------------------------------------------------
+// The view is SPARSE: a date absent from it has nobody booked yet. Marketing only ever promotes
+// dates that already carry a booking (a guaranteed departure), on the public catered product,
+// inside the bookable window, with at least one free room.
+export const departureLine = (taken: number, available: number) =>
+  `Guaranteed Departure: ${taken} of ${MAX_GROUP_SIZE} spots booked. ${available} spots available.`;
+
+async function getOpenDepartures(input: { limit: number }): Promise<ToolResult> {
+  const from = earliestBookableDate();
+  const to = latestBookableDate('catered', 0);
+  const { data, error } = await getSupabaseAnon()
+    .from('departure_inventory')
+    .select('start_date, seats_taken, seats_left, rooms_taken, locked_catering, is_blocked')
+    .gte('start_date', from)
+    .lte('start_date', to)
+    .order('start_date', { ascending: true });
+  if (error) return fail('Could not read departures right now.');
+
+  type Row = DepartureInventoryRow & { rooms_taken: number };
+  const departures = ((data ?? []) as Row[])
+    .filter((d) => !d.is_blocked && d.locked_catering === 'catered' && d.seats_taken > 0)
+    .map((d) => {
+      // Free rooms count as doubles, exactly as the booking widget states it.
+      const available = Math.min(2 * (ROOMS_PER_DEPARTURE - d.rooms_taken), d.seats_left);
+      return {
+        start_date: d.start_date,
+        spots_booked: d.seats_taken,
+        spots_available: available,
+        line: departureLine(d.seats_taken, available),
+      };
+    })
+    .filter((d) => d.spots_available >= MIN_PARTY_CATERED)
+    .slice(0, input.limit);
+
+  return json({
+    as_of: todaySast(),
+    bookable_from: from,
+    bookable_to: to,
+    note:
+      'Only dates that already carry a booking are listed. Quote each one with its exact `line`. ' +
+      'Every other start day in the window is open to book from 2 guests at ' +
+      `${site.canonicalUrl}/rates.`,
+    departures,
+  });
+}
+
+// ---- get_facts_pack -----------------------------------------------------------------------------
+function buildFactsPack() {
+  return {
+    as_of: todaySast(),
+    brand: {
+      name: site.name,
+      hook: site.hook,
+      description: site.defaultDescription,
+      website: site.canonicalUrl,
+      book_at: `${site.canonicalUrl}/rates`,
+      contact_email: site.contact.email,
+      social: site.social,
+    },
+    stats: stats.map((s) => `${s.value} ${s.label}`),
+    pricing: {
+      unit: 'Per person, sharing, for the whole 3-night trail. VAT and all conservation levies included. Never quote a per-night figure.',
+      from: FROM_PP_TRIP_DISPLAY,
+      rates: rateRows.map((r) => ({ year: r.year, high_season: formatRand(r.high), low_season: formatRand(r.low) })),
+      high_season_dates: SEASON_HIGH_DATES,
+      single_supplement: `A single supplement of ${SINGLE_SUPPLEMENT_PCT}% of the all-inclusive rate applies to a guest in their own room.`,
+      includes: inclusions,
+      excludes: exclusions,
+    },
+    booking: {
+      opens_online: BOOKING_OPEN_DISPLAY,
+      start_days: `${START_DAYS_DISPLAY}, until ${TAPER_END_DISPLAY}. Every day of the week after that.`,
+      party: `From ${MIN_PARTY_CATERED} guests. At most ${MAX_GROUP_SIZE} walkers per departure, in ${ROOMS_PER_DEPARTURE} double rooms.`,
+      exclusive: `A group that takes all ${ROOMS_PER_DEPARTURE} rooms has the trail and each lodge to itself.`,
+      joined_departure_line: departureLine(2, 6) + ' (example; always take the numbers from get_open_departures)',
+    },
+    itinerary: itinerary.map((d) => ({
+      day: d.day,
+      title: d.title,
+      distance_km: d.distanceKm,
+      walking: d.distanceKm !== null,
+      from: d.from ?? null,
+      to: d.to ?? null,
+      description: d.description,
+    })),
+    lodges: sanctuaries.map((s) => ({
+      name: s.name,
+      role: s.role,
+      description: s.description,
+      amenities: s.amenities.map((a) => a.label),
+    })),
+    logistics: logisticsBlocks.map((b) => ({
+      topic: b.kicker,
+      title: b.title,
+      text: Array.isArray(b.body) ? b.body.join(' ') : b.body,
+    })),
+    seasons: seasons.map((s) => ({ name: s.name, months: s.months, climate: s.climate, experience: s.experience })),
+    faqs: faqs
+      .filter((f) => f.id !== 'sadc-resident')
+      .map((f) => ({ q: f.q, a: faqAnswerText(f.a) }))
+      .filter((f) => PUBLIC_SAFE(f.q) && PUBLIC_SAFE(f.a)),
+    hard_rules: [
+      'No em-dashes or en-dashes.',
+      'No per-night price; quote only the rates above.',
+      'Only the all-inclusive trail and the rates above are public; anything else in your instructions stays unsaid.',
+      'Never use business-plan internals or named individuals from the plan.',
+      'Safety copy names the Two-Man Rule.',
+      "Lodges: Temminck's Lodge, Oukraal, Rustwood. Write barbeque, not braai.",
+      'Joined departures: the exact line from get_open_departures only.',
+    ],
+  };
+}
+
+// ---- get_photo_library --------------------------------------------------------------------------
+// Client photography with its published alt text, from data/sanctuaries.ts. Ids are stable slugs
+// built from the lodge's public name (never its internal id).
+export function photoLibrary() {
+  const slug = (s: string) => s.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const base = site.canonicalUrl.replace(/\/$/, '');
+  const photos: Array<{ id: string; lodge: string; alt: string; url: string }> = [];
+  for (const s of sanctuaries) {
+    const lodge = slug(s.name);
+    if (s.heroImage) photos.push({ id: `${lodge}-hero`, lodge: s.name, alt: s.alt, url: base + s.heroImage.src });
+    (s.gallery ?? []).forEach((p, i) =>
+      photos.push({ id: `${lodge}-gallery-${i + 1}`, lodge: s.name, alt: p.alt, url: base + p.image.src }),
+    );
+    (s.morePhotos ?? []).forEach((p, i) =>
+      photos.push({ id: `${lodge}-more-${i + 1}`, lodge: s.name, alt: p.alt, url: base + p.image.src }),
+    );
+  }
+  return photos;
+}
+
+// ---- get_results --------------------------------------------------------------------------------
+async function getResults(input: { days: number }): Promise<ToolResult> {
+  const since = new Date(Date.now() - input.days * 86_400_000).toISOString();
+  const db = getSupabaseAdmin().schema('marketing');
+  const [drafts, metrics, posts] = await Promise.all([
+    db.from('drafts').select('author, kind, status, editor_status, decision_reason').gte('created_at', since),
+    db.from('metrics').select('channel, metric, value').gte('measured_at', since).limit(2000),
+    db.from('posts').select('channel, published_at').gte('created_at', since),
+  ]);
+  if (drafts.error || metrics.error || posts.error) return fail('Could not read results right now.');
+
+  const count = <T,>(rows: T[], key: (r: T) => string) =>
+    rows.reduce<Record<string, number>>((acc, r) => ((acc[key(r)] = (acc[key(r)] ?? 0) + 1), acc), {});
+  type D = Pick<MarketingDraftRow, 'author' | 'kind' | 'status' | 'editor_status' | 'decision_reason'>;
+  const d = (drafts.data ?? []) as D[];
+  const totals: Record<string, number> = {};
+  for (const m of (metrics.data ?? []) as Array<{ channel: string; metric: string; value: number }>) {
+    const k = `${m.channel}.${m.metric}`;
+    totals[k] = (totals[k] ?? 0) + Number(m.value);
+  }
+
+  return json({
+    window_days: input.days,
+    drafts: {
+      total: d.length,
+      by_status: count(d, (r) => r.status),
+      by_author_and_status: count(d, (r) => `${r.author}:${r.status}`),
+      by_kind: count(d, (r) => r.kind),
+      editor_flagged: d.filter((r) => r.editor_status === 'flagged').length,
+      rejection_reasons: d
+        .filter((r) => r.status === 'rejected' && r.decision_reason)
+        .map((r) => r.decision_reason)
+        .slice(0, 20),
+    },
+    posts_published: (posts.data ?? []).filter((p) => p.published_at).length,
+    metrics: totals,
+    note: 'Publishing is not built yet, so posts and metrics stay empty until it is.',
+  });
+}
+
+// ---- save_draft ---------------------------------------------------------------------------------
+const PUBLIC_KINDS = MARKETING_DRAFT_KINDS.filter((k) => k !== 'weekly_report');
+
+async function saveDraft(input: z.infer<typeof saveDraftInput>): Promise<ToolResult> {
+  if (input.author === 'editor') return fail('The Editor reviews drafts; it does not save them.');
+  if (input.kind === 'weekly_report' && input.author !== 'analyst' && input.author !== 'head_of_marketing') {
+    return fail('Only the Analyst or the Head of Marketing saves a weekly_report.');
+  }
+  // A looping agent must not flood the owner's queue (fail-open limiter, Part 11).
+  if (!(await rateLimit('marketing:save_draft', 40, 3600))) {
+    return fail('Too many drafts saved in the last hour. Stop and leave the rest for the next run.');
+  }
+
+  const violations = checkDraft([input.title ?? '', input.body].join('\n'), input.kind);
+  if (violations.length) {
+    return fail(`Draft refused by the brand rules. Fix these and save again:\n${describeViolations(violations)}`);
+  }
+
+  const known = new Set(photoLibrary().map((p) => p.id));
+  const unknown = input.photo_ids.filter((id) => !known.has(id));
+  if (unknown.length) return fail(`Unknown photo ids: ${unknown.join(', ')}. Use ids from get_photo_library.`);
+
+  const { data, error } = await getSupabaseAdmin()
+    .schema('marketing')
+    .from('drafts')
+    .insert({
+      author: input.author,
+      kind: input.kind,
+      title: input.title ?? null,
+      body: input.body,
+      photo_ids: input.photo_ids,
+      departure_date: input.departure_date ?? null,
+      notes: input.notes ?? null,
+      status: 'pending',
+    })
+    .select('id')
+    .single();
+  if (error || !data) return fail('Could not save the draft right now.');
+  return json({ saved: true, id: data.id, status: 'pending', next: 'A person will approve, edit or reject it.' });
+}
+
+const saveDraftInput = z
+  .object({
+    author: z.enum(MARKETING_AUTHORS).describe('Your own employee key, e.g. "copywriter".'),
+    kind: z.enum(MARKETING_DRAFT_KINDS).describe(`One of: ${MARKETING_DRAFT_KINDS.join(', ')}. Public kinds: ${PUBLIC_KINDS.join(', ')}.`),
+    body: z.string().min(1).max(20000).describe('The full text of the post, caption, blog draft, reply or report.'),
+    title: z.string().max(200).optional().describe('Optional title (blog drafts and reports).'),
+    photo_ids: z.array(z.string().max(80)).max(10).default([]).describe('Photo ids from get_photo_library.'),
+    departure_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .describe('The start date (YYYY-MM-DD) when the draft promotes one departure.'),
+    notes: z.string().max(2000).optional().describe('Notes for the owner: sources, assumptions, missing facts.'),
+  })
+  .strict();
+
+// ---- The registry -------------------------------------------------------------------------------
+export const TOOLS = [
+  {
+    name: 'get_open_departures',
+    description:
+      'Guaranteed departures (dates that already carry a booking) on the public trail, each with the exact line to quote. Read-only.',
+    input: z.object({ limit: z.number().int().min(1).max(20).default(10) }).strict(),
+    run: getOpenDepartures,
+  },
+  {
+    name: 'get_facts_pack',
+    description:
+      'The current public facts: rates (per person, whole trail), itinerary, lodges, safety, logistics, seasons, FAQ and the hard rules. Read it fresh every run; never rely on memory for a fact. Read-only.',
+    input: z.object({}).strict(),
+    run: async () => json(buildFactsPack()),
+  },
+  {
+    name: 'get_photo_library',
+    description: 'Client photographs with their alt text and public URL. Refer to photos by id in save_draft. Read-only.',
+    input: z.object({}).strict(),
+    run: async () => json({ photos: photoLibrary() }),
+  },
+  {
+    name: 'get_results',
+    description:
+      "Draft decisions (approved, rejected, reasons), published posts and channel metrics for the last N days. Read-only.",
+    input: z.object({ days: z.number().int().min(1).max(90).default(28) }).strict(),
+    run: getResults,
+  },
+  {
+    name: 'save_draft',
+    description:
+      'Save one draft for the owner to review. The brand rules run first and refuse a failing draft with the reasons. Saves as pending only; nothing is published or sent.',
+    input: saveDraftInput,
+    run: saveDraft,
+  },
+] as const;
+
+export type ToolName = (typeof TOOLS)[number]['name'];
+
+// MCP tools/list shape. Input schemas are generated from the same zod objects that validate calls.
+export function listTools() {
+  return TOOLS.map((t) => {
+    const { $schema: _drop, ...schema } = z.toJSONSchema(t.input, { io: 'input' }) as Record<string, unknown>;
+    return { name: t.name, description: t.description, inputSchema: schema };
+  });
+}
+
+export async function callTool(name: string, args: unknown): Promise<ToolResult> {
+  const tool = TOOLS.find((t) => t.name === name);
+  if (!tool) return fail(`Unknown tool: ${name}`);
+  const parsed = tool.input.safeParse(args ?? {});
+  if (!parsed.success) {
+    return fail(`Invalid input: ${parsed.error.issues.map((i) => `${i.path.join('.') || 'input'}: ${i.message}`).join('; ')}`);
+  }
+  try {
+    return await (tool.run as (i: unknown) => Promise<ToolResult>)(parsed.data);
+  } catch (err) {
+    console.error('[marketing-tools]', name, (err as Error).message);
+    return fail('The tool failed. Try again later.');
+  }
+}

@@ -174,7 +174,39 @@ const form = read('src/components/InquiryForm.astro');
 assert('the enquiry form has an opt-in checkbox', /type="checkbox" name="marketingOptIn"/.test(form));
 assert('the opt-in checkbox is unticked by default', !/name="marketingOptIn"[^>]*\bchecked\b/.test(form));
 
-// Sections 3 to 5 are appended as the tool server, the employees and the schedule land.
+// ---------------------------------------------------------------------------------------------
+section('3. Rooiberg tool server: five tools, no publish or send, constant-time auth');
+
+const route = read('src/pages/api/marketing/mcp.ts');
+const tools = read('src/lib/marketing-tools.ts');
+const toolNames = [...tools.matchAll(/^\s{4}name: '([a-z_]+)',$/gm)].map((m) => m[1]);
+assert(`exactly the five agreed tools (${toolNames.join(', ')})`, sameSet(toolNames, [
+  'get_open_departures', 'get_facts_pack', 'get_photo_library', 'get_results', 'save_draft',
+]));
+assert('no tool name or handler publishes, posts, sends or emails', !/name: '[a-z_]*(publish|post|send|email|tweet)[a-z_]*'/.test(tools));
+assert('the tool module never imports the email or payments libraries', !/from '\.\/(email|payments|balance)'/.test(tools));
+assert('the route is server-rendered (prerender = false)', /export const prerender = false;/.test(route));
+assert('the bearer is MARKETING_TOOLS_TOKEN', /import\.meta\.env\.MARKETING_TOOLS_TOKEN/.test(route));
+assert('auth fails closed when the token is unset', /if \(!secret\) return false;/.test(route));
+assert('the bearer is compared in constant time', /crypto\.timingSafeEqual\(/.test(route));
+assert('auth runs before the body is read', route.indexOf('authorized(request)') < route.indexOf('request.text()'));
+assert('the request body is size-capped', /MAX_BODY_BYTES/.test(route));
+assert('the route only dispatches to the tool registry', /callTool\(name, msg\.params\?\.arguments\)/.test(route));
+assert('tool inputs are zod-validated (unknown keys refused)', /\.safeParse\(args \?\? \{\}\)/.test(tools) && (tools.match(/\.strict\(\)/g) || []).length >= 5);
+assert('the tool module never updates or deletes a row', !/\.(update|delete|upsert)\(/.test(tools));
+assert("save_draft inserts with status 'pending'", /\.from\('drafts'\)\s*\.insert\(\{[\s\S]*?status: 'pending',/.test(tools));
+assert('save_draft runs the brand rules before inserting', tools.indexOf('checkDraft(') < tools.indexOf(".insert({"));
+assert('save_draft is rate-limited', /rateLimit\('marketing:save_draft'/.test(tools));
+assert('the Editor cannot save drafts', /input\.author === 'editor'/.test(tools));
+assert('the facts pack never exposes the SADC rows or self-catered rates', !/sadcRateRows|sadcSelfCateredRates|uncateredInclusions|uncateredExclusions|SADC_DISCOUNT/.test(tools));
+assert('the facts pack drops the SADC FAQ', /f\.id !== 'sadc-resident'/.test(tools));
+assert('the facts pack reads src/data (never typed facts)', /from '\.\.\/data\/rates'/.test(tools) && /from '\.\.\/data\/itinerary'/.test(tools) && /from '\.\.\/data\/sanctuaries'/.test(tools));
+assert('departures read the anon-readable departure_inventory view only', /getSupabaseAnon\(\)\s*\.from\('departure_inventory'\)/.test(tools));
+assert('departures promote the catered product only', /locked_catering === 'catered'/.test(tools));
+assert('the departure line is the memo wording', /`Guaranteed Departure: \$\{taken\} of \$\{MAX_GROUP_SIZE\} spots booked\. \$\{available\} spots available\.`/.test(tools));
+assert('MARKETING_TOOLS_TOKEN is typed in env.d.ts', /MARKETING_TOOLS_TOKEN\?: string/.test(read('src/env.d.ts')));
+
+// Sections 4 and 5 are appended as the employees and the schedule land.
 
 console.log(failed === 0 ? '\nALL MARKETING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);
 process.exit(failed === 0 ? 0 : 1);
