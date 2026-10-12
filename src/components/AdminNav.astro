@@ -5,7 +5,7 @@ import { withBase } from '../data/site';
 
 interface Props {
   email: string;
-  active: 'bookings' | 'inquiries' | 'dates';
+  active: 'bookings' | 'inquiries' | 'dates' | 'marketing';
 }
 const { email, active } = Astro.props;
 
@@ -13,6 +13,7 @@ const links = [
   { id: 'bookings', label: 'Bookings', href: '/admin' },
   { id: 'inquiries', label: 'Enquiries', href: '/admin/inquiries' },
   { id: 'dates', label: 'Blocked dates', href: '/admin/dates' },
+  { id: 'marketing', label: 'Marketing drafts', href: '/admin/marketing' },
 ] as const;
 ---
 
