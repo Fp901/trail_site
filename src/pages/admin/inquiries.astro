@@ -109,6 +109,7 @@ const openCount = inquiries.filter((i) => !i.handled_at).length;
                 </p>
               )}
               {i.message && <p class="admin-inq__msg">{i.message}</p>}
+              {i.marketing_opt_in && <p class="admin-sub">Opted in to marketing email</p>}
               <p class="bform__status" data-status role="status" aria-live="polite" />
             </li>
           ))}

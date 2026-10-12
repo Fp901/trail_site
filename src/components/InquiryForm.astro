@@ -63,6 +63,17 @@
     <span class="form-error" id="iq-message-err" aria-live="polite"></span>
   </div>
 
+  {/* Marketing consent (POPIA): optional, unticked by default, stored server-side. */}
+  <div class="form-field bform__declaration">
+    <label class="bform__check">
+      <input type="checkbox" name="marketingOptIn" id="iq-optin" />
+      <span>
+        Optional: email me occasional news about new departures and the trail. We will not share
+        your details, and you can unsubscribe at any time.
+      </span>
+    </label>
+  </div>
+
   {/* Honeypot */}
   <div class="hp" aria-hidden="true">
     <label>Company<input name="company" tabindex="-1" autocomplete="off" /></label>
@@ -171,6 +182,7 @@
         groupSize:   (fd.get('groupSize')  as string) || undefined,
         targetDates: (fd.get('targetDates') as string) || undefined,
         message:     String(fd.get('message')     ?? ''),
+        marketingOptIn: fd.get('marketingOptIn') === 'on',
         company:     (fd.get('company')    as string) || undefined,
       };
 

@@ -618,6 +618,8 @@ export const server = {
       groupSize: z.string().trim().max(40).optional(),
       targetDates: z.string().trim().max(120).optional(),
       message: z.string().trim().min(20, 'Please include a message of at least 20 characters.').max(2000),
+      // POPIA: marketing consent is opt-in only. Absent (the solo panel, older clients) means no.
+      marketingOptIn: z.boolean().optional().default(false),
       company: z.string().max(0).optional(), // honeypot
     }),
     handler: async (input, ctx) => {
@@ -646,6 +648,7 @@ export const server = {
         group_size: input.groupSize ?? null,
         target_dates: input.targetDates ?? null,
         message: input.message,
+        marketing_opt_in: input.marketingOptIn === true,
       });
       if (error) {
         throw new ActionError({
