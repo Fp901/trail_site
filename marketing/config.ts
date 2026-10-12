@@ -69,9 +69,28 @@ export const RESEARCH_ENVIRONMENT_NAME = 'rooiberg-marketing-research';
 export const VAULT_NAME = 'rooiberg-marketing';
 export const PLAYBOOK_STORE_NAME = 'rooiberg-team-playbook';
 export const notebookStoreName = (key: EmployeeKey) => `rooiberg-notebook-${key.replace(/_/g, '-')}`;
-export const agentName = (key: EmployeeKey) => `Rooiberg ${key.replace(/_/g, ' ')}`;
+export const TITLES: Record<EmployeeKey, string> = {
+  head_of_marketing: 'Head of Marketing',
+  researcher: 'Researcher',
+  copywriter: 'Copywriter',
+  editor: 'Editor',
+  community_manager: 'Community Manager',
+  sales_assistant: 'Sales Assistant',
+  analyst: 'Analyst',
+};
+export const agentName = (key: EmployeeKey) => `Rooiberg ${TITLES[key]}`;
 
 // The Rooiberg tool server (src/pages/api/marketing/mcp.ts) and its MCP server name on each agent.
+// TOOL_NAMES mirrors the server's registry (verify-marketing.mjs checks both lists agree). There is
+// deliberately no publish or send tool.
+export const TOOL_NAMES = [
+  'get_open_departures',
+  'get_facts_pack',
+  'get_photo_library',
+  'get_results',
+  'save_draft',
+] as const;
+export type ToolName = (typeof TOOL_NAMES)[number];
 export const TOOL_SERVER_NAME = 'rooiberg';
 export const TOOL_SERVER_PATH = '/api/marketing/mcp';
 export const toolServerUrl = (siteUrl: string) => siteUrl.replace(/\/$/, '') + TOOL_SERVER_PATH;
