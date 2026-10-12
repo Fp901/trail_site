@@ -22,7 +22,7 @@
 > **Note on referenced files (v2.1).** The former `TECHNICAL_SPEC.md`, `DESIGN.md`, `SECURITY.md`, `SEO.md`, and `KEYWORD_MAP.md` were **merged into this file** and no longer exist as build inputs. Their content now lives here: exact copy/data/acceptance criteria → **Part 8** (and per-page meta → **§8.8**); alt text → **§8.7/§5.8**; visual bible → **Part 5**; security → **Part 11**; SEO → **Part 10**; keywords → **§10.11**. Any standalone copies of those files kept in the repo for history are **non-authoritative**; where they conflict with this file, **this file wins** (each carries a "Superseded" banner). Do not treat their cross-references to `TECHNICAL_SPEC.md` as a missing dependency — that content is **§8** here.
 
 **Map of this document**
-1. Mission, non-negotiables &amp; scope · 2. Tech stack · 3. Commands, env &amp; Definition of Done · 4. Project structure · 5. Design system (visual bible) · 6. Build order · 7. Component contracts · 8. Content &amp; data (per-page) · 9. **Booking system (Paystack + Supabase)** · 10. SEO, AI visibility &amp; keyword map · 11. **Security (OWASP + payments + data)** · 12. Content fidelity guardrails · 13. Workflow &amp; git · 14. When to ask · 15. Consolidated pre-launch checklist · 16. Reconciliation log · **17. Commercial model v4 (canonical: what is sold, what it costs, how a departure forms)**.
+1. Mission, non-negotiables &amp; scope · 2. Tech stack · 3. Commands, env &amp; Definition of Done · 4. Project structure · 5. Design system (visual bible) · 6. Build order · 7. Component contracts · 8. Content &amp; data (per-page) · 9. **Booking system (Paystack + Supabase)** · 10. SEO, AI visibility &amp; keyword map · 11. **Security (OWASP + payments + data)** · 12. Content fidelity guardrails · 13. Workflow &amp; git · 14. When to ask · 15. Consolidated pre-launch checklist · 16. Reconciliation log · **17. Commercial model v4 (canonical: what is sold, what it costs, how a departure forms)** · 18. AI marketing team (drafts only; a person approves everything).
 
 ---
 
@@ -701,6 +701,7 @@ npx tsx scripts/verify-admin.mjs      # db.types.ts mirrors the migrations
 npx tsx scripts/verify-inventory.mjs  # the availability view's shape and its one client
 npx tsx scripts/verify-calendar-states.mjs  # calendar a11y: colour is never the only cue
 npx tsx scripts/verify-currency.mjs   # the FX tabs stay display-only
+npx tsx scripts/verify-marketing.mjs  # the marketing team: code rules, 0021 schema, tool server, agents (Part 18)
 ```
 
 Trigger *behaviour* needs a live database: apply `0016`, then run `scripts/verify-trigger.sql` and `scripts/verify-window-trigger.sql` in the Supabase SQL editor (both roll back).
@@ -708,3 +709,33 @@ Trigger *behaviour* needs a live database: apply `0016`, then run `scripts/verif
 ### 17.9 Open with the operator
 
 See Part 14. The two that block work: the **VAT registration number** (turns receipts into tax invoices) and the **new operating company's registered name and number** (needed by `site.ts`, the receipt, the privacy page and `schema.ts`).
+
+---
+
+## Part 18 — AI marketing team (milestone 1, October 2026)
+
+Seven saved Claude agents ("employees") draft marketing for the owner. **They never publish or send anything.** Every output is either a `pending` row in `marketing.drafts` or a note in their own memory, and a person approves, edits or rejects each draft at `/admin/marketing`.
+
+| Employee | Model | Job | Runs |
+|---|---|---|---|
+| Head of Marketing | `claude-opus-5-5` | Plans the week (Monday), reviews results and rewrites the shared playbook (Sunday). The only writer of the playbook. | Mon, Sun |
+| Researcher | `claude-haiku-5-5` | Daily trend and competitor notes, web limited to `RESEARCH_HOSTS`. | Daily |
+| Copywriter | `claude-sonnet-5-5` | Posts, captions and blog drafts, saved with `save_draft`. Reads owner feedback from its notebook. | Mon, after planning |
+| Editor | `claude-haiku-5-5` | Second opinion on every new draft, after the code rules have passed it. | After the Copywriter |
+| Community Manager | `claude-sonnet-5-5` | Defined, not scheduled yet. | None |
+| Sales Assistant | `claude-sonnet-5-5` | Defined, not triggered yet (out of milestone 1). | None |
+| Analyst | `claude-sonnet-5-5` | Reads results and writes a weekly report draft. | Sun |
+
+**Where it lives.** `marketing/config.ts` (models, per-run caps in US cents, the weekly cap, schedules, research hosts), `marketing/agents/*.ts` (one file per employee: instructions, tools, memory), `marketing/sync.ts` (creates or updates the agents, environments, memory stores and vault by name), `marketing/run.ts` (one scheduled job), `.github/workflows/marketing-team.yml` (the rhythm), `src/pages/api/marketing/mcp.ts` (the Rooiberg tool server), `src/lib/brand-rules.ts` (the Editor's code rules), `.claude/skills/rooiberg-brand/SKILL.md` (the voice and hard rules, copied into every agent's instructions), migration `0021_marketing.sql`.
+
+**Hard rules for the team (enforced in code, not only in prompts).**
+- **No publish or send tool exists.** The tool server exposes exactly five tools: `get_open_departures`, `get_facts_pack`, `get_photo_library`, `get_results` (read-only) and `save_draft`, which can only insert a `pending` draft. Bearer `MARKETING_TOOLS_TOKEN`, compared in constant time; refused when unset.
+- **Facts are never memorised.** Rates, itinerary, lodges, safety copy and departures are read fresh from `src/data` and `departure_inventory` on every call. The facts pack carries the international flagship rates only: no SADC rate, nothing self-catered, no `/sadc-slackpacking`.
+- **`save_draft` runs the code rules first** (`checkDraft` in `src/lib/brand-rules.ts`) and refuses a failing draft with the reasons, so the agent can fix it. The same rules run again when the owner edits a draft before approving it. They hard-fail: em or en dashes; a per-night price; "SADC" or a resident rate; `/sadc-slackpacking` or self-catering; business-plan internals (owner split, margin, staffing cost) and named individuals; Rotavi, VierVanAcht or Blackwood; "braai"; any "Guaranteed Departure" or "spots" line not in the exact form "Guaranteed Departure: 2 of 8 spots booked. 6 spots available."; a rand amount that is not a published flagship rate; safety talk without the "Two-Man Rule"; an X post over 280 characters.
+- **Spend is capped twice.** Each session carries a Managed Agents `budget` (the employee's per-run cap, never above `HARD_RUN_CAP_CENTS`), and the runner refuses to start once the last 7 days in `marketing.spend_log` reach `WEEKLY_CAP_CENTS`.
+- **Dry run by default.** Scheduled runs only print what they would do until the repository variable `MARKETING_LIVE` is `true`; a manual run needs `dry_run` unticked.
+- **Memory.** One shared playbook store (only the Head of Marketing writes it) and one notebook store per employee, all Managed Agents memory stores seeded with the brand summary. Approve, edit and reject reasons from `/admin/marketing` land in `marketing.feedback` and the runner appends them to the Copywriter's notebook before each Copywriter run.
+- **Data.** Everything lives in the `marketing` schema, RLS on, nothing granted to `anon` or `authenticated`. Enquirers are contacted for marketing only if they ticked the unticked-by-default opt-in (`inquiries.marketing_opt_in`, enforced server-side in `createInquiry`).
+- **New dependencies (A06):** `@anthropic-ai/sdk` and `tsx` (dev only; used by the marketing scripts and GitHub Actions, never shipped to the browser).
+
+**Verification:** `npx tsx scripts/verify-marketing.mjs` (code rules unit cases, the 0021 schema against `db.types.ts`, the tool server's five tools and auth, the agents' models and caps, the workflow's dry-run default and schedules).
