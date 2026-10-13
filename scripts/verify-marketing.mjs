@@ -61,7 +61,7 @@ register(
     }`),
 );
 const { listTools, callTool, staticPhotoLibrary } = await import('../src/lib/marketing-tools.ts');
-const { photoLibrary: SITE_PHOTOS, PHOTO_CATEGORIES, PHOTO_LODGES, PHOTO_LODGE_BY_KEY, PHOTO_UPLOAD_MAX_BYTES, PHOTO_UPLOAD_TYPES } = await import('../src/data/photo-library.ts');
+const { photoLibrary: SITE_PHOTOS, MARKETING_EXCLUDED_PHOTOS, PHOTO_CATEGORIES, PHOTO_LODGES, PHOTO_LODGE_BY_KEY, PHOTO_UPLOAD_MAX_BYTES, PHOTO_UPLOAD_TYPES } = await import('../src/data/photo-library.ts');
 const { sniffImageType, checkPhotoUpload } = await import('../src/lib/marketing-photos.ts');
 import {
   MARKETING_AUTHORS,
@@ -463,7 +463,9 @@ const sitePhotoFiles = [
 ].filter((f) => !/logo/i.test(f));
 const libSrc = read('src/data/photo-library.ts');
 const imported = [...libSrc.matchAll(/from '\.\.\/assets\/images\/([^']+)'/g)].map((m) => m[1]);
-assert(`every site photo except logos is in the library (${sitePhotoFiles.length} files)`, sameSet(imported, sitePhotoFiles));
+const libraryFiles = sitePhotoFiles.filter((f) => !MARKETING_EXCLUDED_PHOTOS.includes(f));
+assert(`every site photo except logos and trophy-excluded photos is in the library (${libraryFiles.length} files)`, sameSet(imported, libraryFiles));
+assert('trophy-excluded photos are never in the library', MARKETING_EXCLUDED_PHOTOS.every((f) => !imported.includes(f)));
 assert('no logo is in the library', !imported.some((f) => /logo/i.test(f)));
 assert('every imported photo is used by exactly one entry', SITE_PHOTOS.length === imported.length);
 assert('photo ids are unique', new Set(SITE_PHOTOS.map((p) => p.id)).size === SITE_PHOTOS.length);

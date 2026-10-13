@@ -95,6 +95,13 @@ const T = "Temminck's Lodge" as const;
 const O = 'Oukraal' as const;
 const R = 'Rustwood' as const;
 
+// Site photos the marketing team must never use: each shows hunting trophies (the owner's
+// rule). They stay on the website; they are only kept out of this library.
+export const MARKETING_EXCLUDED_PHOTOS: readonly string[] = [
+  'lodges/rustwood-lounge.jpg', // horned buffalo skulls above the bar
+  'lodges/oukraal-four-poster.jpg', // real hide cushion on the bed
+];
+
 export const photoLibrary: readonly LibraryPhoto[] = [
   // ---- Landscape and trail ----
   {

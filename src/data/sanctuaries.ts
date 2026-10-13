@@ -29,6 +29,7 @@ import temLapa from '../assets/images/lodges/temmincks-lapa.jpg';
 import temCottageGarden from '../assets/images/lodges/temmincks-cottage-garden.jpg';
 import temThatchedSuite from '../assets/images/lodges/temmincks-thatched-suite.jpg';
 import temGiraffe from '../assets/images/lodges/temmincks-giraffe.jpg';
+import oukFourPoster from '../assets/images/lodges/oukraal-four-poster.jpg';
 import oukTwinRoom from '../assets/images/lodges/oukraal-twin-room.jpg';
 import oukBougainvillea from '../assets/images/lodges/oukraal-bougainvillea.jpg';
 import oukGardenPool from '../assets/images/lodges/oukraal-garden-pool.jpg';
@@ -41,6 +42,7 @@ import rusSuiteView from '../assets/images/lodges/rustwood-suite-view.jpg';
 import rusSuite from '../assets/images/lodges/rustwood-suite.jpg';
 import rusBathView from '../assets/images/lodges/rustwood-bath-view.jpg';
 import rusFirePitDusk from '../assets/images/lodges/rustwood-fire-pit-dusk.jpg';
+import rusLounge from '../assets/images/lodges/rustwood-lounge.jpg';
 import rusPoolNight from '../assets/images/lodges/rustwood-pool-night.jpg';
 
 export type AmenityIconName =
@@ -121,6 +123,7 @@ export const sanctuaries: Sanctuary[] = [
       { image: oukraalGallery2, alt: 'A twin bedroom at Oukraal, with African art and reading lamps.' },
     ],
     morePhotos: [
+      { image: oukFourPoster, alt: 'A four-poster double bed at Oukraal, with giraffe-print cushions and bedside lamps.' },
       { image: oukTwinRoom, alt: 'A twin room at Oukraal, with woven headboards and fresh towels on each bed.' },
       { image: oukBougainvillea, alt: 'Pink bougainvillea framing a guest cottage across the paved courtyard at Oukraal.' },
       { image: oukGardenPool, alt: 'The garden pool at Oukraal, edged with lawn and bushveld trees.' },
@@ -161,6 +164,7 @@ export const sanctuaries: Sanctuary[] = [
       { image: rusSuite, alt: 'A suite at Rustwood, with woven stools at the foot of the bed and a walk-in shower.' },
       { image: rusBathView, alt: 'A freestanding bath at Rustwood beside a window onto the hills.' },
       { image: rusFirePitDusk, alt: 'The fire pit at Rustwood at dusk, above the valley.' },
+      { image: rusLounge, alt: "The lounge and dining area in Rustwood's main building, under a high timber ceiling." },
       { image: rusPoolNight, alt: 'The pool at Rustwood lit up at night, under the shade sails.' },
     ],
     amenities: [
