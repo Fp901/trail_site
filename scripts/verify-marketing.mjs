@@ -56,7 +56,9 @@ register(
       return next(url, context);
     }`),
 );
-const { listTools, callTool } = await import('../src/lib/marketing-tools.ts');
+const { listTools, callTool, staticPhotoLibrary } = await import('../src/lib/marketing-tools.ts');
+const { photoLibrary: SITE_PHOTOS, PHOTO_CATEGORIES, PHOTO_LODGES, PHOTO_LODGE_BY_KEY, PHOTO_UPLOAD_MAX_BYTES, PHOTO_UPLOAD_TYPES } = await import('../src/data/photo-library.ts');
+const { sniffImageType, checkPhotoUpload } = await import('../src/lib/marketing-photos.ts');
 import {
   MARKETING_AUTHORS,
   MARKETING_CHANNELS,
@@ -71,6 +73,10 @@ import {
   MARKETING_OBJECTION_COLUMNS,
   MARKETING_POST_COLUMNS,
   MARKETING_SPEND_COLUMNS,
+  MARKETING_PHOTO_CATEGORIES,
+  MARKETING_PHOTO_COLUMNS,
+  MARKETING_PHOTO_LODGES,
+  MARKETING_PHOTO_TYPES,
   INQUIRY_COLUMNS,
 } from '../src/lib/db.types.ts';
 
@@ -146,12 +152,12 @@ assert('every rule has a failing sample', sameSet(
 ));
 
 // ---------------------------------------------------------------------------------------------
-section('2. Migration 0021: marketing tables === db.types.ts, all default-deny');
+section('2. Migrations 0021 and 0022: marketing tables === db.types.ts, all default-deny');
 
 const migPath = 'supabase/migrations/0021_marketing.sql';
 assert('0021_marketing.sql exists', existsSync(new URL(`../${migPath}`, import.meta.url)));
 const migFiles = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
-assert('0021 is the latest migration', migFiles[migFiles.length - 1] === '0021_marketing.sql');
+assert('0022 is the latest migration', migFiles[migFiles.length - 1] === '0022_marketing_photos_audit.sql');
 const sql = read(migPath).replace(/--[^\n]*/g, '');
 
 const tables = {};
@@ -213,6 +219,43 @@ assert('drafts default to pending', /status\s+text not null default 'pending'/.t
 assert('enum checks avoid the `status in (...)` form verify-admin reads as the bookings enum', !/check\s*\(\s*status\s+in\s*\(/i.test(sql));
 assert('inquiries.marketing_opt_in is not null, default false', /add column if not exists marketing_opt_in boolean not null default false/.test(sql));
 assert('db.types models inquiries.marketing_opt_in', INQUIRY_COLUMNS.includes('marketing_opt_in'));
+
+// ---- 0022: marketing.photos and the private bucket ----
+const sql22 = read('supabase/migrations/0022_marketing_photos_audit.sql').replace(/--[^\n]*/g, '');
+const photosBody = sql22.match(/create table if not exists marketing\.photos\s*\(([\s\S]*?)\n\);/)?.[1] ?? '';
+{
+  const parts = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of photosBody) {
+    if (ch === '(' || ch === '[') depth++;
+    if (ch === ')' || ch === ']') depth--;
+    if (ch === ',' && depth === 0) {
+      parts.push(cur);
+      cur = '';
+    } else cur += ch;
+  }
+  parts.push(cur);
+  const cols = parts.map((x) => x.trim()).filter(Boolean).filter((x) => !/^(constraint|primary key|unique|check|foreign key)\b/i.test(x)).map((x) => x.split(/\s+/)[0]);
+  assert(`marketing.photos: ${MARKETING_PHOTO_COLUMNS.length} columns match the SQL`, sameSet(cols, MARKETING_PHOTO_COLUMNS));
+}
+assert('marketing.photos: RLS enabled', /alter table marketing\.photos enable row level security/.test(sql22));
+assert('marketing.photos: revoked from anon and authenticated', /revoke all on marketing\.photos from anon, authenticated/.test(sql22));
+assert('0022 creates no policy (table or storage): default-deny', !/create policy/i.test(sql22));
+assert('0022 grants nothing to anon or authenticated', !/grant[^;]*\bto\b[^;]*\b(anon|authenticated)\b/i.test(sql22));
+assert('the no-trophies confirmation is required on every photo row', /no_trophies_confirmed_at\s+timestamptz not null/.test(sql22));
+const enum22 = (name) => {
+  const m = sql22.match(new RegExp(`constraint ${name} check \\(\\w+ = any \\(array\\[([\\s\\S]*?)\\]\\)\\)`));
+  return m ? m[1].match(/'([^']+)'/g).map((x) => x.slice(1, -1)) : null;
+};
+assert('photos_category_check === db.types === data/photo-library', sameSet(enum22('photos_category_check') ?? [], MARKETING_PHOTO_CATEGORIES) && sameSet(PHOTO_CATEGORIES, MARKETING_PHOTO_CATEGORIES));
+assert('photos_lodge_check === db.types === the lodge key map', sameSet(enum22('photos_lodge_check') ?? [], MARKETING_PHOTO_LODGES) && sameSet(Object.keys(PHOTO_LODGE_BY_KEY), MARKETING_PHOTO_LODGES));
+assert('photos_content_type_check === db.types === the upload types', sameSet(enum22('photos_content_type_check') ?? [], MARKETING_PHOTO_TYPES) && sameSet(PHOTO_UPLOAD_TYPES, MARKETING_PHOTO_TYPES));
+const bucket = sql22.match(/insert into storage\.buckets \(id, name, public, file_size_limit, allowed_mime_types\)\s*values \('marketing-photos', 'marketing-photos', (\w+), (\d+), array\[([^\]]*)\]\)/);
+assert('the marketing-photos bucket is private', bucket?.[1] === 'false' && /on conflict \(id\) do update\s+set public = false/.test(sql22));
+assert('the bucket size limit and the photos_bytes_check equal PHOTO_UPLOAD_MAX_BYTES', Number(bucket?.[2]) === PHOTO_UPLOAD_MAX_BYTES && new RegExp(`bytes between 1 and ${PHOTO_UPLOAD_MAX_BYTES}`).test(sql22));
+assert('the bucket accepts only the upload types', sameSet((bucket?.[3] ?? '').match(/'([^']+)'/g)?.map((x) => x.slice(1, -1)) ?? [], MARKETING_PHOTO_TYPES));
+assert('4 MB stays under Vercel\'s 4.5 MB request ceiling and the action body limit', PHOTO_UPLOAD_MAX_BYTES <= 4 * 1024 * 1024 && /actionBodySizeLimit: 4\.5 \* 1024 \* 1024/.test(read('astro.config.mjs')));
 
 const actions = read('src/actions/index.ts');
 assert('createInquiry validates the opt-in with zod, default false', /marketingOptIn: z\.boolean\(\)\.optional\(\)\.default\(false\)/.test(actions));
@@ -396,6 +439,60 @@ assert('the digest names drafts the Editor has not reviewed after 24 hours (titl
 assert('unreviewed titles are HTML-escaped in the email', /escapeHtml\(u\.title/.test(read('src/lib/email.ts')));
 const envEx = read('.env.example');
 assert('.env.example documents the team credentials, all blank', ['ANTHROPIC_API_KEY', 'MARKETING_TOOLS_TOKEN', 'X_API_KEY', 'X_API_SECRET', 'X_BEARER_TOKEN', 'X_ACCESS_TOKEN', 'X_ACCESS_TOKEN_SECRET', 'META_ACCESS_TOKEN', 'META_PAGE_ID', 'EMAIL_API_KEY', 'EMAIL_FROM'].every((k) => new RegExp(`^${k}=`, 'm').test(envEx)) && ['ANTHROPIC_API_KEY', 'MARKETING_TOOLS_TOKEN', 'X_API_KEY', 'META_ACCESS_TOKEN'].every((k) => new RegExp(`^${k}=""`, 'm').test(envEx)));
+
+// ---------------------------------------------------------------------------------------------
+section('6. The photo library and owner uploads');
+
+const imgRoot = new URL('../src/assets/images/', import.meta.url);
+const sitePhotoFiles = [
+  ...readdirSync(imgRoot).filter((f) => /\.(jpe?g|png|webp)$/i.test(f)),
+  ...readdirSync(new URL('lodges/', imgRoot)).map((f) => `lodges/${f}`),
+].filter((f) => !/logo/i.test(f));
+const libSrc = read('src/data/photo-library.ts');
+const imported = [...libSrc.matchAll(/from '\.\.\/assets\/images\/([^']+)'/g)].map((m) => m[1]);
+assert(`every site photo except logos is in the library (${sitePhotoFiles.length} files)`, sameSet(imported, sitePhotoFiles));
+assert('no logo is in the library', !imported.some((f) => /logo/i.test(f)));
+assert('every imported photo is used by exactly one entry', SITE_PHOTOS.length === imported.length);
+assert('photo ids are unique', new Set(SITE_PHOTOS.map((p) => p.id)).size === SITE_PHOTOS.length);
+assert('photo ids are lowercase slugs', SITE_PHOTOS.every((p) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(p.id)));
+assert('every category is one of trail, lodge, landscape, wildlife, food, guide', SITE_PHOTOS.every((p) => PHOTO_CATEGORIES.includes(p.category)));
+assert("lodges are only Temminck's Lodge, Oukraal and Rustwood", SITE_PHOTOS.every((p) => p.lodge === null || PHOTO_LODGES.includes(p.lodge)));
+assert('every lodge-category photo names its lodge', SITE_PHOTOS.every((p) => p.category !== 'lodge' || p.lodge !== null));
+assert('alt text is descriptive (at least 30 characters) and dash-free', SITE_PHOTOS.every((p) => p.alt.length >= 30 && !/[–—]/.test(p.alt + (p.note ?? ''))));
+assert('the "temmnicks" filename typo never reaches an id or alt text', SITE_PHOTOS.every((p) => !/temmnick/i.test(p.id + p.alt)));
+assert('no old lodge name and no trophy wording in the library', SITE_PHOTOS.every((p) => !/Rotavi|VierVanAcht|Blackwood|trophy|taxiderm|mounted head|skull/i.test(p.alt + (p.note ?? ''))));
+assert('get_photo_library serves the static library with public URLs', staticPhotoLibrary().length === SITE_PHOTOS.length && staticPhotoLibrary().every((p) => p.url.startsWith('https://')));
+const libResult = await callTool('get_photo_library', {}, 'copywriter');
+const libJson = JSON.parse(libResult.text);
+assert('get_photo_library still answers with the site photos when uploads cannot be read', !libResult.isError && libJson.photos.length === SITE_PHOTOS.length && /site photos only/.test(libJson.note));
+const toolsSrc = read('src/lib/marketing-tools.ts');
+assert('get_photo_library merges the uploads (signed URLs)', /uploadedPhotos\(\)/.test(toolsSrc) && /createSignedUrls\(/.test(read('src/lib/marketing-photos.ts')));
+assert('save_draft accepts upload ids only when the upload exists', /existingUploadIds\(/.test(toolsSrc));
+
+const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]);
+const webp = new Uint8Array([...'RIFF'].map((c) => c.charCodeAt(0)).concat([0, 0, 0, 0], [...'WEBP'].map((c) => c.charCodeAt(0))));
+const gif = new Uint8Array([...'GIF89a'].map((c) => c.charCodeAt(0)));
+const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+assert('file type comes from the magic bytes: JPEG, PNG and WebP accepted', sniffImageType(jpeg) === 'image/jpeg' && sniffImageType(png) === 'image/png' && sniffImageType(webp) === 'image/webp');
+assert('GIF and SVG are refused', sniffImageType(gif) === null && checkPhotoUpload(svg).ok === false);
+assert('an empty file is refused', checkPhotoUpload(new Uint8Array()).ok === false);
+const tooBig = new Uint8Array(PHOTO_UPLOAD_MAX_BYTES + 1);
+tooBig.set(jpeg);
+assert('a file over the size cap is refused', checkPhotoUpload(tooBig).ok === false);
+const okUpload = checkPhotoUpload(jpeg);
+assert('the object path is server-generated (uploads/<uuid>.<ext>), never the uploaded name', okUpload.ok && /^uploads\/[0-9a-f-]{36}\.jpg$/.test(okUpload.path));
+
+const upload = actions.slice(actions.indexOf('adminUploadMarketingPhoto:'), actions.indexOf('adminCreateCompBooking:'));
+assert('the upload action requires an admin and is rate-limited', /requireAdmin\(ctx\)/.test(upload) && /adminActionRate\(admin\.email\)/.test(upload));
+assert('the upload requires the no-hunting-trophies tick', /noTrophies: z\.boolean\(\)/.test(upload) && /if \(input\.noTrophies !== true\)/.test(upload));
+assert('the upload validates category, lodge and alt text with zod', /category: z\.enum\(MARKETING_PHOTO_CATEGORIES\)/.test(upload) && /lodge: z\.enum\(MARKETING_PHOTO_LODGES\)\.optional\(\)/.test(upload) && /alt: z\.string\(\)\.trim\(\)\.min\(10\)\.max\(300\)/.test(upload));
+assert('the file is checked (type and size) before it is stored', upload.indexOf('checkPhotoUpload(') > -1 && upload.indexOf('checkPhotoUpload(') < upload.indexOf('.upload('));
+assert('the file goes to the private bucket under the server path, never overwriting', /\.from\(MARKETING_PHOTO_BUCKET\)\s*\.upload\(checked\.path, bytes, \{ contentType: checked\.type, upsert: false \}\)/.test(upload));
+assert('a failed row insert removes the stored file', /\.remove\(\[checked\.path\]\)/.test(upload));
+assert('the upload records the trophy confirmation time and the uploader', /no_trophies_confirmed_at: new Date\(\)\.toISOString\(\)/.test(upload) && /uploaded_by: admin\.email/.test(upload));
+assert('the admin page has the upload form with the required trophy tick', /data-photo-upload/.test(page) && /name="noTrophies" type="checkbox" required/.test(page) && /This photo shows no hunting trophies/.test(page));
+assert('the admin page never renders an uploaded image (CSP img-src is self only)', !/<img[^>]*(signed|storage|supabase)/i.test(page) && !/img-src[^"]*supabase/.test(read('astro.config.mjs')));
 
 console.log(failed === 0 ? '\nALL MARKETING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);
 process.exit(failed === 0 ? 0 : 1);

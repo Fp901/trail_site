@@ -14,6 +14,8 @@ import { z } from 'astro/zod';
 import { site, stats } from '../data/site';
 import { itinerary } from '../data/itinerary';
 import { sanctuaries } from '../data/sanctuaries';
+import { photoLibrary as sitePhotos } from '../data/photo-library';
+import { existingUploadIds, uploadedPhotos } from './marketing-photos';
 import { logisticsBlocks, faqs, faqAnswerText, seasons } from '../data/logistics';
 import {
   rateRows,
@@ -167,23 +169,32 @@ function buildFactsPack() {
 }
 
 // ---- get_photo_library --------------------------------------------------------------------------
-// Client photography with its published alt text, from data/sanctuaries.ts. Ids are stable slugs
-// built from the lodge's public name (never its internal id).
-export function photoLibrary() {
-  const slug = (s: string) => s.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// Every marketing-usable site photo (data/photo-library.ts: checked by eye, no hunting trophies),
+// with its public URL, plus the owner's uploads (marketing.photos) with short-lived signed URLs.
+export function staticPhotoLibrary() {
   const base = site.canonicalUrl.replace(/\/$/, '');
-  const photos: Array<{ id: string; lodge: string; alt: string; url: string }> = [];
-  for (const s of sanctuaries) {
-    const lodge = slug(s.name);
-    if (s.heroImage) photos.push({ id: `${lodge}-hero`, lodge: s.name, alt: s.alt, url: base + s.heroImage.src });
-    (s.gallery ?? []).forEach((p, i) =>
-      photos.push({ id: `${lodge}-gallery-${i + 1}`, lodge: s.name, alt: p.alt, url: base + p.image.src }),
-    );
-    (s.morePhotos ?? []).forEach((p, i) =>
-      photos.push({ id: `${lodge}-more-${i + 1}`, lodge: s.name, alt: p.alt, url: base + p.image.src }),
-    );
+  return sitePhotos.map((p) => ({
+    id: p.id,
+    category: p.category,
+    lodge: p.lodge,
+    alt: p.alt,
+    ...(p.note ? { note: p.note } : {}),
+    url: base + p.image.src,
+    source: 'site' as const,
+  }));
+}
+
+async function getPhotoLibrary(): Promise<ToolResult> {
+  const photos = staticPhotoLibrary();
+  try {
+    const uploads = await uploadedPhotos();
+    return json({
+      photos: [...uploads.map((u) => ({ ...u, source: 'upload' as const })), ...photos],
+      note: 'Refer to photos by id. Uploaded photos have signed URLs that expire; never copy a URL into a draft.',
+    });
+  } catch {
+    return json({ photos, note: 'Uploaded photos could not be read right now; these are the site photos only.' });
   }
-  return photos;
 }
 
 // ---- get_results --------------------------------------------------------------------------------
@@ -245,8 +256,14 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
     return fail(`Draft refused by the brand rules. Fix these and save again:\n${describeViolations(violations)}`);
   }
 
-  const known = new Set(photoLibrary().map((p) => p.id));
-  const unknown = input.photo_ids.filter((id) => !known.has(id));
+  const known = new Set(staticPhotoLibrary().map((p) => p.id));
+  let uploads: Set<string>;
+  try {
+    uploads = await existingUploadIds(input.photo_ids.filter((id) => !known.has(id)));
+  } catch {
+    return fail('Could not check the photo ids right now.');
+  }
+  const unknown = input.photo_ids.filter((id) => !known.has(id) && !uploads.has(id));
   if (unknown.length) return fail(`Unknown photo ids: ${unknown.join(', ')}. Use ids from get_photo_library.`);
 
   const { data, error } = await getSupabaseAdmin()
@@ -336,9 +353,10 @@ export const TOOLS = [
   },
   {
     name: 'get_photo_library',
-    description: 'Client photographs with their alt text and public URL. Refer to photos by id in save_draft. Read-only.',
+    description:
+      'Every usable photograph (trail, lodges, landscape, wildlife, guides) with id, category, lodge, alt text and URL, including photos the owner uploaded. Refer to photos by id in save_draft. Read-only.',
     input: z.object({}).strict(),
-    run: async () => json({ photos: photoLibrary() }),
+    run: getPhotoLibrary,
   },
   {
     name: 'get_results',

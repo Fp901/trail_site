@@ -2,6 +2,9 @@
 // Marketing drafts (CLAUDE.md Part 18). prerender=false; gated server-side. Lists the AI
 // marketing team's pending drafts for approve, edit-and-approve or reject, each with an optional
 // reason (adminDecideDraft action). Approving never publishes: no publisher exists yet.
+// Also uploads photos for the team (adminUploadMarketingPhoto) into the private marketing-photos
+// bucket. Uploaded photos are listed as text only: the page's CSP allows images from 'self' alone,
+// and the bucket is private, so no preview is shown here.
 import Layout from '../../layouts/Layout.astro';
 import '../../styles/admin.css';
 import Section from '../../components/Section.astro';
@@ -10,10 +13,14 @@ import { getAdminUser } from '../../lib/auth';
 import { getSupabaseAdmin } from '../../lib/supabase';
 import {
   MARKETING_DRAFT_COLUMNS,
+  MARKETING_PHOTO_CATEGORIES,
+  MARKETING_PHOTO_COLUMNS,
   sel,
   type MarketingDraftRow,
   type MarketingDraftKind,
+  type MarketingPhotoRow,
 } from '../../lib/db.types';
+import { PHOTO_LODGE_BY_KEY, PHOTO_UPLOAD_MAX_BYTES } from '../../data/photo-library';
 import { withBase } from '../../data/site';
 
 export const prerender = false;
@@ -26,6 +33,10 @@ if (!user) {
 let pending: MarketingDraftRow[] = [];
 let recent: MarketingDraftRow[] = [];
 let loadError = false;
+const PHOTO_COLS = ['id', 'created_at', 'category', 'lodge', 'alt', 'uploaded_by'] as const satisfies readonly (typeof MARKETING_PHOTO_COLUMNS)[number][];
+type PhotoListRow = Pick<MarketingPhotoRow, (typeof PHOTO_COLS)[number]>;
+let photos: PhotoListRow[] = [];
+let photosError = false;
 
 try {
   const mk = getSupabaseAdmin().schema('marketing');
@@ -41,6 +52,29 @@ try {
 } catch {
   loadError = true;
 }
+
+try {
+  const { data, error } = await getSupabaseAdmin()
+    .schema('marketing')
+    .from('photos')
+    .select(sel<MarketingPhotoRow, typeof PHOTO_COLS>(PHOTO_COLS))
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  photos = (data as unknown as PhotoListRow[]) ?? [];
+} catch {
+  photosError = true;
+}
+
+const CATEGORY_LABEL: Record<(typeof MARKETING_PHOTO_CATEGORIES)[number], string> = {
+  trail: 'Trail',
+  lodge: 'Lodge',
+  landscape: 'Landscape',
+  wildlife: 'Wildlife',
+  food: 'Food',
+  guide: 'Guide',
+};
+const maxMb = PHOTO_UPLOAD_MAX_BYTES / 1024 / 1024;
 
 const KIND_LABEL: Record<MarketingDraftKind, string> = {
   x_post: 'X post',
@@ -143,6 +177,62 @@ const fmtDateTime = (v: string | null) =>
             </ol>
           )}
 
+          <div class="mt-12">
+            <h2 id="mk-photos" class="font-display text-2xl text-earth">Photos for the team</h2>
+            <p class="mt-2 font-body text-charcoal/75">
+              Upload a photo the team may use. It is stored privately and the team only sees a link that
+              expires. JPEG, PNG or WebP, up to {maxMb} MB.
+            </p>
+            <form data-photo-upload novalidate class="mt-4" enctype="multipart/form-data">
+              <div class="form-field">
+                <label for="mk-photo-file">Photo</label>
+                <input id="mk-photo-file" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required />
+              </div>
+              <div class="form-field">
+                <label for="mk-photo-category">Category</label>
+                <select id="mk-photo-category" name="category" required>
+                  {MARKETING_PHOTO_CATEGORIES.map((c) => <option value={c}>{CATEGORY_LABEL[c]}</option>)}
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="mk-photo-lodge">Lodge (required for a lodge photo)</label>
+                <select id="mk-photo-lodge" name="lodge">
+                  <option value="">No lodge</option>
+                  {Object.entries(PHOTO_LODGE_BY_KEY).map(([key, name]) => <option value={key}>{name}</option>)}
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="mk-photo-alt">Describe the photo (alt text, 10 to 300 characters)</label>
+                <input id="mk-photo-alt" name="alt" type="text" minlength="10" maxlength="300" required />
+              </div>
+              <label class="admin-card__check">
+                <input id="mk-photo-trophies" name="noTrophies" type="checkbox" required />
+                <span>This photo shows no hunting trophies (no mounted heads, horns, skulls, hides as decor or a hunter with a kill).</span>
+              </label>
+              <div class="admin-actions">
+                <button type="submit" class="btn btn-primary">Upload photo</button>
+              </div>
+              <p class="bform__status" data-status role="status" aria-live="polite" />
+            </form>
+
+            {photosError ? (
+              <p class="mt-6 font-body text-charcoal">Could not load uploaded photos.</p>
+            ) : photos.length > 0 && (
+              <ol class="admin-inqs mt-6">
+                {photos.map((ph) => (
+                  <li class="admin-inq admin-inq--handled">
+                    <p class="admin-name">{ph.alt}</p>
+                    <p class="admin-sub">
+                      {CATEGORY_LABEL[ph.category] ?? ph.category}
+                      {ph.lodge && ` · ${PHOTO_LODGE_BY_KEY[ph.lodge] ?? ph.lodge}`}
+                      {` · upload-${ph.id} · ${ph.uploaded_by}, ${fmtDateTime(ph.created_at)}`}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+
           {recent.length > 0 && (
             <div class="mt-12">
               <h2 class="font-display text-2xl text-earth">Recently decided</h2>
@@ -203,5 +293,39 @@ const fmtDateTime = (v: string | null) =>
     });
   }
 
+  function initPhotoUpload() {
+    const form = document.querySelector<HTMLFormElement>('form[data-photo-upload]');
+    if (!form || form.dataset.bound === 'true') return;
+    form.dataset.bound = 'true';
+    const statusEl = form.querySelector<HTMLElement>('[data-status]');
+    const say = (text: string, kind: 'error' | 'ok') => {
+      if (!statusEl) return;
+      statusEl.textContent = text;
+      statusEl.dataset.kind = kind;
+    };
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const file = (form.elements.namedItem('photo') as HTMLInputElement).files?.[0];
+      const alt = (form.elements.namedItem('alt') as HTMLInputElement).value.trim();
+      const ticked = (form.elements.namedItem('noTrophies') as HTMLInputElement).checked;
+      if (!file) return say('Please choose a photo.', 'error');
+      if (alt.length < 10) return say('Please describe the photo in at least 10 characters.', 'error');
+      if (!ticked) return say('Please confirm the photo shows no hunting trophies.', 'error');
+      const data = new FormData(form);
+      if (!data.get('lodge')) data.delete('lodge');
+      const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (button) button.disabled = true;
+      say('Uploading...', 'ok');
+      const { error } = await actions.adminUploadMarketingPhoto(data);
+      if (error) {
+        say(error.message || 'Something went wrong.', 'error');
+        if (button) button.disabled = false;
+        return;
+      }
+      window.location.reload();
+    });
+  }
+
   initDrafts();
+  initPhotoUpload();
 </script>

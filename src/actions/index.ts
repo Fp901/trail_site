@@ -55,7 +55,13 @@ import { signInAdmin, signOutAdmin } from '../lib/auth';
 import { requireAdmin, recordAdminEvent } from '../lib/admin';
 import { recordPaymentEvent } from '../lib/audit';
 import { checkDraft, describeViolations } from '../lib/brand-rules';
-import type { MarketingDecision, MarketingDraftKind } from '../lib/db.types';
+import {
+  MARKETING_PHOTO_CATEGORIES,
+  MARKETING_PHOTO_LODGES,
+  type MarketingDecision,
+  type MarketingDraftKind,
+} from '../lib/db.types';
+import { MARKETING_PHOTO_BUCKET, checkPhotoUpload } from '../lib/marketing-photos';
 import { site } from '../data/site';
 import { MIN_GUEST_AGE } from '../data/policies';
 
@@ -1467,6 +1473,72 @@ export const server = {
         });
       }
       return { ok: true, decision };
+    },
+  }),
+
+  // Upload one photo for the marketing team (CLAUDE.md Part 18, migration 0022). Admin only,
+  // rate-limited. The owner must tick that the photo shows no hunting trophies; the server checks
+  // the real file type from its magic bytes (JPEG, PNG or WebP) and caps the size, stores it under
+  // a server-generated path in the PRIVATE marketing-photos bucket, and records a row in
+  // marketing.photos. Agents only ever see it through a short-lived signed URL.
+  adminUploadMarketingPhoto: defineAction({
+    accept: 'form',
+    input: z.object({
+      photo: z.instanceof(File),
+      category: z.enum(MARKETING_PHOTO_CATEGORIES),
+      lodge: z.enum(MARKETING_PHOTO_LODGES).optional(),
+      alt: z.string().trim().min(10).max(300),
+      noTrophies: z.boolean(),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      if (input.noTrophies !== true) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Please confirm the photo shows no hunting trophies.' });
+      }
+      if (input.category === 'lodge' && !input.lodge) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Please choose which lodge the photo shows.' });
+      }
+      if (/[\u2013\u2014]/.test(input.alt)) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Please use a comma or a full stop instead of a dash in the description.' });
+      }
+
+      const bytes = new Uint8Array(await input.photo.arrayBuffer());
+      const checked = checkPhotoUpload(bytes);
+      if (!checked.ok) throw new ActionError({ code: 'BAD_REQUEST', message: checked.message });
+
+      const sb = getSupabaseAdmin();
+      const { error: upErr } = await sb.storage
+        .from(MARKETING_PHOTO_BUCKET)
+        .upload(checked.path, bytes, { contentType: checked.type, upsert: false });
+      if (upErr) {
+        console.error('[marketing] photo upload failed', upErr.message);
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'The photo could not be stored. Please try again.' });
+      }
+
+      const { data: row, error: insErr } = await sb
+        .schema('marketing')
+        .from('photos')
+        .insert({
+          storage_path: checked.path,
+          category: input.category,
+          lodge: input.lodge ?? null,
+          alt: input.alt,
+          content_type: checked.type,
+          bytes: bytes.byteLength,
+          no_trophies_confirmed_at: new Date().toISOString(),
+          uploaded_by: admin.email,
+        })
+        .select('id')
+        .single();
+      if (insErr || !row) {
+        // Never leave an unrecorded file behind.
+        await sb.storage.from(MARKETING_PHOTO_BUCKET).remove([checked.path]);
+        console.error('[marketing] photo row insert failed', insErr?.message);
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'The photo could not be saved. Please try again.' });
+      }
+      return { ok: true, id: `upload-${row.id}` };
     },
   }),
 

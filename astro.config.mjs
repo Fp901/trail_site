@@ -48,6 +48,11 @@ export default defineConfig({
   // (vercel.json). Paystack is a full-page REDIRECT (not an iframe/inline script), so it needs no
   // script-src/frame-src entry; connect-src allows Supabase (availability read) + 'self' (Actions).
   security: {
+    // Actions read at most this many bytes of request body (Astro's default is 1 MB). Raised to
+    // Vercel's own 4.5 MB serverless request ceiling so an operator can upload a marketing photo
+    // (capped at 4 MB in lib/marketing-photos.ts and by the bucket). Every public action still
+    // validates and length-caps its fields with zod, so this only moves the outer bound.
+    actionBodySizeLimit: 4.5 * 1024 * 1024,
     csp: {
       directives: [
         "default-src 'self'",
