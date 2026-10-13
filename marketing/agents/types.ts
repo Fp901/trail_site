@@ -9,8 +9,9 @@ export interface Employee {
   key: EmployeeKey;
   // What this employee does, for the agent's description and the owner.
   description: string;
-  // The role's instructions. The brand skill (.claude/skills/rooiberg-brand/SKILL.md) is appended
-  // to every employee's instructions at sync time.
+  // The role's instructions. The brand skill (.claude/skills/rooiberg-brand/SKILL.md) is attached
+  // to every employee through the Skills API at sync time, and a short hard-rules summary
+  // (HARD_RULES_SUMMARY in marketing/build.ts) follows these instructions in the system prompt.
   instructions: string;
   // Tools on the Rooiberg tool server this employee may call. Never a publish or send tool: none
   // exists.

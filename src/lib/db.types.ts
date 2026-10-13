@@ -46,6 +46,11 @@ export const ADMIN_ACTIONS = [
   'unblock_dates',
   'inquiry_handled',
   'create_comp_booking',
+  // 0022: the owner's marketing decisions and photo uploads (booking_id is null for these).
+  'marketing_draft_approve',
+  'marketing_draft_edit',
+  'marketing_draft_reject',
+  'marketing_photo_upload',
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
@@ -548,6 +553,43 @@ export const MARKETING_OBJECTION_COLUMNS = [
   'category',
   'summary',
 ] as const;
+
+// marketing.photos (0022): owner uploads for the team. The files live in the private
+// marketing-photos bucket. Enum tuples mirror the 0022 checks (verify-marketing.mjs asserts them).
+export const MARKETING_PHOTO_CATEGORIES = ['trail', 'lodge', 'landscape', 'wildlife', 'food', 'guide'] as const;
+export type MarketingPhotoCategory = (typeof MARKETING_PHOTO_CATEGORIES)[number];
+
+export const MARKETING_PHOTO_LODGES = ['temmincks', 'oukraal', 'rustwood'] as const;
+export type MarketingPhotoLodge = (typeof MARKETING_PHOTO_LODGES)[number];
+
+export const MARKETING_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export type MarketingPhotoType = (typeof MARKETING_PHOTO_TYPES)[number];
+
+export const MARKETING_PHOTO_COLUMNS = [
+  'id',
+  'created_at',
+  'storage_path',
+  'category',
+  'lodge',
+  'alt',
+  'content_type',
+  'bytes',
+  'no_trophies_confirmed_at',
+  'uploaded_by',
+] as const;
+
+export interface MarketingPhotoRow {
+  id: string;
+  created_at: string;
+  storage_path: string; // uploads/<uuid>.<ext> inside the marketing-photos bucket
+  category: MarketingPhotoCategory;
+  lodge: MarketingPhotoLodge | null;
+  alt: string;
+  content_type: MarketingPhotoType;
+  bytes: number;
+  no_trophies_confirmed_at: string;
+  uploaded_by: string;
+}
 
 // ---- Select helper ----------------------------------------------------------------------------
 // Builds the PostgREST select string from a typed column tuple, so the string and the row type

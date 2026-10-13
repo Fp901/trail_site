@@ -80,20 +80,40 @@ export const TITLES: Record<EmployeeKey, string> = {
 };
 export const agentName = (key: EmployeeKey) => `Rooiberg ${TITLES[key]}`;
 
-// The Rooiberg tool server (src/pages/api/marketing/mcp.ts) and its MCP server name on each agent.
-// TOOL_NAMES mirrors the server's registry (verify-marketing.mjs checks both lists agree). There is
-// deliberately no publish or send tool.
+// The Rooiberg tool server (src/pages/api/marketing/mcp/[employee].ts) and its MCP server name on
+// each agent. TOOL_NAMES mirrors the server's registry (verify-marketing.mjs checks both lists agree).
+// There is deliberately no publish or send tool.
 export const TOOL_NAMES = [
   'get_open_departures',
   'get_facts_pack',
   'get_photo_library',
   'get_results',
   'save_draft',
+  'submit_review',
 ] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
+
+// Which tools each employee may call. ONE list, read twice: marketing/agents/*.ts switch on exactly
+// these tools in the agent's MCP toolset, and the tool server refuses any other tool for that
+// employee (each employee reaches the server on its own URL with its own derived bearer token, so
+// the server knows who is calling). submit_review is the Editor's alone; save_draft never is.
+export const TOOL_ACCESS: Record<EmployeeKey, readonly ToolName[]> = {
+  head_of_marketing: ['get_open_departures', 'get_facts_pack', 'get_photo_library', 'get_results'],
+  researcher: ['get_facts_pack'],
+  copywriter: ['get_open_departures', 'get_facts_pack', 'get_photo_library', 'save_draft'],
+  editor: ['get_facts_pack', 'submit_review'],
+  community_manager: ['get_open_departures', 'get_facts_pack', 'get_photo_library', 'save_draft'],
+  sales_assistant: ['get_open_departures', 'get_facts_pack', 'save_draft'],
+  analyst: ['get_results', 'save_draft'],
+};
+
+export const isEmployeeKey = (v: string): v is EmployeeKey => (EMPLOYEE_KEYS as readonly string[]).includes(v);
+
 export const TOOL_SERVER_NAME = 'rooiberg';
 export const TOOL_SERVER_PATH = '/api/marketing/mcp';
-export const toolServerUrl = (siteUrl: string) => siteUrl.replace(/\/$/, '') + TOOL_SERVER_PATH;
+// One URL per employee: /api/marketing/mcp/<employee key>.
+export const toolServerUrl = (siteUrl: string, key: EmployeeKey) =>
+  `${siteUrl.replace(/\/$/, '')}${TOOL_SERVER_PATH}/${key}`;
 
 // The only hosts the Researcher's web_search / web_fetch may reach (also the research
 // environment's allowed_hosts). Edit this list to widen the research; keep it short. Plain

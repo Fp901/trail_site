@@ -1,7 +1,10 @@
-// The Rooiberg tool server's five tools (CLAUDE.md Part 18). The agents reach them over MCP through
-// src/pages/api/marketing/mcp.ts. Four are read-only; save_draft can only INSERT a pending draft.
-// There is deliberately no publish, post, email or send tool: a person approves every draft at
-// /admin/marketing, and nothing here can change a draft once it is saved.
+// The Rooiberg tool server's six tools (CLAUDE.md Part 18). The agents reach them over MCP through
+// src/pages/api/marketing/mcp/[employee].ts, and each employee may call only its own TOOL_ACCESS
+// list (marketing/config.ts), enforced here in callTool as well as in the agent's toolset.
+// Four are read-only; save_draft can only INSERT a pending draft; submit_review (the Editor's
+// alone) can only set editor_status and editor_notes on a draft that is still pending and not yet
+// reviewed. There is deliberately no publish, post, email or send tool: a person approves every
+// draft at /admin/marketing, and no tool can approve, reject, edit the text of or delete a draft.
 //
 // FACTS ARE NEVER MEMORISED. Every call reads src/data and the live departure_inventory view, so a
 // rate or itinerary change reaches the agents on their next call with nothing to re-teach. The
@@ -11,6 +14,8 @@ import { z } from 'astro/zod';
 import { site, stats } from '../data/site';
 import { itinerary } from '../data/itinerary';
 import { sanctuaries } from '../data/sanctuaries';
+import { photoLibrary as sitePhotos } from '../data/photo-library';
+import { existingUploadIds, uploadedPhotos } from './marketing-photos';
 import { logisticsBlocks, faqs, faqAnswerText, seasons } from '../data/logistics';
 import {
   rateRows,
@@ -31,6 +36,7 @@ import { earliestBookableDate, latestBookableDate, todaySast } from './pricing';
 import { getSupabaseAdmin, getSupabaseAnon } from './supabase';
 import { checkDraft, describeViolations } from './brand-rules';
 import { rateLimit } from './ratelimit';
+import { TOOL_ACCESS, type EmployeeKey } from '../../marketing/config';
 import {
   MARKETING_AUTHORS,
   MARKETING_DRAFT_KINDS,
@@ -163,23 +169,32 @@ function buildFactsPack() {
 }
 
 // ---- get_photo_library --------------------------------------------------------------------------
-// Client photography with its published alt text, from data/sanctuaries.ts. Ids are stable slugs
-// built from the lodge's public name (never its internal id).
-export function photoLibrary() {
-  const slug = (s: string) => s.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// Every marketing-usable site photo (data/photo-library.ts: checked by eye, no hunting trophies),
+// with its public URL, plus the owner's uploads (marketing.photos) with short-lived signed URLs.
+export function staticPhotoLibrary() {
   const base = site.canonicalUrl.replace(/\/$/, '');
-  const photos: Array<{ id: string; lodge: string; alt: string; url: string }> = [];
-  for (const s of sanctuaries) {
-    const lodge = slug(s.name);
-    if (s.heroImage) photos.push({ id: `${lodge}-hero`, lodge: s.name, alt: s.alt, url: base + s.heroImage.src });
-    (s.gallery ?? []).forEach((p, i) =>
-      photos.push({ id: `${lodge}-gallery-${i + 1}`, lodge: s.name, alt: p.alt, url: base + p.image.src }),
-    );
-    (s.morePhotos ?? []).forEach((p, i) =>
-      photos.push({ id: `${lodge}-more-${i + 1}`, lodge: s.name, alt: p.alt, url: base + p.image.src }),
-    );
+  return sitePhotos.map((p) => ({
+    id: p.id,
+    category: p.category,
+    lodge: p.lodge,
+    alt: p.alt,
+    ...(p.note ? { note: p.note } : {}),
+    url: base + p.image.src,
+    source: 'site' as const,
+  }));
+}
+
+async function getPhotoLibrary(): Promise<ToolResult> {
+  const photos = staticPhotoLibrary();
+  try {
+    const uploads = await uploadedPhotos();
+    return json({
+      photos: [...uploads.map((u) => ({ ...u, source: 'upload' as const })), ...photos],
+      note: 'Refer to photos by id. Uploaded photos have signed URLs that expire; never copy a URL into a draft.',
+    });
+  } catch {
+    return json({ photos, note: 'Uploaded photos could not be read right now; these are the site photos only.' });
   }
-  return photos;
 }
 
 // ---- get_results --------------------------------------------------------------------------------
@@ -225,7 +240,8 @@ async function getResults(input: { days: number }): Promise<ToolResult> {
 // ---- save_draft ---------------------------------------------------------------------------------
 const PUBLIC_KINDS = MARKETING_DRAFT_KINDS.filter((k) => k !== 'weekly_report');
 
-async function saveDraft(input: z.infer<typeof saveDraftInput>): Promise<ToolResult> {
+async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: EmployeeKey): Promise<ToolResult> {
+  if (input.author !== caller) return fail(`author must be your own employee key, "${caller}".`);
   if (input.author === 'editor') return fail('The Editor reviews drafts; it does not save them.');
   if (input.kind === 'weekly_report' && input.author !== 'analyst' && input.author !== 'head_of_marketing') {
     return fail('Only the Analyst or the Head of Marketing saves a weekly_report.');
@@ -240,8 +256,14 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>): Promise<ToolRes
     return fail(`Draft refused by the brand rules. Fix these and save again:\n${describeViolations(violations)}`);
   }
 
-  const known = new Set(photoLibrary().map((p) => p.id));
-  const unknown = input.photo_ids.filter((id) => !known.has(id));
+  const known = new Set(staticPhotoLibrary().map((p) => p.id));
+  let uploads: Set<string>;
+  try {
+    uploads = await existingUploadIds(input.photo_ids.filter((id) => !known.has(id)));
+  } catch {
+    return fail('Could not check the photo ids right now.');
+  }
+  const unknown = input.photo_ids.filter((id) => !known.has(id) && !uploads.has(id));
   if (unknown.length) return fail(`Unknown photo ids: ${unknown.join(', ')}. Use ids from get_photo_library.`);
 
   const { data, error } = await getSupabaseAdmin()
@@ -279,6 +301,40 @@ const saveDraftInput = z
   })
   .strict();
 
+// ---- submit_review (the Editor only) ------------------------------------------------------------
+// Records the Editor's verdict on one draft. The ONLY write besides save_draft's insert, and the
+// narrowest one: it sets editor_status and editor_notes, nothing else, and only on a draft whose
+// status is still 'pending' and whose editor_status is still 'unchecked' (so it can neither
+// overturn a code-rules flag nor revisit a decided draft). It never touches status, the text,
+// the decision fields or any other table.
+const submitReviewInput = z
+  .object({
+    draft_id: z.string().uuid().describe('The id of the draft you reviewed.'),
+    verdict: z.enum(['pass', 'flag']).describe('"pass" when it is ready for the owner, "flag" when it has a real problem.'),
+    notes: z.string().trim().min(1).max(1000).describe('One or two short reasons, for the owner.'),
+  })
+  .strict();
+
+async function submitReview(input: z.infer<typeof submitReviewInput>, caller: EmployeeKey): Promise<ToolResult> {
+  if (caller !== 'editor') return fail('Only the Editor submits reviews.');
+  if (!(await rateLimit('marketing:submit_review', 60, 3600))) {
+    return fail('Too many reviews in the last hour. Stop and leave the rest for the next run.');
+  }
+  const { data, error } = await getSupabaseAdmin()
+    .schema('marketing')
+    .from('drafts')
+    .update({ editor_status: input.verdict === 'pass' ? 'passed' : 'flagged', editor_notes: input.notes })
+    .eq('id', input.draft_id)
+    .eq('status', 'pending')
+    .eq('editor_status', 'unchecked')
+    .select('id');
+  if (error) return fail('Could not record the review right now.');
+  if (!data || data.length === 0) {
+    return fail('That draft is not waiting for a review: it was already reviewed or decided, or the id is wrong.');
+  }
+  return json({ saved: true, id: input.draft_id, verdict: input.verdict, next: 'The owner sees your verdict next to the draft.' });
+}
+
 // ---- The registry -------------------------------------------------------------------------------
 export const TOOLS = [
   {
@@ -297,9 +353,10 @@ export const TOOLS = [
   },
   {
     name: 'get_photo_library',
-    description: 'Client photographs with their alt text and public URL. Refer to photos by id in save_draft. Read-only.',
+    description:
+      'Every usable photograph (trail, lodges, landscape, wildlife, guides) with id, category, lodge, alt text and URL, including photos the owner uploaded. Refer to photos by id in save_draft. Read-only.',
     input: z.object({}).strict(),
-    run: async () => json({ photos: photoLibrary() }),
+    run: getPhotoLibrary,
   },
   {
     name: 'get_results',
@@ -315,27 +372,37 @@ export const TOOLS = [
     input: saveDraftInput,
     run: saveDraft,
   },
+  {
+    name: 'submit_review',
+    description:
+      "The Editor's verdict on one pending draft: pass or flag, with short notes for the owner. Records the verdict only; it does not approve, publish, change or delete the draft.",
+    input: submitReviewInput,
+    run: submitReview,
+  },
 ] as const;
 
 export type ToolName = (typeof TOOLS)[number]['name'];
 
-// MCP tools/list shape. Input schemas are generated from the same zod objects that validate calls.
-export function listTools() {
-  return TOOLS.map((t) => {
+const allowed = (caller: EmployeeKey, name: string) => (TOOL_ACCESS[caller] as readonly string[]).includes(name);
+
+// MCP tools/list shape, only the caller's own tools. Input schemas are generated from the same zod
+// objects that validate calls.
+export function listTools(caller: EmployeeKey) {
+  return TOOLS.filter((t) => allowed(caller, t.name)).map((t) => {
     const { $schema: _drop, ...schema } = z.toJSONSchema(t.input, { io: 'input' }) as Record<string, unknown>;
     return { name: t.name, description: t.description, inputSchema: schema };
   });
 }
 
-export async function callTool(name: string, args: unknown): Promise<ToolResult> {
+export async function callTool(name: string, args: unknown, caller: EmployeeKey): Promise<ToolResult> {
   const tool = TOOLS.find((t) => t.name === name);
-  if (!tool) return fail(`Unknown tool: ${name}`);
+  if (!tool || !allowed(caller, name)) return fail(`Unknown tool: ${name}`);
   const parsed = tool.input.safeParse(args ?? {});
   if (!parsed.success) {
     return fail(`Invalid input: ${parsed.error.issues.map((i) => `${i.path.join('.') || 'input'}: ${i.message}`).join('; ')}`);
   }
   try {
-    return await (tool.run as (i: unknown) => Promise<ToolResult>)(parsed.data);
+    return await (tool.run as (i: unknown, c: EmployeeKey) => Promise<ToolResult>)(parsed.data, caller);
   } catch (err) {
     console.error('[marketing-tools]', name, (err as Error).message);
     return fail('The tool failed. Try again later.');

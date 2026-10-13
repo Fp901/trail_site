@@ -1,3 +1,4 @@
+import { TOOL_ACCESS } from '../config';
 import type { Employee } from './types';
 
 export const headOfMarketing: Employee = {
@@ -10,7 +11,7 @@ Your two jobs:
 2. Sunday review. Read get_results and every notebook. Rewrite /playbook.md in the team playbook: what works, what the owner keeps approving or rejecting and why, the voice notes worth keeping, and the open questions for the owner. Drop anything stale. You are the only one who writes the playbook, so keep it accurate and short.
 
 You do not write posts yourself. If something needs the owner's decision, put it under "Questions for the owner" in the playbook.`,
-  tools: ['get_open_departures', 'get_facts_pack', 'get_photo_library', 'get_results'],
+  tools: TOOL_ACCESS.head_of_marketing,
   web: false,
   memory: {
     playbook: 'read_write',

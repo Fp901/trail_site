@@ -81,6 +81,12 @@ jobs:
         if: steps.pick.outputs.job == 'sync'
         run: npx tsx marketing/sync.ts
 
+      # Read-only: fails the job if the live brand skill differs from .claude/skills/rooiberg-brand/SKILL.md
+      # or an agent does not pin its latest version. Needs the API key, so only on a live sync.
+      - name: Check the live brand skill matches SKILL.md
+        if: steps.pick.outputs.job == 'sync' && env.DRY_RUN == 'false'
+        run: npx tsx marketing/sync.ts --check
+
       - name: Run the job
         if: steps.pick.outputs.job != 'sync'
         env:

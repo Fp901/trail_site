@@ -50,7 +50,7 @@ const PROMPTS = {
   write: () =>
     `Today is ${today()}. Write and save this week's drafts from /weekly-plan.md as your instructions describe. Reply with a list of what you saved.`,
   review: (drafts: { id: string; kind: string; title: string | null; body: string }[]) =>
-    `Review these ${drafts.length} new drafts against the facts pack and the brand. Reply with the JSON only.\n\n` +
+    `Review these ${drafts.length} new drafts against the facts pack and the brand. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
     JSON.stringify(drafts, null, 2),
   analyse: () =>
     `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.`,
@@ -248,21 +248,6 @@ async function syncFeedback(ctx: Ctx): Promise<number> {
 
 // ---- Editor: code rules first, then the agent ---------------------------------------------
 
-export function parseReviews(text: string): { id: string; verdict: 'pass' | 'flag'; notes: string }[] {
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start < 0 || end <= start) return [];
-  try {
-    const parsed = JSON.parse(text.slice(start, end + 1));
-    if (!Array.isArray(parsed?.reviews)) return [];
-    return parsed.reviews
-      .filter((r: any) => typeof r?.id === 'string' && (r.verdict === 'pass' || r.verdict === 'flag'))
-      .map((r: any) => ({ id: r.id, verdict: r.verdict, notes: String(r.notes ?? '').slice(0, 1000) }));
-  } catch {
-    return [];
-  }
-}
-
 async function editorReview(ctx: Ctx): Promise<void> {
   const { sb } = ctx;
   const { data, error } = await sb
@@ -292,18 +277,16 @@ async function editorReview(ctx: Ctx): Promise<void> {
   }
   if (forAgent.length === 0) return;
 
-  const { text } = await runEmployee(ctx, 'editor', PROMPTS.review(forAgent));
-  const reviews = parseReviews(text);
-  const known = new Set(forAgent.map((d) => d.id));
-  for (const r of reviews) {
-    if (!known.has(r.id)) continue;
-    await sb
-      .from('drafts')
-      .update({ editor_status: r.verdict === 'pass' ? 'passed' : 'flagged', editor_notes: r.notes || null })
-      .eq('id', r.id)
-      .eq('editor_status', 'unchecked');
-  }
-  console.log(`  editor: ${reviews.length} of ${forAgent.length} reviewed`);
+  // The Editor records each verdict itself through submit_review (the tool server's fixed-format,
+  // Editor-only tool), so there is no free text to parse here. Count what landed.
+  await runEmployee(ctx, 'editor', PROMPTS.review(forAgent));
+  const { data: after, error: afterErr } = await sb
+    .from('drafts')
+    .select('id, editor_status')
+    .in('id', forAgent.map((d) => d.id));
+  if (afterErr) throw new Error(`drafts re-read failed: ${afterErr.message}`);
+  const reviewed = (after ?? []).filter((d: { editor_status: string }) => d.editor_status !== 'unchecked').length;
+  console.log(`  editor: ${reviewed} of ${forAgent.length} reviewed`);
 }
 
 // ---- Jobs ---------------------------------------------------------------------------------
@@ -378,7 +361,7 @@ async function main() {
   console.log('\nDone. Drafts wait at /admin/marketing.');
 }
 
-// Only run when executed directly (verify-marketing imports parseReviews).
+// Only run when executed directly (verify-marketing imports this module's exports).
 if (process.argv[1] && /marketing[\\/]run\.ts$/.test(process.argv[1])) {
   main().catch((err) => {
     console.error(err instanceof Error ? err.message : err);

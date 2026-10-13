@@ -45,3 +45,11 @@ export async function findMemoryStores(client: Anthropic): Promise<Record<string
   }
   return ids;
 }
+
+// The brand skill, found by its display name among this workspace's custom skills.
+export async function findSkill(client: Anthropic, displayName: string) {
+  for await (const s of client.skills.list({ source: 'custom' })) {
+    if (s.display_name === displayName) return s;
+  }
+  return null;
+}

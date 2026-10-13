@@ -2,6 +2,7 @@
 // Nothing here touches the network: it turns the employees-as-code into the exact Managed Agents
 // payloads, so the verify script can check what would be sent without any key.
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import type Anthropic from '@anthropic-ai/sdk';
 import {
   MODELS,
@@ -21,15 +22,51 @@ type AgentCreate = Anthropic.Beta.Agents.AgentCreateParams;
 type MemoryResource = Anthropic.Beta.Sessions.BetaManagedAgentsMemoryStoreResourceParam;
 
 export const SKILL_PATH = '.claude/skills/rooiberg-brand/SKILL.md';
+// The brand skill is uploaded once through the Skills API (marketing/sync.ts) and attached to every
+// employee by id. Its slug comes from the SKILL.md frontmatter `name`; the display name is how sync
+// finds it again.
+export const SKILL_NAME = 'rooiberg-brand';
+export const SKILL_DISPLAY_NAME = 'Rooiberg Wander brand';
+
+// The skill file exactly as it is in the repository.
+export function brandSkillFile(path = SKILL_PATH): string {
+  return readFileSync(path, 'utf8');
+}
 
 // The brand skill without its YAML frontmatter.
 export function brandSkillBody(path = SKILL_PATH): string {
-  const raw = readFileSync(path, 'utf8');
-  return raw.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+  return brandSkillFile(path).replace(/^---\n[\s\S]*?\n---\n/, '').trim();
 }
 
-export function systemPrompt(emp: Employee, skill: string): string {
-  return [TEAM_PREAMBLE, emp.instructions, skill].join('\n\n');
+// Content hash of SKILL.md as committed. A skill version carries no metadata of its own, but its
+// `description` is read back from the uploaded frontmatter, so the upload appends the hash there
+// and sync compares it with the file to decide whether a new version is needed.
+export const skillContentHash = (raw: string) => createHash('sha256').update(raw, 'utf8').digest('hex');
+const HASH_TAG = /\s*\[content sha256 ([0-9a-f]{64})\]\s*$/;
+
+export function skillUploadContent(raw: string): string {
+  const hash = skillContentHash(raw);
+  const out = raw.replace(/^(---\n(?:[^\n]*\n)*?description:[^\n]*?)[ \t]*(?=\n)/, `$1 [content sha256 ${hash}]`);
+  if (out === raw) throw new Error(`${SKILL_PATH} has no single-line description in its frontmatter.`);
+  return out;
+}
+
+// The hash a live skill version was uploaded from, or null for a version this code did not upload.
+export const hashFromVersionDescription = (description: string): string | null =>
+  description.match(HASH_TAG)?.[1] ?? null;
+
+export interface SkillRef {
+  skill_id: string;
+  version: string;
+}
+
+// The hard rules in one paragraph, kept in every system prompt so an agent sees them even before
+// it opens the attached brand skill. The skill holds the full voice and rules; the code rules
+// (src/lib/brand-rules.ts) enforce them regardless.
+export const HARD_RULES_SUMMARY = `Brand: the rooiberg-brand skill is attached. Read it before you write or judge anything. Hard rules, enforced by code: no em or en dashes; no per-night price, only the published per person rates from get_facts_pack; never mention SADC, a resident rate, self-catering or /sadc-slackpacking; no business-plan internals or named individuals from the plan; safety copy names the Two-Man Rule; lodges are Temminck's Lodge, Oukraal and Rustwood; write barbeque, never braai; a joined departure only in the exact line from get_open_departures; X posts at most 280 characters.`;
+
+export function systemPrompt(emp: Employee): string {
+  return [TEAM_PREAMBLE, emp.instructions, HARD_RULES_SUMMARY].join('\n\n');
 }
 
 // The built-in toolset: file tools so the agent can read and write its mounted memory. bash is
@@ -65,14 +102,16 @@ export function mcpToolset(emp: Employee): Anthropic.Beta.Agents.BetaManagedAgen
   };
 }
 
-export function agentParams(emp: Employee, siteUrl: string, skill: string): AgentCreate {
+export function agentParams(emp: Employee, siteUrl: string, skill: SkillRef): AgentCreate {
   return {
     name: agentName(emp.key),
     description: emp.description,
     model: MODELS[emp.key],
-    system: systemPrompt(emp, skill),
-    mcp_servers: [{ type: 'url', name: TOOL_SERVER_NAME, url: toolServerUrl(siteUrl) }],
+    system: systemPrompt(emp),
+    mcp_servers: [{ type: 'url', name: TOOL_SERVER_NAME, url: toolServerUrl(siteUrl, emp.key) }],
     tools: [agentToolset(emp), mcpToolset(emp)],
+    // The brand skill, pinned to the version sync just verified or uploaded.
+    skills: [{ type: 'custom', skill_id: skill.skill_id, version: skill.version }],
     metadata: { team: TEAM_TAG, key: emp.key },
   };
 }
