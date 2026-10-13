@@ -63,7 +63,7 @@ Avoid: anything to steer clear of this week, and why.
 - channel: instagram
 - format: carousel
 - angle: One sentence on what the post says and why it works now.
-- based on: R-202642-2
+- based on: R-202642-1
 - departure: none
 - photos: trail-bushveld-path, guide-reading-tracks, rustwood-pool-sunset
 - call to action: from get_facts_pack
@@ -76,7 +76,7 @@ Avoid: anything to steer clear of this week, and why.
   - story: one portrait photo (orientation "portrait" in get_photo_library) with at most 125 characters of text on it and no caption. Best for something timely, such as a departure with places left.
   A blog slot has format none.
 - angle: under 300 characters.
-- based on: a research item id from this week's brief, or "facts: " and what in get_facts_pack it uses.
+- based on: a research item id from this week's brief, or "facts: " and what in get_facts_pack it uses. The owner wants posts inspired by the wider industry, so at least two of the three post slots rest on one of the brief's trend items (the runner checks this). The angle says how the trend connects to the trail; the facts pack supplies everything said about Rooiberg Wander.
 - departure: a start date from get_open_departures, or none.
 - photos: ids from get_photo_library, separated by commas, in the order they should appear: exactly 1 for a single or a story, 3 to 10 for a carousel. Choose photos that show what the angle says; read each photo's alt text, and never use the same photo twice in a week.
 - call to action: write "from get_facts_pack". Every post ends with the facts pack's call_to_action, so the owner's readers always get the same next step.

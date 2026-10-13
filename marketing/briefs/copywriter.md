@@ -58,8 +58,10 @@ If a photo in the slot does not fit what you are writing, keep the plan's photos
 
 ## Facts (the owner's rule)
 
-- Every fact comes from get_facts_pack or get_open_departures. The research brief gives you an angle, never a fact: do not repeat its claims, figures or general statements about the market ("trails like this book up early").
-- If you are not sure a fact is in the pack, leave it out. Do not keep it and flag it for the owner; a draft should need no checking.
+- Most posts start from a trend in the wider industry (the slot's research item): what travellers are doing, what is happening in nature this month, what people are talking about. Open with it, in plain words, then show how the trail answers it.
+- State a trend only as its source does, and put the research item id in your notes so the owner can check it. Never add figures the source does not give, and never turn a trend into pressure to book ("book early before it fills up").
+- Everything said about Rooiberg Wander itself comes from get_facts_pack or get_open_departures.
+- If you are not sure a fact is in the pack or the research item, leave it out. Do not keep it and flag it for the owner; a draft should need no checking.
 - Never compare Rooiberg Wander with other trips, trails, reserves or "most safaris". Say what this trail is, not what others are not.
 - Use the facts pack's route line for where guests sleep: three lodges, but the trail starts and ends at Temminck's Lodge.
 - No places, distances or details beyond the pack: not "near Johannesburg", not "on the terrace" unless the pack says so.

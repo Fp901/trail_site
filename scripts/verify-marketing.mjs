@@ -574,16 +574,18 @@ const item = (n, over = {}) => {
 };
 const brief = (items) => `# Weekly brief\n\n${items.join('\n\n')}\n`;
 const opened = ['https://www.getaway.co.za/p1/', 'https://getaway.co.za/p2', 'https://getaway.co.za/p3'];
-const good = C.checkBrief(brief([item(1), item(2, { type: 'angle', channel: 'instagram' })]), W, opened);
-assert('a well-formed, sourced brief passes and yields its ids', good.errors.length === 0 && good.ids.join() === `R-${W}-1,R-${W}-2`);
+const good = C.checkBrief(brief([item(1, { type: 'trend' }), item(2, { type: 'trend', channel: 'instagram' }), item(3, { type: 'trend' })]), W, opened);
+assert('a well-formed, sourced brief passes and yields its ids and trend ids', good.errors.length === 0 && good.ids.join() === `R-${W}-1,R-${W}-2,R-${W}-3` && good.trendIds.length === 3);
+assert('a brief with fewer than three trend items is refused (owner decision)', C.checkBrief(brief([item(1, { type: 'trend' }), item(2), item(3)]), W, opened).errors.some((e) => /at least 3 of the items must be wider industry trends/.test(e)));
 assert('a source not opened this run is refused', C.checkBrief(brief([item(1, { source: 'https://getaway.co.za/old' })]), W, opened).errors.some((e) => /did not open/.test(e)));
 assert('an empty brief is refused', C.checkBrief('# Weekly brief\n', W, opened).errors.length > 0);
 assert('more than five items are refused', C.checkBrief(brief([1, 2, 3, 4, 5, 6].map((n) => item(n))), W, [1, 2, 3, 4, 5, 6].map((n) => `https://getaway.co.za/p${n}`)).errors.some((e) => /at most 5/.test(e)));
 assert('ids must be this week, in order', C.checkBrief(brief([item(1).replace(`R-${W}-1`, 'R-202641-1')]), W, opened).errors.some((e) => /should be/.test(e)));
 assert('a missing field is refused', C.checkBrief(brief([item(1, { 'why now': null })]), W, opened).errors.some((e) => /why now/.test(e)));
-assert('an unknown type or channel is refused', C.checkBrief(brief([item(1, { type: 'rumour', channel: 'x' })]), W, opened).errors.length === 2);
+const notTrendCount = (e) => !/wider industry trends/.test(e);
+assert('an unknown type or channel is refused', C.checkBrief(brief([item(1, { type: 'rumour', channel: 'x' })]), W, opened).errors.filter(notTrendCount).length === 2);
 assert('an over-long field is refused', C.checkBrief(brief([item(1, { headline: 'a'.repeat(121) })]), W, opened).errors.some((e) => /headline/.test(e)));
-assert('a long dash or the hidden products are refused', C.checkBrief(brief([item(1, { fact: 'A slackpacking trail \u2014 new.' })]), W, opened).errors.length === 2);
+assert('a long dash or the hidden products are refused', C.checkBrief(brief([item(1, { fact: 'A slackpacking trail \u2014 new.' })]), W, opened).errors.filter(notTrendCount).length === 2);
 
 const photos = new Set(['rooiberg-sunset-grassland', 'upload-x', 'trail-bushveld-path', 'guide-reading-tracks', 'temmincks-giraffe']);
 const three = 'trail-bushveld-path, guide-reading-tracks, rooiberg-sunset-grassland';
@@ -594,6 +596,15 @@ const slot = (n, over = {}) => {
 const plan = (slots) => `# Weekly plan\n\nGoal: one line.\n\n${slots.join('\n\n')}\n`;
 const okPlan = C.checkPlan(plan([slot(1), slot(2, { channel: 'facebook', format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }), slot(3, { format: 'story', photos: 'temmincks-giraffe', departure: '2027-04-04' }), slot(4, { channel: 'blog', format: 'none' })]), W, [`R-${W}-1`], photos);
 const mix = (a, b, c) => plan([slot(1, a), slot(2, b), slot(3, c)]);
+{
+  const trendIds = [`R-${W}-1`, `R-${W}-2`];
+  const research = [`R-${W}-1`, `R-${W}-2`, `R-${W}-3`];
+  const onTrends = mix({}, { format: 'carousel', photos: three, 'based on': `R-${W}-2` }, { format: 'story', 'based on': 'facts: the route' });
+  assert('two post slots on trend items pass the trend rule', C.checkPlan(onTrends, W, research, photos, trendIds).errors.length === 0);
+  const offTrends = mix({ 'based on': `R-${W}-3` }, { format: 'carousel', photos: three, 'based on': 'facts: the route' }, { format: 'story', 'based on': `R-${W}-1` });
+  assert('a plan with fewer than two post slots on trends is refused', C.checkPlan(offTrends, W, research, photos, trendIds).errors.some((e) => /rest on a trend/.test(e)));
+  assert('with no trend items (no valid brief) the trend rule is off', C.checkPlan(offTrends, W, research, photos, []).errors.length === 0);
+}
 assert('a well-formed plan passes and yields its slots', okPlan.errors.length === 0 && okPlan.slots.map((s) => s.channel).join() === 'instagram,facebook,instagram,blog');
 assert('a plan slot carries its format', okPlan.slots.map((s) => s.format).join() === 'single,carousel,story,');
 assert('the three post slots must be one single, one carousel and one story', C.checkPlan(mix({}, { format: 'carousel', photos: three }, {}), W, [`R-${W}-1`], photos).errors.some((e) => /missing: story/.test(e)));
@@ -620,8 +631,8 @@ assert('each brief that hands over states its format and the runner\'s field nam
 assert('the briefs\' format examples pass the checks they describe', (() => {
   const ex = (name) => briefText(name).match(/```\n([\s\S]*?)```/)[1];
   const b = C.checkBrief(ex('researcher'), '202642', ['https://getaway.co.za/example']);
-  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-2'], new Set(['trail-bushveld-path', 'guide-reading-tracks', 'rustwood-pool-sunset']));
-  return b.errors.length === 0 && pl.errors.every((e) => /exactly 3/.test(e));
+  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-1'], new Set(['trail-bushveld-path', 'guide-reading-tracks', 'rustwood-pool-sunset']));
+  return b.errors.every((e) => /wider industry trends/.test(e)) && /type: trend/.test(ex('researcher')) && pl.errors.every((e) => /exactly 3/.test(e));
 })());
 
 section('6. The photo library and owner uploads');

@@ -29,7 +29,7 @@ The code rules have already passed every draft you are shown: dashes, prices, fo
 
 ## What to check
 
-- Facts: is every claim supported by the facts pack? Flag anything invented, exaggerated or vague.
+- Facts: is every claim about Rooiberg Wander supported by the facts pack? A statement about a wider trend is fine when the draft's notes name the research item and the statement matches that item in the Researcher's /weekly-brief.md. Flag anything invented, exaggerated or vague, and any trend used as pressure to book.
 - Tone: classy, calm and specific, never salesy.
 - Safety: handled seriously, and something the owner would be comfortable seeing in public.
 - Comparisons: flag any claim about other trips, trails or "most safaris", and any general market statement from the research.

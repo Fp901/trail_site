@@ -41,6 +41,7 @@ import {
   checkBrief,
   checkDrafts,
   checkPlan,
+  PLAN_MIN_TREND_SLOTS,
   checkPlaybook,
   cycleWeek,
   fixPrompt,
@@ -66,10 +67,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 const PROMPTS = {
   research: (week: string) =>
     `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.`,
-  plan: (week: string, research: string[]) =>
+  plan: (week: string, research: { ids: string[]; trends: string[] }) =>
     `Today is ${today()}, Monday planning for cycle week ${week}. Write ${PLAN_PATH} in the team playbook exactly in the format your instructions give, with ids P-${week}-1 upwards. ` +
-    (research.length
-      ? `This week's research items are ${research.join(', ')} in the Researcher's ${BRIEF_PATH}.`
+    (research.ids.length
+      ? `This week's research items are ${research.ids.join(', ')} in the Researcher's ${BRIEF_PATH}` +
+        (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at least ${Math.min(PLAN_MIN_TREND_SLOTS, research.trends.length)} post slots must be based on one.` : '.')
       : `There is no research brief for this week, so base every slot on "facts: ..." from get_facts_pack.`) +
     ` Reply with the plan's headline ideas.`,
   write: (week: string, slots: PlanSlot[]) =>
@@ -326,11 +328,14 @@ const missing = (path: string) => ({ path, errors: [`${path} does not exist. Wri
 // This cycle's research item ids: empty when the brief is missing or from an earlier week (the plan
 // then rests on the facts pack alone). Sunday's run already checked the brief's format and
 // sources; a brief that failed is reported there.
-async function briefIds(ctx: Ctx, week: string): Promise<string[]> {
+async function briefIds(ctx: Ctx, week: string): Promise<{ ids: string[]; trends: string[] }> {
   const md = await readMemory(ctx, notebookStoreName('researcher'), BRIEF_PATH);
-  if (!md) return [];
+  if (!md) return { ids: [], trends: [] };
   const items = parseItems(md).filter((i) => i.id.startsWith(`R-${week}-`));
-  return items.map((i) => i.id);
+  return {
+    ids: items.map((i) => i.id),
+    trends: items.filter((i) => (i.fields.type ?? '').toLowerCase() === 'trend').map((i) => i.id),
+  };
 }
 
 async function photoIds(ctx: Ctx): Promise<Set<string>> {
@@ -349,10 +354,10 @@ const checks = {
     if (md === null) return missing(BRIEF_PATH);
     return { path: BRIEF_PATH, errors: checkBrief(md, week, fetchedUrls).errors };
   },
-  plan: (ctx: Ctx, week: string, research: string[], photos: Set<string>, out: PlanSlot[]): HandOverCheck => async () => {
+  plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, out: PlanSlot[]): HandOverCheck => async () => {
     const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAN_PATH);
     if (md === null) return missing(PLAN_PATH);
-    const r = checkPlan(md, week, research, photos);
+    const r = checkPlan(md, week, research.ids, photos, research.trends);
     out.splice(0, out.length, ...r.slots);
     return { path: PLAN_PATH, errors: r.errors };
   },
