@@ -29,6 +29,7 @@ import {
   SKILL_DISPLAY_NAME,
   SKILL_NAME,
   agentParams,
+  environmentSpecs,
   brandSkillBody,
   brandSkillFile,
   hashFromVersionDescription,
@@ -122,7 +123,7 @@ async function main() {
     console.log('DRY RUN: nothing is created or changed. Set DRY_RUN=false to apply.\n');
     console.log(`Brand skill: "${SKILL_DISPLAY_NAME}" from SKILL.md (sha256 ${skillHash.slice(0, 12)}), uploaded only if it changed, attached to every agent`);
     console.log(`Tool server: ${siteUrl.replace(/\/$/, '')}${TOOL_SERVER_PATH}/<employee>, one URL and derived token each`);
-    console.log(`Environments: ${ENVIRONMENT_NAME}, ${RESEARCH_ENVIRONMENT_NAME} (web: ${RESEARCH_HOSTS.join(', ')})`);
+    console.log(`Environments: ${ENVIRONMENT_NAME}, ${RESEARCH_ENVIRONMENT_NAME} (Researcher: open web search and fetch; starting points: ${RESEARCH_HOSTS.join(', ')})`);
     console.log(`Vault: ${VAULT_NAME} (static bearer for the tool server)`);
     console.log(`Memory stores: ${ALL_STORE_NAMES.join(', ')}`);
     for (const a of agents) {
@@ -136,23 +137,15 @@ async function main() {
   const client = anthropic();
   const token = requireEnv('MARKETING_TOOLS_TOKEN');
 
-  // 1. Environments. Both cloud with limited networking; MCP traffic is allowed so the agents can
-  //    reach the tool server. Only the research environment can reach RESEARCH_HOSTS.
-  const envSpecs = [
-    { name: ENVIRONMENT_NAME, allowed_hosts: [] as string[] },
-    { name: RESEARCH_ENVIRONMENT_NAME, allowed_hosts: [...RESEARCH_HOSTS] },
-  ];
-  for (const spec of envSpecs) {
-    const config = {
-      type: 'cloud' as const,
-      networking: { type: 'limited' as const, allow_mcp_servers: true, allowed_hosts: spec.allowed_hosts },
-    };
+  // 1. Environments (environmentSpecs in build.ts): the team's limited one, and the Researcher's
+  //    open one.
+  for (const spec of environmentSpecs()) {
     const found = await findEnvironment(client, spec.name);
     if (found) {
-      await client.beta.environments.update(found.id, { config });
+      await client.beta.environments.update(found.id, { config: spec.config });
       console.log(`Environment updated: ${spec.name}`);
     } else {
-      await client.beta.environments.create({ name: spec.name, config, metadata: { team: TEAM_TAG } });
+      await client.beta.environments.create({ name: spec.name, config: spec.config, metadata: { team: TEAM_TAG } });
       console.log(`Environment created: ${spec.name}`);
     }
   }
@@ -219,54 +212,17 @@ async function main() {
   //    pin the latest at start, and every agent pins the brand skill version verified here.
   const skillRef = await ensureSkill(client);
   const agents = EMPLOYEES.map((e) => agentParams(e, siteUrl, skillRef));
-  const skipped: string[] = [];
   for (const params of agents) {
-    // A site that blocks Anthropic's web crawler is refused by the API (400, naming the
-    // allowed_domains entry). Drop that site from the agent's web tools, warn, and retry, so one
-    // blocked site in marketing/briefs/researcher.md never stops the whole sync.
-    for (;;) {
-      try {
-        const found = await findAgent(client, params.name);
-        if (found) {
-          await client.beta.agents.update(found.id, { ...params, version: found.version });
-          console.log(`Agent updated: ${params.name}`);
-        } else {
-          await client.beta.agents.create(params);
-          console.log(`Agent created: ${params.name}`);
-        }
-        break;
-      } catch (err) {
-        const blocked = blockedDomain(err, params);
-        if (!blocked) throw err;
-        dropDomain(params, blocked);
-        skipped.push(blocked);
-        console.warn(`  skipped ${blocked}: the site blocks Anthropic's web crawler. Remove it from the brief's Sites list.`);
-      }
+    const found = await findAgent(client, params.name);
+    if (found) {
+      await client.beta.agents.update(found.id, { ...params, version: found.version });
+      console.log(`Agent updated: ${params.name}`);
+    } else {
+      await client.beta.agents.create(params);
+      console.log(`Agent created: ${params.name}`);
     }
   }
-  if (skipped.length) console.warn(`\nBlocked sites skipped: ${[...new Set(skipped)].join(', ')}`);
   console.log('\nSync complete.');
-}
-
-type AgentParams = ReturnType<typeof agentParams>;
-
-// The domain named by a "domain is not accessible to our user agent" 400, or null.
-function blockedDomain(err: unknown, params: AgentParams): string | null {
-  const message = err instanceof Error ? err.message : String(err);
-  if (!/domain is not accessible/i.test(message)) return null;
-  const m = message.match(/tools\.(\d+)\.[a-z0-9_]+\.configs\.(\d+)\.allowed_domains\.(\d+)/);
-  if (!m) return null;
-  const tool = params.tools?.[Number(m[1])] as { configs?: { allowed_domains?: string[] }[] } | undefined;
-  return tool?.configs?.[Number(m[2])]?.allowed_domains?.[Number(m[3])] ?? null;
-}
-
-// Removes a domain from every web tool config of this agent.
-function dropDomain(params: AgentParams, domain: string): void {
-  for (const tool of (params.tools ?? []) as { configs?: { allowed_domains?: string[] }[] }[]) {
-    for (const c of tool.configs ?? []) {
-      if (c.allowed_domains) c.allowed_domains = c.allowed_domains.filter((d) => d !== domain);
-    }
-  }
 }
 
 main().catch((err) => {

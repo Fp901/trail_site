@@ -1,7 +1,8 @@
 // Owner-edited briefs (CLAUDE.md Part 18). marketing/briefs/<employee>.md is plain Markdown the
 // owner edits directly: everything outside the leading <!-- editing help --> comment becomes the
-// employee's instructions, and for the Researcher the bullet lines under "## Sites" are the only
-// hosts its web_search / web_fetch may reach (also the research environment's allowed_hosts).
+// employee's instructions, and for the Researcher the bullet lines under "## Sites" are its
+// starting points (its web is open; RESEARCH_HOSTS only checks the list is well formed and shows
+// it in the sync plan).
 // Node only: the website never imports this file.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

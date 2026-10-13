@@ -17,10 +17,12 @@ export const EMPLOYEE_KEYS = [
 ] as const;
 export type EmployeeKey = (typeof EMPLOYEE_KEYS)[number];
 
-// Model per employee, as agreed with the owner.
+// Model per employee, as agreed with the owner. The Researcher moved from Haiku to Sonnet with the
+// system design (October 2026): its job is judging which finding is worth a post, and one weekly
+// Sonnet run costs about what seven daily Haiku runs did.
 export const MODELS: Record<EmployeeKey, string> = {
   head_of_marketing: 'claude-opus-5-5',
-  researcher: 'claude-haiku-5-5',
+  researcher: 'claude-sonnet-5-5',
   copywriter: 'claude-sonnet-5-5',
   editor: 'claude-haiku-5-5',
   community_manager: 'claude-sonnet-5-5',
@@ -33,7 +35,7 @@ export const MODELS: Record<EmployeeKey, string> = {
 export const HARD_RUN_CAP_CENTS = 500;
 export const RUN_CAP_CENTS: Record<EmployeeKey, number> = {
   head_of_marketing: 300,
-  researcher: 100,
+  researcher: 150,
   copywriter: 200,
   editor: 30,
   community_manager: 100,
@@ -51,15 +53,19 @@ export const RUN_TIMEOUT_MINUTES = 20;
 // .github/workflows/marketing-team.yml and verify-marketing.mjs checks they still match.
 // Nothing scheduled here publishes or sends anything: every output is a pending draft or a
 // memory note, and a person approves each draft at /admin/marketing.
+// One cycle a week (design doc section 2): research and review on Sunday, plan and drafts on
+// Monday, owner review Monday to Wednesday. There is no daily research run.
 export const SCHEDULES = {
-  // Researcher: daily trends and competitor notes, 06:00 SAST.
-  research: '0 4 * * *',
+  // Sunday 14:00 SAST: Researcher writes the brief, Analyst reports, Head of Marketing rewrites the playbook.
+  weekly_review: '0 12 * * 0',
   // Monday 07:00 SAST: Head of Marketing plans the week, then Copywriter drafts, then Editor checks.
   plan_and_write: '0 5 * * 1',
-  // Sunday 16:00 SAST: Analyst reads results, then Head of Marketing rewrites the playbook.
-  weekly_review: '0 14 * * 0',
 } as const;
 export type ScheduleKey = keyof typeof SCHEDULES;
+// Jobs that run only when started by hand (GitHub Actions > Run workflow): the Researcher alone,
+// for trying out a change to its brief.
+export const MANUAL_JOBS = ['research'] as const;
+export type JobKey = ScheduleKey | (typeof MANUAL_JOBS)[number];
 
 // Managed Agents resource names. The sync script finds or creates each by name; the runner looks
 // them up by the same names, so no IDs need to be stored anywhere.

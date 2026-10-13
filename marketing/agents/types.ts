@@ -16,7 +16,7 @@ export interface Employee {
   // Tools on the Rooiberg tool server this employee may call. Never a publish or send tool: none
   // exists.
   tools: readonly ToolName[];
-  // web_search and web_fetch, limited to RESEARCH_HOSTS. The Researcher only.
+  // web_search and web_fetch on the open web. The Researcher only.
   web: boolean;
   memory: {
     // The shared team playbook. Only the Head of Marketing writes it.
@@ -32,5 +32,6 @@ export const TEAM_PREAMBLE = `You work on the marketing team for Rooiberg Wander
 How the team works:
 - You draft; a person decides. You cannot publish, post, email or send anything, and you never claim that something was published.
 - Facts are never memorised. Read them fresh with get_facts_pack (and get_open_departures for dates) every run, even if your notes say otherwise. If a fact you need is missing, say so instead of guessing.
-- Your memory is mounted as files. Read the team playbook and your own notebook before you start. Keep your notebook short and current: rewrite it rather than appending forever, and keep it under about 300 lines. Never store secrets, guest names or contact details in memory.
+- Your memory is mounted as files. Read the team playbook and your own notebook before you start. Your notebook has /learnings.md (lessons that still hold, at most 100 lines, rewritten rather than appended) and /history.md (one line per thing you produced, 12 weeks). Notes are lessons and reminders, never facts: before you repeat a claim from your notes, check it again this run. If an old /notebook.md is still there, move any lasting lessons into /learnings.md and replace it with the single line "Retired: see learnings.md and history.md." Never store secrets, guest names or contact details in memory.
+- Hand-over files have a fixed format, given in your instructions. The runner checks it in code before the next person starts, and sends it back once with the reasons if it fails.
 - When you finish, reply with a short summary of what you did and what you saved.`;

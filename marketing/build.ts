@@ -5,7 +5,9 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import type Anthropic from '@anthropic-ai/sdk';
 import {
+  ENVIRONMENT_NAME,
   MODELS,
+  RESEARCH_ENVIRONMENT_NAME,
   PLAYBOOK_STORE_NAME,
   TEAM_TAG,
   TITLES,
@@ -15,7 +17,7 @@ import {
   toolServerUrl,
   type EmployeeKey,
 } from './config';
-import { RESEARCH_HOSTS } from './brief';
+import { BRIEF_PATH, HISTORY_PATH, LEARNINGS_PATH, PLAN_PATH, PLAYBOOK_PATH, PLAYBOOK_SECTIONS } from './contracts';
 import { TEAM_PREAMBLE, type Employee } from './agents/types';
 
 type AgentCreate = Anthropic.Beta.Agents.AgentCreateParams;
@@ -71,7 +73,10 @@ export function systemPrompt(emp: Employee): string {
 
 // The built-in toolset: file tools so the agent can read and write its mounted memory. bash is
 // never enabled (nothing in this team needs a shell), and web search/fetch are on for the
-// Researcher only, limited to RESEARCH_HOSTS.
+// Researcher only. Its web is open (owner decision, October 2026): the Sites list in its brief is
+// where it starts, not a fence. What it brings back is held to a strict, length-capped format by
+// the runner (marketing/contracts.ts), every source must be a page it opened in the same run, and
+// nothing it writes leaves the team without the owner's approval.
 export function agentToolset(emp: Employee): Anthropic.Beta.Agents.BetaManagedAgentsAgentToolset20260401Params {
   const configs: Anthropic.Beta.Agents.BetaManagedAgentsAgentToolConfigParams[] = [
     { name: 'read', enabled: true },
@@ -82,14 +87,28 @@ export function agentToolset(emp: Employee): Anthropic.Beta.Agents.BetaManagedAg
     { name: 'bash', enabled: false },
   ];
   if (emp.web) {
-    configs.push({ name: 'web_search', enabled: true, allowed_domains: [...RESEARCH_HOSTS] });
-    configs.push({ name: 'web_fetch', enabled: true, allowed_domains: [...RESEARCH_HOSTS] });
+    configs.push({ name: 'web_search', enabled: true });
+    configs.push({ name: 'web_fetch', enabled: true });
   }
   return {
     type: 'agent_toolset_20260401',
     default_config: { enabled: false, permission_policy: { type: 'always_allow' } },
     configs,
   };
+}
+
+// The two environments. The team's is limited: no hosts at all, only its MCP tool server. The
+// Researcher's is unrestricted, because under limited networking allowed_hosts also bounds
+// web_search and web_fetch, and its web is open. That sandbox has no bash and its file tools reach
+// only its mounted memory, so the open network is used by the web tools alone.
+export function environmentSpecs(): { name: string; config: Anthropic.Beta.Environments.EnvironmentCreateParams['config'] }[] {
+  return [
+    {
+      name: ENVIRONMENT_NAME,
+      config: { type: 'cloud', networking: { type: 'limited', allow_mcp_servers: true, allowed_hosts: [] } },
+    },
+    { name: RESEARCH_ENVIRONMENT_NAME, config: { type: 'cloud', networking: { type: 'unrestricted' } } },
+  ];
 }
 
 // The Rooiberg tool server, with only this employee's tools switched on.
@@ -125,13 +144,13 @@ export function memoryPlan(emp: Employee): { name: string; access: 'read_only' |
       access: emp.memory.playbook,
       instructions:
         emp.memory.playbook === 'read_write'
-          ? 'The shared team playbook. You own it: keep /playbook.md and /weekly-plan.md accurate and short.'
-          : 'The shared team playbook, written by the Head of Marketing. Read /playbook.md and /weekly-plan.md first.',
+          ? `The shared team playbook. You own it: keep ${PLAYBOOK_PATH} and ${PLAN_PATH} accurate and short.`
+          : `The shared team playbook, written by the Head of Marketing. Read ${PLAYBOOK_PATH} and ${PLAN_PATH} first.`,
     },
     {
       name: notebookStoreName(emp.key),
       access: 'read_write',
-      instructions: 'Your own notebook. Read /notebook.md first and keep it short and current.',
+      instructions: `Your own notebook. Read ${LEARNINGS_PATH} and ${HISTORY_PATH} first. Lessons go in ${LEARNINGS_PATH}, one line per thing you produced in ${HISTORY_PATH}, and this week's hand-over file is replaced each run.`,
     },
     ...emp.memory.reads.map((k) => ({
       name: notebookStoreName(k),
@@ -161,25 +180,35 @@ export function brandSummary(skill: string): string {
 
 export function seedMemories(skill: string): Record<string, { path: string; content: string }[]> {
   const summary = brandSummary(skill);
+  const sections = PLAYBOOK_SECTIONS.map((h) => `## ${h}\n\n${h === 'Voice' ? 'See the rooiberg-brand skill. Add only what the owner has taught us since.' : 'Nothing yet.'}`).join('\n\n');
   const seeds: Record<string, { path: string; content: string }[]> = {
     [PLAYBOOK_STORE_NAME]: [
       {
-        path: '/playbook.md',
-        content: `# Team playbook\n\nOwned by the Head of Marketing, rewritten every Sunday.\n\n${summary}\n\n## What works\n\nNothing yet: the team has just started.\n\n## What the owner approves and rejects\n\nNothing yet.\n\n## Questions for the owner\n\nNone yet.\n`,
+        path: PLAYBOOK_PATH,
+        content: `# Team playbook\n\nOwned by the Head of Marketing, rewritten every Sunday.\n\n${sections}\n`,
       },
       {
-        path: '/weekly-plan.md',
+        path: PLAN_PATH,
         content: '# Weekly plan\n\nNo plan yet. The Head of Marketing writes this every Monday.\n',
       },
     ],
   };
+  // Every notebook has the same two lasting files (design doc section 4). The old /notebook.md is
+  // left where it exists; each brief says to move its lasting lessons into learnings.md.
   for (const key of Object.keys(TITLES) as EmployeeKey[]) {
     const files = [
       {
-        path: '/notebook.md',
-        content: `# ${TITLES[key]} notebook\n\nKeep this short and current. Never store secrets, guest names or contact details.\n\n${summary}\n\n## Notes\n\nNothing yet.\n`,
+        path: LEARNINGS_PATH,
+        content: `# ${TITLES[key]}: learnings\n\nLessons that still hold, at most 100 lines. Rewrite rather than append. Never store secrets, guest names or contact details, and never a fact: facts come fresh from get_facts_pack or a page opened this run.\n\n${summary}\n\n## Lessons\n\nNothing yet.\n`,
+      },
+      {
+        path: HISTORY_PATH,
+        content: `# ${TITLES[key]}: history\n\nOne line per thing produced, newest first: id, date, headline, what happened to it. Keep 12 weeks. A line here is a reminder of what was looked at, never evidence.\n`,
       },
     ];
+    if (key === 'researcher') {
+      files.push({ path: BRIEF_PATH, content: '# Weekly brief\n\nNo brief yet. Replaced every Sunday.\n' });
+    }
     if (key === 'copywriter') {
       files.push({
         path: '/feedback.md',

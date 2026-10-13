@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import {
   EMPLOYEE_KEYS,
   HARD_RUN_CAP_CENTS,
+  MANUAL_JOBS,
   MODELS,
   RUN_CAP_CENTS,
   SCHEDULES,
@@ -39,6 +40,7 @@ import {
   SKILL_NAME,
   agentParams,
   brandSkillBody,
+  environmentSpecs,
   hashFromVersionDescription,
   memoryPlan,
   seedMemories,
@@ -46,6 +48,7 @@ import {
   skillUploadContent,
 } from '../marketing/build.ts';
 import { employeeToolToken } from '../src/lib/marketing-auth.ts';
+import * as contracts from '../marketing/contracts.ts';
 import { register } from 'node:module';
 
 // The tool registry imports site photos (astro:assets image imports). Outside Vite, stand each one
@@ -341,7 +344,7 @@ const AGREED_MODELS = {
   community_manager: 'claude-sonnet-5-5',
   sales_assistant: 'claude-sonnet-5-5',
   analyst: 'claude-sonnet-5-5',
-  researcher: 'claude-haiku-5-5',
+  researcher: 'claude-sonnet-5-5',
   editor: 'claude-haiku-5-5',
 };
 assert('one employee definition per EMPLOYEE_KEYS entry', sameSet(EMPLOYEES.map((e) => e.key), [...EMPLOYEE_KEYS]));
@@ -390,8 +393,12 @@ for (const emp of EMPLOYEES) {
   assert(`${label}: tagged with the team metadata`, a.metadata.team === TEAM_TAG && a.metadata.key === label);
 }
 const researcherWeb = agentParams(employee('researcher'), 'https://example.test', SKILL_REF).tools[0].configs.filter((c) => c.name.startsWith('web_'));
-assert('the Researcher\'s web tools are limited to RESEARCH_HOSTS', researcherWeb.length === 2 && researcherWeb.every((c) => sameSet(c.allowed_domains, [...RESEARCH_HOSTS])));
+assert('the Researcher\'s web is open (no allowed_domains; the brief\'s Sites are starting points)', researcherWeb.length === 2 && researcherWeb.every((c) => c.enabled && !c.allowed_domains));
 assert('the Researcher\'s brief (marketing/briefs/researcher.md) lists at least one site', RESEARCH_HOSTS.length > 0);
+const envs = Object.fromEntries(environmentSpecs().map((e) => [e.name, e.config.networking]));
+assert('the team environment reaches no host but its tool server', envs['rooiberg-marketing']?.type === 'limited' && envs['rooiberg-marketing'].allowed_hosts.length === 0 && envs['rooiberg-marketing'].allow_mcp_servers === true);
+assert('the research environment is unrestricted (limited networking would also bound web_search and web_fetch)', envs['rooiberg-marketing-research']?.type === 'unrestricted');
+assert('only the Researcher uses the research environment', EMPLOYEES.every((e) => e.web === (e.key === 'researcher')));
 for (const key of EMPLOYEE_KEYS) {
   const name = key.replace(/_/g, '-');
   assert(`${key}: instructions are marketing/briefs/${name}.md, word for word`, employee(key).instructions === briefText(name));
@@ -403,7 +410,13 @@ assert('only the Head of Marketing writes the playbook', EMPLOYEES.every((e) => 
 const seeds = seedMemories(SKILL);
 assert('every memory store has a seed (playbook and seven notebooks)', Object.keys(seeds).length === 8);
 assert('the Copywriter notebook is seeded with /feedback.md', seeds[notebookStoreName('copywriter')].some((m) => m.path === '/feedback.md'));
-assert('seeds carry the brand summary and no em or en dash', Object.values(seeds).flat().every((m) => /## Voice/.test(m.content) || m.path !== '/notebook.md') && !/[–—]/.test(JSON.stringify(seeds)));
+assert('seeds carry no em or en dash', !/[–—]/.test(JSON.stringify(seeds)));
+assert('every notebook is seeded with /learnings.md (with the brand summary) and /history.md', EMPLOYEE_KEYS.every((k) => {
+  const files = seeds[notebookStoreName(k)];
+  return files.some((m) => m.path === contracts.LEARNINGS_PATH && /## Voice/.test(m.content)) && files.some((m) => m.path === contracts.HISTORY_PATH);
+}));
+assert('the Researcher\'s notebook is seeded with the weekly brief', seeds[notebookStoreName('researcher')].some((m) => m.path === contracts.BRIEF_PATH));
+assert('the playbook seed passes its own hand-over check', contracts.checkPlaybook(seeds['rooiberg-team-playbook'].find((m) => m.path === contracts.PLAYBOOK_PATH).content).length === 0);
 assert('the Editor answers through submit_review, not free text', /submit_review/.test(employee('editor').instructions) && !/Reply with JSON/i.test(employee('editor').instructions));
 
 // ---------------------------------------------------------------------------------------------
@@ -430,7 +443,14 @@ assert('the runner no longer parses the Editor\'s free text', !/parseReviews|JSO
 assert('the runner never writes an Editor verdict itself (only code-rule flags)', !/editor_status: r\.verdict/.test(runTs));
 assert('sync stores one derived credential per employee URL', /employeeToolToken\(token, key\)/.test(syncTs) && /toolServerUrl\(siteUrl, e\.key\)/.test(syncTs));
 assert('the runner never approves or publishes a draft', !/status: 'approved'|\.from\('posts'\)/.test(runTs));
-assert('the run jobs are exactly the scheduled ones', sameSet([...runTs.matchAll(/^  ([a-z_]+): \{\n    steps:/gm)].map((m) => m[1]), Object.keys(SCHEDULES)));
+assert('the run jobs are exactly the scheduled ones plus the manual ones', sameSet([...runTs.matchAll(/^  ([a-z_]+): \{\n    steps:/gm)].map((m) => m[1]), [...Object.keys(SCHEDULES), ...MANUAL_JOBS]));
+assert('there is no daily research run any more', !Object.values(SCHEDULES).some((c) => /^\S+ \S+ \* \* \*$/.test(c)) && !('research' in SCHEDULES));
+assert('the Sunday review runs before Monday planning, and research is its first step', SCHEDULES.weekly_review.split(' ')[4] === '0' && SCHEDULES.plan_and_write.split(' ')[4] === '1' && /weekly_review: \{\n    steps: \['researcher/.test(runTs));
+assert('the manual jobs are offered in the workflow', MANUAL_JOBS.every((j) => new RegExp(`options: \\[[^\\]]*\\b${j}\\b`).test(wf)));
+assert('every hand-over is checked: brief, plan, drafts and playbook', ['checks.brief(', 'checks.plan(', 'checks.drafts(', 'checks.playbook('].every((c) => runTs.includes(c)));
+assert('a failed hand-over gets exactly one retry, in the same session', (runTs.match(/fixPrompt\(/g) ?? []).length === 1);
+assert('no plan, no drafts: the Copywriter does not run after a failed plan', /if \(!plan\.ok\) return;/.test(runTs) && runTs.indexOf('if (!plan.ok) return;') < runTs.indexOf("runEmployee(ctx, 'copywriter'"));
+assert('a job with a failed hand-over exits non-zero', /if \(failures\.length\) \{[\s\S]*?process\.exit\(1\)/.test(runTs));
 
 const page = read('src/pages/admin/marketing.astro');
 const decide = actions.slice(actions.indexOf('adminDecideDraft:'), actions.indexOf('adminCreateCompBooking:'));
@@ -461,6 +481,62 @@ const envEx = read('.env.example');
 assert('.env.example documents the team credentials, all blank', ['ANTHROPIC_API_KEY', 'MARKETING_TOOLS_TOKEN', 'X_API_KEY', 'X_API_SECRET', 'X_BEARER_TOKEN', 'X_ACCESS_TOKEN', 'X_ACCESS_TOKEN_SECRET', 'META_ACCESS_TOKEN', 'META_PAGE_ID', 'EMAIL_API_KEY', 'EMAIL_FROM'].every((k) => new RegExp(`^${k}=`, 'm').test(envEx)) && ['ANTHROPIC_API_KEY', 'MARKETING_TOOLS_TOKEN', 'X_API_KEY', 'META_ACCESS_TOKEN'].every((k) => new RegExp(`^${k}=""`, 'm').test(envEx)));
 
 // ---------------------------------------------------------------------------------------------
+section('5b. Hand-over contracts (marketing/contracts.ts)');
+
+const C = contracts;
+assert('a Sunday belongs to the next cycle week, a Monday to its own', C.cycleWeek(new Date('2026-10-11T12:00:00Z')) === '202642' && C.cycleWeek(new Date('2026-10-12T05:00:00Z')) === '202642' && C.cycleWeek(new Date('2026-10-18T12:00:00Z')) === '202643');
+assert('ISO weeks across a year end', C.isoWeekKey(new Date('2026-12-31T00:00:00Z')) === '202653' && C.isoWeekKey(new Date('2027-01-04T00:00:00Z')) === '202701' && C.isoWeekKey(new Date('2021-01-03T00:00:00Z')) === '202053');
+assert('URLs match without scheme, www, trailing slash or fragment', C.normaliseUrl('https://www.getaway.co.za/a/b/#x') === C.normaliseUrl('http://getaway.co.za/a/b'));
+
+const W = '202642';
+const item = (n, over = {}) => {
+  const f = { type: 'pitch', headline: 'Getaway list leaves out Waterberg walking', fact: 'Getaway published a best hikes list with no Waterberg walk.', source: `https://getaway.co.za/p${n}`, date: '2026-10-05', 'why now': 'The list is new.', channel: 'none', ...over };
+  return `## R-${W}-${n}\n` + Object.entries(f).filter(([, v]) => v !== null).map(([k, v]) => `- ${k}: ${v}`).join('\n');
+};
+const brief = (items) => `# Weekly brief\n\n${items.join('\n\n')}\n`;
+const opened = ['https://www.getaway.co.za/p1/', 'https://getaway.co.za/p2', 'https://getaway.co.za/p3'];
+const good = C.checkBrief(brief([item(1), item(2, { type: 'angle', channel: 'instagram' })]), W, opened);
+assert('a well-formed, sourced brief passes and yields its ids', good.errors.length === 0 && good.ids.join() === `R-${W}-1,R-${W}-2`);
+assert('a source not opened this run is refused', C.checkBrief(brief([item(1, { source: 'https://getaway.co.za/old' })]), W, opened).errors.some((e) => /did not open/.test(e)));
+assert('an empty brief is refused', C.checkBrief('# Weekly brief\n', W, opened).errors.length > 0);
+assert('more than five items are refused', C.checkBrief(brief([1, 2, 3, 4, 5, 6].map((n) => item(n))), W, [1, 2, 3, 4, 5, 6].map((n) => `https://getaway.co.za/p${n}`)).errors.some((e) => /at most 5/.test(e)));
+assert('ids must be this week, in order', C.checkBrief(brief([item(1).replace(`R-${W}-1`, 'R-202641-1')]), W, opened).errors.some((e) => /should be/.test(e)));
+assert('a missing field is refused', C.checkBrief(brief([item(1, { 'why now': null })]), W, opened).errors.some((e) => /why now/.test(e)));
+assert('an unknown type or channel is refused', C.checkBrief(brief([item(1, { type: 'rumour', channel: 'x' })]), W, opened).errors.length === 2);
+assert('an over-long field is refused', C.checkBrief(brief([item(1, { headline: 'a'.repeat(121) })]), W, opened).errors.some((e) => /headline/.test(e)));
+assert('a long dash or the hidden products are refused', C.checkBrief(brief([item(1, { fact: 'A slackpacking trail \u2014 new.' })]), W, opened).errors.length === 2);
+
+const photos = new Set(['rooiberg-sunset-grassland', 'upload-x']);
+const slot = (n, over = {}) => {
+  const f = { channel: 'instagram', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: 'rooiberg-sunset-grassland', 'call to action': 'See dates on the rates page.', ...over };
+  return `## P-${W}-${n}\n` + Object.entries(f).filter(([, v]) => v !== null).map(([k, v]) => `- ${k}: ${v}`).join('\n');
+};
+const plan = (slots) => `# Weekly plan\n\nGoal: one line.\n\n${slots.join('\n\n')}\n`;
+const okPlan = C.checkPlan(plan([slot(1), slot(2, { channel: 'facebook', 'based on': 'facts: the itinerary' }), slot(3, { departure: '2027-04-04' }), slot(4, { channel: 'blog' })]), W, [`R-${W}-1`], photos);
+assert('a well-formed plan passes and yields its slots', okPlan.errors.length === 0 && okPlan.slots.map((s) => s.channel).join() === 'instagram,facebook,instagram,blog');
+assert('the plan needs exactly three Instagram or Facebook slots', C.checkPlan(plan([slot(1), slot(2)]), W, [`R-${W}-1`], photos).errors.some((e) => /exactly 3/.test(e)));
+assert('the plan allows at most one blog slot', C.checkPlan(plan([slot(1), slot(2), slot(3), slot(4, { channel: 'blog' }), slot(5, { channel: 'blog' })]), W, [`R-${W}-1`], photos).errors.some((e) => /at most 1/.test(e)));
+assert('a slot must rest on this week\'s research or a named fact', C.checkPlan(plan([slot(1, { 'based on': `R-${W}-9` }), slot(2, { 'based on': 'a hunch' }), slot(3)]), W, [`R-${W}-1`], photos).errors.length === 2);
+assert('unknown photo ids and malformed departures are refused', C.checkPlan(plan([slot(1, { photos: 'nope' }), slot(2, { departure: 'next week' }), slot(3)]), W, [`R-${W}-1`], photos).errors.length === 2);
+assert('X is no longer a planned channel (owner decision: Instagram and Facebook)', C.checkPlan(plan([slot(1, { channel: 'x' }), slot(2), slot(3)]), W, [`R-${W}-1`], photos).errors.some((e) => /channel "x"/.test(e)));
+
+const slots = okPlan.slots;
+const drafts = slots.map((s) => ({ kind: C.KIND_FOR_CHANNEL[s.channel], notes: `Plan slot: ${s.id}. Based on R-${W}-1.` }));
+assert('one draft of the right kind per slot passes', C.checkDrafts(slots, drafts).length === 0);
+assert('a missing or wrong-kind draft is named', C.checkDrafts(slots, drafts.slice(1)).length === 1 && C.checkDrafts(slots, [{ ...drafts[0], kind: 'x_post' }, ...drafts.slice(1)]).length === 1);
+assert('slot ids match exactly (P-...-1 is not P-...-10)', C.checkDrafts([{ id: `P-${W}-1`, channel: 'instagram' }], [{ kind: 'instagram_caption', notes: `Plan slot: P-${W}-10` }]).length === 1);
+assert('the playbook needs every section', C.checkPlaybook('# Team playbook\n\n## What works\n\nx\n').length === C.PLAYBOOK_SECTIONS.length - 1);
+assert('the drafts kinds the plan maps to all exist', Object.values(C.KIND_FOR_CHANNEL).every((k) => MARKETING_DRAFT_KINDS.includes(k)));
+assert('the runner reads the same photo ids as the library module', sameSet(C.photoIdsFromSource(read('src/data/photo-library.ts')), SITE_PHOTOS.map((p) => p.id)));
+assert('uploaded photo ids use the same prefix as the tool server', /export const UPLOAD_ID_PREFIX = '([^']+)'/.exec(read('src/lib/marketing-photos.ts'))?.[1] === C.UPLOAD_PHOTO_PREFIX);
+assert('each brief that hands over states its format and the runner\'s field names', [['researcher', C.BRIEF_FIELDS], ['head-of-marketing', C.PLAN_FIELDS]].every(([name, fields]) => fields.every((f) => briefText(name).includes(`- ${f}:`))) && /Plan slot: /.test(briefText('copywriter')) && C.PLAYBOOK_SECTIONS.every((h) => briefText('head-of-marketing').includes(`## ${h}`)));
+assert('the briefs\' format examples pass the checks they describe', (() => {
+  const ex = (name) => briefText(name).match(/```\n([\s\S]*?)```/)[1];
+  const b = C.checkBrief(ex('researcher'), '202642', ['https://getaway.co.za/example']);
+  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-2'], new Set(['rooiberg-sunset-grassland']));
+  return b.errors.length === 0 && pl.errors.every((e) => /exactly 3/.test(e));
+})());
+
 section('6. The photo library and owner uploads');
 
 const imgRoot = new URL('../src/assets/images/', import.meta.url);
