@@ -430,7 +430,7 @@ export type MarketingDraftKind = (typeof MARKETING_DRAFT_KINDS)[number];
 export const MARKETING_POST_FORMATS = ['single', 'carousel', 'story'] as const;
 export type MarketingPostFormat = (typeof MARKETING_POST_FORMATS)[number];
 
-export const MARKETING_DRAFT_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export const MARKETING_DRAFT_STATUSES = ['pending', 'approved', 'rejected', 'superseded'] as const;
 export type MarketingDraftStatus = (typeof MARKETING_DRAFT_STATUSES)[number];
 
 export const MARKETING_EDITOR_STATUSES = ['unchecked', 'passed', 'flagged'] as const;
@@ -460,6 +460,7 @@ export const MARKETING_DRAFT_COLUMNS = [
   'decision_reason',
   'original_body',
   'format',
+  'replaces',
 ] as const;
 
 export interface MarketingDraftRow {
@@ -480,6 +481,8 @@ export interface MarketingDraftRow {
   decision_reason: string | null;
   original_body: string | null;
   format: MarketingPostFormat | null;
+  // The flagged draft this one corrects (the fix round, 0023).
+  replaces: string | null;
 }
 
 export const MARKETING_FEEDBACK_COLUMNS = [

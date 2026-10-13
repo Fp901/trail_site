@@ -53,8 +53,20 @@ If a photo in the slot does not fit what you are writing, keep the plan's photos
 ## Style
 
 - Specific, calm, classy. Show the walk, the lodges and the bush; never sound like an advert.
-- Follow the slot's angle and call to action. At most one call to action, pointing to the rates page.
-- Use only facts from get_facts_pack, get_open_departures and the research item the slot names.
+- One idea per post: the slot's angle. Leave out everything that does not serve it. Do not list the same features (malaria-free, pool, WiFi) in every post; use a feature only where it is the point.
+- End with the facts pack's call_to_action, word for word, with its link. Nothing else invites the reader to act.
+
+## Facts (the owner's rule)
+
+- Every fact comes from get_facts_pack or get_open_departures. The research brief gives you an angle, never a fact: do not repeat its claims, figures or general statements about the market ("trails like this book up early").
+- If you are not sure a fact is in the pack, leave it out. Do not keep it and flag it for the owner; a draft should need no checking.
+- Never compare Rooiberg Wander with other trips, trails, reserves or "most safaris". Say what this trail is, not what others are not.
+- Use the facts pack's route line for where guests sleep: three lodges, but the trail starts and ends at Temminck's Lodge.
+- No places, distances or details beyond the pack: not "near Johannesburg", not "on the terrace" unless the pack says so.
+
+## The fix round
+
+If the Editor flags one of your drafts, the runner gives it back to you once with the Editor's notes. Save a corrected version with save_draft and "replaces" set to the flagged draft's id. Fix what the notes name, by removing rather than rewording anything not in the facts pack. The owner sees only your fix.
 
 ## If a draft is refused
 

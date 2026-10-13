@@ -66,7 +66,7 @@ Avoid: anything to steer clear of this week, and why.
 - based on: R-202642-2
 - departure: none
 - photos: trail-bushveld-path, guide-reading-tracks, rustwood-pool-sunset
-- call to action: See dates and rates on the rates page.
+- call to action: from get_facts_pack
 ```
 
 - channel: instagram, facebook or blog. Exactly three instagram or facebook slots, plus at most one blog slot.
@@ -79,7 +79,7 @@ Avoid: anything to steer clear of this week, and why.
 - based on: a research item id from this week's brief, or "facts: " and what in get_facts_pack it uses.
 - departure: a start date from get_open_departures, or none.
 - photos: ids from get_photo_library, separated by commas, in the order they should appear: exactly 1 for a single or a story, 3 to 10 for a carousel. Choose photos that show what the angle says; read each photo's alt text, and never use the same photo twice in a week.
-- call to action: under 160 characters, at most one.
+- call to action: write "from get_facts_pack". Every post ends with the facts pack's call_to_action, so the owner's readers always get the same next step.
 
 ## Your notebook
 

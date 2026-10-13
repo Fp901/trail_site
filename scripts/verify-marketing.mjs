@@ -252,10 +252,16 @@ const enumOf = (name) => {
   const m = sql.match(new RegExp(`constraint ${name} check \\(\\w+ = any \\(array\\[([\\s\\S]*?)\\]\\)\\)`));
   return m ? m[1].match(/'([^']+)'/g).map((s) => s.slice(1, -1)) : null;
 };
+{
+  const all = migFiles.filter((f) => f >= '0021').map((f) => read(`supabase/migrations/${f}`).replace(/--[^\n]*/g, '')).join('\n');
+  const defs = [...all.matchAll(/constraint drafts_status_check check \(status = any \(array\[([\s\S]*?)\]\)\)/g)];
+  const vals = defs.length ? defs[defs.length - 1][1].match(/'([^']+)'/g).map((x) => x.slice(1, -1)) : null;
+  assert(`the latest drafts_status_check matches db.types (${MARKETING_DRAFT_STATUSES.join('|')})`, vals !== null && sameSet(vals, MARKETING_DRAFT_STATUSES));
+  assert('0023 keeps every earlier draft status', ['pending', 'approved', 'rejected'].every((x) => vals?.includes(x)));
+}
 for (const [constraint, tuple] of [
   ['drafts_author_check', MARKETING_AUTHORS],
   ['drafts_kind_check', MARKETING_DRAFT_KINDS],
-  ['drafts_status_check', MARKETING_DRAFT_STATUSES],
   ['drafts_editor_status_check', MARKETING_EDITOR_STATUSES],
   ['feedback_decision_check', MARKETING_DECISIONS],
   ['posts_channel_check', MARKETING_CHANNELS],
@@ -338,7 +344,13 @@ assert('each employee gets its own derived token, never the raw secret', new Set
 assert('tool inputs are zod-validated (unknown keys refused)', /\.safeParse\(args \?\? \{\}\)/.test(tools) && (tools.match(/\.strict\(\)/g) || []).length >= 6);
 assert('the tool module never deletes or upserts a row', !/\.(delete|upsert)\(/.test(tools));
 const reviewFn = tools.slice(tools.indexOf('async function submitReview('), tools.indexOf('// ---- The registry'));
-assert('the only update in the tool module is submit_review\'s', (tools.match(/\.update\(/g) || []).length === 1 && /\.update\(/.test(reviewFn));
+{
+  const saveFn = tools.slice(tools.indexOf('async function saveDraft('), tools.indexOf('const saveDraftInput'));
+  assert('the tool module updates in only two places: submit_review\'s verdict and save_draft\'s supersede', (tools.match(/\.update\(/g) || []).length === 2 && /\.update\(/.test(reviewFn) && /\.update\(\{ status: 'superseded' \}\)/.test(saveFn));
+  assert('save_draft supersedes only a pending draft the Editor flagged, the caller\'s own', /old\.author !== caller \|\| old\.status !== 'pending' \|\| old\.editor_status !== 'flagged'/.test(saveFn) && /\.eq\('id', input\.replaces\)\s*\.eq\('status', 'pending'\)/.test(saveFn));
+  const reUnknown = await callTool('save_draft', { author: 'copywriter', kind: 'blog_draft', body: 'A walk.', replaces: 'not-a-uuid' }, 'copywriter');
+  assert('save_draft refuses a malformed replaces id', reUnknown.isError === true && /Invalid input/.test(reUnknown.text));
+}
 assert('submit_review writes editor_status and editor_notes only (never status)', /\.update\(\{ editor_status: input\.verdict === 'pass' \? 'passed' : 'flagged', editor_notes: input\.notes \}\)/.test(reviewFn) && !/[^_]status:/.test(reviewFn.slice(reviewFn.indexOf('.update('), reviewFn.indexOf('.select('))));
 assert('submit_review touches only pending, unreviewed drafts', /\.eq\('status', 'pending'\)\s*\.eq\('editor_status', 'unchecked'\)/.test(reviewFn));
 assert('submit_review refuses anyone but the Editor (server side)', /if \(caller !== 'editor'\) return fail\(/.test(reviewFn));
@@ -367,6 +379,12 @@ for (const k of EMPLOYEE_KEYS.filter((x) => x !== 'editor')) {
   assert('save_draft: a story with a landscape site photo is refused', wideStory.isError === true && /portrait photo/.test(wideStory.text));
   const longStory = await save({ format: 'story', photo_ids: ['temmincks-giraffe'], body: 'Walk. '.repeat(22) });
   assert('save_draft: a story over 125 characters is refused by the brand rules', longStory.isError === true && /story_length/.test(longStory.text));
+}
+{
+  const pack = JSON.parse((await callTool('get_facts_pack', {}, 'copywriter')).text);
+  assert('the facts pack states the route in one line: three lodges, ending back at Temminck\'s', /Night 1 at Temminck's Lodge, night 2 at Oukraal, night 3 at Rustwood\. Day 4 walks back to Temminck's Lodge/.test(pack.route));
+  assert('the facts pack carries one call to action, to the rates page', /\/rates$/.test(pack.call_to_action.url));
+  assert('the facts pack says booking is open now, for start dates from the opening date', /^Online booking is open now, for start dates from /.test(pack.booking.book_online) && !('opens_online' in pack.booking));
 }
 assert('the library marks the portrait photos a story can use', staticPhotoLibrary().filter((p) => p.orientation === 'portrait').length >= 3 && staticPhotoLibrary().find((p) => p.id === 'rooiberg-sunset-grassland')?.orientation === 'landscape');
 const editorSave = await callTool('save_draft', { author: 'editor', kind: 'x_post', body: 'x' }, 'editor');
@@ -504,7 +522,11 @@ assert('the Sunday review runs before Monday planning, and research is its first
 assert('the manual jobs are offered in the workflow', MANUAL_JOBS.every((j) => new RegExp(`options: \\[[^\\]]*\\b${j}\\b`).test(wf)));
 assert('every hand-over is checked: brief, plan, drafts and playbook', ['checks.brief(', 'checks.plan(', 'checks.drafts(', 'checks.playbook('].every((c) => runTs.includes(c)));
 assert('a failed hand-over gets exactly one retry, in the same session', (runTs.match(/fixPrompt\(/g) ?? []).length === 1);
-assert('no plan, no drafts: the Copywriter does not run after a failed plan', /if \(!plan\.ok\) return;/.test(runTs) && runTs.indexOf('if (!plan.ok) return;') < runTs.indexOf("runEmployee(ctx, 'copywriter'"));
+{
+  const pw = runTs.slice(runTs.indexOf('  plan_and_write: {'));
+  assert('no plan, no drafts: the Copywriter does not run after a failed plan', /if \(!plan\.ok\) return;/.test(pw) && pw.indexOf('if (!plan.ok) return;') < pw.indexOf("runEmployee(ctx, 'copywriter'"));
+  assert('flagged drafts get one fix round after the Editor, then a second opinion', pw.indexOf('await editorReview(ctx);') < pw.indexOf('await fixRound(ctx, writingFrom);') && /async function fixRound[\s\S]*?\.is\('replaces', null\)[\s\S]*?runEmployee\(ctx, 'copywriter', PROMPTS\.fix\(flagged\)\)[\s\S]*?await editorReview\(ctx\);/.test(runTs));
+}
 assert('memory lists use a directory path_prefix (the API requires one ending in "/")', [...runTs.matchAll(/path_prefix: ([^,}]+)/g)].every((m) => m[1].trim() === 'dir') && /const dir = path\.slice\(0, path\.lastIndexOf\('\/'\) \+ 1\)/.test(runTs));
 assert('a check that throws still lets the session\'s spend be logged', /safeCheck/.test(runTs) && runTs.indexOf('safeCheck') < runTs.indexOf(".from('spend_log').insert("));
 assert('a job with a failed hand-over exits non-zero', /if \(failures\.length\) \{[\s\S]*?process\.exit\(1\)/.test(runTs));

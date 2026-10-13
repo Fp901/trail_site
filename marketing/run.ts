@@ -77,6 +77,9 @@ const PROMPTS = {
   review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
     `Review these ${drafts.length} new drafts against the facts pack and the brand. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
     JSON.stringify(drafts, null, 2),
+  fix: (drafts: { id: string; kind: string; format: string | null; title: string | null; body: string; notes: string | null; photo_ids: string[]; editor_notes: string | null }[]) =>
+    `The Editor flagged ${drafts.length} of your drafts. Fix each one now: save a corrected version with save_draft, passing the flagged draft's id as "replaces" and keeping its kind, format, plan slot note, departure and photos unless the Editor's notes say to change them. Fix exactly what the notes name; if a fact is not in get_facts_pack, take it out rather than reword it. This is the only round: the owner sees your fix and the Editor's second opinion. Reply with one line per draft.\n\n` +
+    JSON.stringify(drafts, null, 2),
   analyse: () =>
     `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.`,
   playbook: () =>
@@ -413,6 +416,31 @@ async function syncFeedback(ctx: Ctx): Promise<number> {
   return rows.length;
 }
 
+// ---- The fix round: flagged drafts go back to their author once ---------------------------
+
+async function fixRound(ctx: Ctx, since: string): Promise<void> {
+  const { data, error } = await ctx.sb
+    .from('drafts')
+    .select('id, kind, format, title, body, notes, photo_ids, editor_notes')
+    .eq('author', 'copywriter')
+    .eq('status', 'pending')
+    .eq('editor_status', 'flagged')
+    .is('replaces', null)
+    .gte('created_at', since);
+  if (error) throw new Error(`flagged drafts read failed: ${error.message}`);
+  const flagged = data ?? [];
+  if (flagged.length === 0) {
+    console.log('  fix round: nothing flagged');
+    return;
+  }
+  console.log(`  fix round: ${flagged.length} flagged draft(s) back to the Copywriter`);
+  await runEmployee(ctx, 'copywriter', PROMPTS.fix(flagged));
+  const { data: left } = await ctx.sb.from('drafts').select('id').in('id', flagged.map((d) => d.id)).eq('status', 'pending');
+  console.log(`  fix round: ${flagged.length - (left?.length ?? 0)} of ${flagged.length} replaced`);
+  // The Editor's second opinion on the fixes; whatever it says, the owner sees them next.
+  await editorReview(ctx);
+}
+
 // ---- Editor: code rules first, then the agent ---------------------------------------------
 
 async function editorReview(ctx: Ctx): Promise<void> {
@@ -482,6 +510,8 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       'feedback -> copywriter notebook',
       'copywriter (one draft per slot checked)',
       'editor (after the code rules)',
+      'copywriter (fix round: each flagged draft once)',
+      'editor (second opinion on the fixes)',
     ],
     run: async (ctx) => {
       const week = cycleWeek(new Date());
@@ -497,8 +527,10 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       if (!plan.ok) return;
       const n = await syncFeedback(ctx);
       console.log(`  feedback: ${n} new decision(s) synced`);
+      const writingFrom = new Date().toISOString();
       await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots), checks.drafts(ctx, slots));
       await editorReview(ctx);
+      await fixRound(ctx, writingFrom);
     },
   },
 };

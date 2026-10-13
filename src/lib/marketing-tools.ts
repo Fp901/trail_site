@@ -129,7 +129,8 @@ function buildFactsPack() {
       excludes: exclusions,
     },
     booking: {
-      opens_online: BOOKING_OPEN_DISPLAY,
+      // Booking is open now; what starts on this date is the first departure that can be booked online.
+      book_online: `Online booking is open now, for start dates from ${BOOKING_OPEN_DISPLAY}. Never say booking "opens" on that date: guests can book today.`,
       start_days: `${START_DAYS_DISPLAY}, until ${TAPER_END_DISPLAY}. Every day of the week after that.`,
       party: `From ${MIN_PARTY_CATERED} guests. At most ${MAX_GROUP_SIZE} walkers per departure, in ${ROOMS_PER_DEPARTURE} double rooms.`,
       exclusive: `A group that takes all ${ROOMS_PER_DEPARTURE} rooms has the trail and each lodge to itself.`,
@@ -147,6 +148,9 @@ function buildFactsPack() {
       to: d.to ?? null,
       description: d.description,
     })),
+    route: `Night 1 at Temminck's Lodge, night 2 at Oukraal, night 3 at Rustwood. Day 4 walks back to Temminck's Lodge, where the trail ends. So there are three lodges and three nights, but the trail starts and ends at the same lodge.`,
+    // One call to action for every post: booking is open, so every post sends readers to book.
+    call_to_action: { text: 'See dates and book on the rates page.', url: `${site.canonicalUrl.replace(/\/$/, '')}/rates` },
     arrival_day: 'There is no walking schedule on the arrival day. Guests settled in at Temminck\'s Lodge before 16h00 can walk to Matopo Lookout Point for sundowners.',
     lodges: sanctuaries.map((s) => ({
       name: s.name,
@@ -309,6 +313,21 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
   const unknown = input.photo_ids.filter((id) => !known.has(id) && !uploads.has(id));
   if (unknown.length) return fail(`Unknown photo ids: ${unknown.join(', ')}. Use ids from get_photo_library.`);
 
+  // The fix round: a corrected draft names the flagged one it replaces. Only the author's own
+  // draft, still pending and flagged by the Editor, and only once (it stops being pending below).
+  if (input.replaces) {
+    const { data: old, error: oldErr } = await getSupabaseAdmin()
+      .schema('marketing')
+      .from('drafts')
+      .select('id, author, status, editor_status')
+      .eq('id', input.replaces)
+      .maybeSingle();
+    if (oldErr) return fail('Could not check the draft you are replacing right now.');
+    if (!old || old.author !== caller || old.status !== 'pending' || old.editor_status !== 'flagged') {
+      return fail('replaces must be the id of one of your own drafts that the Editor flagged and nobody has decided yet.');
+    }
+  }
+
   const { data, error } = await getSupabaseAdmin()
     .schema('marketing')
     .from('drafts')
@@ -319,6 +338,7 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
       body: input.body,
       photo_ids: input.photo_ids,
       format,
+      replaces: input.replaces ?? null,
       departure_date: input.departure_date ?? null,
       notes: input.notes ?? null,
       status: 'pending',
@@ -326,6 +346,16 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
     .select('id')
     .single();
   if (error || !data) return fail('Could not save the draft right now.');
+  if (input.replaces) {
+    // Compare-and-set: only a draft that is still pending moves, so the owner never sees both.
+    const { error: supErr } = await getSupabaseAdmin()
+      .schema('marketing')
+      .from('drafts')
+      .update({ status: 'superseded' })
+      .eq('id', input.replaces)
+      .eq('status', 'pending');
+    if (supErr) console.error('[marketing] supersede failed', supErr.message);
+  }
   return json({ saved: true, id: data.id, status: 'pending', next: 'A person will approve, edit or reject it.' });
 }
 
@@ -348,6 +378,11 @@ const saveDraftInput = z
       .optional()
       .describe('The start date (YYYY-MM-DD) when the draft promotes one departure.'),
     notes: z.string().max(2000).optional().describe('Notes for the owner: sources, assumptions, missing facts.'),
+    replaces: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('Only in the fix round: the id of your own draft the Editor flagged, which this corrected draft replaces.'),
   })
   .strict();
 
