@@ -115,35 +115,5 @@ export const TOOL_SERVER_PATH = '/api/marketing/mcp';
 export const toolServerUrl = (siteUrl: string, key: EmployeeKey) =>
   `${siteUrl.replace(/\/$/, '')}${TOOL_SERVER_PATH}/${key}`;
 
-// The only hosts the Researcher's web_search / web_fetch may reach (also the research
-// environment's allowed_hosts). Edit this list to widen the research. Plain hostnames only,
-// subdomains are covered. Instagram and Facebook are left out: they cannot be read without a login.
-export const RESEARCH_HOSTS = [
-  // Our own site, so the Researcher checks live copy instead of trusting old search snippets.
-  'rooibergwander.co.za',
-  // Walking-safari competitors (business plan section 4.1) and the listings that carry them.
-  'tsalatrails.com',
-  'sanparks.org', // Rhino Walking Safaris (Plains Camp) and the SANParks Wilderness Trails
-  'atta.travel', // RETURN Africa's Pafuri Walking Trails news
-  'sunsafaris.com', // Africa on Foot listings
-  'safari.com',
-  'timbuktutravel.com',
-  'rhinoafrica.com', // "best walking safaris" lists
-  'safaribookings.com',
-  'tripadvisor.com',
-  // South African travel media and trade press.
-  'getaway.co.za',
-  'tourismupdate.co.za',
-  'travelnews.co.za',
-  'dailymaverick.co.za',
-  'timeslive.co.za',
-  'africageographic.com',
-  'waterberg.net',
-  // International travel media read by UK, German and US walkers.
-  'lonelyplanet.com',
-  'cntraveller.com',
-  'cntraveler.com',
-  'nationalgeographic.com',
-  'theguardian.com',
-  'telegraph.co.uk',
-] as const;
+// The Researcher's allowed sites are listed in its brief, marketing/briefs/researcher.md (read by
+// marketing/brief.ts), so the owner edits them in one place with the rest of its instructions.
