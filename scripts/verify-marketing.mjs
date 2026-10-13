@@ -450,6 +450,8 @@ assert('the manual jobs are offered in the workflow', MANUAL_JOBS.every((j) => n
 assert('every hand-over is checked: brief, plan, drafts and playbook', ['checks.brief(', 'checks.plan(', 'checks.drafts(', 'checks.playbook('].every((c) => runTs.includes(c)));
 assert('a failed hand-over gets exactly one retry, in the same session', (runTs.match(/fixPrompt\(/g) ?? []).length === 1);
 assert('no plan, no drafts: the Copywriter does not run after a failed plan', /if \(!plan\.ok\) return;/.test(runTs) && runTs.indexOf('if (!plan.ok) return;') < runTs.indexOf("runEmployee(ctx, 'copywriter'"));
+assert('memory lists use a directory path_prefix (the API requires one ending in "/")', [...runTs.matchAll(/path_prefix: ([^,}]+)/g)].every((m) => m[1].trim() === 'dir') && /const dir = path\.slice\(0, path\.lastIndexOf\('\/'\) \+ 1\)/.test(runTs));
+assert('a check that throws still lets the session\'s spend be logged', /safeCheck/.test(runTs) && runTs.indexOf('safeCheck') < runTs.indexOf(".from('spend_log').insert("));
 assert('a job with a failed hand-over exits non-zero', /if \(failures\.length\) \{[\s\S]*?process\.exit\(1\)/.test(runTs));
 
 const page = read('src/pages/admin/marketing.astro');
