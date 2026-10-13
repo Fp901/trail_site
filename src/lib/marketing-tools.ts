@@ -210,16 +210,20 @@ async function getPhotoLibrary(): Promise<ToolResult> {
 async function getResults(input: { days: number }): Promise<ToolResult> {
   const since = new Date(Date.now() - input.days * 86_400_000).toISOString();
   const db = getSupabaseAdmin().schema('marketing');
-  const [drafts, metrics, posts] = await Promise.all([
-    db.from('drafts').select('author, kind, status, editor_status, decision_reason').gte('created_at', since),
+  const [drafts, metrics, posts, spend, feedback] = await Promise.all([
+    db.from('drafts').select('author, kind, format, status, editor_status, decision_reason').gte('created_at', since),
     db.from('metrics').select('channel, metric, value').gte('measured_at', since).limit(2000),
     db.from('posts').select('channel, published_at').gte('created_at', since),
+    db.from('spend_log').select('employee, list_cost_cents').gte('created_at', since).limit(2000),
+    db.from('feedback').select('decision, reason').gte('created_at', since).limit(200),
   ]);
-  if (drafts.error || metrics.error || posts.error) return fail('Could not read results right now.');
+  if (drafts.error || metrics.error || posts.error || spend.error || feedback.error) return fail('Could not read results right now.');
 
   const count = <T,>(rows: T[], key: (r: T) => string) =>
     rows.reduce<Record<string, number>>((acc, r) => ((acc[key(r)] = (acc[key(r)] ?? 0) + 1), acc), {});
-  type D = Pick<MarketingDraftRow, 'author' | 'kind' | 'status' | 'editor_status' | 'decision_reason'>;
+  type D = Pick<MarketingDraftRow, 'author' | 'kind' | 'format' | 'status' | 'editor_status' | 'decision_reason'>;
+  const runs = (spend.data ?? []) as Array<{ employee: string; list_cost_cents: number }>;
+  const costByEmployee = runs.reduce<Record<string, number>>((acc, r) => ((acc[r.employee] = (acc[r.employee] ?? 0) + r.list_cost_cents), acc), {});
   const d = (drafts.data ?? []) as D[];
   const totals: Record<string, number> = {};
   for (const m of (metrics.data ?? []) as Array<{ channel: string; metric: string; value: number }>) {
@@ -234,11 +238,22 @@ async function getResults(input: { days: number }): Promise<ToolResult> {
       by_status: count(d, (r) => r.status),
       by_author_and_status: count(d, (r) => `${r.author}:${r.status}`),
       by_kind: count(d, (r) => r.kind),
+      by_format: count(d.filter((r) => r.format), (r) => String(r.format)),
       editor_flagged: d.filter((r) => r.editor_status === 'flagged').length,
       rejection_reasons: d
         .filter((r) => r.status === 'rejected' && r.decision_reason)
         .map((r) => r.decision_reason)
         .slice(0, 20),
+    },
+    // Every owner decision in the window (approved, edited, rejected) with its reason, if given.
+    owner_decisions: ((feedback.data ?? []) as Array<{ decision: string; reason: string | null }>).map((f) => ({
+      decision: f.decision,
+      reason: f.reason,
+    })),
+    cost: {
+      total_us_dollars: Math.round(runs.reduce((n, r) => n + r.list_cost_cents, 0)) / 100,
+      by_employee_us_cents: costByEmployee,
+      runs: runs.length,
     },
     posts_published: (posts.data ?? []).filter((p) => p.published_at).length,
     metrics: totals,
@@ -396,7 +411,7 @@ export const TOOLS = [
   {
     name: 'get_results',
     description:
-      "Draft decisions (approved, rejected, reasons), published posts and channel metrics for the last N days. Read-only.",
+      "Draft decisions (approved, edited, rejected, with the owner's reasons), drafts by format, what the team's runs cost, published posts and channel metrics for the last N days. Read-only.",
     input: z.object({ days: z.number().int().min(1).max(90).default(28) }).strict(),
     run: getResults,
   },

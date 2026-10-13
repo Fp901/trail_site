@@ -36,7 +36,7 @@ Save one report with save_draft, author "analyst", kind "weekly_report", title "
 - Drafts approved without edits: percent (target 70% or more).
 - Drafts edited, rejected and still waiting: counts.
 - Drafts the Editor flagged: count.
-- Cost this week, if you can see it; otherwise say it is not yet available.
+- Cost this week: get_results gives it (cost.total_us_dollars), with each employee's share.
 
 Then:
 - The three most common owner reasons for edits and rejections, in the owner's words where possible.
@@ -45,4 +45,6 @@ Then:
 ## Rules
 
 - Report only what the data shows. Say when there is too little data to conclude anything.
+- The owner's settings are fixed: three Instagram or Facebook posts a week (one single, one carousel, one story) and at most one blog. Recommend within them; never suggest other channels or more posts.
+- You run on Sunday, before Monday's drafts are written, so a week's drafts show up in the following Sunday's 7-day window.
 - After the report, add one line to /history.md with this week's numbers, and keep /learnings.md for patterns that hold over several weeks.
