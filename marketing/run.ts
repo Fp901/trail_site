@@ -242,13 +242,24 @@ async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string, check?: H
   let stopReason = await turn(client, session.id, prompt, seen);
   let log = await readLog(client, session.id, seen);
   let ok = true;
-  if (check && stopReason === 'end_turn') {
-    let result = await check({ fetchedUrls: log.fetchedUrls, startedAt });
+  // A check that throws (a read failed) counts as a failed hand-over, so the spend below is
+  // still logged.
+  const safeCheck: HandOverCheck | undefined = check
+    ? async (run) => {
+        try {
+          return await check(run);
+        } catch (err) {
+          return { path: 'the hand-over', errors: [`The runner could not read it: ${err instanceof Error ? err.message : err}`] };
+        }
+      }
+    : undefined;
+  if (safeCheck && stopReason === 'end_turn') {
+    let result = await safeCheck({ fetchedUrls: log.fetchedUrls, startedAt });
     if (result.errors.length) {
       console.log(`  ${result.path} failed its check (${result.errors.length}); asking for one fix`);
       stopReason = await turn(client, session.id, fixPrompt(result.path, result.errors), seen);
       log = await readLog(client, session.id, seen);
-      result = await check({ fetchedUrls: log.fetchedUrls, startedAt });
+      result = await safeCheck({ fetchedUrls: log.fetchedUrls, startedAt });
     }
     if (result.errors.length) {
       ok = false;
@@ -288,13 +299,23 @@ async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string, check?: H
 
 // ---- Hand-over files --------------------------------------------------------------------
 
+// One memory file by its exact path, with its content. path_prefix must be a directory ending in
+// "/", so list the file's directory one level deep, then read the match by id.
+async function findMemory(client: Anthropic, storeId: string, path: string): Promise<{ id: string; content: string; sha: string } | null> {
+  const dir = path.slice(0, path.lastIndexOf('/') + 1);
+  for await (const m of client.beta.memoryStores.memories.list(storeId, { path_prefix: dir, depth: 1 })) {
+    if (m.type === 'memory' && m.path === path) {
+      const full = await client.beta.memoryStores.memories.retrieve(m.id, { memory_store_id: storeId, view: 'full' });
+      return { id: full.id, content: full.content ?? '', sha: full.content_sha256 };
+    }
+  }
+  return null;
+}
+
 async function readMemory(ctx: Ctx, storeName: string, path: string): Promise<string | null> {
   const storeId = ctx.storeIds[storeName];
   if (!storeId) throw new Error(`Memory store missing: ${storeName}. Run marketing:sync first.`);
-  for await (const m of ctx.client.beta.memoryStores.memories.list(storeId, { path_prefix: path, view: 'full' })) {
-    if (m.type === 'memory' && m.path === path) return m.content ?? '';
-  }
-  return null;
+  return (await findMemory(ctx.client, storeId, path))?.content ?? null;
 }
 
 const missing = (path: string) => ({ path, errors: [`${path} does not exist. Write it.`] });
@@ -370,13 +391,7 @@ async function syncFeedback(ctx: Ctx): Promise<number> {
   });
 
   const storeId = ctx.storeIds[notebookStoreName('copywriter')];
-  let existing: { id: string; content: string; sha: string } | null = null;
-  for await (const m of client.beta.memoryStores.memories.list(storeId, { path_prefix: '/feedback.md', view: 'full' })) {
-    if (m.type === 'memory' && m.path === '/feedback.md') {
-      existing = { id: m.id, content: m.content ?? '', sha: m.content_sha256 };
-      break;
-    }
-  }
+  const existing = await findMemory(client, storeId, '/feedback.md');
   const header = '# Owner feedback\n\nNewest last. Approve, edit and reject reasons from /admin/marketing.\n';
   const previous = existing ? existing.content.split('\n').filter((l) => l.startsWith('- ')) : [];
   const kept = [...previous, ...lines].slice(-FEEDBACK_KEEP_LINES);
