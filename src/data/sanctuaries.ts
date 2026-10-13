@@ -42,7 +42,6 @@ import rusSuiteView from '../assets/images/lodges/rustwood-suite-view.jpg';
 import rusSuite from '../assets/images/lodges/rustwood-suite.jpg';
 import rusBathView from '../assets/images/lodges/rustwood-bath-view.jpg';
 import rusFirePitDusk from '../assets/images/lodges/rustwood-fire-pit-dusk.jpg';
-import rusLounge from '../assets/images/lodges/rustwood-lounge.jpg';
 import rusPoolNight from '../assets/images/lodges/rustwood-pool-night.jpg';
 
 export type AmenityIconName =
@@ -164,7 +163,6 @@ export const sanctuaries: Sanctuary[] = [
       { image: rusSuite, alt: 'A suite at Rustwood, with woven stools at the foot of the bed and a walk-in shower.' },
       { image: rusBathView, alt: 'A freestanding bath at Rustwood beside a window onto the hills.' },
       { image: rusFirePitDusk, alt: 'The fire pit at Rustwood at dusk, above the valley.' },
-      { image: rusLounge, alt: "The lounge and dining area in Rustwood's main building, under a high timber ceiling." },
       { image: rusPoolNight, alt: 'The pool at Rustwood lit up at night, under the shade sails.' },
     ],
     amenities: [
