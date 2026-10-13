@@ -35,7 +35,7 @@ export const MODELS: Record<EmployeeKey, string> = {
 export const HARD_RUN_CAP_CENTS = 500;
 export const RUN_CAP_CENTS: Record<EmployeeKey, number> = {
   head_of_marketing: 300,
-  researcher: 150,
+  researcher: 200,
   copywriter: 200,
   editor: 30,
   community_manager: 100,

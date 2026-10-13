@@ -27,12 +27,14 @@ import {
   MIN_PARTY_CATERED,
   ROOMS_PER_DEPARTURE,
   BOOKING_OPEN_DISPLAY,
+  BETA_OPEN_DISPLAY,
   START_DAYS_DISPLAY,
   TAPER_END_DISPLAY,
   inclusions,
   exclusions,
 } from '../data/rates';
-import { earliestBookableDate, latestBookableDate, todaySast } from './pricing';
+import { earliestBookableDate, latestBookableDate, todaySast, SPLIT_THRESHOLD_DAYS, BALANCE_LEAD_DAYS } from './pricing';
+import { refundPolicy } from '../data/policies';
 import { getSupabaseAdmin, getSupabaseAnon } from './supabase';
 import { checkDraft, describeViolations } from './brand-rules';
 import { rateLimit } from './ratelimit';
@@ -129,6 +131,9 @@ function buildFactsPack() {
       start_days: `${START_DAYS_DISPLAY}, until ${TAPER_END_DISPLAY}. Every day of the week after that.`,
       party: `From ${MIN_PARTY_CATERED} guests. At most ${MAX_GROUP_SIZE} walkers per departure, in ${ROOMS_PER_DEPARTURE} double rooms.`,
       exclusive: `A group that takes all ${ROOMS_PER_DEPARTURE} rooms has the trail and each lodge to itself.`,
+      payment: `Bookings made ${SPLIT_THRESHOLD_DAYS} or more days before arrival pay a 50% deposit, with the balance due ${BALANCE_LEAD_DAYS} days before arrival. Bookings made inside ${SPLIT_THRESHOLD_DAYS} days pay in full at booking.`,
+      cancellation: refundPolicy.tiers.map((t) => `${t.window}: ${t.refund}.`).join(' '),
+      before_online_booking: `Start dates from ${BETA_OPEN_DISPLAY} to before ${BOOKING_OPEN_DISPLAY} are for family and friends, by enquiry or WhatsApp only. Do not promote these dates or their discount in posts.`,
       joined_departure_line: departureLine(2, 6) + ' (example; always take the numbers from get_open_departures)',
     },
     itinerary: itinerary.map((d) => ({
@@ -140,6 +145,7 @@ function buildFactsPack() {
       to: d.to ?? null,
       description: d.description,
     })),
+    arrival_day: 'There is no walking schedule on the arrival day. Guests settled in at Temminck\'s Lodge before 16h00 can walk to Matopo Lookout Point for sundowners.',
     lodges: sanctuaries.map((s) => ({
       name: s.name,
       role: s.role,
