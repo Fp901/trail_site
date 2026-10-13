@@ -38,7 +38,6 @@ import oukEntrance from '../assets/images/oukraal-entrance.jpg';
 import oukBed from '../assets/images/oukraal-bed.jpg';
 import oukBed2 from '../assets/images/oukraal-bed-2.jpg';
 import oukPool from '../assets/images/oukraal-pool.jpg';
-import oukFourPoster from '../assets/images/lodges/oukraal-four-poster.jpg';
 import oukTwinRoom from '../assets/images/lodges/oukraal-twin-room.jpg';
 import oukBougainvillea from '../assets/images/lodges/oukraal-bougainvillea.jpg';
 import oukGardenPool from '../assets/images/lodges/oukraal-garden-pool.jpg';
@@ -59,7 +58,6 @@ import rusSuiteView from '../assets/images/lodges/rustwood-suite-view.jpg';
 import rusSuite from '../assets/images/lodges/rustwood-suite.jpg';
 import rusBathView from '../assets/images/lodges/rustwood-bath-view.jpg';
 import rusFirePitDusk from '../assets/images/lodges/rustwood-fire-pit-dusk.jpg';
-import rusLounge from '../assets/images/lodges/rustwood-lounge.jpg';
 import rusPoolNight from '../assets/images/lodges/rustwood-pool-night.jpg';
 
 export const PHOTO_CATEGORIES = ['trail', 'lodge', 'landscape', 'wildlife', 'food', 'guide'] as const;
@@ -96,6 +94,13 @@ export interface LibraryPhoto {
 const T = "Temminck's Lodge" as const;
 const O = 'Oukraal' as const;
 const R = 'Rustwood' as const;
+
+// Site photos the marketing team must never use: each shows hunting trophies (the owner's
+// rule). They stay on the website; they are only kept out of this library.
+export const MARKETING_EXCLUDED_PHOTOS: readonly string[] = [
+  'lodges/rustwood-lounge.jpg', // horned buffalo skulls above the bar
+  'lodges/oukraal-four-poster.jpg', // real hide cushion on the bed
+];
 
 export const photoLibrary: readonly LibraryPhoto[] = [
   // ---- Landscape and trail ----
@@ -239,13 +244,6 @@ export const photoLibrary: readonly LibraryPhoto[] = [
     image: oukTwinRoom,
   },
   {
-    id: 'oukraal-four-poster',
-    category: 'lodge',
-    lodge: O,
-    alt: 'A four-poster double bed at Oukraal with giraffe-print cushions, folded towels and a lit bedside lantern.',
-    image: oukFourPoster,
-  },
-  {
     id: 'oukraal-pool-tree',
     category: 'lodge',
     lodge: O,
@@ -302,13 +300,6 @@ export const photoLibrary: readonly LibraryPhoto[] = [
     lodge: R,
     alt: "Inside Rustwood's main lodge under a high timber and thatch roof: a leather sofa, a table tennis table and the lounge beyond.",
     image: rusInterior,
-  },
-  {
-    id: 'rustwood-lounge',
-    category: 'lodge',
-    lodge: R,
-    alt: "Leather chairs around a round timber table in Rustwood's main lodge, with the pool and the hills through open glass doors.",
-    image: rusLounge,
   },
   {
     id: 'rustwood-bedroom',
