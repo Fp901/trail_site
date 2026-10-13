@@ -19,12 +19,12 @@ import { EMPLOYEES } from './agents';
 import {
   ENVIRONMENT_NAME,
   RESEARCH_ENVIRONMENT_NAME,
-  RESEARCH_HOSTS,
   TEAM_TAG,
   TOOL_SERVER_PATH,
   VAULT_NAME,
   toolServerUrl,
 } from './config';
+import { RESEARCH_HOSTS } from './brief';
 import {
   SKILL_DISPLAY_NAME,
   SKILL_NAME,

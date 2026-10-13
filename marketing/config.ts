@@ -115,16 +115,5 @@ export const TOOL_SERVER_PATH = '/api/marketing/mcp';
 export const toolServerUrl = (siteUrl: string, key: EmployeeKey) =>
   `${siteUrl.replace(/\/$/, '')}${TOOL_SERVER_PATH}/${key}`;
 
-// The only hosts the Researcher's web_search / web_fetch may reach (also the research
-// environment's allowed_hosts). Edit this list to widen the research; keep it short. Plain
-// hostnames only, subdomains are covered.
-export const RESEARCH_HOSTS = [
-  'rooibergwander.co.za',
-  'tripadvisor.com',
-  'safaribookings.com',
-  'getaway.co.za',
-  'sanparks.org',
-  'waterberg.net',
-  'instagram.com',
-  'facebook.com',
-] as const;
+// The Researcher's allowed sites are listed in its brief, marketing/briefs/researcher.md (read by
+// marketing/brief.ts), so the owner edits them in one place with the rest of its instructions.

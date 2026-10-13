@@ -22,7 +22,6 @@ import {
   EMPLOYEE_KEYS,
   HARD_RUN_CAP_CENTS,
   MODELS,
-  RESEARCH_HOSTS,
   RUN_CAP_CENTS,
   SCHEDULES,
   TEAM_TAG,
@@ -34,6 +33,7 @@ import {
 } from '../marketing/config.ts';
 import { EMPLOYEES, employee } from '../marketing/agents/index.ts';
 import { TEAM_PREAMBLE } from '../marketing/agents/types.ts';
+import { RESEARCH_HOSTS, briefText } from '../marketing/brief.ts';
 import {
   HARD_RULES_SUMMARY,
   SKILL_NAME,
@@ -391,6 +391,9 @@ for (const emp of EMPLOYEES) {
 }
 const researcherWeb = agentParams(employee('researcher'), 'https://example.test', SKILL_REF).tools[0].configs.filter((c) => c.name.startsWith('web_'));
 assert('the Researcher\'s web tools are limited to RESEARCH_HOSTS', researcherWeb.length === 2 && researcherWeb.every((c) => sameSet(c.allowed_domains, [...RESEARCH_HOSTS])));
+assert('the Researcher\'s brief (marketing/briefs/researcher.md) lists at least one site', RESEARCH_HOSTS.length > 0);
+assert('the Researcher\'s instructions are its brief, word for word', employee('researcher').instructions === briefText('researcher'));
+assert('the Researcher\'s brief never names the SADC rate or the self-catered option', !/sadc|self[- ]?cater|slackpacking/i.test(briefText('researcher')));
 assert('save_draft is never given to the Head of Marketing, the Researcher or the Editor', ['head_of_marketing', 'researcher', 'editor'].every((k) => !employee(k).tools.includes('save_draft')));
 assert('only the Head of Marketing writes the playbook', EMPLOYEES.every((e) => (e.memory.playbook === 'read_write') === (e.key === 'head_of_marketing')));
 const seeds = seedMemories(SKILL);

@@ -7,7 +7,6 @@ import type Anthropic from '@anthropic-ai/sdk';
 import {
   MODELS,
   PLAYBOOK_STORE_NAME,
-  RESEARCH_HOSTS,
   TEAM_TAG,
   TITLES,
   TOOL_SERVER_NAME,
@@ -16,6 +15,7 @@ import {
   toolServerUrl,
   type EmployeeKey,
 } from './config';
+import { RESEARCH_HOSTS } from './brief';
 import { TEAM_PREAMBLE, type Employee } from './agents/types';
 
 type AgentCreate = Anthropic.Beta.Agents.AgentCreateParams;
