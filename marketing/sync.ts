@@ -219,17 +219,54 @@ async function main() {
   //    pin the latest at start, and every agent pins the brand skill version verified here.
   const skillRef = await ensureSkill(client);
   const agents = EMPLOYEES.map((e) => agentParams(e, siteUrl, skillRef));
+  const skipped: string[] = [];
   for (const params of agents) {
-    const found = await findAgent(client, params.name);
-    if (found) {
-      await client.beta.agents.update(found.id, { ...params, version: found.version });
-      console.log(`Agent updated: ${params.name}`);
-    } else {
-      await client.beta.agents.create(params);
-      console.log(`Agent created: ${params.name}`);
+    // A site that blocks Anthropic's web crawler is refused by the API (400, naming the
+    // allowed_domains entry). Drop that site from the agent's web tools, warn, and retry, so one
+    // blocked site in marketing/briefs/researcher.md never stops the whole sync.
+    for (;;) {
+      try {
+        const found = await findAgent(client, params.name);
+        if (found) {
+          await client.beta.agents.update(found.id, { ...params, version: found.version });
+          console.log(`Agent updated: ${params.name}`);
+        } else {
+          await client.beta.agents.create(params);
+          console.log(`Agent created: ${params.name}`);
+        }
+        break;
+      } catch (err) {
+        const blocked = blockedDomain(err, params);
+        if (!blocked) throw err;
+        dropDomain(params, blocked);
+        skipped.push(blocked);
+        console.warn(`  skipped ${blocked}: the site blocks Anthropic's web crawler. Remove it from the brief's Sites list.`);
+      }
     }
   }
+  if (skipped.length) console.warn(`\nBlocked sites skipped: ${[...new Set(skipped)].join(', ')}`);
   console.log('\nSync complete.');
+}
+
+type AgentParams = ReturnType<typeof agentParams>;
+
+// The domain named by a "domain is not accessible to our user agent" 400, or null.
+function blockedDomain(err: unknown, params: AgentParams): string | null {
+  const message = err instanceof Error ? err.message : String(err);
+  if (!/domain is not accessible/i.test(message)) return null;
+  const m = message.match(/tools\.(\d+)\.[a-z0-9_]+\.configs\.(\d+)\.allowed_domains\.(\d+)/);
+  if (!m) return null;
+  const tool = params.tools?.[Number(m[1])] as { configs?: { allowed_domains?: string[] }[] } | undefined;
+  return tool?.configs?.[Number(m[2])]?.allowed_domains?.[Number(m[3])] ?? null;
+}
+
+// Removes a domain from every web tool config of this agent.
+function dropDomain(params: AgentParams, domain: string): void {
+  for (const tool of (params.tools ?? []) as { configs?: { allowed_domains?: string[] }[] }[]) {
+    for (const c of tool.configs ?? []) {
+      if (c.allowed_domains) c.allowed_domains = c.allowed_domains.filter((d) => d !== domain);
+    }
+  }
 }
 
 main().catch((err) => {
