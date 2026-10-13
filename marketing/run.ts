@@ -1,9 +1,13 @@
 // Run one scheduled marketing job (CLAUDE.md Part 18). Called by
 // .github/workflows/marketing-team.yml:
 //
-//   npx tsx marketing/run.ts research        Researcher: daily notes
-//   npx tsx marketing/run.ts plan_and_write  Head of Marketing plans, Copywriter drafts, Editor checks
-//   npx tsx marketing/run.ts weekly_review   Analyst reports, Head of Marketing rewrites the playbook
+//   npx tsx marketing/run.ts weekly_review   Sunday: Researcher, Analyst, then Head of Marketing (playbook)
+//   npx tsx marketing/run.ts plan_and_write  Monday: Head of Marketing plans, Copywriter drafts, Editor checks
+//   npx tsx marketing/run.ts research        Manual only: the Researcher on its own, for testing its brief
+//
+// Each hand-over (design doc section 3, marketing/contracts.ts) is checked in code before the next
+// employee starts. A failing hand-over goes back to its employee once with the reasons; a second
+// failure stops what depends on it, and the job exits non-zero so GitHub Actions reports it.
 //
 // DRY_RUN is true unless it is exactly "false": a dry run prints the plan and makes no network
 // call. Nothing here publishes or sends anything. Every session carries a hard budget (the
@@ -20,6 +24,7 @@ import {
   RESEARCH_ENVIRONMENT_NAME,
   RUN_CAP_CENTS,
   RUN_TIMEOUT_MINUTES,
+  PLAYBOOK_STORE_NAME,
   SCHEDULES,
   TEAM_TAG,
   VAULT_NAME,
@@ -27,8 +32,24 @@ import {
   agentName,
   notebookStoreName,
   type EmployeeKey,
-  type ScheduleKey,
+  type JobKey,
 } from './config';
+import {
+  BRIEF_PATH,
+  PLAN_PATH,
+  PLAYBOOK_PATH,
+  checkBrief,
+  checkDrafts,
+  checkPlan,
+  checkPlaybook,
+  cycleWeek,
+  fixPrompt,
+  parseItems,
+  photoIdsFromSource,
+  UPLOAD_PHOTO_PREFIX,
+  type PlanSlot,
+} from './contracts';
+import { readFileSync } from 'node:fs';
 import { memoryPlan, memoryResources } from './build';
 import { anthropic, findAgent, findEnvironment, findMemoryStores, findVault, requireEnv } from './resources';
 import { checkDraft, describeViolations } from '../src/lib/brand-rules';
@@ -43,19 +64,23 @@ const FEEDBACK_KEEP_LINES = 200;
 const today = () => new Date().toISOString().slice(0, 10);
 
 const PROMPTS = {
-  research: () =>
-    `Today is ${today()}. Do your daily research and update your notebook. Reply with a three-line summary.`,
-  plan: () =>
-    `Today is ${today()}, Monday planning. Write this week's /weekly-plan.md in the team playbook as your instructions describe. Reply with the plan's headline ideas.`,
-  write: () =>
-    `Today is ${today()}. Write and save this week's drafts from /weekly-plan.md as your instructions describe. Reply with a list of what you saved.`,
-  review: (drafts: { id: string; kind: string; title: string | null; body: string }[]) =>
+  research: (week: string) =>
+    `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.`,
+  plan: (week: string, research: string[]) =>
+    `Today is ${today()}, Monday planning for cycle week ${week}. Write ${PLAN_PATH} in the team playbook exactly in the format your instructions give, with ids P-${week}-1 upwards. ` +
+    (research.length
+      ? `This week's research items are ${research.join(', ')} in the Researcher's ${BRIEF_PATH}.`
+      : `There is no research brief for this week, so base every slot on "facts: ..." from get_facts_pack.`) +
+    ` Reply with the plan's headline ideas.`,
+  write: (week: string, slots: PlanSlot[]) =>
+    `Today is ${today()}. Write and save one draft for each slot in ${PLAN_PATH} (cycle week ${week}): ${slots.map((s) => `${s.id} (${s.channel})`).join(', ')}. Put "Plan slot: <id>" in each draft's notes. Reply with a list of what you saved.`,
+  review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null }[]) =>
     `Review these ${drafts.length} new drafts against the facts pack and the brand. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
     JSON.stringify(drafts, null, 2),
   analyse: () =>
     `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.`,
   playbook: () =>
-    `Today is ${today()}, Sunday review. Read the results and every notebook, then rewrite /playbook.md as your instructions describe. Reply with what changed.`,
+    `Today is ${today()}, Sunday review. Read the results, the Analyst's notebook, the Researcher's ${BRIEF_PATH} and every notebook, then rewrite ${PLAYBOOK_PATH} with the sections your instructions give. Reply with what changed.`,
 };
 
 // ---- Supabase (service role, marketing schema only) ---------------------------------------
@@ -79,10 +104,13 @@ async function weeklySpendCents(sb: SupabaseClient<any, 'marketing'>): Promise<n
 interface Ctx {
   client: Anthropic;
   sb: SupabaseClient<any, 'marketing'>;
-  job: ScheduleKey;
+  job: JobKey;
   storeIds: Record<string, string>;
   envIds: Record<string, string>;
   vaultId: string;
+  // Hand-overs that failed their check twice. The job still finishes what it can, then exits
+  // non-zero so the failure shows in GitHub Actions.
+  failures: string[];
 }
 
 interface RunResult {
@@ -90,52 +118,36 @@ interface RunResult {
   costCents: number;
   sessionId: string;
   stopReason: string;
+  // Every URL the employee opened with web_fetch in this session.
+  fetchedUrls: string[];
+  // True when the hand-over passed its check (or there was no check).
+  ok: boolean;
 }
+
+// Checks one employee's hand-over after a turn. Returns the problems, or none.
+type HandOverCheck = (run: { fetchedUrls: string[]; startedAt: string }) => Promise<{ path: string; errors: string[] }>;
 
 function capFor(key: EmployeeKey): number {
   return Math.min(RUN_CAP_CENTS[key], HARD_RUN_CAP_CENTS);
 }
 
-async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string): Promise<RunResult> {
-  const { client, sb } = ctx;
-  const spent = await weeklySpendCents(sb);
-  const cap = capFor(key);
-  if (spent + cap > WEEKLY_CAP_CENTS) {
-    throw new Error(
-      `Weekly cap: ${spent} of ${WEEKLY_CAP_CENTS} cents spent in the last 7 days; a ${cap} cent run could pass it. Not starting ${key}.`,
-    );
-  }
-
-  const agent = await findAgent(client, agentName(key));
-  if (!agent) throw new Error(`Agent not found: ${agentName(key)}. Run marketing:sync first.`);
-  const emp = employee(key);
-  const environmentId = ctx.envIds[emp.web ? RESEARCH_ENVIRONMENT_NAME : ENVIRONMENT_NAME];
-
-  const session = await client.beta.sessions.create({
-    agent: agent.id,
-    environment_id: environmentId,
-    budget: { type: 'limit', max_list_cost: { amount: String(cap), currency: 'USD' } },
-    resources: memoryResources(emp, ctx.storeIds),
-    vault_ids: [ctx.vaultId],
-    title: `${agentName(key)}: ${ctx.job} ${today()}`,
-    metadata: { team: TEAM_TAG, job: ctx.job, employee: key },
-  });
-  console.log(`  session ${session.id} (${agentName(key)}, cap ${cap} cents)`);
-
+// Send one message and wait for the session to go idle. Idle events from earlier turns (seen) are
+// skipped in case the stream replays them.
+async function turn(client: Anthropic, sessionId: string, prompt: string, seen: Set<string>): Promise<string> {
   // Open the stream before sending, so no event is missed.
-  const stream = await client.beta.sessions.events.stream(session.id);
+  const stream = await client.beta.sessions.events.stream(sessionId);
   let timedOut = false;
   const timer = setTimeout(async () => {
     timedOut = true;
     try {
-      await client.beta.sessions.events.send(session.id, { events: [{ type: 'user.interrupt' }] });
+      await client.beta.sessions.events.send(sessionId, { events: [{ type: 'user.interrupt' }] });
     } catch {
       /* the session may already be idle */
     }
     stream.controller.abort();
   }, RUN_TIMEOUT_MINUTES * 60 * 1000);
 
-  await client.beta.sessions.events.send(session.id, {
+  await client.beta.sessions.events.send(sessionId, {
     events: [{ type: 'user.message', content: [{ type: 'text', text: prompt }] }],
   });
 
@@ -143,11 +155,13 @@ async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string): Promise<
   try {
     for await (const event of stream) {
       if (event.type === 'session.status_idle') {
+        if (seen.has(event.id)) continue;
+        seen.add(event.id);
         stopReason = event.stop_reason.type;
         if (event.stop_reason.type === 'requires_action') {
           // Every tool on this team is always_allow, so nothing should ask. If something does,
           // refuse it rather than letting it run unreviewed.
-          await client.beta.sessions.events.send(session.id, {
+          await client.beta.sessions.events.send(sessionId, {
             events: event.stop_reason.event_ids.map((id) => ({
               type: 'user.tool_confirmation' as const,
               tool_use_id: id,
@@ -174,23 +188,85 @@ async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string): Promise<
   } finally {
     clearTimeout(timer);
   }
-  if (timedOut) stopReason = 'timeout';
+  return timedOut ? 'timeout' : stopReason;
+}
 
-  // The agent's replies, from the event log (authoritative, unlike a partially read stream).
+// The session's event log so far (authoritative, unlike a partially read stream).
+async function readLog(client: Anthropic, sessionId: string, seen: Set<string>) {
   const texts: string[] = [];
   const toolCalls: string[] = [];
+  const fetchedUrls: string[] = [];
   let toolErrors = 0;
-  for await (const e of client.beta.sessions.events.list(session.id)) {
+  for await (const e of client.beta.sessions.events.list(sessionId)) {
+    if (e.type === 'session.status_idle') seen.add(e.id);
     if (e.type === 'agent.message') {
       for (const block of e.content) if (block.type === 'text') texts.push(block.text);
     }
     if (e.type === 'agent.mcp_tool_use' || e.type === 'agent.tool_use') toolCalls.push(e.name);
+    if (e.type === 'agent.tool_use' && e.name === 'web_fetch' && typeof e.input.url === 'string') fetchedUrls.push(e.input.url);
     if ((e.type === 'agent.mcp_tool_result' || e.type === 'agent.tool_result') && e.is_error) toolErrors++;
   }
-  // What the employee did, so a run can be judged from the Actions log alone. Tool names and
-  // the agent's own summary only: no tool inputs, which can hold draft text or URLs.
-  console.log(`  tools used: ${toolCalls.length ? toolCalls.join(', ') : 'none'}${toolErrors ? ` (${toolErrors} returned an error)` : ''}`);
-  const summary = texts.at(-1)?.trim();
+  return { texts, toolCalls, fetchedUrls, toolErrors };
+}
+
+// Run one employee. With a check, the runner reads the hand-over after the first turn; if it
+// fails, the employee gets the problems and one chance to fix them in the same session.
+async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string, check?: HandOverCheck): Promise<RunResult> {
+  const { client, sb } = ctx;
+  const spent = await weeklySpendCents(sb);
+  const cap = capFor(key);
+  if (spent + cap > WEEKLY_CAP_CENTS) {
+    throw new Error(
+      `Weekly cap: ${spent} of ${WEEKLY_CAP_CENTS} cents spent in the last 7 days; a ${cap} cent run could pass it. Not starting ${key}.`,
+    );
+  }
+
+  const agent = await findAgent(client, agentName(key));
+  if (!agent) throw new Error(`Agent not found: ${agentName(key)}. Run marketing:sync first.`);
+  const emp = employee(key);
+  const environmentId = ctx.envIds[emp.web ? RESEARCH_ENVIRONMENT_NAME : ENVIRONMENT_NAME];
+
+  const startedAt = new Date().toISOString();
+  const session = await client.beta.sessions.create({
+    agent: agent.id,
+    environment_id: environmentId,
+    budget: { type: 'limit', max_list_cost: { amount: String(cap), currency: 'USD' } },
+    resources: memoryResources(emp, ctx.storeIds),
+    vault_ids: [ctx.vaultId],
+    title: `${agentName(key)}: ${ctx.job} ${today()}`,
+    metadata: { team: TEAM_TAG, job: ctx.job, employee: key },
+  });
+  console.log(`  session ${session.id} (${agentName(key)}, cap ${cap} cents)`);
+
+  const seen = new Set<string>();
+  let stopReason = await turn(client, session.id, prompt, seen);
+  let log = await readLog(client, session.id, seen);
+  let ok = true;
+  if (check && stopReason === 'end_turn') {
+    let result = await check({ fetchedUrls: log.fetchedUrls, startedAt });
+    if (result.errors.length) {
+      console.log(`  ${result.path} failed its check (${result.errors.length}); asking for one fix`);
+      stopReason = await turn(client, session.id, fixPrompt(result.path, result.errors), seen);
+      log = await readLog(client, session.id, seen);
+      result = await check({ fetchedUrls: log.fetchedUrls, startedAt });
+    }
+    if (result.errors.length) {
+      ok = false;
+      ctx.failures.push(`${key}: ${result.path} failed its check`);
+      console.error(`  ${result.path} still fails its check:\n${result.errors.map((e) => `    - ${e}`).join('\n')}`);
+    } else {
+      console.log(`  ${result.path} passed its check`);
+    }
+  } else if (check) {
+    ok = false;
+    ctx.failures.push(`${key}: stopped (${stopReason}) before its hand-over could be checked`);
+  }
+
+  // What the employee did, so a run can be judged from the Actions log alone. Tool names, the
+  // pages it opened and its own summary only: no tool inputs, which can hold draft text.
+  console.log(`  tools used: ${log.toolCalls.length ? log.toolCalls.join(', ') : 'none'}${log.toolErrors ? ` (${log.toolErrors} returned an error)` : ''}`);
+  if (log.fetchedUrls.length) console.log(`  pages opened: ${log.fetchedUrls.length}`);
+  const summary = log.texts.at(-1)?.trim();
   if (summary) console.log(`  summary:\n${summary.slice(0, 2000).replace(/^/gm, '    ')}`);
   const final = await client.beta.sessions.retrieve(session.id);
   const costCents = Number(final.usage?.list_cost?.amount ?? 0) || 0;
@@ -207,8 +283,70 @@ async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string): Promise<
 
   console.log(`  ${key}: stop=${stopReason} cost=${costCents} cents`);
   if (stopReason === 'timeout') throw new Error(`${key} did not finish within ${RUN_TIMEOUT_MINUTES} minutes.`);
-  return { text: texts.join('\n\n'), costCents, sessionId: session.id, stopReason };
+  return { text: log.texts.join('\n\n'), costCents, sessionId: session.id, stopReason, fetchedUrls: log.fetchedUrls, ok };
 }
+
+// ---- Hand-over files --------------------------------------------------------------------
+
+async function readMemory(ctx: Ctx, storeName: string, path: string): Promise<string | null> {
+  const storeId = ctx.storeIds[storeName];
+  if (!storeId) throw new Error(`Memory store missing: ${storeName}. Run marketing:sync first.`);
+  for await (const m of ctx.client.beta.memoryStores.memories.list(storeId, { path_prefix: path, view: 'full' })) {
+    if (m.type === 'memory' && m.path === path) return m.content ?? '';
+  }
+  return null;
+}
+
+const missing = (path: string) => ({ path, errors: [`${path} does not exist. Write it.`] });
+
+// This cycle's research item ids: empty when the brief is missing or from an earlier week (the plan
+// then rests on the facts pack alone). Sunday's run already checked the brief's format and
+// sources; a brief that failed is reported there.
+async function briefIds(ctx: Ctx, week: string): Promise<string[]> {
+  const md = await readMemory(ctx, notebookStoreName('researcher'), BRIEF_PATH);
+  if (!md) return [];
+  const items = parseItems(md).filter((i) => i.id.startsWith(`R-${week}-`));
+  return items.map((i) => i.id);
+}
+
+async function photoIds(ctx: Ctx): Promise<Set<string>> {
+  // The site photos' ids, read from the source: the module itself imports images, which only load
+  // inside Vite. verify-marketing.mjs checks this reads the same ids as the module.
+  const ids = new Set(photoIdsFromSource(readFileSync('src/data/photo-library.ts', 'utf8')));
+  const { data, error } = await ctx.sb.from('photos').select('id');
+  if (error) throw new Error(`photos read failed: ${error.message}`);
+  for (const r of (data ?? []) as { id: string }[]) ids.add(UPLOAD_PHOTO_PREFIX + r.id);
+  return ids;
+}
+
+const checks = {
+  brief: (ctx: Ctx, week: string): HandOverCheck => async ({ fetchedUrls }) => {
+    const md = await readMemory(ctx, notebookStoreName('researcher'), BRIEF_PATH);
+    if (md === null) return missing(BRIEF_PATH);
+    return { path: BRIEF_PATH, errors: checkBrief(md, week, fetchedUrls).errors };
+  },
+  plan: (ctx: Ctx, week: string, research: string[], photos: Set<string>, out: PlanSlot[]): HandOverCheck => async () => {
+    const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAN_PATH);
+    if (md === null) return missing(PLAN_PATH);
+    const r = checkPlan(md, week, research, photos);
+    out.splice(0, out.length, ...r.slots);
+    return { path: PLAN_PATH, errors: r.errors };
+  },
+  drafts: (ctx: Ctx, slots: PlanSlot[]): HandOverCheck => async ({ startedAt }) => {
+    const { data, error } = await ctx.sb
+      .from('drafts')
+      .select('kind, notes')
+      .eq('author', 'copywriter')
+      .gte('created_at', startedAt);
+    if (error) throw new Error(`drafts read failed: ${error.message}`);
+    return { path: 'this week\'s drafts', errors: checkDrafts(slots, data ?? []) };
+  },
+  playbook: (ctx: Ctx): HandOverCheck => async () => {
+    const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAYBOOK_PATH);
+    if (md === null) return missing(PLAYBOOK_PATH);
+    return { path: PLAYBOOK_PATH, errors: checkPlaybook(md) };
+  },
+};
 
 // ---- Owner feedback into the Copywriter's notebook ---------------------------------------
 
@@ -266,13 +404,13 @@ async function editorReview(ctx: Ctx): Promise<void> {
   const { sb } = ctx;
   const { data, error } = await sb
     .from('drafts')
-    .select('id, kind, title, body')
+    .select('id, kind, title, body, notes')
     .eq('status', 'pending')
     .eq('editor_status', 'unchecked')
     .order('created_at', { ascending: true })
     .limit(EDITOR_BATCH);
   if (error) throw new Error(`drafts read failed: ${error.message}`);
-  const drafts = (data ?? []) as { id: string; kind: MarketingDraftKind; title: string | null; body: string }[];
+  const drafts = (data ?? []) as { id: string; kind: MarketingDraftKind; title: string | null; body: string; notes: string | null }[];
   if (drafts.length === 0) {
     console.log('  editor: nothing to review');
     return;
@@ -305,40 +443,60 @@ async function editorReview(ctx: Ctx): Promise<void> {
 
 // ---- Jobs ---------------------------------------------------------------------------------
 
-const JOBS: Record<ScheduleKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }> = {
+const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }> = {
   research: {
-    steps: ['researcher'],
+    steps: ['researcher (brief checked)'],
     run: async (ctx) => {
-      await runEmployee(ctx, 'researcher', PROMPTS.research());
-    },
-  },
-  plan_and_write: {
-    steps: ['head_of_marketing (plan)', 'feedback -> copywriter notebook', 'copywriter', 'editor (after the code rules)'],
-    run: async (ctx) => {
-      await runEmployee(ctx, 'head_of_marketing', PROMPTS.plan());
-      const n = await syncFeedback(ctx);
-      console.log(`  feedback: ${n} new decision(s) synced`);
-      await runEmployee(ctx, 'copywriter', PROMPTS.write());
-      await editorReview(ctx);
+      const week = cycleWeek(new Date());
+      await runEmployee(ctx, 'researcher', PROMPTS.research(week), checks.brief(ctx, week));
     },
   },
   weekly_review: {
-    steps: ['analyst', 'head_of_marketing (playbook)'],
+    steps: ['researcher (brief checked)', 'analyst', 'head_of_marketing (playbook checked)'],
     run: async (ctx) => {
+      const week = cycleWeek(new Date());
+      // The research brief is for Monday's plan; a failure is reported but does not stop the review.
+      await runEmployee(ctx, 'researcher', PROMPTS.research(week), checks.brief(ctx, week));
       await runEmployee(ctx, 'analyst', PROMPTS.analyse());
-      await runEmployee(ctx, 'head_of_marketing', PROMPTS.playbook());
+      await runEmployee(ctx, 'head_of_marketing', PROMPTS.playbook(), checks.playbook(ctx));
+    },
+  },
+  plan_and_write: {
+    steps: [
+      'head_of_marketing (plan checked)',
+      'feedback -> copywriter notebook',
+      'copywriter (one draft per slot checked)',
+      'editor (after the code rules)',
+    ],
+    run: async (ctx) => {
+      const week = cycleWeek(new Date());
+      const research = await briefIds(ctx, week);
+      const slots: PlanSlot[] = [];
+      const plan = await runEmployee(
+        ctx,
+        'head_of_marketing',
+        PROMPTS.plan(week, research),
+        checks.plan(ctx, week, research, await photoIds(ctx), slots),
+      );
+      // No valid plan, no drafts: the Copywriter would only guess.
+      if (!plan.ok) return;
+      const n = await syncFeedback(ctx);
+      console.log(`  feedback: ${n} new decision(s) synced`);
+      await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots), checks.drafts(ctx, slots));
+      await editorReview(ctx);
     },
   },
 };
 
 async function main() {
-  const job = process.argv[2] as ScheduleKey;
+  const job = process.argv[2] as JobKey;
   if (!job || !(job in JOBS)) {
     console.error(`Usage: tsx marketing/run.ts <${Object.keys(JOBS).join('|')}>`);
     process.exit(2);
   }
   const plan = JOBS[job];
-  console.log(`Job ${job} (cron ${SCHEDULES[job]}): ${plan.steps.join(' -> ')}`);
+  const when = job in SCHEDULES ? `cron ${SCHEDULES[job as keyof typeof SCHEDULES]}` : 'manual only';
+  console.log(`Job ${job} (${when}), cycle week ${cycleWeek(new Date())}: ${plan.steps.join(' -> ')}`);
 
   if (DRY_RUN) {
     for (const step of plan.steps) {
@@ -364,6 +522,7 @@ async function main() {
   ]);
   if (!env || !researchEnv || !vault) throw new Error('Team resources missing. Run marketing:sync first.');
 
+  const failures: string[] = [];
   await plan.run({
     client,
     sb,
@@ -371,7 +530,12 @@ async function main() {
     storeIds,
     envIds: { [ENVIRONMENT_NAME]: env.id, [RESEARCH_ENVIRONMENT_NAME]: researchEnv.id },
     vaultId: vault.id,
+    failures,
   });
+  if (failures.length) {
+    console.error(`\nFinished with ${failures.length} failed hand-over(s):\n${failures.map((f) => `  - ${f}`).join('\n')}`);
+    process.exit(1);
+  }
   console.log('\nDone. Drafts wait at /admin/marketing.');
 }
 

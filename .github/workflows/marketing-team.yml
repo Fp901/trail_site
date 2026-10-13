@@ -10,19 +10,21 @@ name: Marketing team
 # The cron strings mirror SCHEDULES in marketing/config.ts (UTC; SAST is UTC+2), and
 # scripts/verify-marketing.mjs fails if they drift.
 
+# One cycle a week: the Sunday review (with the Researcher's brief) feeds Monday's plan and drafts.
+# The "research" job is manual only, for trying out a change to the Researcher's brief.
+
 on:
   schedule:
-    - cron: '0 4 * * *'    # research: Researcher, daily 06:00 SAST
+    - cron: '0 12 * * 0'   # weekly_review: Researcher, Analyst, then Head of Marketing, Sunday 14:00 SAST
     - cron: '0 5 * * 1'    # plan_and_write: Head of Marketing, then Copywriter, then Editor, Monday 07:00 SAST
-    - cron: '0 14 * * 0'   # weekly_review: Analyst, then Head of Marketing, Sunday 16:00 SAST
   workflow_dispatch:
     inputs:
       job:
         description: 'Which job to run'
         required: true
-        default: research
+        default: weekly_review
         type: choice
-        options: [research, plan_and_write, weekly_review, sync]
+        options: [weekly_review, plan_and_write, research, sync]
       dry_run:
         description: 'Dry run: print the plan only, no API calls'
         required: true
@@ -68,9 +70,8 @@ jobs:
             JOB="$INPUT_JOB"
           else
             case "$CRON" in
-              '0 4 * * *')  JOB=research ;;
+              '0 12 * * 0') JOB=weekly_review ;;
               '0 5 * * 1')  JOB=plan_and_write ;;
-              '0 14 * * 0') JOB=weekly_review ;;
               *) echo "Unknown schedule: $CRON"; exit 1 ;;
             esac
           fi
