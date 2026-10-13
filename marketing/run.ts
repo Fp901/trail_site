@@ -162,7 +162,12 @@ async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string): Promise<
         stopReason = 'terminated';
         break;
       }
-      if (event.type === 'session.error') console.error('  session error event received');
+      if (event.type === 'session.error') {
+        // Anthropic's error type and message only: they name the failing tool server or model
+        // problem and never carry our secrets.
+        const e = event.error;
+        console.error(`  session error: ${e.type}${'message' in e && e.message ? `: ${e.message}` : ''}`);
+      }
     }
   } catch (err) {
     if (!timedOut) throw err;
@@ -173,11 +178,20 @@ async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string): Promise<
 
   // The agent's replies, from the event log (authoritative, unlike a partially read stream).
   const texts: string[] = [];
+  const toolCalls: string[] = [];
+  let toolErrors = 0;
   for await (const e of client.beta.sessions.events.list(session.id)) {
     if (e.type === 'agent.message') {
       for (const block of e.content) if (block.type === 'text') texts.push(block.text);
     }
+    if (e.type === 'agent.mcp_tool_use' || e.type === 'agent.tool_use') toolCalls.push(e.name);
+    if ((e.type === 'agent.mcp_tool_result' || e.type === 'agent.tool_result') && e.is_error) toolErrors++;
   }
+  // What the employee did, so a run can be judged from the Actions log alone. Tool names and
+  // the agent's own summary only: no tool inputs, which can hold draft text or URLs.
+  console.log(`  tools used: ${toolCalls.length ? toolCalls.join(', ') : 'none'}${toolErrors ? ` (${toolErrors} returned an error)` : ''}`);
+  const summary = texts.at(-1)?.trim();
+  if (summary) console.log(`  summary:\n${summary.slice(0, 2000).replace(/^/gm, '    ')}`);
   const final = await client.beta.sessions.retrieve(session.id);
   const costCents = Number(final.usage?.list_cost?.amount ?? 0) || 0;
 
