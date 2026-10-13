@@ -95,10 +95,6 @@ const T = "Temminck's Lodge" as const;
 const O = 'Oukraal' as const;
 const R = 'Rustwood' as const;
 
-// Site photos held out of the marketing library until the owner confirms them. The striped
-// cushion in the Oukraal four-poster room may be real hide (the owner's no-trophy rule).
-export const HELD_BACK_PHOTOS: readonly string[] = ['lodges/oukraal-four-poster.jpg'];
-
 export const photoLibrary: readonly LibraryPhoto[] = [
   // ---- Landscape and trail ----
   {

@@ -29,7 +29,6 @@ import temLapa from '../assets/images/lodges/temmincks-lapa.jpg';
 import temCottageGarden from '../assets/images/lodges/temmincks-cottage-garden.jpg';
 import temThatchedSuite from '../assets/images/lodges/temmincks-thatched-suite.jpg';
 import temGiraffe from '../assets/images/lodges/temmincks-giraffe.jpg';
-import oukFourPoster from '../assets/images/lodges/oukraal-four-poster.jpg';
 import oukTwinRoom from '../assets/images/lodges/oukraal-twin-room.jpg';
 import oukBougainvillea from '../assets/images/lodges/oukraal-bougainvillea.jpg';
 import oukGardenPool from '../assets/images/lodges/oukraal-garden-pool.jpg';
@@ -122,7 +121,6 @@ export const sanctuaries: Sanctuary[] = [
       { image: oukraalGallery2, alt: 'A twin bedroom at Oukraal, with African art and reading lamps.' },
     ],
     morePhotos: [
-      { image: oukFourPoster, alt: 'A four-poster double bed at Oukraal, with giraffe-print cushions and bedside lamps.' },
       { image: oukTwinRoom, alt: 'A twin room at Oukraal, with woven headboards and fresh towels on each bed.' },
       { image: oukBougainvillea, alt: 'Pink bougainvillea framing a guest cottage across the paved courtyard at Oukraal.' },
       { image: oukGardenPool, alt: 'The garden pool at Oukraal, edged with lawn and bushveld trees.' },
