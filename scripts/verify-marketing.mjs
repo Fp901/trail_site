@@ -30,7 +30,17 @@ import {
 } from '../marketing/config.ts';
 import { EMPLOYEES, employee } from '../marketing/agents/index.ts';
 import { TEAM_PREAMBLE } from '../marketing/agents/types.ts';
-import { agentParams, brandSkillBody, memoryPlan, seedMemories } from '../marketing/build.ts';
+import {
+  HARD_RULES_SUMMARY,
+  SKILL_NAME,
+  agentParams,
+  brandSkillBody,
+  hashFromVersionDescription,
+  memoryPlan,
+  seedMemories,
+  skillContentHash,
+  skillUploadContent,
+} from '../marketing/build.ts';
 import { employeeToolToken } from '../src/lib/marketing-auth.ts';
 import { register } from 'node:module';
 
@@ -77,6 +87,7 @@ const sameSet = (a, b) => {
   return A.length === B.length && A.every((x, i) => x === B[i]);
 };
 const rulesOf = (text, kind = 'instagram_caption') => checkDraft(text, kind).map((v) => v.rule);
+const syncTsEarly = read('marketing/sync.ts');
 
 // ---------------------------------------------------------------------------------------------
 section('1. Editor code rules: clean copy passes, each broken rule hard-fails');
@@ -295,8 +306,24 @@ assert('every employee\'s tools are exactly its TOOL_ACCESS entry', EMPLOYEES.ev
 assert('submit_review is the Editor\'s alone', EMPLOYEE_KEYS.every((k) => TOOL_ACCESS[k].includes('submit_review') === (k === 'editor')));
 assert('the SKILL body was read (voice and hard rules present)', /## Voice/.test(SKILL) && SKILL.length > 500);
 
+// The brand skill goes up through the Skills API and is attached by id (no copy in the prompt).
+const SKILL_RAW = readFileSync(new URL('../.claude/skills/rooiberg-brand/SKILL.md', import.meta.url), 'utf8');
+const SKILL_REF = { skill_id: 'skill_test', version: 'skillver_test' };
+const uploaded = skillUploadContent(SKILL_RAW);
+const upDesc = uploaded.match(/^---\n(?:[^\n]*\n)*?description: ([^\n]*)\n/)?.[1] ?? '';
+assert('the skill hash is the sha256 of SKILL.md as committed', skillContentHash(SKILL_RAW) === skillContentHash(SKILL_RAW) && /^[0-9a-f]{64}$/.test(skillContentHash(SKILL_RAW)) && skillContentHash(SKILL_RAW + ' ') !== skillContentHash(SKILL_RAW));
+assert('the upload records that hash in the version description, and it reads back', hashFromVersionDescription(upDesc) === skillContentHash(SKILL_RAW));
+assert('the upload changes nothing else in SKILL.md', uploaded.replace(/ \[content sha256 [0-9a-f]{64}\]/, '') === SKILL_RAW);
+assert(`the upload keeps the skill name "${SKILL_NAME}" and a description under 1024 characters`, new RegExp(`^---\\nname: ${SKILL_NAME}\\n`).test(uploaded) && upDesc.length < 1024);
+assert('a version this code did not upload reads as no hash (so sync uploads a new one)', hashFromVersionDescription('Voice and hard rules.') === null);
+assert('the hard-rules summary has no em or en dash', !/[–—]/.test(HARD_RULES_SUMMARY));
+assert('sync uploads with the stable Skills API (client.skills.*, not beta)', /client\.skills\.create\(/.test(syncTsEarly) && /client\.skills\.versions\.create\(/.test(syncTsEarly) && !/client\.beta\.skills/.test(syncTsEarly));
+assert('sync uploads a new version only when the hash changed', /if \(live\.liveHash === skillHash\)/.test(syncTsEarly));
+assert('sync has a read-only --check mode that exits non-zero on drift', /process\.argv\.includes\('--check'\)/.test(syncTsEarly) && /process\.exit\(1\)/.test(syncTsEarly.slice(syncTsEarly.indexOf('async function check('))));
+assert('the workflow runs the live skill check after a live sync', /run: npx tsx marketing\/sync\.ts --check/.test(read('.github/workflows/marketing-team.yml')));
+
 for (const emp of EMPLOYEES) {
-  const a = agentParams(emp, 'https://example.test', SKILL);
+  const a = agentParams(emp, 'https://example.test', SKILL_REF);
   const builtin = a.tools.find((t) => t.type === 'agent_toolset_20260401');
   const mcp = a.tools.find((t) => t.type === 'mcp_toolset');
   const enabled = (builtin.configs ?? []).filter((c) => c.enabled).map((c) => c.name);
@@ -308,12 +335,14 @@ for (const emp of EMPLOYEES) {
   assert(`${label}: tool server tools default to off, the rest are known tools`, mcp.default_config?.enabled === false && mcpTools.every((t) => TOOL_NAMES.includes(t)));
   assert(`${label}: no tool asks for confirmation (nothing can hang a scheduled run)`, a.tools.every((t) => t.default_config?.permission_policy?.type === 'always_allow'));
   assert(`${label}: the tool server URL is its own per-employee path`, a.mcp_servers.length === 1 && a.mcp_servers[0].url === `https://example.test${TOOL_SERVER_PATH}/${label}`);
-  assert(`${label}: the instructions carry the team preamble and the brand skill`, a.system.includes(TEAM_PREAMBLE) && a.system.includes(SKILL));
+  assert(`${label}: the instructions carry the team preamble and the hard-rules summary`, a.system.includes(TEAM_PREAMBLE) && a.system.includes(HARD_RULES_SUMMARY));
+  assert(`${label}: the brand skill is attached by id, not copied into the prompt`, !a.system.includes(SKILL) && a.skills?.length === 1 && a.skills[0].type === 'custom' && a.skills[0].skill_id === SKILL_REF.skill_id && a.skills[0].version === SKILL_REF.version);
+  assert(`${label}: the read tool is on (attached skills need it)`, enabled.includes('read'));
   assert(`${label}: the instructions contain no em or en dash`, !/[–—]/.test(a.system));
   assert(`${label}: at most 8 memory stores per session`, memoryPlan(emp).length <= 8);
   assert(`${label}: tagged with the team metadata`, a.metadata.team === TEAM_TAG && a.metadata.key === label);
 }
-const researcherWeb = agentParams(employee('researcher'), 'https://example.test', SKILL).tools[0].configs.filter((c) => c.name.startsWith('web_'));
+const researcherWeb = agentParams(employee('researcher'), 'https://example.test', SKILL_REF).tools[0].configs.filter((c) => c.name.startsWith('web_'));
 assert('the Researcher\'s web tools are limited to RESEARCH_HOSTS', researcherWeb.length === 2 && researcherWeb.every((c) => sameSet(c.allowed_domains, [...RESEARCH_HOSTS])));
 assert('save_draft is never given to the Head of Marketing, the Researcher or the Editor', ['head_of_marketing', 'researcher', 'editor'].every((k) => !employee(k).tools.includes('save_draft')));
 assert('only the Head of Marketing writes the playbook', EMPLOYEES.every((e) => (e.memory.playbook === 'read_write') === (e.key === 'head_of_marketing')));
