@@ -10,12 +10,19 @@
 --      The bucket itself refuses anything over 4 MB or not JPEG, PNG or WebP, a second wall behind
 --      the server's own checks (magic bytes, size).
 --
+--   3. admin_audit learns the marketing actions, so every owner decision on a draft and every photo
+--      upload is in the append-only audit log as well as in marketing.feedback / marketing.photos:
+--        marketing_draft_approve, marketing_draft_edit, marketing_draft_reject, marketing_photo_upload
+--      The constraint is dropped and re-added with every earlier action kept (as 0012 did).
+--
 -- NO HUNTING TROPHIES. Every upload requires the owner to tick "This photo shows no hunting
 -- trophies"; the tick's time is stored (no_trophies_confirmed_at, NOT NULL), so a row cannot exist
 -- without it.
 --
--- CHECK SYNTAX. Enum checks use `col = any (array[...])`, as in 0021: verify-admin.mjs reads the
--- last `check (status in (...))` in the migration set as the bookings status enum.
+-- CHECK SYNTAX. The marketing enum checks use `col = any (array[...])`, as in 0021: verify-admin.mjs
+-- reads the last `check (status in (...))` in the migration set as the bookings status enum. The
+-- admin_audit check below keeps the `action in (...)` form on purpose: verify-admin.mjs reads the
+-- LAST such check as the ADMIN_ACTIONS enum.
 --
 -- AFTER APPLYING. Nothing new to expose: the `marketing` schema is already exposed (0021).
 --   Check: begin; set local role anon; select count(*) from marketing.photos; rollback;
@@ -67,3 +74,27 @@ on conflict (id) do update
   set public = false,
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
+
+-- ---------------------------------------------------------------------------
+-- 3. admin_audit: the marketing actions
+-- ---------------------------------------------------------------------------
+alter table public.admin_audit
+  drop constraint if exists admin_audit_action_check;
+
+alter table public.admin_audit
+  add constraint admin_audit_action_check check (action in (
+    'note',
+    'update_contact',
+    'move_dates',
+    'cancel_booking',
+    'resend_email',
+    'mark_balance_paid',
+    'block_dates',
+    'unblock_dates',
+    'inquiry_handled',
+    'create_comp_booking',
+    'marketing_draft_approve',
+    'marketing_draft_edit',
+    'marketing_draft_reject',
+    'marketing_photo_upload'
+  ));

@@ -46,6 +46,11 @@ export const ADMIN_ACTIONS = [
   'unblock_dates',
   'inquiry_handled',
   'create_comp_booking',
+  // 0022: the owner's marketing decisions and photo uploads (booking_id is null for these).
+  'marketing_draft_approve',
+  'marketing_draft_edit',
+  'marketing_draft_reject',
+  'marketing_photo_upload',
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 

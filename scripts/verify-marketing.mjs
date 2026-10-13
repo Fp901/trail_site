@@ -3,14 +3,18 @@
 //
 //   1. The Editor's code rules (src/lib/brand-rules.ts) pass clean copy and hard-fail every
 //      broken brand rule, one sample per rule.
-//   2. Migration 0021's marketing tables match db.types.ts, and every one is default-deny.
+//   2. Migrations 0021 and 0022: the marketing tables match db.types.ts, every one is default-deny,
+//      and the marketing-photos bucket is private.
 //   3. The Rooiberg tool server exposes exactly six tools, no publish or send, behind a
 //      per-employee constant-time bearer check; each employee may call only its TOOL_ACCESS
 //      tools; save_draft can only insert a pending draft and submit_review (Editor only) can only
 //      record a verdict, never change a draft's status.
 //   4. The employees: the agreed models, caps under the hard cap, no shell, web for the
 //      Researcher only, save_draft never given to the Editor.
-//   5. The schedule: dry run by default, a budget on every session, crons that match config.ts.
+//   5. The schedule: dry run by default, a budget on every session, crons that match config.ts;
+//      the owner review, its admin_audit entries (0022) and the daily digest.
+//   6. The photo library covers every site photo but the logos, and owner uploads are checked
+//      (type from magic bytes, size, the no-hunting-trophies tick) into a private bucket.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { checkDraft, publishedRates } from '../src/lib/brand-rules.ts';
 import { fileURLToPath } from 'node:url';
@@ -429,6 +433,15 @@ assert('an edited draft runs the code rules before it is saved', decide.indexOf(
 assert('a decision is a compare-and-set on pending', /\.update\(update\)\s*\.eq\('id', input\.draftId\)\s*\.eq\('status', 'pending'\)/.test(decide));
 assert('the reason is recorded in marketing.feedback', /from\('feedback'\)\.insert\(\{[\s\S]*?reason,/.test(decide));
 assert('the agent text is kept when the owner edits', /update\.original_body = draft\.body/.test(decide));
+assert('every decision is also written to admin_audit (approve, edit, reject)', /recordAdminEvent\(/.test(decide) && ['marketing_draft_approve', 'marketing_draft_edit', 'marketing_draft_reject'].every((x) => decide.includes(`'${x}'`)));
+assert('the audit row carries ids and the decision, never the draft text', !/body/.test(decide.slice(decide.indexOf('recordAdminEvent('), decide.indexOf('return { ok: true, decision }'))));
+{
+  const sqlAll = migFiles.map((f) => read(`supabase/migrations/${f}`)).join('\n').replace(/--[^\n]*/g, '');
+  const checks = [...sqlAll.matchAll(/check\s*\(\s*action\s+in\s*\(([\s\S]*?)\)\s*\)/g)].map((m) => m[1].match(/'([^']+)'/g).map((x) => x.slice(1, -1)));
+  const last = checks[checks.length - 1] ?? [];
+  const prev = checks[checks.length - 2] ?? [];
+  assert('0022 widens admin_audit: every earlier action kept, the four marketing actions added', prev.every((x) => last.includes(x)) && ['marketing_draft_approve', 'marketing_draft_edit', 'marketing_draft_reject', 'marketing_photo_upload'].every((x) => last.includes(x)) && /0022/.test(migFiles[migFiles.length - 1]) && /admin_audit_action_check check \(action in/.test(read('supabase/migrations/0022_marketing_photos_audit.sql')));
+}
 assert('the admin nav links the marketing page', /id: 'marketing'.*href: '\/admin\/marketing'/.test(read('src/components/AdminNav.astro')));
 const digest = read('src/pages/api/cron/marketing-drafts.ts');
 assert('the digest cron is scheduled in vercel.json', JSON.parse(read('vercel.json')).crons.some((c) => c.path === '/api/cron/marketing-drafts'));
@@ -490,6 +503,7 @@ assert('the upload validates category, lodge and alt text with zod', /category: 
 assert('the file is checked (type and size) before it is stored', upload.indexOf('checkPhotoUpload(') > -1 && upload.indexOf('checkPhotoUpload(') < upload.indexOf('.upload('));
 assert('the file goes to the private bucket under the server path, never overwriting', /\.from\(MARKETING_PHOTO_BUCKET\)\s*\.upload\(checked\.path, bytes, \{ contentType: checked\.type, upsert: false \}\)/.test(upload));
 assert('a failed row insert removes the stored file', /\.remove\(\[checked\.path\]\)/.test(upload));
+assert('the upload is written to admin_audit after the row is saved', upload.indexOf("action: 'marketing_photo_upload'") > upload.indexOf(".from('photos')"));
 assert('the upload records the trophy confirmation time and the uploader', /no_trophies_confirmed_at: new Date\(\)\.toISOString\(\)/.test(upload) && /uploaded_by: admin\.email/.test(upload));
 assert('the admin page has the upload form with the required trophy tick', /data-photo-upload/.test(page) && /name="noTrophies" type="checkbox" required/.test(page) && /This photo shows no hunting trophies/.test(page));
 assert('the admin page never renders an uploaded image (CSP img-src is self only)', !/<img[^>]*(signed|storage|supabase)/i.test(page) && !/img-src[^"]*supabase/.test(read('astro.config.mjs')));

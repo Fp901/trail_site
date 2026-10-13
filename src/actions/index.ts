@@ -1472,6 +1472,21 @@ export const server = {
           message: 'The decision was saved but the feedback note was not. Please report this.',
         });
       }
+
+      // The append-only audit log too (migration 0022). Ids and the decision only: the draft text
+      // stays in marketing.drafts (original_body keeps the agent's version of an edited draft).
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action:
+          decision === 'rejected'
+            ? 'marketing_draft_reject'
+            : decision === 'edited'
+              ? 'marketing_draft_edit'
+              : 'marketing_draft_approve',
+        before: { draft_id: input.draftId, status: 'pending' },
+        after: { draft_id: input.draftId, kind: draft.kind, status: update.status },
+        note: reason,
+      });
       return { ok: true, decision };
     },
   }),
@@ -1538,6 +1553,18 @@ export const server = {
         console.error('[marketing] photo row insert failed', insErr?.message);
         throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'The photo could not be saved. Please try again.' });
       }
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'marketing_photo_upload',
+        after: {
+          photo_id: row.id,
+          category: input.category,
+          lodge: input.lodge ?? null,
+          bytes: bytes.byteLength,
+          content_type: checked.type,
+          no_trophies_confirmed: true,
+        },
+      });
       return { ok: true, id: `upload-${row.id}` };
     },
   }),

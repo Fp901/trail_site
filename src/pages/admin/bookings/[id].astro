@@ -226,6 +226,16 @@ function auditLabel(e: TimelineAuditEvent): string {
       return 'Dates unblocked';
     case 'inquiry_handled':
       return 'Enquiry marked handled';
+    // Marketing events carry no booking_id, so they never reach a booking's timeline; listed so
+    // the switch stays exhaustive.
+    case 'marketing_draft_approve':
+      return 'Marketing draft approved';
+    case 'marketing_draft_edit':
+      return 'Marketing draft edited and approved';
+    case 'marketing_draft_reject':
+      return 'Marketing draft rejected';
+    case 'marketing_photo_upload':
+      return 'Marketing photo uploaded';
     default: {
       const unhandled: never = action;
       return unhandled;
