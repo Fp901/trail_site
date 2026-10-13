@@ -14,7 +14,7 @@ import { z } from 'astro/zod';
 import { site, stats } from '../data/site';
 import { itinerary } from '../data/itinerary';
 import { sanctuaries } from '../data/sanctuaries';
-import { photoLibrary as sitePhotos } from '../data/photo-library';
+import { photoLibrary as sitePhotos, orientationOf } from '../data/photo-library';
 import { existingUploadIds, uploadedPhotos } from './marketing-photos';
 import { logisticsBlocks, faqs, faqAnswerText, seasons } from '../data/logistics';
 import {
@@ -39,9 +39,11 @@ import { getSupabaseAdmin, getSupabaseAnon } from './supabase';
 import { checkDraft, describeViolations } from './brand-rules';
 import { rateLimit } from './ratelimit';
 import { TOOL_ACCESS, type EmployeeKey } from '../../marketing/config';
+import { photoCountError } from '../../marketing/contracts';
 import {
   MARKETING_AUTHORS,
   MARKETING_DRAFT_KINDS,
+  MARKETING_POST_FORMATS,
   type DepartureInventoryRow,
   type MarketingDraftRow,
 } from './db.types';
@@ -184,6 +186,7 @@ export function staticPhotoLibrary() {
     category: p.category,
     lodge: p.lodge,
     alt: p.alt,
+    orientation: orientationOf(p.image.width, p.image.height),
     ...(p.note ? { note: p.note } : {}),
     url: base + p.image.src,
     source: 'site' as const,
@@ -245,6 +248,8 @@ async function getResults(input: { days: number }): Promise<ToolResult> {
 
 // ---- save_draft ---------------------------------------------------------------------------------
 const PUBLIC_KINDS = MARKETING_DRAFT_KINDS.filter((k) => k !== 'weekly_report');
+// Instagram and Facebook posts carry a format (single, carousel or story); nothing else does.
+const SOCIAL_KINDS: ReadonlySet<string> = new Set(['instagram_caption', 'facebook_post']);
 
 async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: EmployeeKey): Promise<ToolResult> {
   if (input.author !== caller) return fail(`author must be your own employee key, "${caller}".`);
@@ -257,12 +262,29 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
     return fail('Too many drafts saved in the last hour. Stop and leave the rest for the next run.');
   }
 
-  const violations = checkDraft([input.title ?? '', input.body].join('\n'), input.kind);
+  const format = input.format ?? null;
+  if (SOCIAL_KINDS.has(input.kind) && !format) {
+    return fail(`An ${input.kind} needs a format: ${MARKETING_POST_FORMATS.join(', ')}.`);
+  }
+  if (!SOCIAL_KINDS.has(input.kind) && format) return fail(`Only Instagram and Facebook posts take a format.`);
+  if (format) {
+    const e = photoCountError(format, input.photo_ids.length);
+    if (e) return fail(`Photo count: ${e}`);
+  }
+
+  const violations = checkDraft([input.title ?? '', input.body].join('\n'), input.kind, format);
   if (violations.length) {
     return fail(`Draft refused by the brand rules. Fix these and save again:\n${describeViolations(violations)}`);
   }
 
-  const known = new Set(staticPhotoLibrary().map((p) => p.id));
+  const library = staticPhotoLibrary();
+  const known = new Set(library.map((p) => p.id));
+  if (format === 'story') {
+    const wide = library.filter((p) => input.photo_ids.includes(p.id) && p.orientation === 'landscape');
+    if (wide.length) {
+      return fail(`A story fills a tall screen, so it needs a portrait photo; ${wide[0].id} is landscape.`);
+    }
+  }
   let uploads: Set<string>;
   try {
     uploads = await existingUploadIds(input.photo_ids.filter((id) => !known.has(id)));
@@ -281,6 +303,7 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
       title: input.title ?? null,
       body: input.body,
       photo_ids: input.photo_ids,
+      format,
       departure_date: input.departure_date ?? null,
       notes: input.notes ?? null,
       status: 'pending',
@@ -297,7 +320,13 @@ const saveDraftInput = z
     kind: z.enum(MARKETING_DRAFT_KINDS).describe(`One of: ${MARKETING_DRAFT_KINDS.join(', ')}. Public kinds: ${PUBLIC_KINDS.join(', ')}.`),
     body: z.string().min(1).max(20000).describe('The full text of the post, caption, blog draft, reply or report.'),
     title: z.string().max(200).optional().describe('Optional title (blog drafts and reports).'),
-    photo_ids: z.array(z.string().max(80)).max(10).default([]).describe('Photo ids from get_photo_library.'),
+    photo_ids: z.array(z.string().max(80)).max(10).default([]).describe('Photo ids from get_photo_library, in the order they should appear.'),
+    format: z
+      .enum(MARKETING_POST_FORMATS)
+      .optional()
+      .describe(
+        'Instagram and Facebook posts only, and then required. single: 1 photo and a caption. carousel: 3 to 10 photos in order and a caption. story: 1 portrait photo and at most 125 characters of text on it, no caption.',
+      ),
     departure_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)

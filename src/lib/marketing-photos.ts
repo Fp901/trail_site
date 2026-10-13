@@ -53,6 +53,8 @@ export interface UploadedLibraryPhoto {
   category: PhotoCategory;
   lodge: PhotoLodge | null;
   alt: string;
+  // Uploads are not measured, so their shape is unknown: open the URL to see it.
+  orientation: 'unknown';
   url: string | null;
   url_expires_in_seconds: number;
   uploaded_at: string;
@@ -87,6 +89,7 @@ export async function uploadedPhotos(limit = 100): Promise<UploadedLibraryPhoto[
     category: r.category,
     lodge: r.lodge ? PHOTO_LODGE_BY_KEY[r.lodge] : null,
     alt: r.alt,
+    orientation: 'unknown' as const,
     url: urlByPath.get(r.storage_path) ?? null,
     url_expires_in_seconds: SIGNED_URL_SECONDS,
     uploaded_at: r.created_at,

@@ -60,6 +60,7 @@ import {
   MARKETING_PHOTO_LODGES,
   type MarketingDecision,
   type MarketingDraftKind,
+  type MarketingPostFormat,
 } from '../lib/db.types';
 import { MARKETING_PHOTO_BUCKET, checkPhotoUpload } from '../lib/marketing-photos';
 import { site } from '../data/site';
@@ -1416,7 +1417,7 @@ export const server = {
       const mk = getSupabaseAdmin().schema('marketing');
       const { data: draft, error: loadErr } = await mk
         .from('drafts')
-        .select('id, kind, body, status')
+        .select('id, kind, body, status, format')
         .eq('id', input.draftId)
         .maybeSingle();
       if (loadErr || !draft) {
@@ -1429,7 +1430,7 @@ export const server = {
       const edited =
         input.decision === 'approve' && input.body !== undefined && input.body !== String(draft.body).trim();
       if (edited) {
-        const violations = checkDraft(input.body!, draft.kind as MarketingDraftKind);
+        const violations = checkDraft(input.body!, draft.kind as MarketingDraftKind, draft.format as MarketingPostFormat | null);
         if (violations.length) {
           throw new ActionError({ code: 'BAD_REQUEST', message: describeViolations(violations) });
         }

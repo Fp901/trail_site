@@ -107,7 +107,7 @@ export const TOOL_ACCESS: Record<EmployeeKey, readonly ToolName[]> = {
   head_of_marketing: ['get_open_departures', 'get_facts_pack', 'get_photo_library', 'get_results'],
   researcher: ['get_facts_pack'],
   copywriter: ['get_open_departures', 'get_facts_pack', 'get_photo_library', 'save_draft'],
-  editor: ['get_facts_pack', 'submit_review'],
+  editor: ['get_facts_pack', 'get_photo_library', 'submit_review'],
   community_manager: ['get_open_departures', 'get_facts_pack', 'get_photo_library', 'save_draft'],
   sales_assistant: ['get_open_departures', 'get_facts_pack', 'save_draft'],
   analyst: ['get_results', 'save_draft'],

@@ -39,7 +39,16 @@ Exactly one draft for each slot in /weekly-plan.md, nothing else:
 - channel facebook: kind facebook_post.
 - channel blog: kind blog_draft.
 
-Save each one with save_draft, author "copywriter", with the slot's photo ids and, when the slot names a departure, its departure_date. Begin its notes with "Plan slot: " and the slot id (for example "Plan slot: P-202642-1"), then add the research item or fact it rests on. The runner checks every slot has its draft.
+Save each one with save_draft, author "copywriter", with the slot's format, the slot's photo ids in the same order and, when the slot names a departure, its departure_date. Begin its notes with "Plan slot: " and the slot id (for example "Plan slot: P-202642-1"), then add the research item or fact it rests on. The runner checks every slot has its draft.
+
+## Each format
+
+Every instagram or facebook slot names its format. Write for it:
+- single: a caption for one photo. Open with what the photo shows, then the one idea. A short paragraph or two.
+- carousel: a caption that carries the reader through the photos in order. Say in the first line that there is more to swipe through, and refer to what each photo shows where it helps.
+- story: only the words that go on the photo, at most 125 characters, and no caption. One short line people read in a second or two. If the slot promotes a departure, use the exact line from get_open_departures.
+
+If a photo in the slot does not fit what you are writing, keep the plan's photos and say so in your notes; the Editor and the owner will see it. The one exception: if save_draft refuses a story photo because it is landscape, choose a portrait photo from get_photo_library that shows the same thing, and say which you swapped in your notes.
 
 ## Style
 

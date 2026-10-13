@@ -61,18 +61,24 @@ Avoid: anything to steer clear of this week, and why.
 
 ## P-202642-1
 - channel: instagram
+- format: carousel
 - angle: One sentence on what the post says and why it works now.
 - based on: R-202642-2
 - departure: none
-- photos: rooiberg-sunset-grassland
+- photos: trail-bushveld-path, guide-reading-tracks, rustwood-pool-sunset
 - call to action: See dates and rates on the rates page.
 ```
 
 - channel: instagram, facebook or blog. Exactly three instagram or facebook slots, plus at most one blog slot.
+- format: the three instagram or facebook slots are one of each, so the owner always gets a mix:
+  - single: one photo and a caption. The strongest single image for one clear idea.
+  - carousel: 3 to 10 photos in the order they will be swiped, and a caption. Best for a sequence, such as the trail day by day or a lodge from arrival to fireside.
+  - story: one portrait photo (orientation "portrait" in get_photo_library) with at most 125 characters of text on it and no caption. Best for something timely, such as a departure with places left.
+  A blog slot has format none.
 - angle: under 300 characters.
 - based on: a research item id from this week's brief, or "facts: " and what in get_facts_pack it uses.
 - departure: a start date from get_open_departures, or none.
-- photos: one or more ids from get_photo_library, separated by commas.
+- photos: ids from get_photo_library, separated by commas, in the order they should appear: exactly 1 for a single or a story, 3 to 10 for a carousel. Choose photos that show what the angle says; read each photo's alt text, and never use the same photo twice in a week.
 - call to action: under 160 characters, at most one.
 
 ## Your notebook

@@ -426,6 +426,10 @@ export const MARKETING_DRAFT_KINDS = [
 ] as const;
 export type MarketingDraftKind = (typeof MARKETING_DRAFT_KINDS)[number];
 
+// Social post formats (0023). Null on drafts that are not an Instagram or Facebook post.
+export const MARKETING_POST_FORMATS = ['single', 'carousel', 'story'] as const;
+export type MarketingPostFormat = (typeof MARKETING_POST_FORMATS)[number];
+
 export const MARKETING_DRAFT_STATUSES = ['pending', 'approved', 'rejected'] as const;
 export type MarketingDraftStatus = (typeof MARKETING_DRAFT_STATUSES)[number];
 
@@ -455,6 +459,7 @@ export const MARKETING_DRAFT_COLUMNS = [
   'decided_by',
   'decision_reason',
   'original_body',
+  'format',
 ] as const;
 
 export interface MarketingDraftRow {
@@ -474,6 +479,7 @@ export interface MarketingDraftRow {
   decided_by: string | null;
   decision_reason: string | null;
   original_body: string | null;
+  format: MarketingPostFormat | null;
 }
 
 export const MARKETING_FEEDBACK_COLUMNS = [

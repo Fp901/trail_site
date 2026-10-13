@@ -53,12 +53,35 @@ import { register } from 'node:module';
 
 // The tool registry imports site photos (astro:assets image imports). Outside Vite, stand each one
 // in as a tiny metadata object so the registry itself can be exercised below with no network.
+// Each JPEG's real size (from its SOF marker), so photo orientation is tested on the true shapes.
+const jpegSize = (b) => {
+  for (let i = 2; i < b.length - 9; ) {
+    if (b[i] !== 0xff) return null;
+    const marker = b[i + 1];
+    const len = b.readUInt16BE(i + 2);
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      return { height: b.readUInt16BE(i + 5), width: b.readUInt16BE(i + 7) };
+    }
+    i += 2 + len;
+  }
+  return null;
+};
+const imageSizes = {};
+for (const dir of ['', 'lodges/']) {
+  const base = new URL(`../src/assets/images/${dir}`, import.meta.url);
+  for (const f of readdirSync(base).filter((f) => /\.jpe?g$/i.test(f))) {
+    const size = jpegSize(readFileSync(new URL(f, base)));
+    if (size) imageSizes[f] = size;
+  }
+}
 register(
   'data:text/javascript,' +
-    encodeURIComponent(`export async function load(url, context, next) {
+    encodeURIComponent(`const SIZES = ${JSON.stringify(imageSizes)};
+    export async function load(url, context, next) {
       if (/\\.(jpe?g|png|webp|avif)$/i.test(url)) {
         const name = url.split('/').pop();
-        return { format: 'module', shortCircuit: true, source: 'export default ' + JSON.stringify({ src: '/_astro/' + name, width: 1600, height: 1067, format: 'jpg' }) };
+        const size = SIZES[name] ?? { width: 1600, height: 1067 };
+        return { format: 'module', shortCircuit: true, source: 'export default ' + JSON.stringify({ src: '/_astro/' + name, ...size, format: 'jpg' }) };
       }
       return next(url, context);
     }`),
@@ -71,6 +94,7 @@ import {
   MARKETING_CHANNELS,
   MARKETING_DECISIONS,
   MARKETING_DRAFT_COLUMNS,
+  MARKETING_POST_FORMATS,
   MARKETING_DRAFT_KINDS,
   MARKETING_DRAFT_STATUSES,
   MARKETING_EDITOR_STATUSES,
@@ -152,10 +176,12 @@ for (const [rule, label, text] of cases) {
 assert('x_length: an X post over 280 characters is refused', rulesOf('Walk. '.repeat(60), 'x_post').includes('x_length'));
 assert('x_length: the same text as a blog draft is allowed', !rulesOf('Walk. '.repeat(60), 'blog_draft').includes('x_length'));
 assert('empty: an empty draft is refused', rulesOf('   ').includes('empty'));
+assert('story_length: a story over 125 characters is refused', checkDraft('Walk. '.repeat(22), 'instagram_caption', 'story').some((v) => v.rule === 'story_length'));
+assert('story_length: the same text as a single post is allowed', !checkDraft('Walk. '.repeat(22), 'instagram_caption', 'single').some((v) => v.rule === 'story_length'));
 assert('an internal weekly report is not held to the public copy rules', rulesOf('SADC share of enquiries rose — margin up.', 'weekly_report').length === 0);
 assert('every rule has a failing sample', sameSet(
-  [...new Set([...cases.map((c) => c[0]), 'x_length', 'empty'])],
-  ['empty', 'dash', 'per_night', 'sadc', 'hidden_product', 'internals', 'old_lodge_name', 'braai', 'departure_line', 'unpublished_price', 'two_man_rule', 'x_length'],
+  [...new Set([...cases.map((c) => c[0]), 'x_length', 'empty', 'story_length'])],
+  ['empty', 'dash', 'per_night', 'sadc', 'hidden_product', 'internals', 'old_lodge_name', 'braai', 'departure_line', 'unpublished_price', 'two_man_rule', 'x_length', 'story_length'],
 ));
 
 // ---------------------------------------------------------------------------------------------
@@ -164,7 +190,7 @@ section('2. Migrations 0021 and 0022: marketing tables === db.types.ts, all defa
 const migPath = 'supabase/migrations/0021_marketing.sql';
 assert('0021_marketing.sql exists', existsSync(new URL(`../${migPath}`, import.meta.url)));
 const migFiles = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
-assert('0022 is the latest migration', migFiles[migFiles.length - 1] === '0022_marketing_photos_audit.sql');
+assert('0023 is the latest migration', migFiles[migFiles.length - 1] === '0023_marketing_post_format.sql');
 const sql = read(migPath).replace(/--[^\n]*/g, '');
 
 const tables = {};
@@ -187,6 +213,21 @@ for (const m of sql.matchAll(/create table if not exists marketing\.(\w+)\s*\(([
     .filter(Boolean)
     .filter((p) => !/^(constraint|primary key|unique|check|foreign key)\b/i.test(p))
     .map((p) => p.split(/\s+/)[0]);
+}
+// Columns later migrations add to a 0021 table (0023: drafts.format).
+for (const f of migFiles.filter((f) => f > '0021')) {
+  const later = read(`supabase/migrations/${f}`).replace(/--[^\n]*/g, '');
+  for (const m of later.matchAll(/alter table marketing\.(\w+)\s+add column if not exists (\w+)/g)) {
+    if (tables[m[1]]) tables[m[1]].push(m[2]);
+  }
+}
+const sql23 = read('supabase/migrations/0023_marketing_post_format.sql').replace(/--[^\n]*/g, '');
+{
+  const m = sql23.match(/constraint drafts_format_check check \(format is null or format = any \(array\[([\s\S]*?)\]\)\)/);
+  const vals = m ? m[1].match(/'([^']+)'/g).map((x) => x.slice(1, -1)) : null;
+  assert(`0023 drafts_format_check matches db.types (${MARKETING_POST_FORMATS.join('|')}) and allows null`, vals !== null && sameSet(vals, MARKETING_POST_FORMATS));
+  assert('0023 matches the plan formats in contracts.ts', sameSet(MARKETING_POST_FORMATS, contracts.POST_FORMATS));
+  assert('0023 adds no policy and grants nothing', !/create policy/i.test(sql23) && !/\bgrant\b/i.test(sql23));
 }
 const tuples = {
   drafts: MARKETING_DRAFT_COLUMNS,
@@ -314,6 +355,20 @@ for (const k of EMPLOYEE_KEYS.filter((x) => x !== 'editor')) {
   const r = await callTool('submit_review', { draft_id: '00000000-0000-4000-8000-000000000000', verdict: 'pass', notes: 'x' }, k);
   assert(`${k}: calling submit_review is refused`, r.isError === true && /Unknown tool/.test(r.text));
 }
+{
+  const save = (over) => callTool('save_draft', { author: 'copywriter', kind: 'instagram_caption', body: 'The ridge at first light.', photo_ids: ['trail-bushveld-path'], ...over }, 'copywriter');
+  const noFormat = await save({});
+  assert('save_draft: an Instagram or Facebook post without a format is refused', noFormat.isError === true && /needs a format/.test(noFormat.text));
+  const blogFormat = await save({ kind: 'blog_draft', format: 'single' });
+  assert('save_draft: a format on a blog draft is refused', blogFormat.isError === true && /Only Instagram and Facebook/.test(blogFormat.text));
+  const thinCarousel = await save({ format: 'carousel' });
+  assert('save_draft: a carousel with one photo is refused', thinCarousel.isError === true && /3 to 10 photos/.test(thinCarousel.text));
+  const wideStory = await save({ format: 'story', photo_ids: ['rooiberg-sunset-grassland'] });
+  assert('save_draft: a story with a landscape site photo is refused', wideStory.isError === true && /portrait photo/.test(wideStory.text));
+  const longStory = await save({ format: 'story', photo_ids: ['temmincks-giraffe'], body: 'Walk. '.repeat(22) });
+  assert('save_draft: a story over 125 characters is refused by the brand rules', longStory.isError === true && /story_length/.test(longStory.text));
+}
+assert('the library marks the portrait photos a story can use', staticPhotoLibrary().filter((p) => p.orientation === 'portrait').length >= 3 && staticPhotoLibrary().find((p) => p.id === 'rooiberg-sunset-grassland')?.orientation === 'landscape');
 const editorSave = await callTool('save_draft', { author: 'editor', kind: 'x_post', body: 'x' }, 'editor');
 assert('editor: calling save_draft is refused', editorSave.isError === true && /Unknown tool/.test(editorSave.text));
 const statusSmuggle = await callTool('submit_review', { draft_id: '00000000-0000-4000-8000-000000000000', verdict: 'pass', notes: 'x', status: 'approved' }, 'editor');
@@ -469,7 +524,7 @@ assert('the audit row carries ids and the decision, never the draft text', !/bod
   const checks = [...sqlAll.matchAll(/check\s*\(\s*action\s+in\s*\(([\s\S]*?)\)\s*\)/g)].map((m) => m[1].match(/'([^']+)'/g).map((x) => x.slice(1, -1)));
   const last = checks[checks.length - 1] ?? [];
   const prev = checks[checks.length - 2] ?? [];
-  assert('0022 widens admin_audit: every earlier action kept, the four marketing actions added', prev.every((x) => last.includes(x)) && ['marketing_draft_approve', 'marketing_draft_edit', 'marketing_draft_reject', 'marketing_photo_upload'].every((x) => last.includes(x)) && /0022/.test(migFiles[migFiles.length - 1]) && /admin_audit_action_check check \(action in/.test(read('supabase/migrations/0022_marketing_photos_audit.sql')));
+  assert('0022 widens admin_audit: every earlier action kept, the four marketing actions added', prev.every((x) => last.includes(x)) && ['marketing_draft_approve', 'marketing_draft_edit', 'marketing_draft_reject', 'marketing_photo_upload'].every((x) => last.includes(x)) && /admin_audit_action_check check \(action in/.test(read('supabase/migrations/0022_marketing_photos_audit.sql')));
 }
 assert('the admin nav links the marketing page', /id: 'marketing'.*href: '\/admin\/marketing'/.test(read('src/components/AdminNav.astro')));
 const digest = read('src/pages/api/cron/marketing-drafts.ts');
@@ -508,24 +563,32 @@ assert('an unknown type or channel is refused', C.checkBrief(brief([item(1, { ty
 assert('an over-long field is refused', C.checkBrief(brief([item(1, { headline: 'a'.repeat(121) })]), W, opened).errors.some((e) => /headline/.test(e)));
 assert('a long dash or the hidden products are refused', C.checkBrief(brief([item(1, { fact: 'A slackpacking trail \u2014 new.' })]), W, opened).errors.length === 2);
 
-const photos = new Set(['rooiberg-sunset-grassland', 'upload-x']);
+const photos = new Set(['rooiberg-sunset-grassland', 'upload-x', 'trail-bushveld-path', 'guide-reading-tracks', 'temmincks-giraffe']);
+const three = 'trail-bushveld-path, guide-reading-tracks, rooiberg-sunset-grassland';
 const slot = (n, over = {}) => {
-  const f = { channel: 'instagram', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: 'rooiberg-sunset-grassland', 'call to action': 'See dates on the rates page.', ...over };
+  const f = { channel: 'instagram', format: 'single', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: 'rooiberg-sunset-grassland', 'call to action': 'See dates on the rates page.', ...over };
   return `## P-${W}-${n}\n` + Object.entries(f).filter(([, v]) => v !== null).map(([k, v]) => `- ${k}: ${v}`).join('\n');
 };
 const plan = (slots) => `# Weekly plan\n\nGoal: one line.\n\n${slots.join('\n\n')}\n`;
-const okPlan = C.checkPlan(plan([slot(1), slot(2, { channel: 'facebook', 'based on': 'facts: the itinerary' }), slot(3, { departure: '2027-04-04' }), slot(4, { channel: 'blog' })]), W, [`R-${W}-1`], photos);
+const okPlan = C.checkPlan(plan([slot(1), slot(2, { channel: 'facebook', format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }), slot(3, { format: 'story', photos: 'temmincks-giraffe', departure: '2027-04-04' }), slot(4, { channel: 'blog', format: 'none' })]), W, [`R-${W}-1`], photos);
+const mix = (a, b, c) => plan([slot(1, a), slot(2, b), slot(3, c)]);
 assert('a well-formed plan passes and yields its slots', okPlan.errors.length === 0 && okPlan.slots.map((s) => s.channel).join() === 'instagram,facebook,instagram,blog');
+assert('a plan slot carries its format', okPlan.slots.map((s) => s.format).join() === 'single,carousel,story,');
+assert('the three post slots must be one single, one carousel and one story', C.checkPlan(mix({}, { format: 'carousel', photos: three }, {}), W, [`R-${W}-1`], photos).errors.some((e) => /missing: story/.test(e)));
+assert('an unknown format, or a blog with a post format, is refused', C.checkPlan(plan([slot(1, { format: 'reel' }), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', format: 'single' })]), W, [`R-${W}-1`], photos).errors.some((e) => /"reel"/.test(e)) && C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', format: 'single' })]), W, [`R-${W}-1`], photos).errors.some((e) => /blog slot has format "none"/.test(e)));
+assert('photo counts per format: single and story 1, carousel 3 to 10', C.checkPlan(mix({ photos: three }, { format: 'carousel' }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.filter((e) => /takes/.test(e)).length === 2 && C.photoCountError('carousel', 10) === null && C.photoCountError('carousel', 11) !== null && C.photoCountError('story', 1) === null);
 assert('the plan needs exactly three Instagram or Facebook slots', C.checkPlan(plan([slot(1), slot(2)]), W, [`R-${W}-1`], photos).errors.some((e) => /exactly 3/.test(e)));
 assert('the plan allows at most one blog slot', C.checkPlan(plan([slot(1), slot(2), slot(3), slot(4, { channel: 'blog' }), slot(5, { channel: 'blog' })]), W, [`R-${W}-1`], photos).errors.some((e) => /at most 1/.test(e)));
-assert('a slot must rest on this week\'s research or a named fact', C.checkPlan(plan([slot(1, { 'based on': `R-${W}-9` }), slot(2, { 'based on': 'a hunch' }), slot(3)]), W, [`R-${W}-1`], photos).errors.length === 2);
-assert('unknown photo ids and malformed departures are refused', C.checkPlan(plan([slot(1, { photos: 'nope' }), slot(2, { departure: 'next week' }), slot(3)]), W, [`R-${W}-1`], photos).errors.length === 2);
+assert('a slot must rest on this week\'s research or a named fact', C.checkPlan(plan([slot(1, { 'based on': `R-${W}-9` }), slot(2, { 'based on': 'a hunch', format: 'carousel', photos: three }), slot(3, { format: 'story' })]), W, [`R-${W}-1`], photos).errors.length === 2);
+assert('unknown photo ids and malformed departures are refused', C.checkPlan(plan([slot(1, { photos: 'nope' }), slot(2, { departure: 'next week', format: 'carousel', photos: three }), slot(3, { format: 'story' })]), W, [`R-${W}-1`], photos).errors.length === 2);
 assert('X is no longer a planned channel (owner decision: Instagram and Facebook)', C.checkPlan(plan([slot(1, { channel: 'x' }), slot(2), slot(3)]), W, [`R-${W}-1`], photos).errors.some((e) => /channel "x"/.test(e)));
 
 const slots = okPlan.slots;
 const drafts = slots.map((s) => ({ kind: C.KIND_FOR_CHANNEL[s.channel], notes: `Plan slot: ${s.id}. Based on R-${W}-1.` }));
-assert('one draft of the right kind per slot passes', C.checkDrafts(slots, drafts).length === 0);
-assert('a missing or wrong-kind draft is named', C.checkDrafts(slots, drafts.slice(1)).length === 1 && C.checkDrafts(slots, [{ ...drafts[0], kind: 'x_post' }, ...drafts.slice(1)]).length === 1);
+const withFormat = drafts.map((d, i) => ({ ...d, format: slots[i].format }));
+assert('one draft of the right kind and format per slot passes', C.checkDrafts(slots, withFormat).length === 0);
+assert('a draft saved in the wrong format is named', C.checkDrafts(slots, [{ ...withFormat[0], format: 'story' }, ...withFormat.slice(1)]).some((e) => /asks for a single/.test(e)));
+assert('a missing or wrong-kind draft is named', C.checkDrafts(slots, withFormat.slice(1)).length === 1 && C.checkDrafts(slots, [{ ...withFormat[0], kind: 'x_post' }, ...withFormat.slice(1)]).length === 1);
 assert('slot ids match exactly (P-...-1 is not P-...-10)', C.checkDrafts([{ id: `P-${W}-1`, channel: 'instagram' }], [{ kind: 'instagram_caption', notes: `Plan slot: P-${W}-10` }]).length === 1);
 assert('the playbook needs every section', C.checkPlaybook('# Team playbook\n\n## What works\n\nx\n').length === C.PLAYBOOK_SECTIONS.length - 1);
 assert('the drafts kinds the plan maps to all exist', Object.values(C.KIND_FOR_CHANNEL).every((k) => MARKETING_DRAFT_KINDS.includes(k)));
@@ -535,7 +598,7 @@ assert('each brief that hands over states its format and the runner\'s field nam
 assert('the briefs\' format examples pass the checks they describe', (() => {
   const ex = (name) => briefText(name).match(/```\n([\s\S]*?)```/)[1];
   const b = C.checkBrief(ex('researcher'), '202642', ['https://getaway.co.za/example']);
-  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-2'], new Set(['rooiberg-sunset-grassland']));
+  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-2'], new Set(['trail-bushveld-path', 'guide-reading-tracks', 'rustwood-pool-sunset']));
   return b.errors.length === 0 && pl.errors.every((e) => /exactly 3/.test(e));
 })());
 

@@ -9,7 +9,7 @@
 // No rate is typed here: the allowed rand amounts are derived from data/rates.ts, the same
 // constants the rates table and the booking engine use.
 import { rateRows, FROM_PP_TRIP, MAX_GROUP_SIZE } from '../data/rates';
-import type { MarketingDraftKind } from './db.types';
+import type { MarketingDraftKind, MarketingPostFormat } from './db.types';
 
 export type BrandRule =
   | 'empty'
@@ -23,7 +23,8 @@ export type BrandRule =
   | 'departure_line'
   | 'unpublished_price'
   | 'two_man_rule'
-  | 'x_length';
+  | 'x_length'
+  | 'story_length';
 
 export interface RuleViolation {
   rule: BrandRule;
@@ -35,6 +36,8 @@ export interface RuleViolation {
 const INTERNAL_KINDS: ReadonlySet<MarketingDraftKind> = new Set(['weekly_report']);
 
 export const X_MAX_CHARS = 280;
+// A story has no caption: its text is the short line on the photo, read in a second or two.
+export const STORY_MAX_CHARS = 125;
 
 // The exact memo line (Part 17.4), with the counts filled in from get_open_departures.
 export const DEPARTURE_LINE = /Guaranteed Departure: ([1-8]) of 8 spots booked\. ([0-8]) spots available\./g;
@@ -52,7 +55,7 @@ export function publishedRates(): Set<number> {
 
 const formatRand = (n: number) => 'R' + n.toLocaleString('en-US');
 
-export function checkDraft(text: string, kind: MarketingDraftKind): RuleViolation[] {
+export function checkDraft(text: string, kind: MarketingDraftKind, format?: MarketingPostFormat | null): RuleViolation[] {
   const v: RuleViolation[] = [];
   const add = (rule: BrandRule, message: string) => v.push({ rule, message });
 
@@ -137,6 +140,9 @@ export function checkDraft(text: string, kind: MarketingDraftKind): RuleViolatio
 
   if (kind === 'x_post' && [...text].length > X_MAX_CHARS) {
     add('x_length', `An X post is at most ${X_MAX_CHARS} characters (this one is ${[...text].length}).`);
+  }
+  if (format === 'story' && [...text.trim()].length > STORY_MAX_CHARS) {
+    add('story_length', `A story's text is at most ${STORY_MAX_CHARS} characters (this one is ${[...text.trim()].length}).`);
   }
 
   return v;

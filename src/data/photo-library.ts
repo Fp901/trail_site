@@ -91,6 +91,12 @@ export interface LibraryPhoto {
   image: ImageMetadata;
 }
 
+// Portrait suits a story (a tall 9:16 frame); landscape suits a feed post or a carousel.
+export type PhotoOrientation = 'portrait' | 'landscape' | 'square';
+export function orientationOf(width: number, height: number): PhotoOrientation {
+  return height > width ? 'portrait' : height < width ? 'landscape' : 'square';
+}
+
 const T = "Temminck's Lodge" as const;
 const O = 'Oukraal' as const;
 const R = 'Rustwood' as const;

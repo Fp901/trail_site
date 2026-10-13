@@ -53,7 +53,7 @@ import { readFileSync } from 'node:fs';
 import { memoryPlan, memoryResources } from './build';
 import { anthropic, findAgent, findEnvironment, findMemoryStores, findVault, requireEnv } from './resources';
 import { checkDraft, describeViolations } from '../src/lib/brand-rules';
-import type { MarketingDraftKind } from '../src/lib/db.types';
+import type { MarketingDraftKind, MarketingPostFormat } from '../src/lib/db.types';
 
 const DRY_RUN = process.env.DRY_RUN !== 'false';
 const EDITOR_BATCH = 20;
@@ -74,7 +74,7 @@ const PROMPTS = {
     ` Reply with the plan's headline ideas.`,
   write: (week: string, slots: PlanSlot[]) =>
     `Today is ${today()}. Write and save one draft for each slot in ${PLAN_PATH} (cycle week ${week}): ${slots.map((s) => `${s.id} (${s.channel})`).join(', ')}. Put "Plan slot: <id>" in each draft's notes. Reply with a list of what you saved.`,
-  review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null }[]) =>
+  review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
     `Review these ${drafts.length} new drafts against the facts pack and the brand. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
     JSON.stringify(drafts, null, 2),
   analyse: () =>
@@ -356,7 +356,7 @@ const checks = {
   drafts: (ctx: Ctx, slots: PlanSlot[]): HandOverCheck => async ({ startedAt }) => {
     const { data, error } = await ctx.sb
       .from('drafts')
-      .select('kind, notes')
+      .select('kind, notes, format, photo_ids')
       .eq('author', 'copywriter')
       .gte('created_at', startedAt);
     if (error) throw new Error(`drafts read failed: ${error.message}`);
@@ -419,13 +419,13 @@ async function editorReview(ctx: Ctx): Promise<void> {
   const { sb } = ctx;
   const { data, error } = await sb
     .from('drafts')
-    .select('id, kind, title, body, notes')
+    .select('id, kind, title, body, notes, format, photo_ids')
     .eq('status', 'pending')
     .eq('editor_status', 'unchecked')
     .order('created_at', { ascending: true })
     .limit(EDITOR_BATCH);
   if (error) throw new Error(`drafts read failed: ${error.message}`);
-  const drafts = (data ?? []) as { id: string; kind: MarketingDraftKind; title: string | null; body: string; notes: string | null }[];
+  const drafts = (data ?? []) as { id: string; kind: MarketingDraftKind; title: string | null; body: string; notes: string | null; format: MarketingPostFormat | null; photo_ids: string[] }[];
   if (drafts.length === 0) {
     console.log('  editor: nothing to review');
     return;
@@ -435,7 +435,7 @@ async function editorReview(ctx: Ctx): Promise<void> {
   // tightened since it was saved.
   const forAgent: typeof drafts = [];
   for (const d of drafts) {
-    const v = checkDraft(`${d.title ?? ''}\n${d.body}`, d.kind);
+    const v = checkDraft(`${d.title ?? ''}\n${d.body}`, d.kind, d.format);
     if (v.length) {
       await sb.from('drafts').update({ editor_status: 'flagged', editor_notes: `Code rules: ${describeViolations(v)}` }).eq('id', d.id);
     } else {
