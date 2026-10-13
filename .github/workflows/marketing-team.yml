@@ -1,0 +1,88 @@
+name: Marketing team
+
+# The AI marketing team's weekly rhythm (CLAUDE.md Part 18). Every output is a pending draft at
+# /admin/marketing or a note in the team's memory: nothing here publishes, posts or sends.
+#
+# DRY RUN BY DEFAULT. A scheduled run only prints its plan until the repository variable
+# MARKETING_LIVE is set to "true" (Settings > Secrets and variables > Actions > Variables).
+# A manual run is dry unless "dry_run" is unticked.
+#
+# The cron strings mirror SCHEDULES in marketing/config.ts (UTC; SAST is UTC+2), and
+# scripts/verify-marketing.mjs fails if they drift.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'    # research: Researcher, daily 06:00 SAST
+    - cron: '0 5 * * 1'    # plan_and_write: Head of Marketing, then Copywriter, then Editor, Monday 07:00 SAST
+    - cron: '0 14 * * 0'   # weekly_review: Analyst, then Head of Marketing, Sunday 16:00 SAST
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Which job to run'
+        required: true
+        default: research
+        type: choice
+        options: [research, plan_and_write, weekly_review, sync]
+      dry_run:
+        description: 'Dry run: print the plan only, no API calls'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: marketing-team
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DRY_RUN: ${{ ((github.event_name == 'workflow_dispatch' && inputs.dry_run == false) || (github.event_name == 'schedule' && vars.MARKETING_LIVE == 'true')) && 'false' || 'true' }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MARKETING_TOOLS_TOKEN: ${{ secrets.MARKETING_TOOLS_TOKEN }}
+      PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://www.rooibergwander.co.za' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Pick the job
+        id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+          INPUT_JOB: ${{ inputs.job }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            JOB="$INPUT_JOB"
+          else
+            case "$CRON" in
+              '0 4 * * *')  JOB=research ;;
+              '0 5 * * 1')  JOB=plan_and_write ;;
+              '0 14 * * 0') JOB=weekly_review ;;
+              *) echo "Unknown schedule: $CRON"; exit 1 ;;
+            esac
+          fi
+          echo "job=$JOB" >> "$GITHUB_OUTPUT"
+          echo "Job: $JOB, DRY_RUN=$DRY_RUN"
+
+      - name: Sync the team to Managed Agents
+        if: steps.pick.outputs.job == 'sync'
+        run: npx tsx marketing/sync.ts
+
+      - name: Run the job
+        if: steps.pick.outputs.job != 'sync'
+        env:
+          JOB: ${{ steps.pick.outputs.job }}
+        run: npx tsx marketing/run.ts "$JOB"

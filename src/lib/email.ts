@@ -859,3 +859,38 @@ export async function sendBlockedDatesAdminAlert(opts: {
     html: layout('operator', `Calendar ${opts.action} by ${opts.actedBy}`, body),
   }));
 }
+
+// ---- Marketing team digest (CLAUDE.md Part 18) ----------------------------------------
+// Once a day, to every admin, only when drafts are waiting. Counts only: no draft text in email.
+
+export async function sendMarketingDraftsDigest(opts: {
+  tos: string[];
+  waiting: number;
+  flagged: number;
+  oldestCreatedAt: string | null;
+}): Promise<void> {
+  const base = (import.meta.env.PUBLIC_SITE_URL ?? site.url).replace(/\/$/, '');
+  const plural = opts.waiting === 1 ? 'draft is' : 'drafts are';
+  const rows: Array<[string, string]> = [
+    ['Waiting', String(opts.waiting)],
+    ['Flagged by the Editor', String(opts.flagged)],
+  ];
+  if (opts.oldestCreatedAt) {
+    rows.push([
+      'Oldest',
+      new Date(opts.oldestCreatedAt).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' }),
+    ]);
+  }
+  const body =
+    eyebrow('Marketing team') +
+    h1(`${opts.waiting} ${plural} waiting.`) +
+    p('The marketing team has drafts for you to approve, edit or reject. Nothing is published until publishing is built, and never without your approval.') +
+    infoTable(rows) +
+    btn(`${base}/admin/marketing`, 'Review drafts');
+
+  await sendToAll(opts.tos, (to) => ({
+    to,
+    subject: `${opts.waiting} marketing ${opts.waiting === 1 ? 'draft' : 'drafts'} waiting`,
+    html: layout('operator', `${opts.waiting} marketing ${plural} waiting for review`, body),
+  }));
+}

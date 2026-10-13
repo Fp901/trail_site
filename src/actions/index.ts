@@ -54,6 +54,8 @@ import {
 import { signInAdmin, signOutAdmin } from '../lib/auth';
 import { requireAdmin, recordAdminEvent } from '../lib/admin';
 import { recordPaymentEvent } from '../lib/audit';
+import { checkDraft, describeViolations } from '../lib/brand-rules';
+import type { MarketingDecision, MarketingDraftKind } from '../lib/db.types';
 import { site } from '../data/site';
 import { MIN_GUEST_AGE } from '../data/policies';
 
@@ -618,6 +620,8 @@ export const server = {
       groupSize: z.string().trim().max(40).optional(),
       targetDates: z.string().trim().max(120).optional(),
       message: z.string().trim().min(20, 'Please include a message of at least 20 characters.').max(2000),
+      // POPIA: marketing consent is opt-in only. Absent (the solo panel, older clients) means no.
+      marketingOptIn: z.boolean().optional().default(false),
       company: z.string().max(0).optional(), // honeypot
     }),
     handler: async (input, ctx) => {
@@ -646,6 +650,7 @@ export const server = {
         group_size: input.groupSize ?? null,
         target_dates: input.targetDates ?? null,
         message: input.message,
+        marketing_opt_in: input.marketingOptIn === true,
       });
       if (error) {
         throw new ActionError({
@@ -1383,6 +1388,85 @@ export const server = {
         note: `${input.inquiryId}: ${input.handled ? 'handled' : 'reopened'}`,
       });
       return { ok: true };
+    },
+  }),
+
+  // Marketing team (CLAUDE.md Part 18): approve, edit-and-approve or reject one pending draft.
+  // Approving never publishes anything (no publisher exists yet). An edited body runs the same
+  // code rules as save_draft, the original agent text is kept, and the reason lands in
+  // marketing.feedback, which the runner copies into the Copywriter's notebook.
+  adminDecideDraft: defineAction({
+    accept: 'json',
+    input: z.object({
+      draftId: z.string().uuid(),
+      decision: z.enum(['approve', 'reject']),
+      body: z.string().trim().min(1).max(20000).optional(),
+      reason: z.string().trim().max(1000).optional(),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const mk = getSupabaseAdmin().schema('marketing');
+      const { data: draft, error: loadErr } = await mk
+        .from('drafts')
+        .select('id, kind, body, status')
+        .eq('id', input.draftId)
+        .maybeSingle();
+      if (loadErr || !draft) {
+        throw new ActionError({ code: 'NOT_FOUND', message: 'Draft not found.' });
+      }
+      if (draft.status !== 'pending') {
+        throw new ActionError({ code: 'CONFLICT', message: 'This draft has already been decided.' });
+      }
+
+      const edited =
+        input.decision === 'approve' && input.body !== undefined && input.body !== String(draft.body).trim();
+      if (edited) {
+        const violations = checkDraft(input.body!, draft.kind as MarketingDraftKind);
+        if (violations.length) {
+          throw new ActionError({ code: 'BAD_REQUEST', message: describeViolations(violations) });
+        }
+      }
+
+      const reason = input.reason ? input.reason : null;
+      const decision: MarketingDecision =
+        input.decision === 'reject' ? 'rejected' : edited ? 'edited' : 'approved';
+      const update: Record<string, unknown> = {
+        status: input.decision === 'reject' ? 'rejected' : 'approved',
+        decided_at: new Date().toISOString(),
+        decided_by: admin.email,
+        decision_reason: reason,
+      };
+      if (edited) {
+        update.body = input.body;
+        update.original_body = draft.body;
+      }
+      // Compare-and-set on status, so two admins cannot both decide the same draft.
+      const { data: moved, error: upErr } = await mk
+        .from('drafts')
+        .update(update)
+        .eq('id', input.draftId)
+        .eq('status', 'pending')
+        .select('id');
+      if (upErr || !moved || moved.length === 0) {
+        throw new ActionError({ code: 'CONFLICT', message: 'This draft has already been decided.' });
+      }
+
+      const { error: fbErr } = await mk.from('feedback').insert({
+        draft_id: input.draftId,
+        decision,
+        reason,
+        decided_by: admin.email,
+      });
+      if (fbErr) {
+        console.error('[marketing] feedback insert failed', fbErr.message);
+        throw new ActionError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'The decision was saved but the feedback note was not. Please report this.',
+        });
+      }
+      return { ok: true, decision };
     },
   }),
 

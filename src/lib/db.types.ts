@@ -187,7 +187,7 @@ export interface BookingRow {
   discount_cents: number;
 }
 
-// ---- inquiries (9) ----------------------------------------------------------------------------
+// ---- inquiries (10) ----------------------------------------------------------------------------
 // NOTE group_size is TEXT here (free-form, from a public form), unlike bookings.group_size int.
 
 export const INQUIRY_COLUMNS = [
@@ -201,6 +201,8 @@ export const INQUIRY_COLUMNS = [
   // 0011_admin_tools
   'handled_at',
   'handled_by',
+  // 0021_marketing
+  'marketing_opt_in',
 ] as const;
 
 export interface InquiryRow {
@@ -213,6 +215,8 @@ export interface InquiryRow {
   message: string | null;
   handled_at: string | null;
   handled_by: string | null;
+  // 0021: the enquirer ticked the optional marketing opt-in (unticked by default).
+  marketing_opt_in: boolean;
 }
 
 // ---- blocked_dates (7) ------------------------------------------------------------------------
@@ -390,6 +394,160 @@ export interface DepartureInventoryRow {
   locked_catering: Catering | null;
   is_blocked: boolean;
 }
+
+// ---- marketing schema (0021) --------------------------------------------------------------------
+// The AI marketing team (CLAUDE.md Part 18). These tables live in the `marketing` schema, not
+// public, so they are queried with supabase.schema('marketing'). scripts/verify-marketing.mjs (not
+// verify-admin, whose parser reads public.* only) asserts every tuple below against 0021.
+
+export const MARKETING_AUTHORS = [
+  'head_of_marketing',
+  'researcher',
+  'copywriter',
+  'editor',
+  'community_manager',
+  'sales_assistant',
+  'analyst',
+] as const;
+export type MarketingAuthor = (typeof MARKETING_AUTHORS)[number];
+
+export const MARKETING_DRAFT_KINDS = [
+  'x_post',
+  'instagram_caption',
+  'facebook_post',
+  'blog_draft',
+  'enquiry_reply',
+  'weekly_report',
+] as const;
+export type MarketingDraftKind = (typeof MARKETING_DRAFT_KINDS)[number];
+
+export const MARKETING_DRAFT_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export type MarketingDraftStatus = (typeof MARKETING_DRAFT_STATUSES)[number];
+
+export const MARKETING_EDITOR_STATUSES = ['unchecked', 'passed', 'flagged'] as const;
+export type MarketingEditorStatus = (typeof MARKETING_EDITOR_STATUSES)[number];
+
+export const MARKETING_DECISIONS = ['approved', 'edited', 'rejected'] as const;
+export type MarketingDecision = (typeof MARKETING_DECISIONS)[number];
+
+export const MARKETING_CHANNELS = ['x', 'instagram', 'facebook', 'blog', 'email'] as const;
+export type MarketingChannel = (typeof MARKETING_CHANNELS)[number];
+
+export const MARKETING_DRAFT_COLUMNS = [
+  'id',
+  'created_at',
+  'author',
+  'kind',
+  'title',
+  'body',
+  'photo_ids',
+  'departure_date',
+  'notes',
+  'status',
+  'editor_status',
+  'editor_notes',
+  'decided_at',
+  'decided_by',
+  'decision_reason',
+  'original_body',
+] as const;
+
+export interface MarketingDraftRow {
+  id: string;
+  created_at: string;
+  author: MarketingAuthor;
+  kind: MarketingDraftKind;
+  title: string | null;
+  body: string;
+  photo_ids: string[];
+  departure_date: string | null;
+  notes: string | null;
+  status: MarketingDraftStatus;
+  editor_status: MarketingEditorStatus;
+  editor_notes: string | null;
+  decided_at: string | null;
+  decided_by: string | null;
+  decision_reason: string | null;
+  original_body: string | null;
+}
+
+export const MARKETING_FEEDBACK_COLUMNS = [
+  'id',
+  'created_at',
+  'draft_id',
+  'decision',
+  'reason',
+  'decided_by',
+  'synced_at',
+] as const;
+
+export interface MarketingFeedbackRow {
+  id: string;
+  created_at: string;
+  draft_id: string;
+  decision: MarketingDecision;
+  reason: string | null;
+  decided_by: string;
+  synced_at: string | null;
+}
+
+export const MARKETING_POST_COLUMNS = [
+  'id',
+  'created_at',
+  'draft_id',
+  'channel',
+  'external_id',
+  'url',
+  'published_at',
+] as const;
+
+export const MARKETING_METRIC_COLUMNS = [
+  'id',
+  'created_at',
+  'post_id',
+  'channel',
+  'metric',
+  'value',
+  'measured_at',
+] as const;
+
+export interface MarketingMetricRow {
+  id: string;
+  created_at: string;
+  post_id: string | null;
+  channel: string;
+  metric: string;
+  value: number;
+  measured_at: string;
+}
+
+export const MARKETING_SPEND_COLUMNS = [
+  'id',
+  'created_at',
+  'employee',
+  'job',
+  'session_id',
+  'list_cost_cents',
+  'input_tokens',
+  'output_tokens',
+] as const;
+
+export const MARKETING_LEAD_TOUCH_COLUMNS = [
+  'id',
+  'created_at',
+  'inquiry_id',
+  'channel',
+  'draft_id',
+  'note',
+] as const;
+
+export const MARKETING_OBJECTION_COLUMNS = [
+  'id',
+  'created_at',
+  'inquiry_id',
+  'category',
+  'summary',
+] as const;
 
 // ---- Select helper ----------------------------------------------------------------------------
 // Builds the PostgREST select string from a typed column tuple, so the string and the row type
