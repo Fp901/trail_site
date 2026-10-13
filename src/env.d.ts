@@ -26,7 +26,8 @@ interface ImportMetaEnv {
   readonly ADMIN_EMAILS?: string;
   // Legacy single-value form of the above; still read as a fallback.
   readonly ADMIN_EMAIL?: string;
-  // Marketing team (Part 18): bearer secret for the Rooiberg tool server (/api/marketing/mcp).
+  // Marketing team (Part 18): the secret each employee's tool server token is derived from
+  // (/api/marketing/mcp/<employee>, lib/marketing-auth.ts).
   readonly MARKETING_TOOLS_TOKEN?: string;
 }
 interface ImportMeta {

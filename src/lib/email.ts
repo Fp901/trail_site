@@ -868,9 +868,21 @@ export async function sendMarketingDraftsDigest(opts: {
   waiting: number;
   flagged: number;
   oldestCreatedAt: string | null;
+  // Drafts the Editor has not reviewed 24 hours after they were saved: title and channel only,
+  // never the draft text.
+  unreviewed?: { kind: string; title: string | null; createdAt: string }[];
 }): Promise<void> {
   const base = (import.meta.env.PUBLIC_SITE_URL ?? site.url).replace(/\/$/, '');
   const plural = opts.waiting === 1 ? 'draft is' : 'drafts are';
+  const KIND: Record<string, string> = {
+    x_post: 'X post',
+    instagram_caption: 'Instagram caption',
+    facebook_post: 'Facebook post',
+    blog_draft: 'Blog draft',
+    enquiry_reply: 'Enquiry reply',
+    weekly_report: 'Weekly report',
+  };
+  const unreviewed = opts.unreviewed ?? [];
   const rows: Array<[string, string]> = [
     ['Waiting', String(opts.waiting)],
     ['Flagged by the Editor', String(opts.flagged)],
@@ -886,6 +898,15 @@ export async function sendMarketingDraftsDigest(opts: {
     h1(`${opts.waiting} ${plural} waiting.`) +
     p('The marketing team has drafts for you to approve, edit or reject. Nothing is published until publishing is built, and never without your approval.') +
     infoTable(rows) +
+    (unreviewed.length
+      ? p(`The Editor has not reviewed ${unreviewed.length === 1 ? 'this draft' : 'these drafts'} after 24 hours:`) +
+        infoTable(
+          unreviewed.map((u) => [
+            escapeHtml(KIND[u.kind] ?? u.kind),
+            `${escapeHtml(u.title?.trim() || 'Untitled')}, saved ${escapeHtml(humanDateTime(u.createdAt))}`,
+          ]),
+        )
+      : '') +
     btn(`${base}/admin/marketing`, 'Review drafts');
 
   await sendToAll(opts.tos, (to) => ({

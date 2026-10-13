@@ -12,10 +12,12 @@ import {
   RESEARCH_ENVIRONMENT_NAME,
   RESEARCH_HOSTS,
   TEAM_TAG,
+  TOOL_SERVER_PATH,
   VAULT_NAME,
   toolServerUrl,
 } from './config';
 import { agentParams, brandSkillBody, seedMemories } from './build';
+import { employeeToolToken } from '../src/lib/marketing-auth';
 import {
   ALL_STORE_NAMES,
   anthropic,
@@ -40,7 +42,7 @@ async function main() {
 
   if (DRY_RUN) {
     console.log('DRY RUN: nothing is created or changed. Set DRY_RUN=false to apply.\n');
-    console.log(`Tool server: ${toolServerUrl(siteUrl)}`);
+    console.log(`Tool server: ${siteUrl.replace(/\/$/, '')}${TOOL_SERVER_PATH}/<employee>, one URL and derived token each`);
     console.log(`Environments: ${ENVIRONMENT_NAME}, ${RESEARCH_ENVIRONMENT_NAME} (web: ${RESEARCH_HOSTS.join(', ')})`);
     console.log(`Vault: ${VAULT_NAME} (static bearer for the tool server)`);
     console.log(`Memory stores: ${ALL_STORE_NAMES.join(', ')}`);
@@ -76,33 +78,43 @@ async function main() {
     }
   }
 
-  // 2. Vault holding the tool server's bearer token. The token never appears in an agent or a
-  //    session; the platform injects it when the agent calls the tool server.
-  const mcpUrl = toolServerUrl(siteUrl);
+  // 2. Vault holding the tool server's bearer tokens: one credential per employee, for that
+  //    employee's own URL, holding its token derived from MARKETING_TOOLS_TOKEN
+  //    (src/lib/marketing-auth.ts). The server works out who is calling from the URL and the
+  //    token, and refuses every tool outside that employee's TOOL_ACCESS. No token ever appears in
+  //    an agent or a session; the platform injects it when the agent calls the tool server.
   let vault = await findVault(client, VAULT_NAME);
   if (!vault) {
     vault = await client.beta.vaults.create({ display_name: VAULT_NAME, metadata: { team: TEAM_TAG } });
     console.log(`Vault created: ${VAULT_NAME}`);
   }
-  let credentialId: string | null = null;
+  const wanted = new Map(EMPLOYEES.map((e) => [toolServerUrl(siteUrl, e.key), e.key] as const));
+  const existing = new Map<string, string>();
+  const serverBase = siteUrl.replace(/\/$/, '') + TOOL_SERVER_PATH;
   for await (const c of client.beta.vaults.credentials.list(vault.id)) {
-    if (!c.archived_at && c.auth.type === 'static_bearer' && c.auth.mcp_server_url === mcpUrl) {
-      credentialId = c.id;
-      break;
+    if (c.archived_at || c.auth.type !== 'static_bearer') continue;
+    const url = c.auth.mcp_server_url;
+    if (wanted.has(url) && !existing.has(url)) {
+      existing.set(url, c.id);
+    } else if (url === serverBase || url.startsWith(serverBase + '/')) {
+      // The milestone 1 shared credential (or a duplicate): retire it so no shared token remains.
+      await client.beta.vaults.credentials.archive(c.id, { vault_id: vault.id });
+      console.log(`Retired tool server credential for ${url}`);
     }
   }
-  if (credentialId) {
-    await client.beta.vaults.credentials.update(credentialId, {
-      vault_id: vault.id,
-      auth: { type: 'static_bearer', token },
-    });
-    console.log('Tool server credential rotated.');
-  } else {
-    await client.beta.vaults.credentials.create(vault.id, {
-      display_name: 'Rooiberg tool server',
-      auth: { type: 'static_bearer', mcp_server_url: mcpUrl, token },
-    });
-    console.log('Tool server credential created.');
+  for (const [url, key] of wanted) {
+    const derived = employeeToolToken(token, key);
+    const id = existing.get(url);
+    if (id) {
+      await client.beta.vaults.credentials.update(id, { vault_id: vault.id, auth: { type: 'static_bearer', token: derived } });
+      console.log(`Tool server credential rotated: ${key}`);
+    } else {
+      await client.beta.vaults.credentials.create(vault.id, {
+        display_name: `Rooiberg tool server (${key})`,
+        auth: { type: 'static_bearer', mcp_server_url: url, token: derived },
+      });
+      console.log(`Tool server credential created: ${key}`);
+    }
   }
 
   // 3. Memory stores, seeded once. A seed whose path already exists is left alone (409), so the

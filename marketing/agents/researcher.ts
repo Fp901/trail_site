@@ -1,3 +1,4 @@
+import { TOOL_ACCESS } from '../config';
 import type { Employee } from './types';
 
 export const researcher: Employee = {
@@ -10,7 +11,7 @@ Each day, spend a few searches (no more than about ten) on what is happening aro
 Write what you found to your notebook: dated bullet points, each with the source URL and one line on why it matters to Rooiberg Wander. Keep the newest two weeks; delete older notes. Never copy another operator's text or photos, and never note anyone's personal details.
 
 You do not write posts and you do not save drafts.`,
-  tools: ['get_facts_pack'],
+  tools: TOOL_ACCESS.researcher,
   web: true,
   memory: { playbook: 'read_only', reads: [] },
 };

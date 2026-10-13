@@ -4,8 +4,10 @@
 //   1. The Editor's code rules (src/lib/brand-rules.ts) pass clean copy and hard-fail every
 //      broken brand rule, one sample per rule.
 //   2. Migration 0021's marketing tables match db.types.ts, and every one is default-deny.
-//   3. The Rooiberg tool server exposes exactly five tools, no publish or send, behind a
-//      constant-time bearer check, and save_draft can only insert a pending draft.
+//   3. The Rooiberg tool server exposes exactly six tools, no publish or send, behind a
+//      per-employee constant-time bearer check; each employee may call only its TOOL_ACCESS
+//      tools; save_draft can only insert a pending draft and submit_review (Editor only) can only
+//      record a verdict, never change a draft's status.
 //   4. The employees: the agreed models, caps under the hard cap, no shell, web for the
 //      Researcher only, save_draft never given to the Editor.
 //   5. The schedule: dry run by default, a budget on every session, crons that match config.ts.
@@ -20,6 +22,7 @@ import {
   RUN_CAP_CENTS,
   SCHEDULES,
   TEAM_TAG,
+  TOOL_ACCESS,
   TOOL_NAMES,
   TOOL_SERVER_PATH,
   WEEKLY_CAP_CENTS,
@@ -28,7 +31,22 @@ import {
 import { EMPLOYEES, employee } from '../marketing/agents/index.ts';
 import { TEAM_PREAMBLE } from '../marketing/agents/types.ts';
 import { agentParams, brandSkillBody, memoryPlan, seedMemories } from '../marketing/build.ts';
-import { parseReviews } from '../marketing/run.ts';
+import { employeeToolToken } from '../src/lib/marketing-auth.ts';
+import { register } from 'node:module';
+
+// The tool registry imports site photos (astro:assets image imports). Outside Vite, stand each one
+// in as a tiny metadata object so the registry itself can be exercised below with no network.
+register(
+  'data:text/javascript,' +
+    encodeURIComponent(`export async function load(url, context, next) {
+      if (/\\.(jpe?g|png|webp|avif)$/i.test(url)) {
+        const name = url.split('/').pop();
+        return { format: 'module', shortCircuit: true, source: 'export default ' + JSON.stringify({ src: '/_astro/' + name, width: 1600, height: 1067, format: 'jpg' }) };
+      }
+      return next(url, context);
+    }`),
+);
+const { listTools, callTool } = await import('../src/lib/marketing-tools.ts');
 import {
   MARKETING_AUTHORS,
   MARKETING_CHANNELS,
@@ -193,25 +211,56 @@ assert('the enquiry form has an opt-in checkbox', /type="checkbox" name="marketi
 assert('the opt-in checkbox is unticked by default', !/name="marketingOptIn"[^>]*\bchecked\b/.test(form));
 
 // ---------------------------------------------------------------------------------------------
-section('3. Rooiberg tool server: five tools, no publish or send, constant-time auth');
+section('3. Rooiberg tool server: six tools, no publish or send, per-employee auth');
 
-const route = read('src/pages/api/marketing/mcp.ts');
+const route = read('src/pages/api/marketing/mcp/[employee].ts');
+const auth = read('src/lib/marketing-auth.ts');
 const tools = read('src/lib/marketing-tools.ts');
 const toolNames = [...tools.matchAll(/^\s{4}name: '([a-z_]+)',$/gm)].map((m) => m[1]);
-assert(`exactly the five agreed tools (${toolNames.join(', ')})`, sameSet(toolNames, [
-  'get_open_departures', 'get_facts_pack', 'get_photo_library', 'get_results', 'save_draft',
+assert(`exactly the six agreed tools (${toolNames.join(', ')})`, sameSet(toolNames, [
+  'get_open_departures', 'get_facts_pack', 'get_photo_library', 'get_results', 'save_draft', 'submit_review',
 ]));
+assert('the old shared-token route is gone', !existsSync(new URL('../src/pages/api/marketing/mcp.ts', import.meta.url)));
 assert('no tool name or handler publishes, posts, sends or emails', !/name: '[a-z_]*(publish|post|send|email|tweet)[a-z_]*'/.test(tools));
 assert('the tool module never imports the email or payments libraries', !/from '\.\/(email|payments|balance)'/.test(tools));
 assert('the route is server-rendered (prerender = false)', /export const prerender = false;/.test(route));
-assert('the bearer is MARKETING_TOOLS_TOKEN', /import\.meta\.env\.MARKETING_TOOLS_TOKEN/.test(route));
-assert('auth fails closed when the token is unset', /if \(!secret\) return false;/.test(route));
-assert('the bearer is compared in constant time', /crypto\.timingSafeEqual\(/.test(route));
-assert('auth runs before the body is read', route.indexOf('authorized(request)') < route.indexOf('request.text()'));
+assert('the bearer derives from MARKETING_TOOLS_TOKEN', /import\.meta\.env\.MARKETING_TOOLS_TOKEN/.test(route) && /employeeToolToken\(secret, employee\)/.test(route));
+assert('auth fails closed when the token is unset', /if \(!secret\) return null;/.test(route));
+assert('auth fails closed for an unknown employee in the path', /if \(!employee \|\| !isEmployeeKey\(employee\)\) return null;/.test(route));
+assert('the bearer is compared in constant time', /sameSecret\(/.test(route) && /crypto\.timingSafeEqual\(/.test(auth));
+assert('auth runs before the body is read', route.indexOf('authorized(request, params.employee)') > -1 && route.indexOf('authorized(request, params.employee)') < route.indexOf('request.text()'));
 assert('the request body is size-capped', /MAX_BODY_BYTES/.test(route));
-assert('the route only dispatches to the tool registry', /callTool\(name, msg\.params\?\.arguments\)/.test(route));
-assert('tool inputs are zod-validated (unknown keys refused)', /\.safeParse\(args \?\? \{\}\)/.test(tools) && (tools.match(/\.strict\(\)/g) || []).length >= 5);
-assert('the tool module never updates or deletes a row', !/\.(update|delete|upsert)\(/.test(tools));
+assert('the route only dispatches to the tool registry, as the authenticated caller', /callTool\(name, msg\.params\?\.arguments, caller\)/.test(route) && /listTools\(caller\)/.test(route));
+const tokens = EMPLOYEE_KEYS.map((k) => employeeToolToken('test-secret', k));
+assert('each employee gets its own derived token, never the raw secret', new Set(tokens).size === EMPLOYEE_KEYS.length && !tokens.includes('test-secret'));
+assert('tool inputs are zod-validated (unknown keys refused)', /\.safeParse\(args \?\? \{\}\)/.test(tools) && (tools.match(/\.strict\(\)/g) || []).length >= 6);
+assert('the tool module never deletes or upserts a row', !/\.(delete|upsert)\(/.test(tools));
+const reviewFn = tools.slice(tools.indexOf('async function submitReview('), tools.indexOf('// ---- The registry'));
+assert('the only update in the tool module is submit_review\'s', (tools.match(/\.update\(/g) || []).length === 1 && /\.update\(/.test(reviewFn));
+assert('submit_review writes editor_status and editor_notes only (never status)', /\.update\(\{ editor_status: input\.verdict === 'pass' \? 'passed' : 'flagged', editor_notes: input\.notes \}\)/.test(reviewFn) && !/[^_]status:/.test(reviewFn.slice(reviewFn.indexOf('.update('), reviewFn.indexOf('.select('))));
+assert('submit_review touches only pending, unreviewed drafts', /\.eq\('status', 'pending'\)\s*\.eq\('editor_status', 'unchecked'\)/.test(reviewFn));
+assert('submit_review refuses anyone but the Editor (server side)', /if \(caller !== 'editor'\) return fail\(/.test(reviewFn));
+assert('submit_review input is draft_id (uuid), verdict pass|flag, capped notes', /draft_id: z\.string\(\)\.uuid\(\)/.test(tools) && /verdict: z\.enum\(\['pass', 'flag'\]\)/.test(tools) && /notes: z\.string\(\)\.trim\(\)\.min\(1\)\.max\(1000\)/.test(tools));
+assert('submit_review is rate-limited', /rateLimit\('marketing:submit_review'/.test(reviewFn));
+assert('save_draft is saved under the caller\'s own name', /if \(input\.author !== caller\) return fail\(/.test(tools));
+
+// Runtime: the registry itself, as each employee sees it (no network: refusals happen before any query).
+for (const k of EMPLOYEE_KEYS) {
+  const listed = listTools(k).map((t) => t.name);
+  assert(`${k}: tools/list shows exactly TOOL_ACCESS (${listed.join(', ')})`, sameSet(listed, [...TOOL_ACCESS[k]]));
+}
+for (const k of EMPLOYEE_KEYS.filter((x) => x !== 'editor')) {
+  const r = await callTool('submit_review', { draft_id: '00000000-0000-4000-8000-000000000000', verdict: 'pass', notes: 'x' }, k);
+  assert(`${k}: calling submit_review is refused`, r.isError === true && /Unknown tool/.test(r.text));
+}
+const editorSave = await callTool('save_draft', { author: 'editor', kind: 'x_post', body: 'x' }, 'editor');
+assert('editor: calling save_draft is refused', editorSave.isError === true && /Unknown tool/.test(editorSave.text));
+const statusSmuggle = await callTool('submit_review', { draft_id: '00000000-0000-4000-8000-000000000000', verdict: 'pass', notes: 'x', status: 'approved' }, 'editor');
+assert('submit_review refuses an extra status field (strict input)', statusSmuggle.isError === true && /Invalid input/.test(statusSmuggle.text));
+const badVerdict = await callTool('submit_review', { draft_id: '00000000-0000-4000-8000-000000000000', verdict: 'approve', notes: 'x' }, 'editor');
+assert('submit_review refuses any verdict but pass or flag', badVerdict.isError === true && /Invalid input/.test(badVerdict.text));
+const longNotes = await callTool('submit_review', { draft_id: '00000000-0000-4000-8000-000000000000', verdict: 'flag', notes: 'x'.repeat(1001) }, 'editor');
+assert('submit_review caps notes at 1000 characters', longNotes.isError === true && /Invalid input/.test(longNotes.text));
 assert("save_draft inserts with status 'pending'", /\.from\('drafts'\)\s*\.insert\(\{[\s\S]*?status: 'pending',/.test(tools));
 assert('save_draft runs the brand rules before inserting', tools.indexOf('checkDraft(') < tools.indexOf(".insert({"));
 assert('save_draft is rate-limited', /rateLimit\('marketing:save_draft'/.test(tools));
@@ -242,6 +291,8 @@ assert('the models are the agreed ones', EMPLOYEE_KEYS.every((k) => MODELS[k] ==
 assert(`every per-run cap is above 0 and at most HARD_RUN_CAP_CENTS (${HARD_RUN_CAP_CENTS})`, EMPLOYEE_KEYS.every((k) => RUN_CAP_CENTS[k] > 0 && RUN_CAP_CENTS[k] <= HARD_RUN_CAP_CENTS));
 assert('the weekly cap covers at least one run of each scheduled employee', WEEKLY_CAP_CENTS >= RUN_CAP_CENTS.head_of_marketing * 2 + RUN_CAP_CENTS.copywriter + RUN_CAP_CENTS.editor + RUN_CAP_CENTS.analyst + RUN_CAP_CENTS.researcher);
 assert('config TOOL_NAMES match the tool server registry', sameSet([...TOOL_NAMES], toolNames));
+assert('every employee\'s tools are exactly its TOOL_ACCESS entry', EMPLOYEES.every((e) => sameSet([...e.tools], [...TOOL_ACCESS[e.key]])));
+assert('submit_review is the Editor\'s alone', EMPLOYEE_KEYS.every((k) => TOOL_ACCESS[k].includes('submit_review') === (k === 'editor')));
 assert('the SKILL body was read (voice and hard rules present)', /## Voice/.test(SKILL) && SKILL.length > 500);
 
 for (const emp of EMPLOYEES) {
@@ -256,7 +307,7 @@ for (const emp of EMPLOYEES) {
   assert(`${label}: web tools only for the Researcher`, (enabled.includes('web_search') || enabled.includes('web_fetch')) === (label === 'researcher'));
   assert(`${label}: tool server tools default to off, the rest are known tools`, mcp.default_config?.enabled === false && mcpTools.every((t) => TOOL_NAMES.includes(t)));
   assert(`${label}: no tool asks for confirmation (nothing can hang a scheduled run)`, a.tools.every((t) => t.default_config?.permission_policy?.type === 'always_allow'));
-  assert(`${label}: the tool server URL is the configured path`, a.mcp_servers.length === 1 && a.mcp_servers[0].url === 'https://example.test' + TOOL_SERVER_PATH);
+  assert(`${label}: the tool server URL is its own per-employee path`, a.mcp_servers.length === 1 && a.mcp_servers[0].url === `https://example.test${TOOL_SERVER_PATH}/${label}`);
   assert(`${label}: the instructions carry the team preamble and the brand skill`, a.system.includes(TEAM_PREAMBLE) && a.system.includes(SKILL));
   assert(`${label}: the instructions contain no em or en dash`, !/[–—]/.test(a.system));
   assert(`${label}: at most 8 memory stores per session`, memoryPlan(emp).length <= 8);
@@ -270,7 +321,7 @@ const seeds = seedMemories(SKILL);
 assert('every memory store has a seed (playbook and seven notebooks)', Object.keys(seeds).length === 8);
 assert('the Copywriter notebook is seeded with /feedback.md', seeds[notebookStoreName('copywriter')].some((m) => m.path === '/feedback.md'));
 assert('seeds carry the brand summary and no em or en dash', Object.values(seeds).flat().every((m) => /## Voice/.test(m.content) || m.path !== '/notebook.md') && !/[–—]/.test(JSON.stringify(seeds)));
-assert('editor replies parse: pass and flag kept, junk dropped', JSON.stringify(parseReviews('Here: {"reviews":[{"id":"a","verdict":"pass","notes":"ok"},{"id":"b","verdict":"maybe"}]}')) === JSON.stringify([{ id: 'a', verdict: 'pass', notes: 'ok' }]) && parseReviews('not json').length === 0);
+assert('the Editor answers through submit_review, not free text', /submit_review/.test(employee('editor').instructions) && !/Reply with JSON/i.test(employee('editor').instructions));
 
 // ---------------------------------------------------------------------------------------------
 section('5. The schedule, the runner and the owner review');
@@ -292,6 +343,9 @@ assert('the weekly spend guard runs before a session is created', runTs.indexOf(
 assert('the runner refuses tool confirmations instead of allowing them', /result: 'deny'/.test(runTs) && !/result: 'allow'/.test(runTs));
 assert('the runner logs spend for every session', /from\('spend_log'\)\.insert\(/.test(runTs));
 assert('the runner re-runs the code rules before the Editor', runTs.indexOf('checkDraft(') > -1 && runTs.indexOf('checkDraft(') < runTs.indexOf("runEmployee(ctx, 'editor'"));
+assert('the runner no longer parses the Editor\'s free text', !/parseReviews|JSON\.parse/.test(runTs));
+assert('the runner never writes an Editor verdict itself (only code-rule flags)', !/editor_status: r\.verdict/.test(runTs));
+assert('sync stores one derived credential per employee URL', /employeeToolToken\(token, key\)/.test(syncTs) && /toolServerUrl\(siteUrl, e\.key\)/.test(syncTs));
 assert('the runner never approves or publishes a draft', !/status: 'approved'|\.from\('posts'\)/.test(runTs));
 assert('the run jobs are exactly the scheduled ones', sameSet([...runTs.matchAll(/^  ([a-z_]+): \{\n    steps:/gm)].map((m) => m[1]), Object.keys(SCHEDULES)));
 
@@ -309,6 +363,8 @@ assert('the digest cron is scheduled in vercel.json', JSON.parse(read('vercel.js
 assert('the digest route is CRON_SECRET-gated in constant time', /import\.meta\.env\.CRON_SECRET/.test(digest) && /crypto\.timingSafeEqual\(/.test(digest) && /if \(!secret\) return false;/.test(digest));
 assert('the digest goes to ADMIN_EMAILS through the existing email helper', /adminEmailList\(\)/.test(digest) && /sendMarketingDraftsDigest/.test(read('src/lib/email.ts')));
 assert('the digest never emails draft text', !/select\('[^']*body/.test(digest));
+assert('the digest names drafts the Editor has not reviewed after 24 hours (title and kind only)', /UNREVIEWED_AFTER_MS = 24 \* 3600 \* 1000/.test(digest) && /editor_status === 'unchecked'/.test(digest) && /kind: r\.kind, title: r\.title/.test(digest));
+assert('unreviewed titles are HTML-escaped in the email', /escapeHtml\(u\.title/.test(read('src/lib/email.ts')));
 const envEx = read('.env.example');
 assert('.env.example documents the team credentials, all blank', ['ANTHROPIC_API_KEY', 'MARKETING_TOOLS_TOKEN', 'X_API_KEY', 'X_API_SECRET', 'X_BEARER_TOKEN', 'X_ACCESS_TOKEN', 'X_ACCESS_TOKEN_SECRET', 'META_ACCESS_TOKEN', 'META_PAGE_ID', 'EMAIL_API_KEY', 'EMAIL_FROM'].every((k) => new RegExp(`^${k}=`, 'm').test(envEx)) && ['ANTHROPIC_API_KEY', 'MARKETING_TOOLS_TOKEN', 'X_API_KEY', 'META_ACCESS_TOKEN'].every((k) => new RegExp(`^${k}=""`, 'm').test(envEx)));
 

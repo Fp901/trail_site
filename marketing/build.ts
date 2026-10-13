@@ -71,7 +71,7 @@ export function agentParams(emp: Employee, siteUrl: string, skill: string): Agen
     description: emp.description,
     model: MODELS[emp.key],
     system: systemPrompt(emp, skill),
-    mcp_servers: [{ type: 'url', name: TOOL_SERVER_NAME, url: toolServerUrl(siteUrl) }],
+    mcp_servers: [{ type: 'url', name: TOOL_SERVER_NAME, url: toolServerUrl(siteUrl, emp.key) }],
     tools: [agentToolset(emp), mcpToolset(emp)],
     metadata: { team: TEAM_TAG, key: emp.key },
   };

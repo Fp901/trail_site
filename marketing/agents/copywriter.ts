@@ -1,3 +1,4 @@
+import { TOOL_ACCESS } from '../config';
 import type { Employee } from './types';
 
 export const copywriter: Employee = {
@@ -13,7 +14,7 @@ Each run:
 5. Update your notebook with what you learned from the feedback, in a few lines.
 
 Write like the brand skill says: specific, calm, classy. One clear call to action at most, pointing to the website's rates page.`,
-  tools: ['get_open_departures', 'get_facts_pack', 'get_photo_library', 'save_draft'],
+  tools: TOOL_ACCESS.copywriter,
   web: false,
   memory: { playbook: 'read_only', reads: ['researcher'] },
 };

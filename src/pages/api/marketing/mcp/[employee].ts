@@ -2,15 +2,21 @@
 // JSON responses, no server-sent stream) that the marketing agents reach through their Managed
 // Agents vault. prerender=false.
 //
-// AUTH. `Authorization: Bearer <MARKETING_TOOLS_TOKEN>`, compared in constant time over SHA-256
-// digests so neither the value nor its length leaks through timing. FAILS CLOSED: with the token
-// unset, every request is refused, the same convention as CRON_SECRET.
+// WHO IS CALLING. Each employee has its own URL, /api/marketing/mcp/<employee key>, and its own
+// bearer token derived from MARKETING_TOOLS_TOKEN (lib/marketing-auth.ts). The route recomputes
+// that employee's token and compares in constant time over SHA-256 digests, so neither the value
+// nor its length leaks through timing. FAILS CLOSED: with the secret unset, or an unknown
+// employee in the path, every request is refused, the same convention as CRON_SECRET.
 //
-// SURFACE. Exactly the five tools in lib/marketing-tools.ts. Four read; save_draft only inserts a
-// pending draft. No tool publishes, posts, emails or sends, and none can change or delete a row.
+// SURFACE. The six tools in lib/marketing-tools.ts, of which each employee sees and may call only
+// its own TOOL_ACCESS list (marketing/config.ts): tools/list hides the rest and callTool refuses
+// them. Four tools read; save_draft only inserts a pending draft; submit_review (the Editor's
+// alone) only records a verdict on a pending, unreviewed draft. No tool publishes, posts, emails or
+// sends, and none can approve, reject or delete a draft.
 import type { APIRoute } from 'astro';
-import crypto from 'node:crypto';
-import { listTools, callTool } from '../../../lib/marketing-tools';
+import { listTools, callTool } from '../../../../lib/marketing-tools';
+import { employeeToolToken, sameSecret } from '../../../../lib/marketing-auth';
+import { isEmployeeKey, type EmployeeKey } from '../../../../../marketing/config';
 
 export const prerender = false;
 
@@ -18,14 +24,13 @@ const SERVER_INFO = { name: 'rooiberg-tools', version: '1.0.0' };
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_BODY_BYTES = 64 * 1024;
 
-function authorized(request: Request): boolean {
+// The calling employee, or null when the path or the bearer does not prove one.
+function authorized(request: Request, employee: string | undefined): EmployeeKey | null {
   const secret = import.meta.env.MARKETING_TOOLS_TOKEN;
-  if (!secret) return false;
-  const digest = (v: string) => crypto.createHash('sha256').update(v).digest();
-  return crypto.timingSafeEqual(
-    digest(request.headers.get('authorization') ?? ''),
-    digest(`Bearer ${secret}`),
-  );
+  if (!secret) return null;
+  if (!employee || !isEmployeeKey(employee)) return null;
+  const ok = sameSecret(request.headers.get('authorization') ?? '', `Bearer ${employeeToolToken(secret, employee)}`);
+  return ok ? employee : null;
 }
 
 type JsonRpcId = string | number | null;
@@ -38,8 +43,9 @@ const result = (id: JsonRpcId, value: unknown) => reply({ jsonrpc: '2.0', id, re
 const rpcError = (id: JsonRpcId, code: number, message: string, status = 200) =>
   reply({ jsonrpc: '2.0', id, error: { code, message } }, status);
 
-export const POST: APIRoute = async ({ request }) => {
-  if (!authorized(request)) return new Response('Unauthorized', { status: 401 });
+export const POST: APIRoute = async ({ request, params }) => {
+  const caller = authorized(request, params.employee);
+  if (!caller) return new Response('Unauthorized', { status: 401 });
 
   const raw = await request.text();
   if (raw.length > MAX_BODY_BYTES) return rpcError(null, -32600, 'Request too large', 413);
@@ -66,16 +72,16 @@ export const POST: APIRoute = async ({ request }) => {
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions:
-          'Rooiberg Wander marketing tools. Read facts fresh with get_facts_pack; save work with save_draft. Nothing here publishes or sends.',
+          'Rooiberg Wander marketing tools. Read facts fresh with get_facts_pack. Nothing here publishes or sends.',
       });
     }
     case 'ping':
       return result(id, {});
     case 'tools/list':
-      return result(id, { tools: listTools() });
+      return result(id, { tools: listTools(caller) });
     case 'tools/call': {
       const name = String(msg.params?.name ?? '');
-      const out = await callTool(name, msg.params?.arguments);
+      const out = await callTool(name, msg.params?.arguments, caller);
       return result(id, { content: [{ type: 'text', text: out.text }], isError: out.isError === true });
     }
     default:
