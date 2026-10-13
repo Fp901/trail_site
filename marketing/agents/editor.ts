@@ -10,5 +10,5 @@ export const editor: Employee = {
   instructions: briefText('editor'),
   tools: TOOL_ACCESS.editor,
   web: false,
-  memory: { playbook: 'read_only', reads: [] },
+  memory: { playbook: 'read_only', reads: ['researcher'] },
 };

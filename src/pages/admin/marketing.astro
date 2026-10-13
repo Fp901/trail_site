@@ -20,7 +20,7 @@ import {
   type MarketingDraftKind,
   type MarketingPhotoRow,
 } from '../../lib/db.types';
-import { PHOTO_LODGE_BY_KEY, PHOTO_UPLOAD_MAX_BYTES } from '../../data/photo-library';
+import { PHOTO_LODGE_BY_KEY, PHOTO_UPLOAD_MAX_BYTES, photoLibrary } from '../../data/photo-library';
 import { withBase } from '../../data/site';
 
 export const prerender = false;
@@ -43,7 +43,7 @@ try {
   const columns = sel<MarketingDraftRow, typeof MARKETING_DRAFT_COLUMNS>(MARKETING_DRAFT_COLUMNS);
   const [p, r] = await Promise.all([
     mk.from('drafts').select(columns).eq('status', 'pending').order('created_at', { ascending: true }).limit(100),
-    mk.from('drafts').select(columns).neq('status', 'pending').order('decided_at', { ascending: false }).limit(10),
+    mk.from('drafts').select(columns).in('status', ['approved', 'rejected']).order('decided_at', { ascending: false }).limit(10),
   ]);
   if (p.error) throw p.error;
   if (r.error) throw r.error;
@@ -84,6 +84,15 @@ const KIND_LABEL: Record<MarketingDraftKind, string> = {
   enquiry_reply: 'Enquiry reply',
   weekly_report: 'Weekly report',
 };
+const FORMAT_LABEL: Record<string, string> = {
+  single: 'Single photo post',
+  carousel: 'Carousel (swipe through the photos in this order)',
+  story: 'Story (put the text on the photo)',
+};
+// Site photos preview here (same origin, so the page's img-src 'self' allows them). Uploads live
+// in a private bucket and are named by their description instead.
+const SITE_PHOTO = new Map(photoLibrary.map((p) => [p.id, p]));
+const uploadAlt = new Map(photos.map((ph) => [`upload-${ph.id}`, ph.alt]));
 const AUTHOR_LABEL: Record<string, string> = {
   head_of_marketing: 'Head of Marketing',
   researcher: 'Researcher',
@@ -148,13 +157,31 @@ const fmtDateTime = (v: string | null) =>
                       {d.editor_status === 'unchecked' && <span class="admin-sub">Editor: not checked yet</span>}
                     </div>
                   </div>
+                  {d.replaces && <p class="admin-sub admin-inq__meta">Rewritten by the team after the Editor flagged the first version.</p>}
                   {d.editor_notes && <p class="admin-sub admin-inq__meta">Editor notes: {d.editor_notes}</p>}
-                  {(d.departure_date || d.photo_ids.length > 0) && (
+                  {(d.format || d.departure_date) && (
                     <p class="admin-sub admin-inq__meta">
+                      {d.format && `Format: ${FORMAT_LABEL[d.format] ?? d.format}`}
+                      {d.format && d.departure_date && ' · '}
                       {d.departure_date && `Departure: ${d.departure_date}`}
-                      {d.departure_date && d.photo_ids.length > 0 && ' · '}
-                      {d.photo_ids.length > 0 && `Photos: ${d.photo_ids.join(', ')}`}
                     </p>
+                  )}
+                  {d.photo_ids.length > 0 && (
+                    <ol class="mk-photos" aria-label="Photos for this post, in order">
+                      {d.photo_ids.map((id) => {
+                        const p = SITE_PHOTO.get(id);
+                        return p ? (
+                          <li>
+                            <a href={p.image.src} download={`${id}.jpg`} title="Download this photo">
+                              <img src={p.image.src} alt={p.alt} width={160} height={Math.round((160 * p.image.height) / p.image.width)} loading="lazy" decoding="async" />
+                            </a>
+                            <span class="admin-sub">{id}</span>
+                          </li>
+                        ) : (
+                          <li class="admin-sub">Uploaded photo: {uploadAlt.get(id) ?? id}</li>
+                        );
+                      })}
+                    </ol>
                   )}
                   {d.notes && <p class="admin-sub admin-inq__meta">Note from the agent: {d.notes}</p>}
                   <form data-decide novalidate class="mt-4">

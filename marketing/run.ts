@@ -41,6 +41,7 @@ import {
   checkBrief,
   checkDrafts,
   checkPlan,
+  PLAN_MIN_TREND_SLOTS,
   checkPlaybook,
   cycleWeek,
   fixPrompt,
@@ -53,7 +54,7 @@ import { readFileSync } from 'node:fs';
 import { memoryPlan, memoryResources } from './build';
 import { anthropic, findAgent, findEnvironment, findMemoryStores, findVault, requireEnv } from './resources';
 import { checkDraft, describeViolations } from '../src/lib/brand-rules';
-import type { MarketingDraftKind } from '../src/lib/db.types';
+import type { MarketingDraftKind, MarketingPostFormat } from '../src/lib/db.types';
 
 const DRY_RUN = process.env.DRY_RUN !== 'false';
 const EDITOR_BATCH = 20;
@@ -66,16 +67,20 @@ const today = () => new Date().toISOString().slice(0, 10);
 const PROMPTS = {
   research: (week: string) =>
     `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.`,
-  plan: (week: string, research: string[]) =>
+  plan: (week: string, research: { ids: string[]; trends: string[] }) =>
     `Today is ${today()}, Monday planning for cycle week ${week}. Write ${PLAN_PATH} in the team playbook exactly in the format your instructions give, with ids P-${week}-1 upwards. ` +
-    (research.length
-      ? `This week's research items are ${research.join(', ')} in the Researcher's ${BRIEF_PATH}.`
+    (research.ids.length
+      ? `This week's research items are ${research.ids.join(', ')} in the Researcher's ${BRIEF_PATH}` +
+        (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at least ${Math.min(PLAN_MIN_TREND_SLOTS, research.trends.length)} post slots must be based on one.` : '.')
       : `There is no research brief for this week, so base every slot on "facts: ..." from get_facts_pack.`) +
     ` Reply with the plan's headline ideas.`,
   write: (week: string, slots: PlanSlot[]) =>
     `Today is ${today()}. Write and save one draft for each slot in ${PLAN_PATH} (cycle week ${week}): ${slots.map((s) => `${s.id} (${s.channel})`).join(', ')}. Put "Plan slot: <id>" in each draft's notes. Reply with a list of what you saved.`,
-  review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null }[]) =>
+  review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
     `Review these ${drafts.length} new drafts against the facts pack and the brand. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
+    JSON.stringify(drafts, null, 2),
+  fix: (drafts: { id: string; kind: string; format: string | null; title: string | null; body: string; notes: string | null; photo_ids: string[]; editor_notes: string | null }[]) =>
+    `The Editor flagged ${drafts.length} of your drafts. Fix each one now: save a corrected version with save_draft, passing the flagged draft's id as "replaces" and keeping its kind, format, plan slot note, departure and photos unless the Editor's notes say to change them. Fix exactly what the notes name; if a fact is not in get_facts_pack, take it out rather than reword it. This is the only round: the owner sees your fix and the Editor's second opinion. Reply with one line per draft.\n\n` +
     JSON.stringify(drafts, null, 2),
   analyse: () =>
     `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.`,
@@ -323,11 +328,14 @@ const missing = (path: string) => ({ path, errors: [`${path} does not exist. Wri
 // This cycle's research item ids: empty when the brief is missing or from an earlier week (the plan
 // then rests on the facts pack alone). Sunday's run already checked the brief's format and
 // sources; a brief that failed is reported there.
-async function briefIds(ctx: Ctx, week: string): Promise<string[]> {
+async function briefIds(ctx: Ctx, week: string): Promise<{ ids: string[]; trends: string[] }> {
   const md = await readMemory(ctx, notebookStoreName('researcher'), BRIEF_PATH);
-  if (!md) return [];
+  if (!md) return { ids: [], trends: [] };
   const items = parseItems(md).filter((i) => i.id.startsWith(`R-${week}-`));
-  return items.map((i) => i.id);
+  return {
+    ids: items.map((i) => i.id),
+    trends: items.filter((i) => (i.fields.type ?? '').toLowerCase() === 'trend').map((i) => i.id),
+  };
 }
 
 async function photoIds(ctx: Ctx): Promise<Set<string>> {
@@ -346,17 +354,17 @@ const checks = {
     if (md === null) return missing(BRIEF_PATH);
     return { path: BRIEF_PATH, errors: checkBrief(md, week, fetchedUrls).errors };
   },
-  plan: (ctx: Ctx, week: string, research: string[], photos: Set<string>, out: PlanSlot[]): HandOverCheck => async () => {
+  plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, out: PlanSlot[]): HandOverCheck => async () => {
     const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAN_PATH);
     if (md === null) return missing(PLAN_PATH);
-    const r = checkPlan(md, week, research, photos);
+    const r = checkPlan(md, week, research.ids, photos, research.trends);
     out.splice(0, out.length, ...r.slots);
     return { path: PLAN_PATH, errors: r.errors };
   },
   drafts: (ctx: Ctx, slots: PlanSlot[]): HandOverCheck => async ({ startedAt }) => {
     const { data, error } = await ctx.sb
       .from('drafts')
-      .select('kind, notes')
+      .select('kind, notes, format, photo_ids')
       .eq('author', 'copywriter')
       .gte('created_at', startedAt);
     if (error) throw new Error(`drafts read failed: ${error.message}`);
@@ -413,19 +421,44 @@ async function syncFeedback(ctx: Ctx): Promise<number> {
   return rows.length;
 }
 
+// ---- The fix round: flagged drafts go back to their author once ---------------------------
+
+async function fixRound(ctx: Ctx, since: string): Promise<void> {
+  const { data, error } = await ctx.sb
+    .from('drafts')
+    .select('id, kind, format, title, body, notes, photo_ids, editor_notes')
+    .eq('author', 'copywriter')
+    .eq('status', 'pending')
+    .eq('editor_status', 'flagged')
+    .is('replaces', null)
+    .gte('created_at', since);
+  if (error) throw new Error(`flagged drafts read failed: ${error.message}`);
+  const flagged = data ?? [];
+  if (flagged.length === 0) {
+    console.log('  fix round: nothing flagged');
+    return;
+  }
+  console.log(`  fix round: ${flagged.length} flagged draft(s) back to the Copywriter`);
+  await runEmployee(ctx, 'copywriter', PROMPTS.fix(flagged));
+  const { data: left } = await ctx.sb.from('drafts').select('id').in('id', flagged.map((d) => d.id)).eq('status', 'pending');
+  console.log(`  fix round: ${flagged.length - (left?.length ?? 0)} of ${flagged.length} replaced`);
+  // The Editor's second opinion on the fixes; whatever it says, the owner sees them next.
+  await editorReview(ctx);
+}
+
 // ---- Editor: code rules first, then the agent ---------------------------------------------
 
 async function editorReview(ctx: Ctx): Promise<void> {
   const { sb } = ctx;
   const { data, error } = await sb
     .from('drafts')
-    .select('id, kind, title, body, notes')
+    .select('id, kind, title, body, notes, format, photo_ids')
     .eq('status', 'pending')
     .eq('editor_status', 'unchecked')
     .order('created_at', { ascending: true })
     .limit(EDITOR_BATCH);
   if (error) throw new Error(`drafts read failed: ${error.message}`);
-  const drafts = (data ?? []) as { id: string; kind: MarketingDraftKind; title: string | null; body: string; notes: string | null }[];
+  const drafts = (data ?? []) as { id: string; kind: MarketingDraftKind; title: string | null; body: string; notes: string | null; format: MarketingPostFormat | null; photo_ids: string[] }[];
   if (drafts.length === 0) {
     console.log('  editor: nothing to review');
     return;
@@ -435,7 +468,7 @@ async function editorReview(ctx: Ctx): Promise<void> {
   // tightened since it was saved.
   const forAgent: typeof drafts = [];
   for (const d of drafts) {
-    const v = checkDraft(`${d.title ?? ''}\n${d.body}`, d.kind);
+    const v = checkDraft(`${d.title ?? ''}\n${d.body}`, d.kind, d.format);
     if (v.length) {
       await sb.from('drafts').update({ editor_status: 'flagged', editor_notes: `Code rules: ${describeViolations(v)}` }).eq('id', d.id);
     } else {
@@ -482,6 +515,8 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       'feedback -> copywriter notebook',
       'copywriter (one draft per slot checked)',
       'editor (after the code rules)',
+      'copywriter (fix round: each flagged draft once)',
+      'editor (second opinion on the fixes)',
     ],
     run: async (ctx) => {
       const week = cycleWeek(new Date());
@@ -497,8 +532,10 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       if (!plan.ok) return;
       const n = await syncFeedback(ctx);
       console.log(`  feedback: ${n} new decision(s) synced`);
+      const writingFrom = new Date().toISOString();
       await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots), checks.drafts(ctx, slots));
       await editorReview(ctx);
+      await fixRound(ctx, writingFrom);
     },
   },
 };

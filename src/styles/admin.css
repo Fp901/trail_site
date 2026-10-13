@@ -763,6 +763,29 @@
     margin-top: 0.6rem;
     overflow-wrap: anywhere;
   }
+  /* Marketing drafts: the post's photos, in order, small enough to scan. */
+  .mk-photos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    list-style: none;
+    padding: 0;
+  }
+  .mk-photos li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-width: 10rem;
+    overflow-wrap: anywhere;
+  }
+  .mk-photos img {
+    display: block;
+    width: 10rem;
+    height: auto;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-hairline);
+  }
   .admin-inq__msg {
     margin-top: 0.6rem;
     font-family: var(--font-body);

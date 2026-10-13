@@ -14,7 +14,11 @@ export const LEARNINGS_PATH = '/learnings.md';
 export const HISTORY_PATH = '/history.md';
 
 export const BRIEF_MAX_ITEMS = 5;
-export const BRIEF_ITEM_TYPES = ['angle', 'competitor', 'pitch', 'hook', 'site issue'] as const;
+export const BRIEF_ITEM_TYPES = ['trend', 'angle', 'competitor', 'pitch', 'hook', 'site issue'] as const;
+// Owner decision (13 October 2026): posts are inspired by the wider industry, not by our own site.
+// So most of each brief is trends, and most post slots rest on one.
+export const BRIEF_MIN_TRENDS = 3;
+export const PLAN_MIN_TREND_SLOTS = 2;
 export const CHANNELS = ['instagram', 'facebook', 'blog'] as const;
 export const POST_CHANNELS = ['instagram', 'facebook'] as const;
 // Owner decision (design doc section 8): three Instagram or Facebook posts a week, plus at most
@@ -132,6 +136,7 @@ export const BRIEF_FIELDS = ['type', 'headline', 'fact', 'source', 'date', 'why 
 export interface BriefCheck {
   errors: string[];
   ids: string[];
+  trendIds: string[];
 }
 
 // fetchedUrls: every URL the Researcher opened with web_fetch in this session. A source it did not
@@ -166,17 +171,45 @@ export function checkBrief(md: string, week: string, fetchedUrls: readonly strin
       }
     }
   });
+  const trends = items.filter((i) => (i.fields.type ?? '').toLowerCase() === 'trend');
+  if (items.length > 0 && trends.length < BRIEF_MIN_TRENDS) {
+    errors.push(
+      `${trends.length} trend item(s); at least ${BRIEF_MIN_TRENDS} of the items must be wider industry trends (travel, walking, wellness, social media or seasonal), not competitors or our own site.`,
+    );
+  }
   commonText(md, errors);
-  return { errors, ids: errors.length ? [] : items.map((i) => i.id) };
+  return {
+    errors,
+    ids: errors.length ? [] : items.map((i) => i.id),
+    trendIds: errors.length ? [] : trends.map((i) => i.id),
+  };
 }
 
 // ---- Head of Marketing (Monday): /weekly-plan.md -----------------------------------------
 
-export const PLAN_FIELDS = ['channel', 'angle', 'based on', 'departure', 'photos', 'call to action'] as const;
+export const PLAN_FIELDS = ['channel', 'format', 'angle', 'based on', 'departure', 'photos', 'call to action'] as const;
+
+// The three kinds of Instagram or Facebook post (migration 0023), and how many photos each takes.
+// The week's three post slots use one of each, so the owner always gets the mix.
+export const POST_FORMATS = ['single', 'carousel', 'story'] as const;
+export type PostFormat = (typeof POST_FORMATS)[number];
+export const FORMAT_PHOTOS: Record<PostFormat, { min: number; max: number }> = {
+  single: { min: 1, max: 1 },
+  carousel: { min: 3, max: 10 },
+  story: { min: 1, max: 1 },
+};
+export const photoCountError = (format: PostFormat, n: number): string | null => {
+  const { min, max } = FORMAT_PHOTOS[format];
+  if (n >= min && n <= max) return null;
+  return min === max
+    ? `a ${format} takes exactly ${min} photo (it has ${n}).`
+    : `a ${format} takes ${min} to ${max} photos (it has ${n}).`;
+};
 
 export interface PlanSlot {
   id: string;
   channel: string;
+  format: PostFormat | null;
 }
 
 export interface PlanCheck {
@@ -186,11 +219,14 @@ export interface PlanCheck {
 
 // briefIds: this cycle's valid research item ids (empty when the brief failed its check).
 // photoIds: every id get_photo_library can return.
+// trendIds: the brief items of type trend. When the brief has them, at least
+// PLAN_MIN_TREND_SLOTS of the post slots must rest on one; with no valid brief the rule is off.
 export function checkPlan(
   md: string,
   week: string,
   briefIds: readonly string[],
   photoIds: ReadonlySet<string>,
+  trendIds: readonly string[] = [],
 ): PlanCheck {
   const errors: string[] = [];
   const items = parseItems(md);
@@ -212,6 +248,13 @@ export function checkPlan(
         errors.push(`${item.id}: "based on" must be a research item id (R-${week}-n) or "facts: <what in the facts pack>".`);
       }
     }
+    const isPost = (POST_CHANNELS as readonly string[]).includes((f.channel ?? '').toLowerCase());
+    const fmt = (f.format ?? '').toLowerCase();
+    if (f.format && isPost && !(POST_FORMATS as readonly string[]).includes(fmt)) {
+      errors.push(`${item.id}: format "${f.format}" must be one of ${POST_FORMATS.join(', ')}.`);
+    } else if (f.format && !isPost && fmt !== 'none') {
+      errors.push(`${item.id}: a blog slot has format "none".`);
+    }
     if (f.departure && !/^(\d{4}-\d{2}-\d{2}|none)$/.test(f.departure)) {
       errors.push(`${item.id}: departure must be a start date (YYYY-MM-DD) from get_open_departures, or "none".`);
     }
@@ -219,6 +262,10 @@ export function checkPlan(
       const ids = f.photos.split(',').map((s) => s.trim()).filter(Boolean);
       if (ids.length === 0) errors.push(`${item.id}: name at least one photo id.`);
       for (const id of ids) if (!photoIds.has(id)) errors.push(`${item.id}: unknown photo id "${id}".`);
+      if (isPost && (POST_FORMATS as readonly string[]).includes(fmt)) {
+        const e = photoCountError(fmt as PostFormat, ids.length);
+        if (e) errors.push(`${item.id}: ${e}`);
+      }
     }
   });
   const channels = items.map((i) => (i.fields.channel ?? '').toLowerCase());
@@ -226,8 +273,29 @@ export function checkPlan(
   const blogs = channels.filter((c) => c === 'blog').length;
   if (posts !== PLAN_POSTS_PER_WEEK) errors.push(`${posts} Instagram or Facebook slots; the owner wants exactly ${PLAN_POSTS_PER_WEEK}.`);
   if (blogs > PLAN_MAX_BLOGS) errors.push(`${blogs} blog slots; at most ${PLAN_MAX_BLOGS}.`);
+  if (trendIds.length > 0) {
+    const trendSet = new Set(trendIds);
+    const onTrend = items.filter(
+      (i) => (POST_CHANNELS as readonly string[]).includes((i.fields.channel ?? '').toLowerCase()) && trendSet.has(i.fields['based on'] ?? ''),
+    ).length;
+    const need = Math.min(PLAN_MIN_TREND_SLOTS, trendIds.length);
+    if (onTrend < need) {
+      errors.push(`${onTrend} post slot(s) rest on a trend; at least ${need} must be "based on" one of this week's trend items (${trendIds.join(', ')}).`);
+    }
+  }
+  const formats = items
+    .filter((i) => (POST_CHANNELS as readonly string[]).includes((i.fields.channel ?? '').toLowerCase()))
+    .map((i) => (i.fields.format ?? '').toLowerCase());
+  const missingFormats = POST_FORMATS.filter((f) => !formats.includes(f));
+  if (posts === PLAN_POSTS_PER_WEEK && missingFormats.length) {
+    errors.push(`The ${PLAN_POSTS_PER_WEEK} post slots must be one single, one carousel and one story; missing: ${missingFormats.join(', ')}.`);
+  }
   commonText(md, errors);
-  return { errors, slots: errors.length ? [] : items.map((i) => ({ id: i.id, channel: i.fields.channel.toLowerCase() })) };
+  return { errors, slots: errors.length ? [] : items.map((i) => {
+    const channel = i.fields.channel.toLowerCase();
+    const format = (POST_CHANNELS as readonly string[]).includes(channel) ? (i.fields.format.toLowerCase() as PostFormat) : null;
+    return { id: i.id, channel, format };
+  }) };
 }
 
 // ---- Copywriter: one draft per slot ------------------------------------------------------
@@ -240,12 +308,18 @@ export const KIND_FOR_CHANNEL: Record<(typeof CHANNELS)[number], string> = {
 
 // The Copywriter names the slot in each draft's notes ("Plan slot: P-202642-1"). Returns one line
 // per slot with no draft of the right kind.
-export function checkDrafts(slots: readonly PlanSlot[], drafts: readonly { kind: string; notes: string | null }[]): string[] {
+export function checkDrafts(
+  slots: readonly PlanSlot[],
+  drafts: readonly { kind: string; notes: string | null; format?: string | null }[],
+): string[] {
   const errors: string[] = [];
   for (const slot of slots) {
     const want = KIND_FOR_CHANNEL[slot.channel as keyof typeof KIND_FOR_CHANNEL];
-    const hit = drafts.some((d) => d.kind === want && new RegExp(`\\b${slot.id}\\b`).test(d.notes ?? ''));
-    if (!hit) errors.push(`${slot.id}: no ${want} draft with "Plan slot: ${slot.id}" in its notes.`);
+    const mine = drafts.filter((d) => d.kind === want && new RegExp(`\\b${slot.id}\\b`).test(d.notes ?? ''));
+    if (mine.length === 0) errors.push(`${slot.id}: no ${want} draft with "Plan slot: ${slot.id}" in its notes.`);
+    else if (slot.format && !mine.some((d) => d.format === slot.format)) {
+      errors.push(`${slot.id}: the plan asks for a ${slot.format}; save the draft with format "${slot.format}".`);
+    }
   }
   return errors;
 }

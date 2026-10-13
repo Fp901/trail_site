@@ -14,7 +14,7 @@ import { z } from 'astro/zod';
 import { site, stats } from '../data/site';
 import { itinerary } from '../data/itinerary';
 import { sanctuaries } from '../data/sanctuaries';
-import { photoLibrary as sitePhotos } from '../data/photo-library';
+import { photoLibrary as sitePhotos, orientationOf } from '../data/photo-library';
 import { existingUploadIds, uploadedPhotos } from './marketing-photos';
 import { logisticsBlocks, faqs, faqAnswerText, seasons } from '../data/logistics';
 import {
@@ -39,9 +39,11 @@ import { getSupabaseAdmin, getSupabaseAnon } from './supabase';
 import { checkDraft, describeViolations } from './brand-rules';
 import { rateLimit } from './ratelimit';
 import { TOOL_ACCESS, type EmployeeKey } from '../../marketing/config';
+import { photoCountError } from '../../marketing/contracts';
 import {
   MARKETING_AUTHORS,
   MARKETING_DRAFT_KINDS,
+  MARKETING_POST_FORMATS,
   type DepartureInventoryRow,
   type MarketingDraftRow,
 } from './db.types';
@@ -127,7 +129,8 @@ function buildFactsPack() {
       excludes: exclusions,
     },
     booking: {
-      opens_online: BOOKING_OPEN_DISPLAY,
+      // Booking is open now; what starts on this date is the first departure that can be booked online.
+      book_online: `Online booking is open now, for start dates from ${BOOKING_OPEN_DISPLAY}. Never say booking "opens" on that date: guests can book today.`,
       start_days: `${START_DAYS_DISPLAY}, until ${TAPER_END_DISPLAY}. Every day of the week after that.`,
       party: `From ${MIN_PARTY_CATERED} guests. At most ${MAX_GROUP_SIZE} walkers per departure, in ${ROOMS_PER_DEPARTURE} double rooms.`,
       exclusive: `A group that takes all ${ROOMS_PER_DEPARTURE} rooms has the trail and each lodge to itself.`,
@@ -145,6 +148,9 @@ function buildFactsPack() {
       to: d.to ?? null,
       description: d.description,
     })),
+    route: `Night 1 at Temminck's Lodge, night 2 at Oukraal, night 3 at Rustwood. Day 4 walks back to Temminck's Lodge, where the trail ends. So there are three lodges and three nights, but the trail starts and ends at the same lodge.`,
+    // One call to action for every post: booking is open, so every post sends readers to book.
+    call_to_action: { text: 'See dates and book on the rates page.', url: `${site.canonicalUrl.replace(/\/$/, '')}/rates` },
     arrival_day: 'There is no walking schedule on the arrival day. Guests settled in at Temminck\'s Lodge before 16h00 can walk to Matopo Lookout Point for sundowners.',
     lodges: sanctuaries.map((s) => ({
       name: s.name,
@@ -184,6 +190,7 @@ export function staticPhotoLibrary() {
     category: p.category,
     lodge: p.lodge,
     alt: p.alt,
+    orientation: orientationOf(p.image.width, p.image.height),
     ...(p.note ? { note: p.note } : {}),
     url: base + p.image.src,
     source: 'site' as const,
@@ -207,16 +214,20 @@ async function getPhotoLibrary(): Promise<ToolResult> {
 async function getResults(input: { days: number }): Promise<ToolResult> {
   const since = new Date(Date.now() - input.days * 86_400_000).toISOString();
   const db = getSupabaseAdmin().schema('marketing');
-  const [drafts, metrics, posts] = await Promise.all([
-    db.from('drafts').select('author, kind, status, editor_status, decision_reason').gte('created_at', since),
+  const [drafts, metrics, posts, spend, feedback] = await Promise.all([
+    db.from('drafts').select('author, kind, format, status, editor_status, decision_reason').gte('created_at', since),
     db.from('metrics').select('channel, metric, value').gte('measured_at', since).limit(2000),
     db.from('posts').select('channel, published_at').gte('created_at', since),
+    db.from('spend_log').select('employee, list_cost_cents').gte('created_at', since).limit(2000),
+    db.from('feedback').select('decision, reason').gte('created_at', since).limit(200),
   ]);
-  if (drafts.error || metrics.error || posts.error) return fail('Could not read results right now.');
+  if (drafts.error || metrics.error || posts.error || spend.error || feedback.error) return fail('Could not read results right now.');
 
   const count = <T,>(rows: T[], key: (r: T) => string) =>
     rows.reduce<Record<string, number>>((acc, r) => ((acc[key(r)] = (acc[key(r)] ?? 0) + 1), acc), {});
-  type D = Pick<MarketingDraftRow, 'author' | 'kind' | 'status' | 'editor_status' | 'decision_reason'>;
+  type D = Pick<MarketingDraftRow, 'author' | 'kind' | 'format' | 'status' | 'editor_status' | 'decision_reason'>;
+  const runs = (spend.data ?? []) as Array<{ employee: string; list_cost_cents: number }>;
+  const costByEmployee = runs.reduce<Record<string, number>>((acc, r) => ((acc[r.employee] = (acc[r.employee] ?? 0) + r.list_cost_cents), acc), {});
   const d = (drafts.data ?? []) as D[];
   const totals: Record<string, number> = {};
   for (const m of (metrics.data ?? []) as Array<{ channel: string; metric: string; value: number }>) {
@@ -231,11 +242,22 @@ async function getResults(input: { days: number }): Promise<ToolResult> {
       by_status: count(d, (r) => r.status),
       by_author_and_status: count(d, (r) => `${r.author}:${r.status}`),
       by_kind: count(d, (r) => r.kind),
+      by_format: count(d.filter((r) => r.format), (r) => String(r.format)),
       editor_flagged: d.filter((r) => r.editor_status === 'flagged').length,
       rejection_reasons: d
         .filter((r) => r.status === 'rejected' && r.decision_reason)
         .map((r) => r.decision_reason)
         .slice(0, 20),
+    },
+    // Every owner decision in the window (approved, edited, rejected) with its reason, if given.
+    owner_decisions: ((feedback.data ?? []) as Array<{ decision: string; reason: string | null }>).map((f) => ({
+      decision: f.decision,
+      reason: f.reason,
+    })),
+    cost: {
+      total_us_dollars: Math.round(runs.reduce((n, r) => n + r.list_cost_cents, 0)) / 100,
+      by_employee_us_cents: costByEmployee,
+      runs: runs.length,
     },
     posts_published: (posts.data ?? []).filter((p) => p.published_at).length,
     metrics: totals,
@@ -245,6 +267,8 @@ async function getResults(input: { days: number }): Promise<ToolResult> {
 
 // ---- save_draft ---------------------------------------------------------------------------------
 const PUBLIC_KINDS = MARKETING_DRAFT_KINDS.filter((k) => k !== 'weekly_report');
+// Instagram and Facebook posts carry a format (single, carousel or story); nothing else does.
+const SOCIAL_KINDS: ReadonlySet<string> = new Set(['instagram_caption', 'facebook_post']);
 
 async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: EmployeeKey): Promise<ToolResult> {
   if (input.author !== caller) return fail(`author must be your own employee key, "${caller}".`);
@@ -257,12 +281,29 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
     return fail('Too many drafts saved in the last hour. Stop and leave the rest for the next run.');
   }
 
-  const violations = checkDraft([input.title ?? '', input.body].join('\n'), input.kind);
+  const format = input.format ?? null;
+  if (SOCIAL_KINDS.has(input.kind) && !format) {
+    return fail(`An ${input.kind} needs a format: ${MARKETING_POST_FORMATS.join(', ')}.`);
+  }
+  if (!SOCIAL_KINDS.has(input.kind) && format) return fail(`Only Instagram and Facebook posts take a format.`);
+  if (format) {
+    const e = photoCountError(format, input.photo_ids.length);
+    if (e) return fail(`Photo count: ${e}`);
+  }
+
+  const violations = checkDraft([input.title ?? '', input.body].join('\n'), input.kind, format);
   if (violations.length) {
     return fail(`Draft refused by the brand rules. Fix these and save again:\n${describeViolations(violations)}`);
   }
 
-  const known = new Set(staticPhotoLibrary().map((p) => p.id));
+  const library = staticPhotoLibrary();
+  const known = new Set(library.map((p) => p.id));
+  if (format === 'story') {
+    const wide = library.filter((p) => input.photo_ids.includes(p.id) && p.orientation === 'landscape');
+    if (wide.length) {
+      return fail(`A story fills a tall screen, so it needs a portrait photo; ${wide[0].id} is landscape.`);
+    }
+  }
   let uploads: Set<string>;
   try {
     uploads = await existingUploadIds(input.photo_ids.filter((id) => !known.has(id)));
@@ -271,6 +312,21 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
   }
   const unknown = input.photo_ids.filter((id) => !known.has(id) && !uploads.has(id));
   if (unknown.length) return fail(`Unknown photo ids: ${unknown.join(', ')}. Use ids from get_photo_library.`);
+
+  // The fix round: a corrected draft names the flagged one it replaces. Only the author's own
+  // draft, still pending and flagged by the Editor, and only once (it stops being pending below).
+  if (input.replaces) {
+    const { data: old, error: oldErr } = await getSupabaseAdmin()
+      .schema('marketing')
+      .from('drafts')
+      .select('id, author, status, editor_status')
+      .eq('id', input.replaces)
+      .maybeSingle();
+    if (oldErr) return fail('Could not check the draft you are replacing right now.');
+    if (!old || old.author !== caller || old.status !== 'pending' || old.editor_status !== 'flagged') {
+      return fail('replaces must be the id of one of your own drafts that the Editor flagged and nobody has decided yet.');
+    }
+  }
 
   const { data, error } = await getSupabaseAdmin()
     .schema('marketing')
@@ -281,6 +337,8 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
       title: input.title ?? null,
       body: input.body,
       photo_ids: input.photo_ids,
+      format,
+      replaces: input.replaces ?? null,
       departure_date: input.departure_date ?? null,
       notes: input.notes ?? null,
       status: 'pending',
@@ -288,6 +346,16 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
     .select('id')
     .single();
   if (error || !data) return fail('Could not save the draft right now.');
+  if (input.replaces) {
+    // Compare-and-set: only a draft that is still pending moves, so the owner never sees both.
+    const { error: supErr } = await getSupabaseAdmin()
+      .schema('marketing')
+      .from('drafts')
+      .update({ status: 'superseded' })
+      .eq('id', input.replaces)
+      .eq('status', 'pending');
+    if (supErr) console.error('[marketing] supersede failed', supErr.message);
+  }
   return json({ saved: true, id: data.id, status: 'pending', next: 'A person will approve, edit or reject it.' });
 }
 
@@ -297,13 +365,24 @@ const saveDraftInput = z
     kind: z.enum(MARKETING_DRAFT_KINDS).describe(`One of: ${MARKETING_DRAFT_KINDS.join(', ')}. Public kinds: ${PUBLIC_KINDS.join(', ')}.`),
     body: z.string().min(1).max(20000).describe('The full text of the post, caption, blog draft, reply or report.'),
     title: z.string().max(200).optional().describe('Optional title (blog drafts and reports).'),
-    photo_ids: z.array(z.string().max(80)).max(10).default([]).describe('Photo ids from get_photo_library.'),
+    photo_ids: z.array(z.string().max(80)).max(10).default([]).describe('Photo ids from get_photo_library, in the order they should appear.'),
+    format: z
+      .enum(MARKETING_POST_FORMATS)
+      .optional()
+      .describe(
+        'Instagram and Facebook posts only, and then required. single: 1 photo and a caption. carousel: 3 to 10 photos in order and a caption. story: 1 portrait photo and at most 125 characters of text on it, no caption.',
+      ),
     departure_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional()
       .describe('The start date (YYYY-MM-DD) when the draft promotes one departure.'),
     notes: z.string().max(2000).optional().describe('Notes for the owner: sources, assumptions, missing facts.'),
+    replaces: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('Only in the fix round: the id of your own draft the Editor flagged, which this corrected draft replaces.'),
   })
   .strict();
 
@@ -367,7 +446,7 @@ export const TOOLS = [
   {
     name: 'get_results',
     description:
-      "Draft decisions (approved, rejected, reasons), published posts and channel metrics for the last N days. Read-only.",
+      "Draft decisions (approved, edited, rejected, with the owner's reasons), drafts by format, what the team's runs cost, published posts and channel metrics for the last N days. Read-only.",
     input: z.object({ days: z.number().int().min(1).max(90).default(28) }).strict(),
     run: getResults,
   },
