@@ -24,7 +24,7 @@ on:
         required: true
         default: weekly_review
         type: choice
-        options: [weekly_review, plan_and_write, research, meta_check, search_check, sync]
+        options: [weekly_review, plan_and_write, research, meta_check, search_check, launch_set, sync]
       dry_run:
         description: 'Dry run: print the plan only, no API calls'
         required: true

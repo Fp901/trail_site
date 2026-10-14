@@ -339,6 +339,28 @@ export function checkDrafts(
   return errors;
 }
 
+// ---- The launch set (one-off, owner request 14 October 2026) ---------------------------
+// Nine opening Instagram posts so the new accounts do not look empty: they fill the first three rows
+// of the profile grid and tell a stranger the whole story in one scroll. Fixed here, not planned by
+// the Head of Marketing, because they are the same introduction whatever the week's trends are.
+// Grid posts only (a story disappears after a day). The owner posts the same set to Facebook.
+export interface LaunchSlot extends PlanSlot {
+  format: 'single' | 'carousel';
+  angle: string;
+}
+export const LAUNCH_SLOT_PREFIX = 'L-';
+export const LAUNCH_SLOTS: readonly LaunchSlot[] = [
+  { id: 'L-1', channel: 'instagram', format: 'single', angle: 'What Rooiberg Wander is, in one image: 3 nights, 3 days on foot through a private Big 5 reserve in the Waterberg, from lodge to lodge.' },
+  { id: 'L-2', channel: 'instagram', format: 'single', angle: 'Day 2 of the trail: from Temminck\'s Lodge over Groenkop to Oukraal.' },
+  { id: 'L-3', channel: 'instagram', format: 'single', angle: 'Day 3 of the trail: through the Elandsberg L-Kloof and past the Welgedacht lookout to Rustwood.' },
+  { id: 'L-4', channel: 'instagram', format: 'single', angle: 'Day 4 of the trail: across the open plains back to Temminck\'s Lodge, then home.' },
+  { id: 'L-5', channel: 'instagram', format: 'carousel', angle: 'The three lodges, one per photo: Temminck\'s Lodge, Oukraal and Rustwood.' },
+  { id: 'L-6', channel: 'instagram', format: 'single', angle: 'Safety: two armed wilderness guides with every group, the Two-Man Rule.' },
+  { id: 'L-7', channel: 'instagram', format: 'carousel', angle: 'The food: hearty bushveld fare around the boma fire, with selected South African estate wines and local beers.' },
+  { id: 'L-8', channel: 'instagram', format: 'carousel', angle: 'Wildlife seen on foot in a malaria-free private Big 5 reserve.' },
+  { id: 'L-9', channel: 'instagram', format: 'single', angle: 'How to book: the price per person for the whole trail from the facts pack, and the rates page.' },
+];
+
 // ---- Head of Marketing (Sunday): /playbook.md ---------------------------------------------
 
 export function checkPlaybook(md: string): string[] {

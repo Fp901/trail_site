@@ -40,6 +40,9 @@ import {
   PLAYBOOK_PATH,
   checkBrief,
   checkDrafts,
+  LAUNCH_SLOTS,
+  LAUNCH_SLOT_PREFIX,
+  type LaunchSlot,
   checkPlan,
   PLAN_MIN_TREND_SLOTS,
   checkPlaybook,
@@ -92,6 +95,9 @@ const PROMPTS = {
   fix: (drafts: { id: string; kind: string; format: string | null; title: string | null; body: string; notes: string | null; photo_ids: string[]; editor_notes: string | null }[]) =>
     `The Editor flagged ${drafts.length} of your drafts. Fix each one now: save a corrected version with save_draft, passing the flagged draft's id as "replaces" and keeping its kind, format, plan slot note, departure and photos unless the Editor's notes say to change them. Fix exactly what the notes name; if a fact is not in get_facts_pack, take it out rather than reword it. This is the only round: the owner sees your fix and the Editor's second opinion. Reply with one line per draft.\n\n` +
     JSON.stringify(drafts, null, 2),
+  launch: (slots: readonly LaunchSlot[]) =>
+    `Today is ${today()}. Rooiberg Wander's Instagram and Facebook accounts are new and empty. Write ${slots.length} of the nine opening posts that will fill the profile grid, one draft per slot below, as channel instagram (the owner posts the same text to Facebook). A stranger reads them first, so introduce rather than assume they know us. Take every fact from get_facts_pack. Choose the photos yourself from get_photo_library, reading each alt text so the photos show what the slot is about: a single takes exactly 1 photo, a carousel 3 to 5; never use one photo twice. Put "Plan slot: <id>" in each draft's notes. Reply with a list of what you saved.\n\n` +
+    slots.map((s) => `${s.id} (${s.format}): ${s.angle}`).join('\n'),
   analyse: (results: string) =>
     `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.\n\n${results}`,
   playbook: (results: string) =>
@@ -539,6 +545,41 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
     steps: ['read Search Console results (no agents, nothing written)'],
     run: async () => {
       console.log(await searchResults());
+    },
+  },
+  // One-off (owner request, 14 October 2026): the nine opening posts. In three sessions of three, so
+  // each stays well inside the Copywriter's per-run budget; refused if a launch set is already
+  // waiting or approved.
+  launch_set: {
+    steps: [
+      'feedback -> copywriter notebook',
+      'copywriter (launch posts 1 to 3, checked)',
+      'copywriter (launch posts 4 to 6, checked)',
+      'copywriter (launch posts 7 to 9, checked)',
+      'editor (after the code rules)',
+      'copywriter (fix round: each flagged draft once)',
+      'editor (second opinion on the fixes)',
+    ],
+    run: async (ctx) => {
+      const { data: existing, error } = await ctx.sb
+        .from('drafts')
+        .select('id')
+        .in('status', [...PHOTO_USED_STATUSES])
+        .like('notes', `%Plan slot: ${LAUNCH_SLOT_PREFIX}%`);
+      if (error) throw new Error(`drafts read failed: ${error.message}`);
+      if ((existing ?? []).length > 0) {
+        ctx.failures.push(`launch_set: ${existing!.length} launch draft(s) are already waiting or approved; reject them at /admin/marketing first to make a new set.`);
+        return;
+      }
+      const n = await syncFeedback(ctx);
+      console.log(`  feedback: ${n} new decision(s) synced`);
+      const writingFrom = new Date().toISOString();
+      for (let i = 0; i < LAUNCH_SLOTS.length; i += 3) {
+        const batch = LAUNCH_SLOTS.slice(i, i + 3);
+        await runEmployee(ctx, 'copywriter', PROMPTS.launch(batch), checks.drafts(ctx, [...batch]));
+      }
+      await editorReview(ctx);
+      await fixRound(ctx, writingFrom);
     },
   },
   plan_and_write: {
