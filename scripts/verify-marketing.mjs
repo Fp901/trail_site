@@ -865,8 +865,9 @@ section('9. The launch set: nine opening grid posts, one-off');
   assert('L-1 does not match L-10 style notes by accident', C.checkDrafts([L[0]], [{ kind: 'instagram_caption', notes: 'Plan slot: L-11', format: 'single' }]).length === 1);
   assert('a launch draft is matched by its slot note and format', C.checkDrafts([L[4]], [{ kind: 'instagram_caption', notes: 'Plan slot: L-5', format: 'carousel' }]).length === 0);
   const runL = read('marketing/run.ts');
-  assert('the job writes in sessions of three, each checked', /for \(let i = 0; i < LAUNCH_SLOTS\.length; i \+= 3\)/.test(runL) && /PROMPTS\.launch\(batch\), checks\.drafts\(ctx, \[\.\.\.batch\]\)/.test(runL));
-  assert('it refuses while a launch set is waiting or approved', /\.like\('notes', `%Plan slot: \$\{LAUNCH_SLOT_PREFIX\}%`\)/.test(runL));
+  assert('the job writes the missing slots in sessions of three, each checked', /const missing = LAUNCH_SLOTS\.filter\(\(s\) => !have\.has\(s\.id\)\)/.test(runL) && /for \(let i = 0; i < missing\.length; i \+= 3\)/.test(runL) && /PROMPTS\.launch\(batch\), checks\.drafts\(ctx, \[\.\.\.batch\]\)/.test(runL));
+  assert('it skips slots already waiting or approved, matched exactly', /\.like\('notes', `%Plan slot: \$\{LAUNCH_SLOT_PREFIX\}%`\)/.test(runL) && /Plan slot: \(L-\\d\+\)\\b/.test(runL));
+  assert('it refuses only when every slot is covered', /if \(missing\.length === 0\) \{\s*ctx\.failures\.push/.test(runL));
   assert('its drafts go through the Editor and the fix round', /launch_set: \{[\s\S]*?await editorReview\(ctx\);\s*await fixRound\(ctx, writingFrom\);/.test(runL));
 }
 

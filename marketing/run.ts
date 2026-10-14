@@ -547,15 +547,14 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       console.log(await searchResults());
     },
   },
-  // One-off (owner request, 14 October 2026): the nine opening posts. In three sessions of three, so
-  // each stays well inside the Copywriter's per-run budget; refused if a launch set is already
-  // waiting or approved.
+  // One-off (owner request, 14 October 2026): the nine opening posts. In sessions of three, so
+  // each stays well inside the Copywriter's per-run budget. A slot that already has a waiting or
+  // approved draft is kept and skipped (an approved draft cannot be rejected), so a rerun writes
+  // only the missing posts; refused only when every slot is covered.
   launch_set: {
     steps: [
       'feedback -> copywriter notebook',
-      'copywriter (launch posts 1 to 3, checked)',
-      'copywriter (launch posts 4 to 6, checked)',
-      'copywriter (launch posts 7 to 9, checked)',
+      'copywriter (the missing launch posts, three per session, checked)',
       'editor (after the code rules)',
       'copywriter (fix round: each flagged draft once)',
       'editor (second opinion on the fixes)',
@@ -563,19 +562,27 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
     run: async (ctx) => {
       const { data: existing, error } = await ctx.sb
         .from('drafts')
-        .select('id')
+        .select('notes')
         .in('status', [...PHOTO_USED_STATUSES])
         .like('notes', `%Plan slot: ${LAUNCH_SLOT_PREFIX}%`);
       if (error) throw new Error(`drafts read failed: ${error.message}`);
-      if ((existing ?? []).length > 0) {
-        ctx.failures.push(`launch_set: ${existing!.length} launch draft(s) are already waiting or approved; reject them at /admin/marketing first to make a new set.`);
+      // \b stops L-1 matching a note for L-10.
+      const have = new Set<string>();
+      for (const d of existing ?? []) {
+        for (const m of String(d.notes ?? '').matchAll(/Plan slot: (L-\d+)\b/g)) have.add(m[1]);
+      }
+      const missing = LAUNCH_SLOTS.filter((s) => !have.has(s.id));
+      if (have.size > 0) console.log(`  kept (already waiting or approved): ${[...have].sort().join(', ')}`);
+      if (missing.length === 0) {
+        ctx.failures.push('launch_set: every launch post is already waiting or approved; reject the ones to rewrite at /admin/marketing first.');
         return;
       }
+      console.log(`  writing: ${missing.map((s) => s.id).join(', ')}`);
       const n = await syncFeedback(ctx);
       console.log(`  feedback: ${n} new decision(s) synced`);
       const writingFrom = new Date().toISOString();
-      for (let i = 0; i < LAUNCH_SLOTS.length; i += 3) {
-        const batch = LAUNCH_SLOTS.slice(i, i + 3);
+      for (let i = 0; i < missing.length; i += 3) {
+        const batch = missing.slice(i, i + 3);
         await runEmployee(ctx, 'copywriter', PROMPTS.launch(batch), checks.drafts(ctx, [...batch]));
       }
       await editorReview(ctx);
