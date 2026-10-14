@@ -852,5 +852,23 @@ section('8. Search Console results (marketing/search-console.ts): read-only, bes
   }
 }
 
+section('9. The launch set: nine opening grid posts, one-off');
+{
+  const L = C.LAUNCH_SLOTS;
+  assert('nine slots, L-1 to L-9, in order', L.length === 9 && L.every((s, i) => s.id === `${C.LAUNCH_SLOT_PREFIX}${i + 1}`));
+  assert('grid posts only: singles and carousels, no story', L.every((s) => s.format === 'single' || s.format === 'carousel'));
+  assert('all on instagram (the owner posts the same set to Facebook)', L.every((s) => s.channel === 'instagram'));
+  assert('the safety slot names the Two-Man Rule', L.some((s) => /Two-Man Rule/.test(s.angle)));
+  assert('no slot names SADC, self-catering or a per-night price', L.every((s) => !/sadc|self-cater|per night/i.test(s.angle)));
+  assert('the angles are plain: no long dashes', L.every((s) => !/[–—]/.test(s.angle)));
+  assert('lodge names are the current ones', L.every((s) => !/Rotavi|VierVanAcht|Blackwood/i.test(s.angle)));
+  assert('L-1 does not match L-10 style notes by accident', C.checkDrafts([L[0]], [{ kind: 'instagram_caption', notes: 'Plan slot: L-11', format: 'single' }]).length === 1);
+  assert('a launch draft is matched by its slot note and format', C.checkDrafts([L[4]], [{ kind: 'instagram_caption', notes: 'Plan slot: L-5', format: 'carousel' }]).length === 0);
+  const runL = read('marketing/run.ts');
+  assert('the job writes in sessions of three, each checked', /for \(let i = 0; i < LAUNCH_SLOTS\.length; i \+= 3\)/.test(runL) && /PROMPTS\.launch\(batch\), checks\.drafts\(ctx, \[\.\.\.batch\]\)/.test(runL));
+  assert('it refuses while a launch set is waiting or approved', /\.like\('notes', `%Plan slot: \$\{LAUNCH_SLOT_PREFIX\}%`\)/.test(runL));
+  assert('its drafts go through the Editor and the fix round', /launch_set: \{[\s\S]*?await editorReview\(ctx\);\s*await fixRound\(ctx, writingFrom\);/.test(runL));
+}
+
 console.log(failed === 0 ? '\nALL MARKETING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);
 process.exit(failed === 0 ? 0 : 1);
