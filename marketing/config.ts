@@ -63,8 +63,9 @@ export const SCHEDULES = {
 } as const;
 export type ScheduleKey = keyof typeof SCHEDULES;
 // Jobs that run only when started by hand (GitHub Actions > Run workflow): the Researcher alone,
-// for trying out a change to its brief.
-export const MANUAL_JOBS = ['research'] as const;
+// for trying out a change to its brief, and meta_check, which only reads the Meta results (no
+// agents) to check the token.
+export const MANUAL_JOBS = ['research', 'meta_check'] as const;
 export type JobKey = ScheduleKey | (typeof MANUAL_JOBS)[number];
 
 // Managed Agents resource names. The sync script finds or creates each by name; the runner looks

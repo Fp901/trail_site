@@ -503,7 +503,13 @@ assert('workflow crons match SCHEDULES in config.ts', sameSet(crons, Object.valu
 assert('each cron maps to its job in the workflow', Object.entries(SCHEDULES).every(([job, cron]) => wf.includes(`'${cron}')`) && new RegExp(`'${cron.replace(/\*/g, '\\*')}'\\)\\s+JOB=${job} ;;`).test(wf)));
 assert('DRY_RUN is true unless a manual run unticks it or MARKETING_LIVE is true', wf.includes("DRY_RUN: ${{ ((github.event_name == 'workflow_dispatch' && inputs.dry_run == false) || (github.event_name == 'schedule' && vars.MARKETING_LIVE == 'true')) && 'false' || 'true' }}"));
 assert('the manual dry_run input defaults to true', /dry_run:[\s\S]*?default: true/.test(wf));
-assert('the workflow never touches channel credentials', !/X_API|X_ACCESS|X_BEARER|META_/.test(wf));
+assert('the workflow never touches X credentials', !/X_API|X_ACCESS|X_BEARER/.test(wf));
+{
+  // The Meta token is in the workflow for reading results only: no code but marketing/meta.ts reads it.
+  const tsFiles = (dir) => readdirSync(new URL(dir, import.meta.url), { recursive: true }).filter((f) => /\.(ts|mjs|astro)$/.test(f)).map((f) => dir + f);
+  const users = [...tsFiles('../marketing/'), ...tsFiles('../src/')].filter((f) => /META_ACCESS_TOKEN|META_PAGE_ID/.test(readFileSync(new URL(f, import.meta.url), 'utf8')));
+  assert('only marketing/meta.ts reads the Meta secrets', users.length === 1 && users[0] === '../marketing/meta.ts');
+}
 assert('no workflow step publishes, posts or sends', !/^\s*- name: .*(publish|post|send|tweet)/im.test(wf));
 assert('the workflow is read-only on the repository', /permissions:\s*\n\s*contents: read/.test(wf));
 assert('run.ts and sync.ts are dry unless DRY_RUN is exactly "false"', runTs.includes("process.env.DRY_RUN !== 'false'") && syncTs.includes("process.env.DRY_RUN !== 'false'"));
@@ -717,6 +723,64 @@ assert('the upload is written to admin_audit after the row is saved', upload.ind
 assert('the upload records the trophy confirmation time and the uploader', /no_trophies_confirmed_at: new Date\(\)\.toISOString\(\)/.test(upload) && /uploaded_by: admin\.email/.test(upload));
 assert('the admin page has the upload form with the required trophy tick', /data-photo-upload/.test(page) && /name="noTrophies" type="checkbox" required/.test(page) && /This photo shows no hunting trophies/.test(page));
 assert('the admin page never renders an uploaded image (CSP img-src is self only)', !/<img[^>]*(signed|storage|supabase)/i.test(page) && !/img-src[^"]*supabase/.test(read('astro.config.mjs')));
+
+// ---------------------------------------------------------------------------------------------
+section('7. Meta results (marketing/meta.ts): read-only, best-effort, the token never shown');
+{
+  const metaSrc = read('marketing/meta.ts');
+  const M = await import('../marketing/meta.ts');
+  assert('meta.ts only ever reads (no POST, no publish, comment or reply calls)', !/method:\s*'(POST|DELETE|PUT)'/i.test(metaSrc) && !/\/(media_publish|comments|replies|feed)\b/.test(metaSrc.replace(/comments\.summary|comments_count/g, '')));
+  assert('meta.ts talks only to graph.facebook.com', [...metaSrc.matchAll(/https:\/\/[a-z0-9.-]+/g)].every((m) => m[0] === 'https://graph.facebook.com'));
+  assert('the token goes in a header, never in the URL', /Authorization: `Bearer \$\{token\}`/.test(metaSrc) && !/searchParams\.set\('access_token'/.test(metaSrc));
+  const wfMeta = read('.github/workflows/marketing-team.yml');
+  assert('the workflow passes the Meta secrets and offers meta_check', /META_ACCESS_TOKEN: \$\{\{ secrets\.META_ACCESS_TOKEN \}\}/.test(wfMeta) && /META_PAGE_ID: \$\{\{ secrets\.META_PAGE_ID \}\}/.test(wfMeta) && /options: \[[^\]]*\bmeta_check\b/.test(wfMeta));
+  const runMeta = read('marketing/run.ts');
+  assert('the Analyst, the Sunday playbook and the Monday plan all get the Meta results', /PROMPTS\.analyse\(meta\)/.test(runMeta) && /PROMPTS\.playbook\(meta\)/.test(runMeta) && /PROMPTS\.plan\(week, research, await metaResults\(\)\)/.test(runMeta));
+
+  assert('no token: a one-line note, no call', (await M.metaResults({})).startsWith('Meta results unavailable'));
+
+  const SECRET = 'EAAtest-secret-token';
+  const now = new Date('2026-10-18T12:00:00Z');
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  const reply = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
+  globalThis.fetch = async (url, init) => {
+    const u = new URL(url);
+    calls.push({ url: u.toString(), method: init?.method ?? 'GET', auth: init?.headers?.Authorization });
+    if (u.pathname.endsWith('/123')) return reply({ access_token: 'PAGE-token', followers_count: 410, instagram_business_account: { id: '77', username: 'rooibergwander', followers_count: 980 } });
+    if (u.pathname.endsWith('/77/media')) return reply({ data: [
+      { id: 'm1', caption: 'Day 2 swipe by swipe', media_type: 'CAROUSEL_ALBUM', media_product_type: 'FEED', timestamp: '2026-10-14T16:00:00+0000', like_count: 40, comments_count: 3 },
+      { id: 'm2', caption: 'Fewer stops', media_type: 'IMAGE', media_product_type: 'FEED', timestamp: '2026-10-15T06:00:00+0000', like_count: 12, comments_count: 1 },
+      { id: 'm3', caption: 'Old post', media_type: 'IMAGE', media_product_type: 'FEED', timestamp: '2026-08-01T06:00:00+0000' },
+    ] });
+    if (u.pathname.endsWith('/m1/insights')) return reply({ data: [{ name: 'reach', values: [{ value: 900 }] }, { name: 'saved', values: [{ value: 31 }] }, { name: 'shares', values: [{ value: 9 }] }, { name: 'total_interactions', values: [{ value: 83 }] }] });
+    if (u.pathname.endsWith('/m2/insights')) return reply({ error: { message: `bad ${SECRET}`, code: 10 } }, 400);
+    if (u.pathname.endsWith('/123/posts')) return reply({ data: [{ id: 'p1', message: 'Two guides read the terrain', created_time: '2026-10-16T17:00:00+0000', shares: { count: 4 }, reactions: { summary: { total_count: 20 } }, comments: { summary: { total_count: 2 } } }] });
+    return reply({ error: { message: 'unexpected' } }, 404);
+  };
+  let out;
+  try {
+    out = await M.metaResults({ META_ACCESS_TOKEN: SECRET, META_PAGE_ID: '123' }, now);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert('every Meta call is a GET with the token in the header', calls.length > 0 && calls.every((c) => c.method === 'GET' && /^Bearer /.test(c.auth) && !c.url.includes(SECRET)));
+  assert('the summary never contains the token', !out.includes(SECRET) && !out.includes('PAGE-token'));
+  assert('the summary lists posts in the window only, with followers', /980 followers/.test(out) && /410 followers/.test(out) && /Day 2 swipe/.test(out) && !/Old post/.test(out));
+  assert('a carousel shows its reach, saves and shares', /\| instagram \| carousel \| 900 \| 31 \| 9 \| 83 \|/.test(out));
+  assert('a post whose insights fail keeps its likes and comments', /\| instagram \| image \| - \| - \| - \| 13 \|/.test(out) || /\| instagram \| feed \| - \| - \| - \| 13 \|/.test(out));
+  assert('Facebook posts use the Page token and count reactions, comments and shares', /\| facebook \| post \| - \| - \| 4 \| 26 \|/.test(out) && calls.some((c) => c.url.includes('/123/posts') && c.auth === 'Bearer PAGE-token'));
+  assert('best posting times are given in SAST', /Top posts went out Wednesday 18:00 SAST/.test(out));
+  assert('with fewer than three posts it says the data is thin', /Too few posts \(2\)/.test(M.bestTimes([{ interactions: 1, posted: '2026-10-14T16:00:00Z' }, { interactions: 2, posted: '2026-10-15T16:00:00Z' }])));
+  assert('the summary is plain: no long dashes', !/[–—]/.test(out));
+  globalThis.fetch = async () => { throw new Error(`network down ${SECRET}`); };
+  try {
+    const down = await M.metaResults({ META_ACCESS_TOKEN: SECRET, META_PAGE_ID: '123' }, now);
+    assert('a Meta outage is a one-line note without the token', down.startsWith('Meta results unavailable') && !down.includes(SECRET));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
 
 console.log(failed === 0 ? '\nALL MARKETING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);
 process.exit(failed === 0 ? 0 : 1);
