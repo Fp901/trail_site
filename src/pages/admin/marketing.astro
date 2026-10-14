@@ -330,7 +330,7 @@ const fmtDateTime = (v: string | null) =>
                       {d.notes && /Plan slot: [A-Z]-[\d-]+/.test(d.notes) && ` · ${d.notes.match(/Plan slot: ([A-Z]-[\d-]+)/)![1]}`}
                     </p>
                     <p class="admin-sub mk-excerpt">{String(d.body).slice(0, 160)}{String(d.body).length > 160 ? '...' : ''}</p>
-                    <form data-withdraw novalidate class="mk-withdraw mt-3">
+                    <form data-withdraw novalidate class="mk-withdraw">
                       <div class="form-field">
                         <label for={`mk-wreason-${d.id}`}>Reason (optional)</label>
                         <input id={`mk-wreason-${d.id}`} name="reason" type="text" maxlength="1000" />
