@@ -24,7 +24,7 @@ on:
         required: true
         default: weekly_review
         type: choice
-        options: [weekly_review, plan_and_write, research, meta_check, sync]
+        options: [weekly_review, plan_and_write, research, meta_check, search_check, sync]
       dry_run:
         description: 'Dry run: print the plan only, no API calls'
         required: true
@@ -51,6 +51,9 @@ jobs:
       # Read-only here: the runner reads our own post results (marketing/meta.ts) and never posts.
       META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
       META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+      # Read-only: Google searches that found the site (marketing/search-console.ts, webmasters.readonly).
+      GSC_SERVICE_ACCOUNT_JSON: ${{ secrets.GSC_SERVICE_ACCOUNT_JSON }}
+      GSC_SITE_URL: ${{ vars.GSC_SITE_URL || 'sc-domain:rooibergwander.co.za' }}
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://www.rooibergwander.co.za' }}
     steps:
       - uses: actions/checkout@v4

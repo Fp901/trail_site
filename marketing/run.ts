@@ -58,6 +58,11 @@ import { memoryPlan, memoryResources } from './build';
 import { anthropic, findAgent, findEnvironment, findMemoryStores, findVault, requireEnv } from './resources';
 import { checkDraft, describeViolations } from '../src/lib/brand-rules';
 import { metaResults } from './meta';
+import { searchResults } from './search-console';
+
+// Everything the team reads about how we are doing out there: our own Instagram and Facebook posts,
+// then Google searches. Both read-only and best-effort (a problem is a note, not a stop).
+const channelResults = async () => [await metaResults(), await searchResults()].join('\n\n');
 import type { MarketingDraftKind, MarketingPostFormat } from '../src/lib/db.types';
 
 const DRY_RUN = process.env.DRY_RUN !== 'false';
@@ -71,14 +76,14 @@ const today = () => new Date().toISOString().slice(0, 10);
 const PROMPTS = {
   research: (week: string) =>
     `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.`,
-  plan: (week: string, research: { ids: string[]; trends: string[] }, meta = '') =>
+  plan: (week: string, research: { ids: string[]; trends: string[] }, results = '') =>
     `Today is ${today()}, Monday planning for cycle week ${week}. Write ${PLAN_PATH} in the team playbook exactly in the format your instructions give, with ids P-${week}-1 upwards. ` +
     (research.ids.length
       ? `This week's research items are ${research.ids.join(', ')} in the Researcher's ${BRIEF_PATH}` +
         (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at least ${Math.min(PLAN_MIN_TREND_SLOTS, research.trends.length)} post slots must be based on one.` : '.')
       : `There is no research brief for this week, so base every slot on "facts: ..." from get_facts_pack.`) +
     ` Reply with the plan's headline ideas.` +
-    (meta ? `\n\n${meta}` : ''),
+    (results ? `\n\n${results}` : ''),
   write: (week: string, slots: PlanSlot[]) =>
     `Today is ${today()}. Write and save one draft for each slot in ${PLAN_PATH} (cycle week ${week}): ${slots.map((s) => `${s.id} (${s.channel})`).join(', ')}. Put "Plan slot: <id>" in each draft's notes. Reply with a list of what you saved.`,
   review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
@@ -87,10 +92,10 @@ const PROMPTS = {
   fix: (drafts: { id: string; kind: string; format: string | null; title: string | null; body: string; notes: string | null; photo_ids: string[]; editor_notes: string | null }[]) =>
     `The Editor flagged ${drafts.length} of your drafts. Fix each one now: save a corrected version with save_draft, passing the flagged draft's id as "replaces" and keeping its kind, format, plan slot note, departure and photos unless the Editor's notes say to change them. Fix exactly what the notes name; if a fact is not in get_facts_pack, take it out rather than reword it. This is the only round: the owner sees your fix and the Editor's second opinion. Reply with one line per draft.\n\n` +
     JSON.stringify(drafts, null, 2),
-  analyse: (meta: string) =>
-    `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.\n\n${meta}`,
-  playbook: (meta: string) =>
-    `Today is ${today()}, Sunday review. Read the results, the Analyst's notebook, the Researcher's ${BRIEF_PATH} and every notebook, then rewrite ${PLAYBOOK_PATH} with the sections your instructions give. Reply with what changed.\n\n${meta}`,
+  analyse: (results: string) =>
+    `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.\n\n${results}`,
+  playbook: (results: string) =>
+    `Today is ${today()}, Sunday review. Read the results, the Analyst's notebook, the Researcher's ${BRIEF_PATH} and every notebook, then rewrite ${PLAYBOOK_PATH} with the sections your instructions give. Reply with what changed.\n\n${results}`,
 };
 
 // ---- Supabase (service role, marketing schema only) ---------------------------------------
@@ -517,17 +522,23 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const week = cycleWeek(new Date());
       // The research brief is for Monday's plan; a failure is reported but does not stop the review.
       await runEmployee(ctx, 'researcher', PROMPTS.research(week), checks.brief(ctx, week));
-      // How our own posts did on Instagram and Facebook (read-only; a Meta problem is a note, not a stop).
-      const meta = await metaResults();
-      console.log(`  meta: ${meta.split('\n')[0]}`);
-      await runEmployee(ctx, 'analyst', PROMPTS.analyse(meta));
-      await runEmployee(ctx, 'head_of_marketing', PROMPTS.playbook(meta), checks.playbook(ctx));
+      // How our own posts did on Instagram and Facebook, and what people searched for in Google.
+      const results = await channelResults();
+      for (const line of results.split('\n').filter((l) => /^(## |Meta results unavailable|Search Console results unavailable)/.test(l))) console.log(`  ${line}`);
+      await runEmployee(ctx, 'analyst', PROMPTS.analyse(results));
+      await runEmployee(ctx, 'head_of_marketing', PROMPTS.playbook(results), checks.playbook(ctx));
     },
   },
   meta_check: {
     steps: ['read Meta results (no agents, nothing written)'],
     run: async () => {
       console.log(await metaResults());
+    },
+  },
+  search_check: {
+    steps: ['read Search Console results (no agents, nothing written)'],
+    run: async () => {
+      console.log(await searchResults());
     },
   },
   plan_and_write: {
@@ -552,7 +563,7 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const plan = await runEmployee(
         ctx,
         'head_of_marketing',
-        PROMPTS.plan(week, research, await metaResults()),
+        PROMPTS.plan(week, research, await channelResults()),
         checks.plan(ctx, week, research, all, used, slots),
       );
       // No valid plan, no drafts: the Copywriter would only guess.
@@ -577,9 +588,9 @@ async function main() {
   const when = job in SCHEDULES ? `cron ${SCHEDULES[job as keyof typeof SCHEDULES]}` : 'manual only';
   console.log(`Job ${job} (${when}), cycle week ${cycleWeek(new Date())}: ${plan.steps.join(' -> ')}`);
 
-  // Read-only and free (no agents): runs even in a dry run, to check the Meta token.
-  if (job === 'meta_check') {
-    console.log(await metaResults());
+  // Read-only and free (no agents): run even in a dry run, to check the Meta token and the Google key.
+  if (job === 'meta_check' || job === 'search_check') {
+    console.log(job === 'meta_check' ? await metaResults() : await searchResults());
     return;
   }
 
