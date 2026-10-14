@@ -52,7 +52,7 @@ If a photo in the slot does not fit what you are writing, keep the plan's photos
 
 ## Style
 
-- Specific, calm, classy. Show the walk, the lodges and the bush; never sound like an advert.
+- Specific, warm and a little playful, as in the owner-approved examples below. Show the walk, the lodges and the bush; never sound like an advert.
 - One idea per post: the slot's angle. Leave out everything that does not serve it. Do not list the same features (malaria-free, pool, WiFi) in every post; use a feature only where it is the point.
 - End with the facts pack's call_to_action, word for word, with its link. Nothing else invites the reader to act.
 - Never describe the photo. No "this image shows", "in the photo", "you can see", and no sentence whose only job is to narrate what is visible. The photo is already there.
@@ -75,7 +75,46 @@ Good: "Most hikers now say quiet matters more to them than distance. On the trai
 
 ## Owner-approved examples
 
-None yet. Once the owner has approved real posts, up to three short ones go here (a single, a carousel and a story) as the style to match. Until then, match the Good example under Style and any final texts the owner edited in /feedback.md.
+The owner picked posts by other South African walking trails as the style to match. What they liked, and what to copy:
+- A first line that talks to the reader: a light question or a wink, never a headline.
+- "You" throughout: the reader is the one walking.
+- Short lines, and for a sequence, a list of moments with one emoji each as the marker.
+- Warm and a little playful. A small joke at the end is welcome; hype words still are not.
+- A few relevant hashtags at most.
+
+Never copy another operator's words, and never name one. These three are written for us in that style; match them, using only facts from get_facts_pack.
+
+Single:
+```
+How far would you walk for a swim? 🥾
+
+Day 2 crosses Groenkop, about 15 km on foot, with views that reach 100 km from the top. Your bags have gone ahead, so all you carry is water.
+
+At Oukraal the pool is waiting. You have earned it.
+
+See dates and book on the rates page. https://rooibergwander.co.za/rates
+#Waterberg #WalkingSafari
+```
+
+Carousel:
+```
+What three days on foot in the Waterberg feel like 👇
+
+🥾 Leaving Temminck's Lodge with nothing but a day pack.
+👣 Stopping while a guide reads a track in the sand.
+⛰️ Reaching the top of Groenkop, and looking back.
+🌳 Walking in the shade of the big fig trees.
+🔥 Dinner around the boma fire, with a glass of South African wine.
+
+Then you get up and do it again. 😉
+
+See dates and book on the rates page. https://rooibergwander.co.za/rates
+```
+
+Story:
+```
+Your bags went ahead. You just walk. 🥾
+```
 
 ## The fix round
 
