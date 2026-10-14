@@ -374,7 +374,7 @@ for (const k of EMPLOYEE_KEYS.filter((x) => x !== 'editor')) {
   const blogFormat = await save({ kind: 'blog_draft', format: 'single' });
   assert('save_draft: a format on a blog draft is refused', blogFormat.isError === true && /Only Instagram and Facebook/.test(blogFormat.text));
   const thinCarousel = await save({ format: 'carousel' });
-  assert('save_draft: a carousel with one photo is refused', thinCarousel.isError === true && /3 to 10 photos/.test(thinCarousel.text));
+  assert('save_draft: a carousel with one photo is refused', thinCarousel.isError === true && /3 to 5 photos/.test(thinCarousel.text));
   const wideStory = await save({ format: 'story', photo_ids: ['rooiberg-sunset-grassland'] });
   assert('save_draft: a story with a landscape site photo is refused', wideStory.isError === true && /portrait photo/.test(wideStory.text));
   const longStory = await save({ format: 'story', photo_ids: ['temmincks-giraffe'], body: 'Walk. '.repeat(22) });
@@ -587,14 +587,16 @@ assert('an unknown type or channel is refused', C.checkBrief(brief([item(1, { ty
 assert('an over-long field is refused', C.checkBrief(brief([item(1, { headline: 'a'.repeat(121) })]), W, opened).errors.some((e) => /headline/.test(e)));
 assert('a long dash or the hidden products are refused', C.checkBrief(brief([item(1, { fact: 'A slackpacking trail \u2014 new.' })]), W, opened).errors.filter(notTrendCount).length === 2);
 
-const photos = new Set(['rooiberg-sunset-grassland', 'upload-x', 'trail-bushveld-path', 'guide-reading-tracks', 'temmincks-giraffe']);
+// Each slot defaults to its own photo (slot-n), since a photo may appear only once in a week's plan.
+const photos = new Set(['rooiberg-sunset-grassland', 'upload-x', 'trail-bushveld-path', 'guide-reading-tracks', 'temmincks-giraffe', 'slot-1', 'slot-2', 'slot-3', 'slot-4']);
 const three = 'trail-bushveld-path, guide-reading-tracks, rooiberg-sunset-grassland';
 const slot = (n, over = {}) => {
-  const f = { channel: 'instagram', format: 'single', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: 'rooiberg-sunset-grassland', 'call to action': 'See dates on the rates page.', ...over };
+  const f = { channel: 'instagram', format: 'single', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: `slot-${n}`, 'call to action': 'See dates on the rates page.', ...over };
   return `## P-${W}-${n}\n` + Object.entries(f).filter(([, v]) => v !== null).map(([k, v]) => `- ${k}: ${v}`).join('\n');
 };
 const plan = (slots) => `# Weekly plan\n\nGoal: one line.\n\n${slots.join('\n\n')}\n`;
-const okPlan = C.checkPlan(plan([slot(1), slot(2, { channel: 'facebook', format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }), slot(3, { format: 'story', photos: 'temmincks-giraffe', departure: '2027-04-04' }), slot(4, { channel: 'blog', format: 'none' })]), W, [`R-${W}-1`], photos);
+const okPlanMd = plan([slot(1), slot(2, { channel: 'facebook', format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }), slot(3, { format: 'story', photos: 'temmincks-giraffe', departure: '2027-04-04' }), slot(4, { channel: 'blog', format: 'none' })]);
+const okPlan = C.checkPlan(okPlanMd, W, [`R-${W}-1`], photos);
 const mix = (a, b, c) => plan([slot(1, a), slot(2, b), slot(3, c)]);
 {
   const trendIds = [`R-${W}-1`, `R-${W}-2`];
@@ -609,11 +611,26 @@ assert('a well-formed plan passes and yields its slots', okPlan.errors.length ==
 assert('a plan slot carries its format', okPlan.slots.map((s) => s.format).join() === 'single,carousel,story,');
 assert('the three post slots must be one single, one carousel and one story', C.checkPlan(mix({}, { format: 'carousel', photos: three }, {}), W, [`R-${W}-1`], photos).errors.some((e) => /missing: story/.test(e)));
 assert('an unknown format, or a blog with a post format, is refused', C.checkPlan(plan([slot(1, { format: 'reel' }), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', format: 'single' })]), W, [`R-${W}-1`], photos).errors.some((e) => /"reel"/.test(e)) && C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', format: 'single' })]), W, [`R-${W}-1`], photos).errors.some((e) => /blog slot has format "none"/.test(e)));
-assert('photo counts per format: single and story 1, carousel 3 to 10', C.checkPlan(mix({ photos: three }, { format: 'carousel' }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.filter((e) => /takes/.test(e)).length === 2 && C.photoCountError('carousel', 10) === null && C.photoCountError('carousel', 11) !== null && C.photoCountError('story', 1) === null);
+assert('photo counts per format: single and story 1, carousel 3 to 5', C.checkPlan(mix({ photos: three }, { format: 'carousel' }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.filter((e) => /takes/.test(e)).length === 2 && C.photoCountError('carousel', 5) === null && C.photoCountError('carousel', 6) !== null && C.photoCountError('story', 1) === null);
 assert('the plan needs exactly three Instagram or Facebook slots', C.checkPlan(plan([slot(1), slot(2)]), W, [`R-${W}-1`], photos).errors.some((e) => /exactly 3/.test(e)));
 assert('the plan allows at most one blog slot', C.checkPlan(plan([slot(1), slot(2), slot(3), slot(4, { channel: 'blog' }), slot(5, { channel: 'blog' })]), W, [`R-${W}-1`], photos).errors.some((e) => /at most 1/.test(e)));
 assert('a slot must rest on this week\'s research or a named fact', C.checkPlan(plan([slot(1, { 'based on': `R-${W}-9` }), slot(2, { 'based on': 'a hunch', format: 'carousel', photos: three }), slot(3, { format: 'story' })]), W, [`R-${W}-1`], photos).errors.length === 2);
 assert('unknown photo ids and malformed departures are refused', C.checkPlan(plan([slot(1, { photos: 'nope' }), slot(2, { departure: 'next week', format: 'carousel', photos: three }), slot(3, { format: 'story' })]), W, [`R-${W}-1`], photos).errors.length === 2);
+{
+  const used = new Set(['trail-bushveld-path']);
+  const reusePlan = C.checkPlan(okPlanMd, W, [`R-${W}-1`], photos, [], used);
+  assert('a photo already used on a pending or approved draft is never planned again', reusePlan.errors.some((e) => /never used twice/.test(e)));
+  assert('without used photos the same plan passes', C.checkPlan(okPlanMd, W, [`R-${W}-1`], photos, [], new Set()).errors.length === 0);
+  const twice = C.checkPlan(plan([slot(1, { photos: 'temmincks-giraffe' }), slot(2, { channel: 'facebook', format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }), slot(3, { format: 'story', photos: 'temmincks-giraffe' })]), W, [`R-${W}-1`], photos);
+  assert('the same photo in two slots of one plan is refused', twice.errors.some((e) => /already in another slot/.test(e)));
+  assert('used means pending or approved (rejected and superseded drafts never went out)', sameSet([...C.PHOTO_USED_STATUSES], ['pending', 'approved']));
+  const lib = tools.slice(tools.indexOf('async function getPhotoLibrary('), tools.indexOf('// ---- get_results'));
+  assert('get_photo_library lists only photos never used', /usedPhotoIds\(\)/.test(lib) && /filter\(\(p\) => !used\.has\(p\.id\)\)/.test(lib) && /unused_left/.test(lib));
+  const saveFn = tools.slice(tools.indexOf('async function saveDraft('), tools.indexOf('const saveDraftInput'));
+  assert('save_draft refuses a used photo, except on the flagged draft it replaces', /usedPhotoIds\(input\.replaces\)/.test(saveFn) && /never used twice/.test(saveFn));
+  const runSrc = read('marketing/run.ts');
+  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
+}
 assert('X is no longer a planned channel (owner decision: Instagram and Facebook)', C.checkPlan(plan([slot(1, { channel: 'x' }), slot(2), slot(3)]), W, [`R-${W}-1`], photos).errors.some((e) => /channel "x"/.test(e)));
 
 const slots = okPlan.slots;
@@ -625,7 +642,7 @@ assert('a missing or wrong-kind draft is named', C.checkDrafts(slots, withFormat
 assert('slot ids match exactly (P-...-1 is not P-...-10)', C.checkDrafts([{ id: `P-${W}-1`, channel: 'instagram' }], [{ kind: 'instagram_caption', notes: `Plan slot: P-${W}-10` }]).length === 1);
 assert('the playbook needs every section', C.checkPlaybook('# Team playbook\n\n## What works\n\nx\n').length === C.PLAYBOOK_SECTIONS.length - 1);
 assert('the drafts kinds the plan maps to all exist', Object.values(C.KIND_FOR_CHANNEL).every((k) => MARKETING_DRAFT_KINDS.includes(k)));
-assert('the runner reads the same photo ids as the library module', sameSet(C.photoIdsFromSource(read('src/data/photo-library.ts')), SITE_PHOTOS.map((p) => p.id)));
+assert('the runner reads the same photo ids as the library module', sameSet(C.PHOTO_LIBRARY_SOURCES.flatMap((f) => C.photoIdsFromSource(read(f))), SITE_PHOTOS.map((p) => p.id)));
 assert('uploaded photo ids use the same prefix as the tool server', /export const UPLOAD_ID_PREFIX = '([^']+)'/.exec(read('src/lib/marketing-photos.ts'))?.[1] === C.UPLOAD_PHOTO_PREFIX);
 assert('each brief that hands over states its format and the runner\'s field names', [['researcher', C.BRIEF_FIELDS], ['head-of-marketing', C.PLAN_FIELDS]].every(([name, fields]) => fields.every((f) => briefText(name).includes(`- ${f}:`))) && /Plan slot: /.test(briefText('copywriter')) && C.PLAYBOOK_SECTIONS.every((h) => briefText('head-of-marketing').includes(`## ${h}`)));
 assert('the briefs\' format examples pass the checks they describe', (() => {
@@ -648,7 +665,18 @@ const libraryFiles = sitePhotoFiles.filter((f) => !MARKETING_EXCLUDED_PHOTOS.inc
 assert(`every site photo except logos and trophy-excluded photos is in the library (${libraryFiles.length} files)`, sameSet(imported, libraryFiles));
 assert('trophy-excluded photos are never in the library', MARKETING_EXCLUDED_PHOTOS.every((f) => !imported.includes(f)));
 assert('no logo is in the library', !imported.some((f) => /logo/i.test(f)));
-assert('every imported photo is used by exactly one entry', SITE_PHOTOS.length === imported.length);
+assert('every imported photo is used by exactly one entry', SITE_PHOTOS.filter((p) => !p.image.src.startsWith('/marketing-library/')).length === imported.length);
+{
+  // The owner's photographs: one EXIF-free JPEG in public/marketing-library per entry, and no other file.
+  const { shootPhotos } = await import('../src/data/photo-library-shoot.ts');
+  const shootDir = new URL('../public/marketing-library/', import.meta.url);
+  const files = readdirSync(shootDir);
+  assert(`the owner's photographs: one file per entry and no strays (${shootPhotos.length})`, sameSet(files, shootPhotos.map((p) => `${p.id}.jpg`)));
+  assert("the owner's photographs are all in the library", shootPhotos.every((p) => SITE_PHOTOS.some((s) => s.id === p.id && s.image.src === `/marketing-library/${p.id}.jpg`)));
+  const hasExif = (buf) => { for (let i = 2; i + 4 < buf.length && buf[i] === 0xff; ) { const m = buf[i + 1]; if (m === 0xe1) return true; if (m === 0xda) return false; i += 2 + buf.readUInt16BE(i + 2); } return false; };
+  assert("the owner's photographs carry no EXIF (no camera location data)", files.every((f) => !hasExif(readFileSync(new URL(f, shootDir)))));
+  assert('photo ids are unique across the whole library', new Set(SITE_PHOTOS.map((p) => p.id)).size === SITE_PHOTOS.length);
+}
 assert('photo ids are unique', new Set(SITE_PHOTOS.map((p) => p.id)).size === SITE_PHOTOS.length);
 assert('photo ids are lowercase slugs', SITE_PHOTOS.every((p) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(p.id)));
 assert('every category is one of trail, lodge, landscape, wildlife, food, guide', SITE_PHOTOS.every((p) => PHOTO_CATEGORIES.includes(p.category)));
@@ -659,8 +687,7 @@ assert('the "temmnicks" filename typo never reaches an id or alt text', SITE_PHO
 assert('no old lodge name and no trophy wording in the library', SITE_PHOTOS.every((p) => !/Rotavi|VierVanAcht|Blackwood|trophy|taxiderm|mounted head|skull/i.test(p.alt + (p.note ?? ''))));
 assert('get_photo_library serves the static library with public URLs', staticPhotoLibrary().length === SITE_PHOTOS.length && staticPhotoLibrary().every((p) => p.url.startsWith('https://')));
 const libResult = await callTool('get_photo_library', {}, 'copywriter');
-const libJson = JSON.parse(libResult.text);
-assert('get_photo_library still answers with the site photos when uploads cannot be read', !libResult.isError && libJson.photos.length === SITE_PHOTOS.length && /site photos only/.test(libJson.note));
+assert('get_photo_library refuses rather than offer photos it cannot check are unused', libResult.isError === true && /which photos have been used/.test(libResult.text));
 const toolsSrc = read('src/lib/marketing-tools.ts');
 assert('get_photo_library merges the uploads (signed URLs)', /uploadedPhotos\(\)/.test(toolsSrc) && /createSignedUrls\(/.test(read('src/lib/marketing-photos.ts')));
 assert('save_draft accepts upload ids only when the upload exists', /existingUploadIds\(/.test(toolsSrc));

@@ -17,6 +17,7 @@ import {
   type PhotoUploadType,
 } from '../data/photo-library';
 import { MARKETING_PHOTO_COLUMNS, sel, type MarketingPhotoRow } from './db.types';
+import { PHOTO_USED_STATUSES } from '../../marketing/contracts';
 
 export const MARKETING_PHOTO_BUCKET = 'marketing-photos';
 // Agents' sessions are capped at 20 minutes, so an hour comfortably covers a run.
@@ -106,4 +107,14 @@ export async function existingUploadIds(ids: string[]): Promise<Set<string>> {
   const { data, error } = await getSupabaseAdmin().schema('marketing').from('photos').select('id').in('id', uuids);
   if (error) throw new Error(error.message);
   return new Set(((data ?? []) as { id: string }[]).map((r) => UPLOAD_ID_PREFIX + r.id));
+}
+
+// Every photo id already on a pending or approved draft. A photo is used once and never again
+// (CLAUDE.md Part 18); exceptDraft leaves out the flagged draft a fix is replacing.
+export async function usedPhotoIds(exceptDraft?: string): Promise<Set<string>> {
+  let q = getSupabaseAdmin().schema('marketing').from('drafts').select('id, photo_ids').in('status', [...PHOTO_USED_STATUSES]);
+  if (exceptDraft) q = q.neq('id', exceptDraft);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return new Set(((data ?? []) as { photo_ids: string[] | null }[]).flatMap((r) => r.photo_ids ?? []));
 }

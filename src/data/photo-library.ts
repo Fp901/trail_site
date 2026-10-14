@@ -16,6 +16,7 @@
 // Three pairs are the same photograph at a different crop or resolution (noted on each), kept
 // because both files ship with the site.
 import type { ImageMetadata } from 'astro';
+import { shootPhotos } from './photo-library-shoot';
 
 import heroSunset from '../assets/images/hero-rooiberg-mountains-sunset.jpg';
 import duskPanorama from '../assets/images/rooiberg-dusk-panorama.jpg';
@@ -392,4 +393,9 @@ export const photoLibrary: readonly LibraryPhoto[] = [
     note: 'The same photograph as rustwood-pool-night, at a higher resolution.',
     image: rusPoolDuskBand,
   },
+  // ---- The owner's photographs (photo-library-shoot.ts), served from public/marketing-library ----
+  ...shootPhotos.map(({ width, height, ...p }) => ({
+    ...p,
+    image: { src: `/marketing-library/${p.id}.jpg`, width, height, format: 'jpg' } as ImageMetadata,
+  })),
 ];
