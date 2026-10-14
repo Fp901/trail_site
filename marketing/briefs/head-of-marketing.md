@@ -72,13 +72,13 @@ Avoid: anything to steer clear of this week, and why.
 - channel: instagram, facebook or blog. Exactly three instagram or facebook slots, plus at most one blog slot.
 - format: the three instagram or facebook slots are one of each, so the owner always gets a mix:
   - single: one photo and a caption. The strongest single image for one clear idea.
-  - carousel: 3 to 10 photos in the order they will be swiped, and a caption. Best for a sequence, such as the trail day by day or a lodge from arrival to fireside.
+  - carousel: 3 to 5 photos in the order they will be swiped, and a caption. Best for a sequence, such as the trail day by day or a lodge from arrival to fireside.
   - story: one portrait photo (orientation "portrait" in get_photo_library) with at most 125 characters of text on it and no caption. Best for something timely, such as a departure with places left.
   A blog slot has format none.
 - angle: under 300 characters.
 - based on: a research item id from this week's brief, or "facts: " and what in get_facts_pack it uses. The owner wants posts inspired by the wider industry, so at least two of the three post slots rest on one of the brief's trend items (the runner checks this). The angle says how the trend connects to the trail; the facts pack supplies everything said about Rooiberg Wander.
 - departure: a start date from get_open_departures, or none.
-- photos: ids from get_photo_library, separated by commas, in the order they should appear: exactly 1 for a single or a story, 3 to 10 for a carousel. Choose photos that show what the angle says; read each photo's alt text, and never use the same photo twice in a week.
+- photos: ids from get_photo_library, separated by commas, in the order they should appear: exactly 1 for a single or a story, 3 to 5 for a carousel. Choose photos that show what the angle says; read each photo's alt text. A photo is used once and never again: get_photo_library lists only photos that have never been used, and the plan check refuses any other. Photos are scarce, so a carousel takes 3 unless the idea truly needs more, and an angle can be shaped around a photo nobody has used yet. When get_photo_library reports unused_left below 12, end your reply with "Photos to take next:" and up to five specific shots the owner could photograph and upload (for example "the Oukraal lapa at dusk, portrait").
 - call to action: write "from get_facts_pack". Every post ends with the facts pack's call_to_action, so the owner's readers always get the same next step.
 
 ## Your notebook

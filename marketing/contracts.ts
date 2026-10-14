@@ -60,8 +60,9 @@ export const cycleWeek = (date: Date): string => isoWeekKey(new Date(date.getTim
 
 // ---- Photos -------------------------------------------------------------------------------
 
-// The ids in src/data/photo-library.ts, read from its source text (that module imports images,
-// which load only inside Vite).
+// Site photo ids, read from the source text of both files that hold them (the website's photos and
+// the owner's photographs): photo-library.ts imports images, which load only inside Vite.
+export const PHOTO_LIBRARY_SOURCES = ['src/data/photo-library.ts', 'src/data/photo-library-shoot.ts'] as const;
 export const photoIdsFromSource = (src: string): string[] => [...src.matchAll(/^\s+id: '([^']+)',$/gm)].map((m) => m[1]);
 
 // An uploaded photo's id is this prefix and its marketing.photos row id (UPLOAD_ID_PREFIX in
@@ -195,9 +196,15 @@ export const POST_FORMATS = ['single', 'carousel', 'story'] as const;
 export type PostFormat = (typeof POST_FORMATS)[number];
 export const FORMAT_PHOTOS: Record<PostFormat, { min: number; max: number }> = {
   single: { min: 1, max: 1 },
-  carousel: { min: 3, max: 10 },
+  carousel: { min: 3, max: 5 },
   story: { min: 1, max: 1 },
 };
+// A photo is used once and never again (owner, 14 October 2026). Used means it is on a draft that
+// is pending or approved; a rejected or superseded draft never went out, so its photos are free.
+export const PHOTO_USED_STATUSES = ['pending', 'approved'] as const;
+// The runner warns in its log when fewer unused photos than this are left (about two weeks).
+export const PHOTOS_LOW_WARNING = 12;
+
 export const photoCountError = (format: PostFormat, n: number): string | null => {
   const { min, max } = FORMAT_PHOTOS[format];
   if (n >= min && n <= max) return null;
@@ -219,6 +226,7 @@ export interface PlanCheck {
 
 // briefIds: this cycle's valid research item ids (empty when the brief failed its check).
 // photoIds: every id get_photo_library can return.
+// usedPhotos: ids already on a pending or approved draft; none may be planned again.
 // trendIds: the brief items of type trend. When the brief has them, at least
 // PLAN_MIN_TREND_SLOTS of the post slots must rest on one; with no valid brief the rule is off.
 export function checkPlan(
@@ -227,8 +235,10 @@ export function checkPlan(
   briefIds: readonly string[],
   photoIds: ReadonlySet<string>,
   trendIds: readonly string[] = [],
+  usedPhotos: ReadonlySet<string> = new Set(),
 ): PlanCheck {
   const errors: string[] = [];
+  const planned = new Set<string>();
   const items = parseItems(md);
   const briefs = new Set(briefIds);
   items.forEach((item, i) => {
@@ -261,7 +271,12 @@ export function checkPlan(
     if (f.photos) {
       const ids = f.photos.split(',').map((s) => s.trim()).filter(Boolean);
       if (ids.length === 0) errors.push(`${item.id}: name at least one photo id.`);
-      for (const id of ids) if (!photoIds.has(id)) errors.push(`${item.id}: unknown photo id "${id}".`);
+      for (const id of ids) {
+        if (!photoIds.has(id)) errors.push(`${item.id}: unknown photo id "${id}".`);
+        else if (usedPhotos.has(id)) errors.push(`${item.id}: "${id}" has already been used; a photo is never used twice. Choose one get_photo_library still lists.`);
+        else if (planned.has(id)) errors.push(`${item.id}: "${id}" is already in another slot this week.`);
+        planned.add(id);
+      }
       if (isPost && (POST_FORMATS as readonly string[]).includes(fmt)) {
         const e = photoCountError(fmt as PostFormat, ids.length);
         if (e) errors.push(`${item.id}: ${e}`);

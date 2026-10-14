@@ -22,6 +22,7 @@ import {
 } from '../../lib/db.types';
 import { PHOTO_LODGE_BY_KEY, PHOTO_UPLOAD_MAX_BYTES, photoLibrary } from '../../data/photo-library';
 import { withBase } from '../../data/site';
+import { usedPhotoIds } from '../../lib/marketing-photos';
 
 export const prerender = false;
 
@@ -64,6 +65,20 @@ try {
   photos = (data as unknown as PhotoListRow[]) ?? [];
 } catch {
   photosError = true;
+}
+
+// A photo is used once and never again (Part 18): how many the team has left to choose from.
+let unusedLeft: number | null = null;
+try {
+  const [used, uploads] = await Promise.all([
+    usedPhotoIds(),
+    getSupabaseAdmin().schema('marketing').from('photos').select('id'),
+  ]);
+  if (uploads.error) throw uploads.error;
+  const all = [...photoLibrary.map((p) => p.id), ...((uploads.data ?? []) as { id: string }[]).map((r) => `upload-${r.id}`)];
+  unusedLeft = all.filter((id) => !used.has(id)).length;
+} catch {
+  unusedLeft = null;
 }
 
 const CATEGORY_LABEL: Record<(typeof MARKETING_PHOTO_CATEGORIES)[number], string> = {
@@ -210,6 +225,12 @@ const fmtDateTime = (v: string | null) =>
               Upload a photo the team may use. It is stored privately and the team only sees a link that
               expires. JPEG, PNG or WebP, up to {maxMb} MB.
             </p>
+            {unusedLeft !== null && (
+              <p class="mt-2 font-body text-charcoal">
+                A photo is used in one post only. <strong>{unusedLeft}</strong> {unusedLeft === 1 ? 'photo has' : 'photos have'} not been used yet.
+                {unusedLeft < 12 && ' That is about two weeks of posts, so please upload new ones.'}
+              </p>
+            )}
             <form data-photo-upload novalidate class="mt-4" enctype="multipart/form-data">
               <div class="form-field">
                 <label for="mk-photo-file">Photo</label>

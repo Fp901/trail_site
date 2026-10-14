@@ -15,7 +15,7 @@ import { site, stats } from '../data/site';
 import { itinerary } from '../data/itinerary';
 import { sanctuaries } from '../data/sanctuaries';
 import { photoLibrary as sitePhotos, orientationOf } from '../data/photo-library';
-import { existingUploadIds, uploadedPhotos } from './marketing-photos';
+import { existingUploadIds, uploadedPhotos, usedPhotoIds } from './marketing-photos';
 import { logisticsBlocks, faqs, faqAnswerText, seasons } from '../data/logistics';
 import {
   rateRows,
@@ -197,17 +197,33 @@ export function staticPhotoLibrary() {
   }));
 }
 
+// A photo is used once and never again: photos already on a pending or approved draft are left
+// out, so the list is exactly what may still be planned.
 async function getPhotoLibrary(): Promise<ToolResult> {
-  const photos = staticPhotoLibrary();
+  let used: Set<string>;
   try {
-    const uploads = await uploadedPhotos();
-    return json({
-      photos: [...uploads.map((u) => ({ ...u, source: 'upload' as const })), ...photos],
-      note: 'Refer to photos by id. Uploaded photos have signed URLs that expire; never copy a URL into a draft.',
-    });
+    used = await usedPhotoIds();
   } catch {
-    return json({ photos, note: 'Uploaded photos could not be read right now; these are the site photos only.' });
+    return fail('Could not read which photos have been used right now. Try again shortly.');
   }
+  const fresh = <T extends { id: string }>(list: T[]) => list.filter((p) => !used.has(p.id));
+  const site = fresh(staticPhotoLibrary());
+  let uploads: Awaited<ReturnType<typeof uploadedPhotos>> = [];
+  let uploadNote = '';
+  try {
+    uploads = fresh(await uploadedPhotos());
+  } catch {
+    uploadNote = ' Uploaded photos could not be read right now; these are the site photos only.';
+  }
+  const photos = [...uploads.map((u) => ({ ...u, source: 'upload' as const })), ...site];
+  return json({
+    photos,
+    unused_left: photos.length,
+    portrait_left: photos.filter((p) => p.orientation === 'portrait').length,
+    note:
+      'Only photos never used before are listed: a photo is used once and never again. Refer to photos by id. Uploaded photos have signed URLs that expire; never copy a URL into a draft.' +
+      uploadNote,
+  });
 }
 
 // ---- get_results --------------------------------------------------------------------------------
@@ -312,6 +328,17 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
   }
   const unknown = input.photo_ids.filter((id) => !known.has(id) && !uploads.has(id));
   if (unknown.length) return fail(`Unknown photo ids: ${unknown.join(', ')}. Use ids from get_photo_library.`);
+  if (new Set(input.photo_ids).size !== input.photo_ids.length) return fail('The same photo is named twice in this draft.');
+  let used: Set<string>;
+  try {
+    used = await usedPhotoIds(input.replaces);
+  } catch {
+    return fail('Could not check which photos have been used right now.');
+  }
+  const reused = input.photo_ids.filter((id) => used.has(id));
+  if (reused.length) {
+    return fail(`Already used, and a photo is never used twice: ${reused.join(', ')}. Choose from get_photo_library, which lists only unused photos.`);
+  }
 
   // The fix round: a corrected draft names the flagged one it replaces. Only the author's own
   // draft, still pending and flagged by the Editor, and only once (it stops being pending below).
@@ -370,7 +397,7 @@ const saveDraftInput = z
       .enum(MARKETING_POST_FORMATS)
       .optional()
       .describe(
-        'Instagram and Facebook posts only, and then required. single: 1 photo and a caption. carousel: 3 to 10 photos in order and a caption. story: 1 portrait photo and at most 125 characters of text on it, no caption.',
+        'Instagram and Facebook posts only, and then required. single: 1 photo and a caption. carousel: 3 to 5 photos in order and a caption. story: 1 portrait photo and at most 125 characters of text on it, no caption.',
       ),
     departure_date: z
       .string()
