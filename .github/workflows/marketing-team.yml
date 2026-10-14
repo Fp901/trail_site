@@ -24,7 +24,7 @@ on:
         required: true
         default: weekly_review
         type: choice
-        options: [weekly_review, plan_and_write, research, sync]
+        options: [weekly_review, plan_and_write, research, meta_check, sync]
       dry_run:
         description: 'Dry run: print the plan only, no API calls'
         required: true
@@ -48,6 +48,9 @@ jobs:
       PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       MARKETING_TOOLS_TOKEN: ${{ secrets.MARKETING_TOOLS_TOKEN }}
+      # Read-only here: the runner reads our own post results (marketing/meta.ts) and never posts.
+      META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+      META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://www.rooibergwander.co.za' }}
     steps:
       - uses: actions/checkout@v4
