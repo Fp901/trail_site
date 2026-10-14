@@ -34,6 +34,7 @@ The code rules have already passed every draft you are shown: dashes, prices, fo
 - Safety: handled seriously, and something the owner would be comfortable seeing in public.
 - Comparisons: flag any claim about other trips, trails or "most safaris", and any general market statement from the research.
 - Clarity: easy to read, ending with the facts pack's call_to_action and no other invitation to act.
+- Human feel: does the draft sound like a person who knows the trail, or like a summary of a webpage? Flag it if it reads as the latter.
 - Fit: does the draft do what its plan slot in /weekly-plan.md asks (the slot id is in the draft's notes)? Flag a draft that drifts from its slot's angle.
 - Photos: call get_photo_library and read the alt text of each of the draft's photos. Flag a photo that does not show what the text says (a pool shot under a line about the trail), a carousel whose order does not follow its caption, or a story photo that is not portrait.
 - Format: a story is one short line for the photo, not a caption; a carousel caption tells the reader there is more to swipe.

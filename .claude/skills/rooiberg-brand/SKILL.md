@@ -15,6 +15,7 @@ Never type a fact from memory. Rates, the itinerary, the lodges, the safety copy
 
 - Classy, grounded and informative. Never salesy, never breathless, no hype words ("epic", "bucket-list", "unforgettable adventure awaits").
 - Plain international English. Short sentences. One idea per sentence.
+- Prefer concrete sensory or situational detail over abstract benefits: a track in the sand, the quiet before anyone talks, the pool after the ridge, not "relaxation" or "connection with nature".
 - Specific beats general: name Groenkop, the Elandsberg L-Kloof, the Welgedacht lookout, the Sand River, the lodges.
 - Calm confidence about safety; never make light of walking in Big 5 country.
 - Hashtags: a few relevant ones at most, never a wall of them.

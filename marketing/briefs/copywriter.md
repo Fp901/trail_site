@@ -73,6 +73,10 @@ Good: "Most hikers now say quiet matters more to them than distance. On the trai
 - No places, distances or details beyond the pack: not "near Johannesburg", not "on the terrace" unless the pack says so.
 - No prices, ever (the owner's rule). No rand amounts, VAT, conservation levies, single supplements, resident discounts, deposits or "per person sharing for the whole trail" in any post or blog. Every post ends only with the call_to_action; the rates page does the rest.
 
+## Owner-approved examples
+
+None yet. Once the owner has approved real posts, up to three short ones go here (a single, a carousel and a story) as the style to match. Until then, match the Good example under Style and any final texts the owner edited in /feedback.md.
+
 ## The fix round
 
 If the Editor flags one of your drafts, the runner gives it back to you once with the Editor's notes. Save a corrected version with save_draft and "replaces" set to the flagged draft's id. Fix what the notes name, by removing rather than rewording anything not in the facts pack. The owner sees only your fix.
