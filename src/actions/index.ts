@@ -1398,7 +1398,9 @@ export const server = {
     },
   }),
 
-  // Marketing team (CLAUDE.md Part 18): approve, edit-and-approve or reject one pending draft.
+  // Marketing team (CLAUDE.md Part 18): approve, edit-and-approve or reject one pending draft, or
+  // withdraw an approved one the owner has not posted (it becomes rejected, so its photos and its
+  // plan or launch slot are free again).
   // Approving never publishes anything (no publisher exists yet). An edited body runs the same
   // code rules as save_draft, the original agent text is kept, and the reason lands in
   // marketing.feedback, which the runner copies into the Copywriter's notebook.
@@ -1406,7 +1408,7 @@ export const server = {
     accept: 'json',
     input: z.object({
       draftId: z.string().uuid(),
-      decision: z.enum(['approve', 'reject']),
+      decision: z.enum(['approve', 'reject', 'withdraw']),
       body: z.string().trim().min(1).max(20000).optional(),
       reason: z.string().trim().max(1000).optional(),
     }),
@@ -1423,8 +1425,12 @@ export const server = {
       if (loadErr || !draft) {
         throw new ActionError({ code: 'NOT_FOUND', message: 'Draft not found.' });
       }
-      if (draft.status !== 'pending') {
-        throw new ActionError({ code: 'CONFLICT', message: 'This draft has already been decided.' });
+      const from = input.decision === 'withdraw' ? 'approved' : 'pending';
+      if (draft.status !== from) {
+        throw new ActionError({
+          code: 'CONFLICT',
+          message: from === 'approved' ? 'Only an approved draft can be withdrawn.' : 'This draft has already been decided.',
+        });
       }
 
       const edited =
@@ -1438,9 +1444,9 @@ export const server = {
 
       const reason = input.reason ? input.reason : null;
       const decision: MarketingDecision =
-        input.decision === 'reject' ? 'rejected' : edited ? 'edited' : 'approved';
+        input.decision === 'approve' ? (edited ? 'edited' : 'approved') : 'rejected';
       const update: Record<string, unknown> = {
-        status: input.decision === 'reject' ? 'rejected' : 'approved',
+        status: input.decision === 'approve' ? 'approved' : 'rejected',
         decided_at: new Date().toISOString(),
         decided_by: admin.email,
         decision_reason: reason,
@@ -1454,7 +1460,7 @@ export const server = {
         .from('drafts')
         .update(update)
         .eq('id', input.draftId)
-        .eq('status', 'pending')
+        .eq('status', from)
         .select('id');
       if (upErr || !moved || moved.length === 0) {
         throw new ActionError({ code: 'CONFLICT', message: 'This draft has already been decided.' });
@@ -1484,7 +1490,7 @@ export const server = {
             : decision === 'edited'
               ? 'marketing_draft_edit'
               : 'marketing_draft_approve',
-        before: { draft_id: input.draftId, status: 'pending' },
+        before: { draft_id: input.draftId, status: from },
         after: { draft_id: input.draftId, kind: draft.kind, status: update.status },
         note: reason,
       });
