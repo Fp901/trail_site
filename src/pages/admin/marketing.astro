@@ -45,8 +45,8 @@ try {
   const columns = sel<MarketingDraftRow, typeof MARKETING_DRAFT_COLUMNS>(MARKETING_DRAFT_COLUMNS);
   const [p, r, a] = await Promise.all([
     mk.from('drafts').select(columns).eq('status', 'pending').order('created_at', { ascending: true }).limit(100),
-    mk.from('drafts').select(columns).in('status', ['approved', 'rejected']).order('decided_at', { ascending: false }).limit(10),
-    mk.from('drafts').select(columns).eq('status', 'approved').order('decided_at', { ascending: false }).limit(100),
+    mk.from('drafts').select(columns).in('status', ['approved', 'rejected']).order('decided_at', { ascending: false }).limit(5),
+    mk.from('drafts').select(columns).eq('status', 'approved').order('decided_at', { ascending: false }).limit(5),
   ]);
   if (p.error) throw p.error;
   if (r.error) throw r.error;
@@ -314,7 +314,7 @@ const fmtDateTime = (v: string | null) =>
 
           {approved.length > 0 && (
             <div class="mt-12">
-              <h2 class="font-display text-2xl text-earth">Approved</h2>
+              <h2 class="font-display text-2xl text-earth">Recently approved</h2>
               <p class="mt-2 font-body text-charcoal/75">
                 Withdraw a post you have not posted and do not want. It counts as rejected, so its photos
                 and its slot are free again and the team can write it afresh.
