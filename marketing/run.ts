@@ -47,6 +47,7 @@ import {
   fixPrompt,
   parseItems,
   photoIdsFromSource,
+  PHOTO_LIBRARY_SOURCES,
   PHOTO_USED_STATUSES,
   PHOTOS_LOW_WARNING,
   UPLOAD_PHOTO_PREFIX,
@@ -343,7 +344,7 @@ async function briefIds(ctx: Ctx, week: string): Promise<{ ids: string[]; trends
 async function photoIds(ctx: Ctx): Promise<Set<string>> {
   // The site photos' ids, read from the source: the module itself imports images, which only load
   // inside Vite. verify-marketing.mjs checks this reads the same ids as the module.
-  const ids = new Set(photoIdsFromSource(readFileSync('src/data/photo-library.ts', 'utf8')));
+  const ids = new Set(PHOTO_LIBRARY_SOURCES.flatMap((f) => photoIdsFromSource(readFileSync(f, 'utf8'))));
   const { data, error } = await ctx.sb.from('photos').select('id');
   if (error) throw new Error(`photos read failed: ${error.message}`);
   for (const r of (data ?? []) as { id: string }[]) ids.add(UPLOAD_PHOTO_PREFIX + r.id);

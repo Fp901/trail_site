@@ -60,8 +60,9 @@ export const cycleWeek = (date: Date): string => isoWeekKey(new Date(date.getTim
 
 // ---- Photos -------------------------------------------------------------------------------
 
-// The ids in src/data/photo-library.ts, read from its source text (that module imports images,
-// which load only inside Vite).
+// Site photo ids, read from the source text of both files that hold them (the website's photos and
+// the owner's photographs): photo-library.ts imports images, which load only inside Vite.
+export const PHOTO_LIBRARY_SOURCES = ['src/data/photo-library.ts', 'src/data/photo-library-shoot.ts'] as const;
 export const photoIdsFromSource = (src: string): string[] => [...src.matchAll(/^\s+id: '([^']+)',$/gm)].map((m) => m[1]);
 
 // An uploaded photo's id is this prefix and its marketing.photos row id (UPLOAD_ID_PREFIX in

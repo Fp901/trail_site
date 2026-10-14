@@ -642,7 +642,7 @@ assert('a missing or wrong-kind draft is named', C.checkDrafts(slots, withFormat
 assert('slot ids match exactly (P-...-1 is not P-...-10)', C.checkDrafts([{ id: `P-${W}-1`, channel: 'instagram' }], [{ kind: 'instagram_caption', notes: `Plan slot: P-${W}-10` }]).length === 1);
 assert('the playbook needs every section', C.checkPlaybook('# Team playbook\n\n## What works\n\nx\n').length === C.PLAYBOOK_SECTIONS.length - 1);
 assert('the drafts kinds the plan maps to all exist', Object.values(C.KIND_FOR_CHANNEL).every((k) => MARKETING_DRAFT_KINDS.includes(k)));
-assert('the runner reads the same photo ids as the library module', sameSet(C.photoIdsFromSource(read('src/data/photo-library.ts')), SITE_PHOTOS.map((p) => p.id)));
+assert('the runner reads the same photo ids as the library module', sameSet(C.PHOTO_LIBRARY_SOURCES.flatMap((f) => C.photoIdsFromSource(read(f))), SITE_PHOTOS.map((p) => p.id)));
 assert('uploaded photo ids use the same prefix as the tool server', /export const UPLOAD_ID_PREFIX = '([^']+)'/.exec(read('src/lib/marketing-photos.ts'))?.[1] === C.UPLOAD_PHOTO_PREFIX);
 assert('each brief that hands over states its format and the runner\'s field names', [['researcher', C.BRIEF_FIELDS], ['head-of-marketing', C.PLAN_FIELDS]].every(([name, fields]) => fields.every((f) => briefText(name).includes(`- ${f}:`))) && /Plan slot: /.test(briefText('copywriter')) && C.PLAYBOOK_SECTIONS.every((h) => briefText('head-of-marketing').includes(`## ${h}`)));
 assert('the briefs\' format examples pass the checks they describe', (() => {
@@ -665,7 +665,18 @@ const libraryFiles = sitePhotoFiles.filter((f) => !MARKETING_EXCLUDED_PHOTOS.inc
 assert(`every site photo except logos and trophy-excluded photos is in the library (${libraryFiles.length} files)`, sameSet(imported, libraryFiles));
 assert('trophy-excluded photos are never in the library', MARKETING_EXCLUDED_PHOTOS.every((f) => !imported.includes(f)));
 assert('no logo is in the library', !imported.some((f) => /logo/i.test(f)));
-assert('every imported photo is used by exactly one entry', SITE_PHOTOS.length === imported.length);
+assert('every imported photo is used by exactly one entry', SITE_PHOTOS.filter((p) => !p.image.src.startsWith('/marketing-library/')).length === imported.length);
+{
+  // The owner's photographs: one EXIF-free JPEG in public/marketing-library per entry, and no other file.
+  const { shootPhotos } = await import('../src/data/photo-library-shoot.ts');
+  const shootDir = new URL('../public/marketing-library/', import.meta.url);
+  const files = readdirSync(shootDir);
+  assert(`the owner's photographs: one file per entry and no strays (${shootPhotos.length})`, sameSet(files, shootPhotos.map((p) => `${p.id}.jpg`)));
+  assert("the owner's photographs are all in the library", shootPhotos.every((p) => SITE_PHOTOS.some((s) => s.id === p.id && s.image.src === `/marketing-library/${p.id}.jpg`)));
+  const hasExif = (buf) => { for (let i = 2; i + 4 < buf.length && buf[i] === 0xff; ) { const m = buf[i + 1]; if (m === 0xe1) return true; if (m === 0xda) return false; i += 2 + buf.readUInt16BE(i + 2); } return false; };
+  assert("the owner's photographs carry no EXIF (no camera location data)", files.every((f) => !hasExif(readFileSync(new URL(f, shootDir)))));
+  assert('photo ids are unique across the whole library', new Set(SITE_PHOTOS.map((p) => p.id)).size === SITE_PHOTOS.length);
+}
 assert('photo ids are unique', new Set(SITE_PHOTOS.map((p) => p.id)).size === SITE_PHOTOS.length);
 assert('photo ids are lowercase slugs', SITE_PHOTOS.every((p) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(p.id)));
 assert('every category is one of trail, lodge, landscape, wildlife, food, guide', SITE_PHOTOS.every((p) => PHOTO_CATEGORIES.includes(p.category)));
