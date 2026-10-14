@@ -541,8 +541,10 @@ const page = read('src/pages/admin/marketing.astro');
 const decide = actions.slice(actions.indexOf('adminDecideDraft:'), actions.indexOf('adminCreateCompBooking:'));
 assert('/admin/marketing is server-rendered and gated by admin auth', /export const prerender = false;/.test(page) && /getAdminUser\(Astro\.cookies\)/.test(page) && /Astro\.redirect\(withBase\('\/admin\/login'\)\)/.test(page));
 assert('adminDecideDraft requires an admin and is rate-limited', /requireAdmin\(ctx\)/.test(decide) && /adminActionRate\(admin\.email\)/.test(decide));
+assert('withdraw acts only on an approved draft, compare-and-set', /const from = input\.decision === 'withdraw' \? 'approved' : 'pending'/.test(decide) && /\.eq\('status', from\)/.test(decide));
+assert('a withdrawn draft becomes rejected and is audited as a rejection', /status: input\.decision === 'approve' \? 'approved' : 'rejected'/.test(decide) && /'marketing_draft_reject'/.test(decide));
 assert('an edited draft runs the code rules before it is saved', decide.indexOf('checkDraft(') > -1 && decide.indexOf('checkDraft(') < decide.indexOf('.update(update)'));
-assert('a decision is a compare-and-set on pending', /\.update\(update\)\s*\.eq\('id', input\.draftId\)\s*\.eq\('status', 'pending'\)/.test(decide));
+assert('a decision is a compare-and-set on the status it was read in', /\.update\(update\)\s*\.eq\('id', input\.draftId\)\s*\.eq\('status', from\)/.test(decide));
 assert('the reason is recorded in marketing.feedback', /from\('feedback'\)\.insert\(\{[\s\S]*?reason,/.test(decide));
 assert('the agent text is kept when the owner edits', /update\.original_body = draft\.body/.test(decide));
 assert('every decision is also written to admin_audit (approve, edit, reject)', /recordAdminEvent\(/.test(decide) && ['marketing_draft_approve', 'marketing_draft_edit', 'marketing_draft_reject'].every((x) => decide.includes(`'${x}'`)));
@@ -865,8 +867,9 @@ section('9. The launch set: nine opening grid posts, one-off');
   assert('L-1 does not match L-10 style notes by accident', C.checkDrafts([L[0]], [{ kind: 'instagram_caption', notes: 'Plan slot: L-11', format: 'single' }]).length === 1);
   assert('a launch draft is matched by its slot note and format', C.checkDrafts([L[4]], [{ kind: 'instagram_caption', notes: 'Plan slot: L-5', format: 'carousel' }]).length === 0);
   const runL = read('marketing/run.ts');
-  assert('the job writes in sessions of three, each checked', /for \(let i = 0; i < LAUNCH_SLOTS\.length; i \+= 3\)/.test(runL) && /PROMPTS\.launch\(batch\), checks\.drafts\(ctx, \[\.\.\.batch\]\)/.test(runL));
-  assert('it refuses while a launch set is waiting or approved', /\.like\('notes', `%Plan slot: \$\{LAUNCH_SLOT_PREFIX\}%`\)/.test(runL));
+  assert('the job writes the missing slots in sessions of three, each checked', /const missing = LAUNCH_SLOTS\.filter\(\(s\) => !have\.has\(s\.id\)\)/.test(runL) && /for \(let i = 0; i < missing\.length; i \+= 3\)/.test(runL) && /PROMPTS\.launch\(batch\), checks\.drafts\(ctx, \[\.\.\.batch\]\)/.test(runL));
+  assert('it skips slots already waiting or approved, matched exactly', /\.like\('notes', `%Plan slot: \$\{LAUNCH_SLOT_PREFIX\}%`\)/.test(runL) && /Plan slot: \(L-\\d\+\)\\b/.test(runL));
+  assert('it refuses only when every slot is covered', /if \(missing\.length === 0\) \{\s*ctx\.failures\.push/.test(runL));
   assert('its drafts go through the Editor and the fix round', /launch_set: \{[\s\S]*?await editorReview\(ctx\);\s*await fixRound\(ctx, writingFrom\);/.test(runL));
 }
 

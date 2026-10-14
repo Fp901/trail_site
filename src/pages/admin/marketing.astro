@@ -33,6 +33,7 @@ if (!user) {
 
 let pending: MarketingDraftRow[] = [];
 let recent: MarketingDraftRow[] = [];
+let approved: MarketingDraftRow[] = [];
 let loadError = false;
 const PHOTO_COLS = ['id', 'created_at', 'category', 'lodge', 'alt', 'uploaded_by'] as const satisfies readonly (typeof MARKETING_PHOTO_COLUMNS)[number][];
 type PhotoListRow = Pick<MarketingPhotoRow, (typeof PHOTO_COLS)[number]>;
@@ -42,12 +43,15 @@ let photosError = false;
 try {
   const mk = getSupabaseAdmin().schema('marketing');
   const columns = sel<MarketingDraftRow, typeof MARKETING_DRAFT_COLUMNS>(MARKETING_DRAFT_COLUMNS);
-  const [p, r] = await Promise.all([
+  const [p, r, a] = await Promise.all([
     mk.from('drafts').select(columns).eq('status', 'pending').order('created_at', { ascending: true }).limit(100),
     mk.from('drafts').select(columns).in('status', ['approved', 'rejected']).order('decided_at', { ascending: false }).limit(10),
+    mk.from('drafts').select(columns).eq('status', 'approved').order('decided_at', { ascending: false }).limit(100),
   ]);
   if (p.error) throw p.error;
   if (r.error) throw r.error;
+  if (a.error) throw a.error;
+  approved = (a.data as unknown as MarketingDraftRow[]) ?? [];
   pending = (p.data as unknown as MarketingDraftRow[]) ?? [];
   recent = (r.data as unknown as MarketingDraftRow[]) ?? [];
 } catch {
@@ -308,6 +312,40 @@ const fmtDateTime = (v: string | null) =>
             )}
           </div>
 
+          {approved.length > 0 && (
+            <div class="mt-12">
+              <h2 class="font-display text-2xl text-earth">Approved</h2>
+              <p class="mt-2 font-body text-charcoal/75">
+                Withdraw a post you have not posted and do not want. It counts as rejected, so its photos
+                and its slot are free again and the team can write it afresh.
+              </p>
+              <ol class="admin-inqs mt-4">
+                {approved.map((d) => (
+                  <li class="admin-inq admin-inq--handled" data-approved-id={d.id}>
+                    <p class="admin-name">{d.title || KIND_LABEL[d.kind as MarketingDraftKind] || d.kind}</p>
+                    <p class="admin-sub">
+                      {d.original_body ? 'Edited and approved' : 'Approved'}
+                      {d.decided_by && ` by ${d.decided_by}`}
+                      {d.decided_at && `, ${fmtDateTime(d.decided_at)}`}
+                      {d.notes && /Plan slot: [A-Z]-[\d-]+/.test(d.notes) && ` · ${d.notes.match(/Plan slot: ([A-Z]-[\d-]+)/)![1]}`}
+                    </p>
+                    <p class="admin-sub mk-excerpt">{String(d.body).slice(0, 160)}{String(d.body).length > 160 ? '...' : ''}</p>
+                    <form data-withdraw novalidate class="mk-withdraw mt-3">
+                      <div class="form-field">
+                        <label for={`mk-wreason-${d.id}`}>Reason (optional)</label>
+                        <input id={`mk-wreason-${d.id}`} name="reason" type="text" maxlength="1000" />
+                      </div>
+                      <div class="admin-actions">
+                        <button type="submit" class="btn btn-secondary">Withdraw</button>
+                      </div>
+                      <p class="bform__status" data-status role="status" aria-live="polite" />
+                    </form>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           {recent.length > 0 && (
             <div class="mt-12">
               <h2 class="font-display text-2xl text-earth">Recently decided</h2>
@@ -368,6 +406,35 @@ const fmtDateTime = (v: string | null) =>
     });
   }
 
+  function initWithdraw() {
+    document.querySelectorAll<HTMLElement>('[data-approved-id]').forEach((row) => {
+      if (row.dataset.bound === 'true') return;
+      row.dataset.bound = 'true';
+      const form = row.querySelector<HTMLFormElement>('form[data-withdraw]');
+      const statusEl = row.querySelector<HTMLElement>('[data-status]');
+      form?.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const reason = (form.elements.namedItem('reason') as HTMLInputElement).value.trim();
+        const button = form.querySelector<HTMLButtonElement>('button');
+        if (button) button.disabled = true;
+        const { error } = await actions.adminDecideDraft({
+          draftId: row.dataset.approvedId!,
+          decision: 'withdraw',
+          reason: reason || undefined,
+        });
+        if (error) {
+          if (statusEl) {
+            statusEl.textContent = error.message || 'Something went wrong.';
+            statusEl.dataset.kind = 'error';
+          }
+          if (button) button.disabled = false;
+          return;
+        }
+        window.location.reload();
+      });
+    });
+  }
+
   function initPhotoUpload() {
     const form = document.querySelector<HTMLFormElement>('form[data-photo-upload]');
     if (!form || form.dataset.bound === 'true') return;
@@ -402,5 +469,6 @@ const fmtDateTime = (v: string | null) =>
   }
 
   initDrafts();
+  initWithdraw();
   initPhotoUpload();
 </script>
