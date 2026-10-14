@@ -47,6 +47,8 @@ import {
   fixPrompt,
   parseItems,
   photoIdsFromSource,
+  PHOTO_USED_STATUSES,
+  PHOTOS_LOW_WARNING,
   UPLOAD_PHOTO_PREFIX,
   type PlanSlot,
 } from './contracts';
@@ -348,16 +350,23 @@ async function photoIds(ctx: Ctx): Promise<Set<string>> {
   return ids;
 }
 
+// Photos already on a pending or approved draft: never planned again (a photo is used once).
+async function usedPhotos(ctx: Ctx): Promise<Set<string>> {
+  const { data, error } = await ctx.sb.from('drafts').select('photo_ids').in('status', [...PHOTO_USED_STATUSES]);
+  if (error) throw new Error(`drafts read failed: ${error.message}`);
+  return new Set(((data ?? []) as { photo_ids: string[] | null }[]).flatMap((r) => r.photo_ids ?? []));
+}
+
 const checks = {
   brief: (ctx: Ctx, week: string): HandOverCheck => async ({ fetchedUrls }) => {
     const md = await readMemory(ctx, notebookStoreName('researcher'), BRIEF_PATH);
     if (md === null) return missing(BRIEF_PATH);
     return { path: BRIEF_PATH, errors: checkBrief(md, week, fetchedUrls).errors };
   },
-  plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, out: PlanSlot[]): HandOverCheck => async () => {
+  plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, used: Set<string>, out: PlanSlot[]): HandOverCheck => async () => {
     const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAN_PATH);
     if (md === null) return missing(PLAN_PATH);
-    const r = checkPlan(md, week, research.ids, photos, research.trends);
+    const r = checkPlan(md, week, research.ids, photos, research.trends, used);
     out.splice(0, out.length, ...r.slots);
     return { path: PLAN_PATH, errors: r.errors };
   },
@@ -522,11 +531,17 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const week = cycleWeek(new Date());
       const research = await briefIds(ctx, week);
       const slots: PlanSlot[] = [];
+      const [all, used] = [await photoIds(ctx), await usedPhotos(ctx)];
+      const left = [...all].filter((id) => !used.has(id)).length;
+      console.log(`  photos: ${left} never used, of ${all.size}`);
+      if (left < PHOTOS_LOW_WARNING) {
+        console.log(`  WARNING: only ${left} unused photos left. Upload new photos at /admin/marketing; a used photo is never used again.`);
+      }
       const plan = await runEmployee(
         ctx,
         'head_of_marketing',
         PROMPTS.plan(week, research),
-        checks.plan(ctx, week, research, await photoIds(ctx), slots),
+        checks.plan(ctx, week, research, all, used, slots),
       );
       // No valid plan, no drafts: the Copywriter would only guess.
       if (!plan.ok) return;

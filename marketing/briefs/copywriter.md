@@ -48,7 +48,7 @@ Every instagram or facebook slot names its format. Write for it:
 - carousel: a caption that carries the reader through the photos in order. Say in the first line that there is more to swipe through, and refer to what each photo shows where it helps.
 - story: only the words that go on the photo, at most 125 characters, and no caption. One short line people read in a second or two. If the slot promotes a departure, use the exact line from get_open_departures.
 
-If a photo in the slot does not fit what you are writing, keep the plan's photos and say so in your notes; the Editor and the owner will see it. The one exception: if save_draft refuses a story photo because it is landscape, choose a portrait photo from get_photo_library that shows the same thing, and say which you swapped in your notes.
+If a photo in the slot does not fit what you are writing, keep the plan's photos and say so in your notes; the Editor and the owner will see it. The one exception: if save_draft refuses a story photo because it is landscape, choose a portrait photo from get_photo_library that shows the same thing, and say which you swapped in your notes. A photo is used once and never again, so save_draft refuses one already used; if that happens, choose an unused photo from get_photo_library that shows the same thing, and say which you swapped in your notes.
 
 ## Style
 
