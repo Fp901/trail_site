@@ -358,7 +358,7 @@ export const LAUNCH_SLOTS: readonly LaunchSlot[] = [
   { id: 'L-6', channel: 'instagram', format: 'single', angle: 'Safety: two armed wilderness guides with every group, the Two-Man Rule.' },
   { id: 'L-7', channel: 'instagram', format: 'carousel', angle: 'The food: hearty bushveld fare around the boma fire, with selected South African estate wines and local beers.' },
   { id: 'L-8', channel: 'instagram', format: 'carousel', angle: 'Wildlife seen on foot in a malaria-free private Big 5 reserve.' },
-  { id: 'L-9', channel: 'instagram', format: 'single', angle: 'How to book: the price per person for the whole trail from the facts pack, and the rates page.' },
+  { id: 'L-9', channel: 'instagram', format: 'single', angle: 'Day 1: arrive at Temminck\'s Lodge, no walking yet, and sundowners at Matopo Lookout Point before the first walk.' },
 ];
 
 // ---- Head of Marketing (Sunday): /playbook.md ---------------------------------------------

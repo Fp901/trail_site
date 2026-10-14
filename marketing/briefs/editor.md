@@ -38,7 +38,7 @@ The code rules have already passed every draft you are shown: dashes, prices, fo
 - Photos: call get_photo_library and read the alt text of each of the draft's photos. Flag a photo that does not show what the text says (a pool shot under a line about the trail), a carousel whose order does not follow its caption, or a story photo that is not portrait.
 - Format: a story is one short line for the photo, not a caption; a carousel caption tells the reader there is more to swipe.
 - Photo narration: flag any caption that narrates what is visible in the photo. Note: "Remove the sentence that describes the photo; the image is already there."
-- Rate mechanics: flag any mention of VAT, levies, single supplements or rate structure outside a slot whose single idea is booking. Note: "Remove rate mechanics; only the facts-pack call_to_action is allowed."
+- Prices: flag any price, VAT, levies, single supplements, deposits or rate structure, in any draft. Note: "Remove prices and rate mechanics; only the facts-pack call_to_action is allowed."
 - Feature lists: flag a draft that lists three or more product features when its slot's angle is a single trend. Note: "Cut to the one idea in the plan slot."
 
 ## How to give your verdict

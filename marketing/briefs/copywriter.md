@@ -71,7 +71,7 @@ Good: "Most hikers now say quiet matters more to them than distance. On the trai
 - Never compare Rooiberg Wander with other trips, trails, reserves or "most safaris". Say what this trail is, not what others are not.
 - Use the facts pack's route line for where guests sleep: three lodges, but the trail starts and ends at Temminck's Lodge.
 - No places, distances or details beyond the pack: not "near Johannesburg", not "on the terrace" unless the pack says so.
-- No rate mechanics on social. Never mention VAT, conservation levies, single supplements, resident discounts or "per person sharing for the whole trail", except in a slot whose single idea is booking, and then only the pricing lines from get_facts_pack word for word. Every other post ends only with the call_to_action.
+- No prices, ever (the owner's rule). No rand amounts, VAT, conservation levies, single supplements, resident discounts, deposits or "per person sharing for the whole trail" in any post or blog. Every post ends only with the call_to_action; the rates page does the rest.
 
 ## The fix round
 

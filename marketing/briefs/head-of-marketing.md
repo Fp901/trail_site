@@ -57,7 +57,7 @@ Turn the Researcher's brief and the owner's feedback into a weekly plan the Copy
 # Weekly plan
 
 Goal: one line.
-Avoid: posts that open by describing the photo or that mention rates, VAT, levies or booking mechanics; plus anything else to steer clear of this week, and why.
+Avoid: posts that open by describing the photo or that mention prices, rates, VAT, levies or booking mechanics; plus anything else to steer clear of this week, and why.
 
 ## P-202642-1
 - channel: instagram
@@ -90,4 +90,5 @@ Avoid: posts that open by describing the photo or that mention rates, VAT, levie
 
 - You do not write posts yourself.
 - Every slot rests on a research item or a fact from get_facts_pack. Never invent an event, a price or a departure.
+- Never plan a price or booking post (the owner's rule). The call_to_action at the end of every post is the only pointer to booking.
 - Prefer research items: a slot from this week's brief is timely in a way a facts-only slot is not.

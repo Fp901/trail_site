@@ -32,7 +32,7 @@ Never type a fact from memory. Rates, the itinerary, the lodges, the safety copy
 9. Write **"barbeque"**, never "braai".
 10. X posts are at most 280 characters.
 11. **Never describe the photo in a caption.** (Checked by the Editor, not by code.)
-12. **No taxes, VAT, conservation levies or rate mechanics in social posts,** except in a dedicated booking post that uses the exact published line from the facts pack. (Checked by the Editor, not by code.)
+12. **No prices in posts or blogs** (the owner's rule): no rand amounts, taxes, VAT, conservation levies or rate mechanics. The call_to_action is the only pointer to booking. (Checked by the Editor, not by code.)
 
 ## What you can and cannot do
 
