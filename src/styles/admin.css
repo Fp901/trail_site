@@ -859,6 +859,13 @@
   .mk-decide .admin-actions {
     margin-top: 1.5rem;
   }
+  /* The photo upload form: room between the last field, the trophy tick and the button. */
+  .mk-upload .admin-card__check {
+    margin-top: 1.25rem;
+  }
+  .mk-upload .admin-actions {
+    margin-top: 1.5rem;
+  }
   .mk-decide .bform__status:not(:empty) {
     margin-top: 0.75rem;
   }
