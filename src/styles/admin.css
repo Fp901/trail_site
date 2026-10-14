@@ -866,6 +866,16 @@
   .mk-upload .admin-actions {
     margin-top: 1.5rem;
   }
+  /* Withdrawing an approved draft: room above the form and between the reason and the button. */
+  .mk-withdraw {
+    margin-top: 1.25rem;
+  }
+  .mk-withdraw .admin-actions {
+    margin-top: 1.25rem;
+  }
+  .mk-withdraw .bform__status:not(:empty) {
+    margin-top: 0.75rem;
+  }
   .mk-decide .bform__status:not(:empty) {
     margin-top: 0.75rem;
   }
