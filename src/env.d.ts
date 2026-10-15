@@ -24,6 +24,7 @@ interface ImportMetaEnv {
   readonly CRON_SECRET?: string;
   // Operator dashboard (Part 3): comma-separated allowlist (preferred) — only these emails may sign in.
   readonly ADMIN_EMAILS?: string;
+  readonly MARKETING_NOTIFY_TO?: string;
   // Legacy single-value form of the above; still read as a fallback.
   readonly ADMIN_EMAIL?: string;
   // Marketing team (Part 18): the secret each employee's tool server token is derived from

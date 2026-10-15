@@ -562,7 +562,7 @@ assert('the admin nav links the marketing page', /id: 'marketing'.*href: '\/admi
 const digest = read('src/pages/api/cron/marketing-drafts.ts');
 assert('the digest cron is scheduled in vercel.json', JSON.parse(read('vercel.json')).crons.some((c) => c.path === '/api/cron/marketing-drafts'));
 assert('the digest route is CRON_SECRET-gated in constant time', /import\.meta\.env\.CRON_SECRET/.test(digest) && /crypto\.timingSafeEqual\(/.test(digest) && /if \(!secret\) return false;/.test(digest));
-assert('the digest goes to ADMIN_EMAILS through the existing email helper', /adminEmailList\(\)/.test(digest) && /sendMarketingDraftsDigest/.test(read('src/lib/email.ts')));
+assert('the digest goes to MARKETING_NOTIFY_TO, else ADMIN_EMAILS, through the existing email helper', /marketingEmailList\(\)/.test(digest) && /MARKETING_NOTIFY_TO[\s\S]{0,400}adminEmailList\(\)/.test(read('src/lib/email.ts')) && /sendMarketingDraftsDigest/.test(read('src/lib/email.ts')));
 assert('the digest never emails draft text', !/select\('[^']*body/.test(digest));
 assert('the digest names drafts the Editor has not reviewed after 24 hours (title and kind only)', /UNREVIEWED_AFTER_MS = 24 \* 3600 \* 1000/.test(digest) && /editor_status === 'unchecked'/.test(digest) && /kind: r\.kind, title: r\.title/.test(digest));
 assert('unreviewed titles are HTML-escaped in the email', /escapeHtml\(u\.title/.test(read('src/lib/email.ts')));
