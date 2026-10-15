@@ -34,6 +34,11 @@ if (!user) {
 let pending: MarketingDraftRow[] = [];
 let recent: MarketingDraftRow[] = [];
 let approved: MarketingDraftRow[] = [];
+let approvedWaiting = 0;
+// The owner's Post button (0024): which channels each draft is already on, with links.
+type PostLink = { channel: string; url: string | null; published_at: string | null };
+const postsByDraft = new Map<string, PostLink[]>();
+const SHOW_READY = 5;
 let loadError = false;
 const PHOTO_COLS = ['id', 'created_at', 'category', 'lodge', 'alt', 'uploaded_by'] as const satisfies readonly (typeof MARKETING_PHOTO_COLUMNS)[number][];
 type PhotoListRow = Pick<MarketingPhotoRow, (typeof PHOTO_COLS)[number]>;
@@ -46,12 +51,24 @@ try {
   const [p, r, a] = await Promise.all([
     mk.from('drafts').select(columns).eq('status', 'pending').order('created_at', { ascending: true }).limit(100),
     mk.from('drafts').select(columns).in('status', ['approved', 'rejected']).order('decided_at', { ascending: false }).limit(5),
-    mk.from('drafts').select(columns).eq('status', 'approved').order('decided_at', { ascending: false }).limit(5),
+    mk.from('drafts').select(columns).eq('status', 'approved').order('decided_at', { ascending: true }).limit(100),
   ]);
   if (p.error) throw p.error;
   if (r.error) throw r.error;
   if (a.error) throw a.error;
-  approved = (a.data as unknown as MarketingDraftRow[]) ?? [];
+  const allApproved = (a.data as unknown as MarketingDraftRow[]) ?? [];
+  const ids = [...new Set([...allApproved, ...((r.data as unknown as MarketingDraftRow[]) ?? [])].map((d) => d.id))];
+  if (ids.length) {
+    const { data: posts, error: postsErr } = await mk.from('posts').select('draft_id, channel, url, published_at').in('draft_id', ids);
+    if (postsErr) throw postsErr;
+    for (const row of (posts ?? []) as (PostLink & { draft_id: string })[]) {
+      postsByDraft.set(row.draft_id, [...(postsByDraft.get(row.draft_id) ?? []), row]);
+    }
+  }
+  // Ready to post: approved and not yet on both channels, oldest first, five at a time.
+  const notPosted = allApproved.filter((d) => (postsByDraft.get(d.id) ?? []).length < 2);
+  approvedWaiting = notPosted.length;
+  approved = notPosted.slice(0, SHOW_READY);
   pending = (p.data as unknown as MarketingDraftRow[]) ?? [];
   recent = (r.data as unknown as MarketingDraftRow[]) ?? [];
 } catch {
@@ -314,10 +331,12 @@ const fmtDateTime = (v: string | null) =>
 
           {approved.length > 0 && (
             <div class="mt-12">
-              <h2 class="font-display text-2xl text-earth">Recently approved</h2>
+              <h2 class="font-display text-2xl text-earth">Ready to post</h2>
               <p class="mt-2 font-body text-charcoal/75">
-                Withdraw a post you have not posted and do not want. It counts as rejected, so its photos
-                and its slot are free again and the team can write it afresh.
+                Post sends the text and photos to Instagram and your Facebook Page straight away. Stories
+                need the text on the photo, so post those from your phone. Withdraw a post you do not
+                want: its photos and its slot are free again and the team can write it afresh.
+                {approvedWaiting > approved.length && ` Showing ${approved.length} of ${approvedWaiting}, oldest first.`}
               </p>
               <ol class="admin-inqs mt-4">
                 {approved.map((d) => (
@@ -330,7 +349,28 @@ const fmtDateTime = (v: string | null) =>
                       {d.notes && /Plan slot: [A-Z]-[\d-]+/.test(d.notes) && ` · ${d.notes.match(/Plan slot: ([A-Z]-[\d-]+)/)![1]}`}
                     </p>
                     <p class="admin-sub mk-excerpt">{String(d.body).slice(0, 160)}{String(d.body).length > 160 ? '...' : ''}</p>
-                    <form data-withdraw novalidate class="mk-withdraw">
+                    {(postsByDraft.get(d.id) ?? []).length > 0 && (
+                      <p class="admin-sub">
+                        Already on {(postsByDraft.get(d.id) ?? []).map((p) => (p.channel === 'instagram' ? 'Instagram' : 'Facebook')).join(' and ')}.
+                      </p>
+                    )}
+                    {(d.kind === 'instagram_caption' || d.kind === 'facebook_post') && d.format !== 'story' && d.photo_ids.length > 0 && (postsByDraft.get(d.id) ?? []).length === 0 && (
+                      <form data-publish novalidate class="mk-withdraw">
+                        <div class="admin-actions">
+                          <button type="submit" class="btn btn-primary">Post to Instagram and Facebook</button>
+                        </div>
+                        <p class="bform__status" data-status role="status" aria-live="polite" />
+                      </form>
+                    )}
+                    {(postsByDraft.get(d.id) ?? []).length === 1 && (
+                      <form data-publish novalidate class="mk-withdraw">
+                        <div class="admin-actions">
+                          <button type="submit" class="btn btn-primary">Post to {(postsByDraft.get(d.id) ?? [])[0].channel === 'instagram' ? 'Facebook' : 'Instagram'}</button>
+                        </div>
+                        <p class="bform__status" data-status role="status" aria-live="polite" />
+                      </form>
+                    )}
+                    {(postsByDraft.get(d.id) ?? []).length === 0 && <form data-withdraw novalidate class="mk-withdraw">
                       <div class="form-field">
                         <label for={`mk-wreason-${d.id}`}>Reason (optional)</label>
                         <input id={`mk-wreason-${d.id}`} name="reason" type="text" maxlength="1000" />
@@ -339,7 +379,7 @@ const fmtDateTime = (v: string | null) =>
                         <button type="submit" class="btn btn-secondary">Withdraw</button>
                       </div>
                       <p class="bform__status" data-status role="status" aria-live="polite" />
-                    </form>
+                    </form>}
                   </li>
                 ))}
               </ol>
@@ -359,6 +399,14 @@ const fmtDateTime = (v: string | null) =>
                       {d.decided_at && `, ${fmtDateTime(d.decided_at)}`}
                     </p>
                     {d.decision_reason && <p class="admin-sub">Reason: {d.decision_reason}</p>}
+                    {(postsByDraft.get(d.id) ?? []).some((p) => p.url) && (
+                      <p class="admin-sub">
+                        Posted:{' '}
+                        {(postsByDraft.get(d.id) ?? []).filter((p) => p.url).map((p, i) => (
+                          <>{i > 0 && ', '}<a href={p.url!} target="_blank" rel="noopener noreferrer">{p.channel === 'instagram' ? 'Instagram' : 'Facebook'}</a></>
+                        ))}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ol>
@@ -411,7 +459,7 @@ const fmtDateTime = (v: string | null) =>
       if (row.dataset.bound === 'true') return;
       row.dataset.bound = 'true';
       const form = row.querySelector<HTMLFormElement>('form[data-withdraw]');
-      const statusEl = row.querySelector<HTMLElement>('[data-status]');
+      const statusEl = form?.querySelector<HTMLElement>('[data-status]');
       form?.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const reason = (form.elements.namedItem('reason') as HTMLInputElement).value.trim();
@@ -422,6 +470,35 @@ const fmtDateTime = (v: string | null) =>
           decision: 'withdraw',
           reason: reason || undefined,
         });
+        if (error) {
+          if (statusEl) {
+            statusEl.textContent = error.message || 'Something went wrong.';
+            statusEl.dataset.kind = 'error';
+          }
+          if (button) button.disabled = false;
+          return;
+        }
+        window.location.reload();
+      });
+    });
+  }
+
+  function initPublish() {
+    document.querySelectorAll<HTMLElement>('[data-approved-id]').forEach((row) => {
+      const form = row.querySelector<HTMLFormElement>('form[data-publish]');
+      if (!form || form.dataset.bound === 'true') return;
+      form.dataset.bound = 'true';
+      const statusEl = form.querySelector<HTMLElement>('[data-status]');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!window.confirm('Post this now? It goes out to your Instagram and Facebook followers straight away.')) return;
+        const button = form.querySelector<HTMLButtonElement>('button');
+        if (button) button.disabled = true;
+        if (statusEl) {
+          statusEl.textContent = 'Posting. This can take up to a minute for a carousel.';
+          statusEl.dataset.kind = 'ok';
+        }
+        const { error } = await actions.adminPublishDraft({ draftId: row.dataset.approvedId! });
         if (error) {
           if (statusEl) {
             statusEl.textContent = error.message || 'Something went wrong.';
@@ -470,5 +547,6 @@ const fmtDateTime = (v: string | null) =>
 
   initDrafts();
   initWithdraw();
+  initPublish();
   initPhotoUpload();
 </script>

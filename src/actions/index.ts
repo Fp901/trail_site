@@ -62,7 +62,8 @@ import {
   type MarketingDraftKind,
   type MarketingPostFormat,
 } from '../lib/db.types';
-import { MARKETING_PHOTO_BUCKET, checkPhotoUpload } from '../lib/marketing-photos';
+import { MARKETING_PHOTO_BUCKET, checkPhotoUpload, photoUrlsForPosting } from '../lib/marketing-photos';
+import { MetaPublishError, metaCredentials, publishFacebook, publishInstagram } from '../lib/meta-publish';
 import { site } from '../data/site';
 import { MIN_GUEST_AGE } from '../data/policies';
 
@@ -1433,6 +1434,14 @@ export const server = {
         });
       }
 
+      // A draft already on Instagram or Facebook cannot be withdrawn here: delete the post there.
+      if (input.decision === 'withdraw') {
+        const { data: live } = await mk.from('posts').select('id').eq('draft_id', input.draftId).limit(1);
+        if ((live ?? []).length > 0) {
+          throw new ActionError({ code: 'CONFLICT', message: 'This draft has already been posted, so it cannot be withdrawn here.' });
+        }
+      }
+
       const edited =
         input.decision === 'approve' && input.body !== undefined && input.body !== String(draft.body).trim();
       if (edited) {
@@ -1495,6 +1504,80 @@ export const server = {
         note: reason,
       });
       return { ok: true, decision };
+    },
+  }),
+
+  // The owner's Post button (CLAUDE.md Part 18, migration 0024): post one APPROVED single or
+  // carousel draft to Instagram and the Facebook Page. Admin only and rate-limited; the agents have
+  // no way to reach this. Each channel is claimed in marketing.posts before Meta is called (unique
+  // per draft and channel), so a double click cannot post twice; a failed post releases its claim.
+  // A channel already posted is skipped, so a retry after a partial failure posts only the rest.
+  adminPublishDraft: defineAction({
+    accept: 'json',
+    input: z.object({ draftId: z.string().uuid() }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const creds = metaCredentials();
+      if (!creds) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Posting is not set up yet: the Meta token and Page id are missing in Vercel.' });
+      }
+      const mk = getSupabaseAdmin().schema('marketing');
+      const { data: draft, error: loadErr } = await mk
+        .from('drafts')
+        .select('id, kind, body, status, format, photo_ids')
+        .eq('id', input.draftId)
+        .maybeSingle();
+      if (loadErr || !draft) throw new ActionError({ code: 'NOT_FOUND', message: 'Draft not found.' });
+      if (draft.status !== 'approved') throw new ActionError({ code: 'CONFLICT', message: 'Only an approved draft can be posted.' });
+      if (draft.kind !== 'instagram_caption' && draft.kind !== 'facebook_post') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Only Instagram and Facebook posts can be posted from here.' });
+      }
+      if (draft.format === 'story') {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Stories need the text put on the photo, so post them from your phone.' });
+      }
+      const photoIds = (draft.photo_ids ?? []) as string[];
+      if (draft.format === 'single' ? photoIds.length !== 1 : photoIds.length < 2 || photoIds.length > 10) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'This draft does not have the right number of photos to post.' });
+      }
+      // The code rules once more, on exactly the text that goes out.
+      const violations = checkDraft(String(draft.body), draft.kind as MarketingDraftKind, draft.format as MarketingPostFormat | null);
+      if (violations.length) throw new ActionError({ code: 'BAD_REQUEST', message: describeViolations(violations) });
+
+      const photos = await photoUrlsForPosting(photoIds, site.canonicalUrl);
+      if (!photos.ok) throw new ActionError({ code: 'BAD_REQUEST', message: photos.message });
+
+      const { data: existing } = await mk.from('posts').select('channel, published_at').eq('draft_id', input.draftId);
+      const done = new Set(((existing ?? []) as { channel: string; published_at: string | null }[]).map((p) => p.channel));
+      const results: { channel: 'instagram' | 'facebook'; url: string | null }[] = [];
+      for (const channel of ['instagram', 'facebook'] as const) {
+        if (done.has(channel)) continue;
+        const { data: claim, error: claimErr } = await mk.from('posts').insert({ draft_id: input.draftId, channel }).select('id').single();
+        if (claimErr || !claim) {
+          throw new ActionError({ code: 'CONFLICT', message: 'This draft is already being posted. Refresh the page in a moment.' });
+        }
+        try {
+          const posted = channel === 'instagram'
+            ? await publishInstagram(creds, String(draft.body), photos.urls)
+            : await publishFacebook(creds, String(draft.body), photos.urls);
+          await mk.from('posts').update({ external_id: posted.external_id, url: posted.url, published_at: new Date().toISOString() }).eq('id', claim.id);
+          await recordAdminEvent({
+            adminEmail: admin.email,
+            action: 'marketing_post_publish',
+            after: { draft_id: input.draftId, channel, external_id: posted.external_id },
+          });
+          results.push({ channel, url: posted.url });
+        } catch (e) {
+          await mk.from('posts').delete().eq('id', claim.id);
+          const why = e instanceof MetaPublishError ? e.message : 'Meta refused the post.';
+          const name = channel === 'instagram' ? 'Instagram' : 'Facebook';
+          const already = results.length ? ` It did go out on ${results.map((r) => (r.channel === 'instagram' ? 'Instagram' : 'Facebook')).join(' and ')}; click Post again to retry ${name} only.` : '';
+          console.error(`[marketing] ${channel} post failed`, why);
+          throw new ActionError({ code: 'BAD_REQUEST', message: `${name} did not take the post: ${why}${already}` });
+        }
+      }
+      return { ok: true, posted: results };
     },
   }),
 
