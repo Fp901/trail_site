@@ -69,21 +69,52 @@ const idOf = (b: Json): string => {
   return id;
 };
 
-// The token may be a system-user token (Meta hands back a Page token for it) or already a Page
-// token, which has no access_token field to read: Meta answers "(#100) Tried accessing nonexisting
-// field (access_token)". So the Page token is asked for on its own, and the token itself is used
-// when there is none to give.
-async function pageAccess(c: MetaCredentials): Promise<{ pageToken: string; igId: string | null }> {
-  const page = await call('GET', c.pageId, { fields: 'instagram_business_account{id}' }, c.token);
-  const ig = page.instagram_business_account as Json | undefined;
-  let pageToken = c.token;
+interface PageAccess {
+  pageId: string;
+  pageToken: string;
+  igId: string | null;
+}
+
+const igOf = (b: Json): string | null => {
+  const ig = b.instagram_business_account as Json | undefined;
+  return typeof ig?.id === 'string' ? ig.id : null;
+};
+
+// Finds the Facebook Page, its token and its linked Instagram account.
+// 1. META_PAGE_ID as given (the normal case with a system-user token).
+// 2. If that id is not a Page (Meta: "nonexisting field (instagram_business_account)"), the Page the
+//    token belongs to: a Page token answers /me as the Page itself.
+// 3. Otherwise the Pages the token can manage (/me/accounts): the one matching META_PAGE_ID, or the
+//    only one. More than one and no match is refused rather than guessed.
+// A Page token has no access_token field to read, so the Page token is asked for on its own and the
+// token itself is used when there is none to give.
+async function pageAccess(c: MetaCredentials): Promise<PageAccess> {
   try {
-    const t = await call('GET', c.pageId, { fields: 'access_token' }, c.token);
-    if (typeof t.access_token === 'string') pageToken = t.access_token;
-  } catch {
-    // Already a Page token.
+    const page = await call('GET', c.pageId, { fields: 'instagram_business_account{id}' }, c.token);
+    let pageToken = c.token;
+    try {
+      const t = await call('GET', c.pageId, { fields: 'access_token' }, c.token);
+      if (typeof t.access_token === 'string') pageToken = t.access_token;
+    } catch {
+      // Already a Page token.
+    }
+    return { pageId: c.pageId, pageToken, igId: igOf(page) };
+  } catch (e) {
+    if (!(e instanceof MetaPublishError) || !/nonexisting field/i.test(e.message)) throw e;
   }
-  return { pageToken, igId: typeof ig?.id === 'string' ? ig.id : null };
+  try {
+    const me = await call('GET', 'me', { fields: 'id,instagram_business_account{id}' }, c.token);
+    if (typeof me.id === 'string') return { pageId: me.id, pageToken: c.token, igId: igOf(me) };
+  } catch {
+    // Not a Page token: look through the Pages it manages.
+  }
+  const list = await call('GET', 'me/accounts', { fields: 'id,access_token,instagram_business_account{id}' }, c.token);
+  const pages = (Array.isArray(list.data) ? list.data : []) as Json[];
+  const page = pages.find((p) => p.id === c.pageId) ?? (pages.length === 1 ? pages[0] : undefined);
+  if (!page || typeof page.id !== 'string') {
+    throw new MetaPublishError('META_PAGE_ID in Vercel is not your Facebook Page, and the token does not point to one Page. Set it to the Page ID from Business settings > Accounts > Pages.');
+  }
+  return { pageId: page.id, pageToken: typeof page.access_token === 'string' ? page.access_token : c.token, igId: igOf(page) };
 }
 
 async function waitUntilReady(containerId: string, token: string): Promise<void> {
@@ -133,19 +164,21 @@ export async function publishInstagram(c: MetaCredentials, caption: string, imag
 export async function publishFacebook(c: MetaCredentials, message: string, imageUrls: string[]): Promise<PublishedPost> {
   let pageToken = c.token;
   try {
-    pageToken = (await pageAccess(c)).pageToken;
+    const access = await pageAccess(c);
+    pageToken = access.pageToken;
+    const pageId = access.pageId;
     let postId: string;
     if (imageUrls.length === 1) {
-      const r = await call('POST', `${c.pageId}/photos`, { url: imageUrls[0], message, published: 'true' }, pageToken);
+      const r = await call('POST', `${pageId}/photos`, { url: imageUrls[0], message, published: 'true' }, pageToken);
       postId = typeof r.post_id === 'string' ? r.post_id : idOf(r);
     } else {
       const media: string[] = [];
       for (const url of imageUrls) {
-        media.push(idOf(await call('POST', `${c.pageId}/photos`, { url, published: 'false' }, pageToken)));
+        media.push(idOf(await call('POST', `${pageId}/photos`, { url, published: 'false' }, pageToken)));
       }
       const params: Record<string, string> = { message };
       media.forEach((id, i) => (params[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id })));
-      postId = idOf(await call('POST', `${c.pageId}/feed`, params, pageToken));
+      postId = idOf(await call('POST', `${pageId}/feed`, params, pageToken));
     }
     return { external_id: postId, url: `https://www.facebook.com/${postId}` };
   } catch (e) {

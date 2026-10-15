@@ -895,6 +895,29 @@ section('10. The owner\'s Post button (adminPublishDraft, migration 0024)');
   const pub = read('src/lib/meta-publish.ts');
   assert('the publisher calls only graph.facebook.com (www.facebook.com is the post link), token in a header', /const GRAPH = 'https:\/\/graph\.facebook\.com\/v\d+\.0'/.test(pub) && /fetch\(url, init\)/.test(pub) && /new URL\(`\$\{GRAPH\}\//.test(pub) && [...pub.matchAll(/https:\/\/[a-z0-9.-]+/g)].every((m) => ['https://graph.facebook.com', 'https://www.facebook.com'].includes(m[0])) && /Authorization: `Bearer \$\{token\}`/.test(pub) && !/access_token', /.test(pub));
   assert('a Page token (no access_token field) still posts: the field is asked for on its own, with a fallback', /fields: 'access_token' \}, c\.token\);[\s\S]{0,200}\} catch \{/.test(pub) && !/fields: 'access_token,/.test(pub));
+  {
+    // META_PAGE_ID that is not a Page: the publisher finds the Page through the token instead.
+    const P = await import('../src/lib/meta-publish.ts');
+    const realFetch = globalThis.fetch;
+    const hits = [];
+    const reply = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
+    const notAPage = () => reply({ error: { message: '(#100) Tried accessing nonexisting field (instagram_business_account)' } }, 400);
+    globalThis.fetch = async (url, init) => {
+      const u = new URL(url);
+      hits.push(`${init?.method ?? 'GET'} ${u.pathname}`);
+      if (u.pathname.endsWith('/999')) return notAPage();
+      if (u.pathname.endsWith('/me')) return notAPage();
+      if (u.pathname.endsWith('/me/accounts')) return reply({ data: [{ id: '555', access_token: 'PAGE', instagram_business_account: { id: '77' } }] });
+      if (u.pathname.endsWith('/555/photos')) return reply({ id: 'ph1', post_id: '555_1' });
+      return reply({ error: { message: 'unexpected' } }, 400);
+    };
+    try {
+      const r = await P.publishFacebook({ token: 'SYS', pageId: '999' }, 'Hello', ['https://rooibergwander.co.za/a.jpg']);
+      assert('a wrong META_PAGE_ID falls back to the one Page the token manages', r.external_id === '555_1' && hits.includes('POST /v24.0/555/photos'));
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  }
   assert('errors are cleaned of the tokens', /function clean\(/.test(pub) && /clean\(e\.message, secrets\)/.test(pub));
   const page = read('src/pages/admin/marketing.astro');
   assert('the page asks before posting', /data-publish/.test(page) && /window\.confirm\(/.test(page));
