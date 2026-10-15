@@ -51,6 +51,10 @@ const hasSocial = Boolean(site.social.instagram || site.social.facebook);
               </li>
             ))
           }
+          {/* The blog is not in the header nav, which the memo fixes at five items. */}
+          <li>
+            <a href={withBase('/blog')} class="footer-link font-body text-sm text-cream/85">Blog</a>
+          </li>
         </ul>
       </nav>
 

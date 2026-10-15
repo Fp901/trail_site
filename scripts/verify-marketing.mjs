@@ -106,6 +106,7 @@ import {
   MARKETING_SPEND_COLUMNS,
   MARKETING_PHOTO_CATEGORIES,
   MARKETING_PHOTO_COLUMNS,
+  MARKETING_BLOG_POST_COLUMNS,
   MARKETING_PHOTO_LODGES,
   MARKETING_PHOTO_TYPES,
   INQUIRY_COLUMNS,
@@ -190,7 +191,7 @@ section('2. Migrations 0021 and 0022: marketing tables === db.types.ts, all defa
 const migPath = 'supabase/migrations/0021_marketing.sql';
 assert('0021_marketing.sql exists', existsSync(new URL(`../${migPath}`, import.meta.url)));
 const migFiles = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
-assert('0024 is the latest migration', migFiles[migFiles.length - 1] === '0024_marketing_publish.sql');
+assert('0025 is the latest migration', migFiles[migFiles.length - 1] === '0025_marketing_blog.sql');
 const sql = read(migPath).replace(/--[^\n]*/g, '');
 
 const tables = {};
@@ -601,19 +602,20 @@ assert('a long dash or the hidden products are refused', C.checkBrief(brief([ite
 const photos = new Set(['rooiberg-sunset-grassland', 'upload-x', 'trail-bushveld-path', 'guide-reading-tracks', 'temmincks-giraffe', 'slot-1', 'slot-2', 'slot-3', 'slot-4']);
 const three = 'trail-bushveld-path, guide-reading-tracks, rooiberg-sunset-grassland';
 const slot = (n, over = {}) => {
-  const f = { channel: 'instagram', format: 'single', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: `slot-${n}`, 'call to action': 'See dates on the rates page.', ...over };
+  const blog = over.channel === 'blog' ? { format: 'none', 'search terms': 'what to pack for a walking safari' } : {};
+  const f = { channel: 'instagram', format: 'single', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: `slot-${n}`, 'call to action': 'See dates on the rates page.', ...blog, ...over };
   return `## P-${W}-${n}\n` + Object.entries(f).filter(([, v]) => v !== null).map(([k, v]) => `- ${k}: ${v}`).join('\n');
 };
 const plan = (slots) => `# Weekly plan\n\nGoal: one line.\n\n${slots.join('\n\n')}\n`;
-const okPlanMd = plan([slot(1), slot(2, { channel: 'facebook', format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }), slot(3, { format: 'story', photos: 'temmincks-giraffe', departure: '2027-04-04' }), slot(4, { channel: 'blog', format: 'none' })]);
+const okPlanMd = plan([slot(1), slot(2, { channel: 'facebook', format: 'carousel', photos: three }), slot(3, { format: 'story', photos: 'temmincks-giraffe', departure: '2027-04-04' }), slot(4, { channel: 'blog' })]);
 const okPlan = C.checkPlan(okPlanMd, W, [`R-${W}-1`], photos);
-const mix = (a, b, c) => plan([slot(1, a), slot(2, b), slot(3, c)]);
+const mix = (a, b, c) => plan([slot(1, a), slot(2, b), slot(3, c), slot(4, { channel: 'blog' })]);
 {
   const trendIds = [`R-${W}-1`, `R-${W}-2`];
   const research = [`R-${W}-1`, `R-${W}-2`, `R-${W}-3`];
-  const onTrends = mix({}, { format: 'carousel', photos: three, 'based on': `R-${W}-2` }, { format: 'story', 'based on': 'facts: the route' });
+  const onTrends = mix({}, { format: 'carousel', photos: three, 'based on': `R-${W}-2` }, { format: 'story', 'based on': `R-${W}-3` });
   assert('two post slots on trend items pass the trend rule', C.checkPlan(onTrends, W, research, photos, trendIds).errors.length === 0);
-  const offTrends = mix({ 'based on': `R-${W}-3` }, { format: 'carousel', photos: three, 'based on': 'facts: the route' }, { format: 'story', 'based on': `R-${W}-1` });
+  const offTrends = mix({ 'based on': `R-${W}-3` }, { format: 'carousel', photos: three, 'based on': `R-${W}-3` }, { format: 'story', 'based on': `R-${W}-1` });
   assert('a plan with fewer than two post slots on trends is refused', C.checkPlan(offTrends, W, research, photos, trendIds).errors.some((e) => /rest on a trend/.test(e)));
   assert('with no trend items (no valid brief) the trend rule is off', C.checkPlan(offTrends, W, research, photos, []).errors.length === 0);
 }
@@ -623,15 +625,40 @@ assert('the three post slots must be one single, one carousel and one story', C.
 assert('an unknown format, or a blog with a post format, is refused', C.checkPlan(plan([slot(1, { format: 'reel' }), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', format: 'single' })]), W, [`R-${W}-1`], photos).errors.some((e) => /"reel"/.test(e)) && C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', format: 'single' })]), W, [`R-${W}-1`], photos).errors.some((e) => /blog slot has format "none"/.test(e)));
 assert('photo counts per format: single and story 1, carousel 3 to 5', C.checkPlan(mix({ photos: three }, { format: 'carousel' }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.filter((e) => /takes/.test(e)).length === 2 && C.photoCountError('carousel', 5) === null && C.photoCountError('carousel', 6) !== null && C.photoCountError('story', 1) === null);
 assert('the plan needs exactly three Instagram or Facebook slots', C.checkPlan(plan([slot(1), slot(2)]), W, [`R-${W}-1`], photos).errors.some((e) => /exactly 3/.test(e)));
-assert('the plan allows at most one blog slot', C.checkPlan(plan([slot(1), slot(2), slot(3), slot(4, { channel: 'blog' }), slot(5, { channel: 'blog' })]), W, [`R-${W}-1`], photos).errors.some((e) => /at most 1/.test(e)));
-assert('a slot must rest on this week\'s research or a named fact', C.checkPlan(plan([slot(1, { 'based on': `R-${W}-9` }), slot(2, { 'based on': 'a hunch', format: 'carousel', photos: three }), slot(3, { format: 'story' })]), W, [`R-${W}-1`], photos).errors.length === 2);
-assert('unknown photo ids and malformed departures are refused', C.checkPlan(plan([slot(1, { photos: 'nope' }), slot(2, { departure: 'next week', format: 'carousel', photos: three }), slot(3, { format: 'story' })]), W, [`R-${W}-1`], photos).errors.length === 2);
+{
+  const threePosts = plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' })]);
+  const twoBlogs = plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog' }), slot(5, { channel: 'blog' })]);
+  assert('in a blog week the plan needs exactly one blog slot',
+    C.checkPlan(threePosts, W, [`R-${W}-1`], photos).errors.some((e) => /needs exactly 1/.test(e)) && C.checkPlan(twoBlogs, W, [`R-${W}-1`], photos).errors.some((e) => /needs exactly 1/.test(e)));
+  assert('in the other week the plan has no blog slot', C.checkPlan(threePosts, W, [`R-${W}-1`], photos, [], new Set(), false).errors.length === 0 && C.checkPlan(okPlanMd, W, [`R-${W}-1`], photos, [], new Set(), false).errors.some((e) => /no blog this week/.test(e)));
+  const day = 86_400_000;
+  const now = new Date('2026-10-19T05:00:00Z');
+  assert('a blog every second week (owner decision, 15 October 2026): due after 14 days or with none, not after 7',
+    C.blogDue(null, now) && C.blogDue(new Date(now.getTime() - 14 * day + 3600_000), now) && !C.blogDue(new Date(now.getTime() - 7 * day), now));
+  const runSrc = read('marketing/run.ts');
+  assert('the runner decides the blog week from pending or approved blog drafts and tells the planner', /blogDue\(await lastBlogAt\(ctx\), new Date\(\)\)/.test(runSrc) && /\.eq\('kind', 'blog_draft'\)\s*\.in\('status', \['pending', 'approved'\]\)/.test(runSrc) && /checks\.plan\(ctx, week, research, all, used, withBlog, slots\)/.test(runSrc));
+}
+assert('a slot must rest on this week\'s research or a named fact', C.checkPlan(mix({ 'based on': `R-${W}-9` }, { 'based on': 'a hunch', format: 'carousel', photos: three }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.length === 2);
+assert('with a valid brief every slot, the blog included, rests on a research item', C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', 'based on': 'facts: the itinerary' })]), W, [`R-${W}-1`], photos).errors.some((e) => /P-\d+-4: "based on" must be one of this week's research items/.test(e)));
+assert('with no valid brief "facts: ..." is the fallback', C.checkPlan(mix({ 'based on': 'facts: the route' }, { format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }, { format: 'story', 'based on': 'facts: the lodges' }).replace(`based on: R-${W}-1`, 'based on: facts: the trail'), W, [], photos).errors.length === 0);
+assert('a blog slot needs one to three search terms (Search Console, owner request 15 October 2026)',
+  C.checkPlan(mix({}, { format: 'carousel', photos: three }, { format: 'story' }).replace(/- search terms: .*\n/, ''), W, [`R-${W}-1`], photos).errors.some((e) => /search terms/.test(e)) &&
+  C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', 'search terms': 'a, b, c, d' })]), W, [`R-${W}-1`], photos).errors.some((e) => /search terms/.test(e)) &&
+  okPlan.slots[3].searchTerms === 'what to pack for a walking safari');
+assert('a blog slot takes exactly one photo, its cover', C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', photos: 'slot-4, upload-x' })]), W, [`R-${W}-1`], photos).errors.some((e) => /exactly 1 photo, its cover/.test(e)));
+{
+  const runSrc = read('marketing/run.ts');
+  assert('the Copywriter gets the blog\'s search terms and the Search Console results', /PROMPTS\.write\(week, slots, await searchResults\(\)\)/.test(runSrc) && /searchTerms/.test(runSrc));
+  const saveFn = tools.slice(tools.indexOf('async function saveDraft('), tools.indexOf('const saveDraftInput'));
+  assert('save_draft refuses a blog without a title or with other than one photo', /blog_draft needs a title/.test(saveFn) && /blog_draft takes exactly one photo/.test(saveFn));
+}
+assert('unknown photo ids and malformed departures are refused', C.checkPlan(mix({ photos: 'nope' }, { departure: 'next week', format: 'carousel', photos: three }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.length === 2);
 {
   const used = new Set(['trail-bushveld-path']);
   const reusePlan = C.checkPlan(okPlanMd, W, [`R-${W}-1`], photos, [], used);
   assert('a photo already used on a pending or approved draft is never planned again', reusePlan.errors.some((e) => /never used twice/.test(e)));
   assert('without used photos the same plan passes', C.checkPlan(okPlanMd, W, [`R-${W}-1`], photos, [], new Set()).errors.length === 0);
-  const twice = C.checkPlan(plan([slot(1, { photos: 'temmincks-giraffe' }), slot(2, { channel: 'facebook', format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }), slot(3, { format: 'story', photos: 'temmincks-giraffe' })]), W, [`R-${W}-1`], photos);
+  const twice = C.checkPlan(plan([slot(1, { photos: 'temmincks-giraffe' }), slot(2, { channel: 'facebook', format: 'carousel', photos: three }), slot(3, { format: 'story', photos: 'temmincks-giraffe' })]), W, [`R-${W}-1`], photos);
   assert('the same photo in two slots of one plan is refused', twice.errors.some((e) => /already in another slot/.test(e)));
   assert('used means pending or approved (rejected and superseded drafts never went out)', sameSet([...C.PHOTO_USED_STATUSES], ['pending', 'approved']));
   const lib = tools.slice(tools.indexOf('async function getPhotoLibrary('), tools.indexOf('// ---- get_results'));
@@ -639,7 +666,7 @@ assert('unknown photo ids and malformed departures are refused', C.checkPlan(pla
   const saveFn = tools.slice(tools.indexOf('async function saveDraft('), tools.indexOf('const saveDraftInput'));
   assert('save_draft refuses a used photo, except on the flagged draft it replaces', /usedPhotoIds\(input\.replaces\)/.test(saveFn) && /never used twice/.test(saveFn));
   const runSrc = read('marketing/run.ts');
-  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
+  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used, withBlog\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
 }
 assert('X is no longer a planned channel (owner decision: Instagram and Facebook)', C.checkPlan(plan([slot(1, { channel: 'x' }), slot(2), slot(3)]), W, [`R-${W}-1`], photos).errors.some((e) => /channel "x"/.test(e)));
 
@@ -658,7 +685,7 @@ assert('each brief that hands over states its format and the runner\'s field nam
 assert('the briefs\' format examples pass the checks they describe', (() => {
   const ex = (name) => briefText(name).match(/```\n([\s\S]*?)```/)[1];
   const b = C.checkBrief(ex('researcher'), '202642', ['https://getaway.co.za/example']);
-  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-1'], new Set(['trail-bushveld-path', 'guide-reading-tracks', 'rustwood-pool-sunset']));
+  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-1'], new Set(['trail-bushveld-path', 'guide-reading-tracks', 'rustwood-pool-sunset', 'temmincks-giraffe']));
   return b.errors.every((e) => /wider industry trends/.test(e)) && /type: trend/.test(ex('researcher')) && pl.errors.every((e) => /exactly 3/.test(e));
 })());
 
@@ -739,7 +766,7 @@ section('7. Meta results (marketing/meta.ts): read-only, best-effort, the token 
   const wfMeta = read('.github/workflows/marketing-team.yml');
   assert('the workflow passes the Meta secrets and offers meta_check', /META_ACCESS_TOKEN: \$\{\{ secrets\.META_ACCESS_TOKEN \}\}/.test(wfMeta) && /META_PAGE_ID: \$\{\{ secrets\.META_PAGE_ID \}\}/.test(wfMeta) && /options: \[[^\]]*\bmeta_check\b/.test(wfMeta));
   const runMeta = read('marketing/run.ts');
-  assert('the Analyst, the Sunday playbook and the Monday plan all get the Meta and search results', /const channelResults = async \(\) => \[await metaResults\(\), await searchResults\(\)\]/.test(runMeta) && /PROMPTS\.analyse\(results\)/.test(runMeta) && /PROMPTS\.playbook\(results\)/.test(runMeta) && /PROMPTS\.plan\(week, research, await channelResults\(\)\)/.test(runMeta));
+  assert('the Analyst, the Sunday playbook and the Monday plan all get the Meta and search results', /const channelResults = async \(\) => \[await metaResults\(\), await searchResults\(\)\]/.test(runMeta) && /PROMPTS\.analyse\(results\)/.test(runMeta) && /PROMPTS\.playbook\(results\)/.test(runMeta) && /PROMPTS\.plan\(week, research, withBlog, await channelResults\(\)\)/.test(runMeta));
 
   assert('no token: a one-line note, no call', (await M.metaResults({})).startsWith('Meta results unavailable'));
 
@@ -921,6 +948,57 @@ section('10. The owner\'s Post button (adminPublishDraft, migration 0024)');
   assert('errors are cleaned of the tokens', /function clean\(/.test(pub) && /clean\(e\.message, secrets\)/.test(pub));
   const page = read('src/pages/admin/marketing.astro');
   assert('the page asks before posting', /data-publish/.test(page) && /window\.confirm\(/.test(page));
+}
+
+section('11. The blog and its Publish button (adminPublishBlog, migration 0025)');
+{
+  const mig = read('supabase/migrations/0025_marketing_blog.sql').replace(/--[^\n]*/g, '');
+  const body = mig.match(/create table if not exists marketing\.blog_posts \(([\s\S]*?)\n\);/)[1];
+  const parts = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of body) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      parts.push(cur);
+      cur = '';
+    } else cur += ch;
+  }
+  parts.push(cur);
+  const cols = parts.map((x) => x.trim()).filter(Boolean).map((x) => x.split(/\s+/)[0]);
+  assert(`marketing.blog_posts: ${MARKETING_BLOG_POST_COLUMNS.length} columns match the SQL`, sameSet(cols, MARKETING_BLOG_POST_COLUMNS));
+  assert('blog_posts is default-deny: RLS on, revoked from anon and authenticated, no policy', /alter table marketing\.blog_posts enable row level security/.test(mig) && /revoke all on marketing\.blog_posts from anon, authenticated/.test(mig) && !/create policy/i.test(mig) && !/grant[^;]*\bto\b[^;]*\b(anon|authenticated)\b/i.test(mig));
+  assert('one article per draft, one slug per article', /draft_id\s+uuid not null unique/.test(mig) && /slug\s+text not null unique/.test(mig));
+  assert('0025 adds marketing_blog_publish to the audit actions', /'marketing_blog_publish'/.test(mig));
+
+  const B = await import('../src/lib/blog.ts');
+  assert('slugify makes a clean, short slug', B.slugify("What's the best time to visit the Waterberg?") === 'whats-the-best-time-to-visit-the-waterberg' && B.slugify('a '.repeat(80)).length <= 80);
+  assert('uniqueSlug never reuses a slug', B.uniqueSlug('x', new Set(['x', 'x-2'])) === 'x-3' && B.uniqueSlug('y', new Set(['x'])) === 'y');
+  const blocks = B.parseBlogBody('# Repeated title\n\nFirst **bold** line,\nwrapped.\n\n## Is it safe?\n\n- one\n- two\n\nSee [rates](https://rooibergwander.co.za/rates) or [x](javascript:alert(1)) or https://example.com/a.');
+  assert('the body parses into headings, paragraphs and lists, dropping a repeated title', blocks.map((b) => b.type).join() === 'p,h2,ul,p' && blocks[0].inline.some((n) => n.t === 'strong' && n.v === 'bold'));
+  const links = blocks[3].inline.filter((n) => n.t === 'link');
+  assert('own-site links become paths; javascript: never links; outside links are https only', links.length === 2 && links[0].href === '/rates' && !links[0].external && links[1].external && links[1].href === 'https://example.com/a' && blocks[3].inline.some((n) => n.t === 'text' && n.v.includes('x')));
+  assert('the description is the first paragraph, at most 155 characters', B.blogDescription('A short opening.\n\n## H') === 'A short opening.' && B.blogDescription('word '.repeat(60)).length <= 155);
+
+  const pages = ['src/pages/blog/index.astro', 'src/pages/blog/[slug].astro', 'src/components/blog/BlogInline.astro', 'src/components/blog/BlogCover.astro'].map(read);
+  assert('no blog page or component uses set:html (Part 11.3)', pages.every((p) => !/set:html\s*=/.test(p)));
+  assert('the blog pages render on demand and read through lib/blog-posts', /export const prerender = false/.test(pages[0]) && /export const prerender = false/.test(pages[1]) && /listBlogPosts/.test(pages[0]) && /getBlogPost/.test(pages[1]));
+  assert('an empty blog is noindex; an article carries BlogPosting JSON-LD', /noindex=\{posts\.length === 0\}/.test(pages[0]) && /blogPostingSchema\(/.test(pages[1]));
+  const cover = read('src/pages/blog/cover/[slug].ts');
+  assert('the cover route serves only the upload that is a live article\'s cover', /getBlogPost\(params\.slug\)/.test(cover) && /cover_photo_id\?\.startsWith\(UPLOAD_ID_PREFIX\)/.test(cover));
+  assert('robots.txt names the blog sitemap', /Sitemap: https:\/\/rooibergwander\.co\.za\/sitemap-blog\.xml/.test(read('public/robots.txt')) && existsSync(new URL('../src/pages/sitemap-blog.xml.ts', import.meta.url)));
+  assert('the footer links the blog; the header nav stays the memo\'s five', /withBase\('\/blog'\)/.test(read('src/components/Footer.astro')) && !/\/blog/.test(read('src/data/site.ts')));
+
+  const actions = read('src/actions/index.ts');
+  const fn = actions.slice(actions.indexOf('adminPublishBlog: defineAction('), actions.indexOf('adminUploadMarketingPhoto: defineAction('));
+  assert('publishing needs an admin, an approved blog draft and the code rules', /requireAdmin\(ctx\)/.test(fn) && /adminActionRate\(/.test(fn) && /status !== 'approved'/.test(fn) && /kind !== 'blog_draft'/.test(fn) && /checkDraft\(/.test(fn));
+  assert('the claim comes before the article, and a failure frees it', fn.indexOf(".from('posts').insert({ draft_id: input.draftId, channel: 'blog' })") < fn.indexOf(".from('blog_posts').insert(") && /from\('posts'\)\.delete\(\)\.eq\('id', claim\.id\)/.test(fn));
+  assert('every blog publish is in the audit log', /recordAdminEvent\([\s\S]*?'marketing_blog_publish'/.test(fn));
+  const page = read('src/pages/admin/marketing.astro');
+  assert('the marketing page asks before publishing a blog', /data-publish-blog/.test(page) && /actions\.adminPublishBlog/.test(page) && /window\.confirm\('Publish this article now/.test(page));
+  assert('a published blog leaves Ready to post', /d\.kind === 'blog_draft' \? 1 : 2/.test(page));
+  assert('no agent can publish: the tool server has no blog tool', !/blog_posts/.test(tools) && !/adminPublishBlog/.test(tools));
 }
 
 console.log(failed === 0 ? '\nALL MARKETING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);

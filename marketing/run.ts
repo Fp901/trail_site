@@ -44,6 +44,7 @@ import {
   LAUNCH_SLOT_PREFIX,
   type LaunchSlot,
   checkPlan,
+  blogDue,
   PLAN_MIN_TREND_SLOTS,
   checkPlaybook,
   cycleWeek,
@@ -79,16 +80,26 @@ const today = () => new Date().toISOString().slice(0, 10);
 const PROMPTS = {
   research: (week: string) =>
     `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.`,
-  plan: (week: string, research: { ids: string[]; trends: string[] }, results = '') =>
+  plan: (week: string, research: { ids: string[]; trends: string[] }, withBlog: boolean, results = '') =>
     `Today is ${today()}, Monday planning for cycle week ${week}. Write ${PLAN_PATH} in the team playbook exactly in the format your instructions give, with ids P-${week}-1 upwards. ` +
     (research.ids.length
       ? `This week's research items are ${research.ids.join(', ')} in the Researcher's ${BRIEF_PATH}` +
-        (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at least ${Math.min(PLAN_MIN_TREND_SLOTS, research.trends.length)} post slots must be based on one.` : '.')
+        (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at least ${Math.min(PLAN_MIN_TREND_SLOTS, research.trends.length)} post slots must be based on one.` : '.') +
+        ` Every slot${withBlog ? ', the blog included,' : ''} must be based on one of these research items.`
       : `There is no research brief for this week, so base every slot on "facts: ..." from get_facts_pack.`) +
+    (withBlog
+      ? ` This week has a blog: the plan has exactly one blog slot.`
+      : ` This week has no blog (one every second week, and the last was written recently): plan the three posts only.`) +
     ` Reply with the plan's headline ideas.` +
     (results ? `\n\n${results}` : ''),
-  write: (week: string, slots: PlanSlot[]) =>
-    `Today is ${today()}. Write and save one draft for each slot in ${PLAN_PATH} (cycle week ${week}): ${slots.map((s) => `${s.id} (${s.channel})`).join(', ')}. Put "Plan slot: <id>" in each draft's notes. Reply with a list of what you saved.`,
+  write: (week: string, slots: PlanSlot[], search = '') =>
+    `Today is ${today()}. Write and save one draft for each slot in ${PLAN_PATH} (cycle week ${week}): ${slots.map((s) => `${s.id} (${s.channel})`).join(', ')}. Put "Plan slot: <id>" in each draft's notes. ` +
+    slots
+      .filter((s) => s.searchTerms)
+      .map((s) => `The blog slot ${s.id} is written to be found for these searches: ${s.searchTerms}. Use the first in the title and in the opening paragraph, and the others in at least one "## " heading, in natural words; never repeat a phrase just to repeat it. `)
+      .join('') +
+    `Reply with a list of what you saved.` +
+    (search && slots.some((s) => s.searchTerms) ? `\n\n${search}` : ''),
   review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
     `Review these ${drafts.length} new drafts against the facts pack and the brand. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
     JSON.stringify(drafts, null, 2),
@@ -365,6 +376,20 @@ async function photoIds(ctx: Ctx): Promise<Set<string>> {
 }
 
 // Photos already on a pending or approved draft: never planned again (a photo is used once).
+// The newest blog draft that is pending or approved, for the every-second-week rule (blogDue).
+async function lastBlogAt(ctx: Ctx): Promise<Date | null> {
+  const { data, error } = await ctx.sb
+    .from('drafts')
+    .select('created_at')
+    .eq('kind', 'blog_draft')
+    .in('status', ['pending', 'approved'])
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`drafts read failed: ${error.message}`);
+  const row = ((data ?? []) as { created_at: string }[])[0];
+  return row ? new Date(row.created_at) : null;
+}
+
 async function usedPhotos(ctx: Ctx): Promise<Set<string>> {
   const { data, error } = await ctx.sb.from('drafts').select('photo_ids').in('status', [...PHOTO_USED_STATUSES]);
   if (error) throw new Error(`drafts read failed: ${error.message}`);
@@ -377,10 +402,10 @@ const checks = {
     if (md === null) return missing(BRIEF_PATH);
     return { path: BRIEF_PATH, errors: checkBrief(md, week, fetchedUrls).errors };
   },
-  plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, used: Set<string>, out: PlanSlot[]): HandOverCheck => async () => {
+  plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, used: Set<string>, withBlog: boolean, out: PlanSlot[]): HandOverCheck => async () => {
     const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAN_PATH);
     if (md === null) return missing(PLAN_PATH);
-    const r = checkPlan(md, week, research.ids, photos, research.trends, used);
+    const r = checkPlan(md, week, research.ids, photos, research.trends, used, withBlog);
     out.splice(0, out.length, ...r.slots);
     return { path: PLAN_PATH, errors: r.errors };
   },
@@ -603,6 +628,8 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const research = await briefIds(ctx, week);
       const slots: PlanSlot[] = [];
       const [all, used] = [await photoIds(ctx), await usedPhotos(ctx)];
+      const withBlog = blogDue(await lastBlogAt(ctx), new Date());
+      console.log(`  blog: ${withBlog ? 'due this week' : 'not this week (one every second week)'}`);
       const left = [...all].filter((id) => !used.has(id)).length;
       console.log(`  photos: ${left} never used, of ${all.size}`);
       if (left < PHOTOS_LOW_WARNING) {
@@ -611,15 +638,15 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const plan = await runEmployee(
         ctx,
         'head_of_marketing',
-        PROMPTS.plan(week, research, await channelResults()),
-        checks.plan(ctx, week, research, all, used, slots),
+        PROMPTS.plan(week, research, withBlog, await channelResults()),
+        checks.plan(ctx, week, research, all, used, withBlog, slots),
       );
       // No valid plan, no drafts: the Copywriter would only guess.
       if (!plan.ok) return;
       const n = await syncFeedback(ctx);
       console.log(`  feedback: ${n} new decision(s) synced`);
       const writingFrom = new Date().toISOString();
-      await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots), checks.drafts(ctx, slots));
+      await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots, await searchResults()), checks.drafts(ctx, slots));
       await editorReview(ctx);
       await fixRound(ctx, writingFrom);
     },

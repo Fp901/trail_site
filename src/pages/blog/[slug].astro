@@ -1,0 +1,200 @@
+---
+// One blog article (CLAUDE.md Part 18, migration 0025). Rendered on demand from
+// marketing.blog_posts, which only the owner's Publish button writes. The body is parsed into
+// plain blocks (lib/blog.ts) and rendered with escaped expressions: never set:html (Part 11.3).
+// Question-shaped "## " headings become <h2>s, which is what search and AI answers extract (10.5).
+import Layout from '../../layouts/Layout.astro';
+import Section from '../../components/Section.astro';
+import BlogInline from '../../components/blog/BlogInline.astro';
+import BlogCover from '../../components/blog/BlogCover.astro';
+import { parseBlogBody, readingMinutes } from '../../lib/blog';
+import { BLOG_CACHE, blogDate, coverFor, getBlogPost, type BlogPost } from '../../lib/blog-posts';
+import { breadcrumbSchema, blogPostingSchema, webPageSchema } from '../../data/schema';
+import { withBase } from '../../data/site';
+
+export const prerender = false;
+
+let post: BlogPost | null = null;
+let failed = false;
+try {
+  post = await getBlogPost(Astro.params.slug);
+} catch {
+  failed = true;
+}
+if (post) Astro.response.headers.set('Cache-Control', BLOG_CACHE);
+else Astro.response.status = failed ? 503 : 404;
+
+const path = `/blog/${post?.slug ?? ''}`;
+const cover = post ? coverFor(post.cover_photo_id, post.slug) : null;
+const ogImage = cover ? (cover.kind === 'asset' ? cover.image.src : cover.src) : undefined;
+const blocks = post ? parseBlogBody(post.body) : [];
+const title = post ? `${post.title} | Rooiberg Wander` : 'Article not found | Rooiberg Wander';
+const description = post?.description ?? 'This article could not be found.';
+const jsonLd = post
+  ? [
+      webPageSchema({ path, name: post.title, description }),
+      breadcrumbSchema([
+        { name: 'Home', path: '/' },
+        { name: 'Blog', path: '/blog' },
+        { name: post.title, path },
+      ]),
+      blogPostingSchema({ path, headline: post.title, description, datePublished: post.published_at, image: ogImage }),
+    ]
+  : [];
+---
+
+<Layout title={title} description={description} path={post ? path : '/blog'} type={post ? 'article' : 'website'} image={ogImage} noindex={!post} jsonLd={jsonLd}>
+  {
+    post ? (
+      <article aria-labelledby="blog-title">
+        <Section bg="cream" space="md">
+          <div class="mx-auto max-w-3xl">
+            <p class="eyebrow">
+              <a href={withBase('/blog')} class="blog-crumb">Blog</a>
+            </p>
+            <h1 id="blog-title" class="font-display text-4xl leading-[1.08] text-earth sm:text-5xl">
+              {post.title}
+            </h1>
+            <p class="blog-meta">
+              <time datetime={post.published_at}>{blogDate(post.published_at)}</time>
+              <span aria-hidden="true"> · </span>
+              {readingMinutes(post.body)} minute read
+            </p>
+          </div>
+          {cover && (
+            <figure class="mx-auto mt-10 max-w-5xl">
+              <BlogCover cover={cover} alt={post.cover_alt ?? ''} eager sizes="(min-width: 1100px) 1024px, 100vw" class="blog-cover" />
+            </figure>
+          )}
+          <div class="blog-body mx-auto mt-12 max-w-3xl">
+            {blocks.map((b) =>
+              'items' in b ? (
+                b.type === 'ol' ? (
+                  <ol>{b.items.map((it) => <li><BlogInline nodes={it} /></li>)}</ol>
+                ) : (
+                  <ul>{b.items.map((it) => <li><BlogInline nodes={it} /></li>)}</ul>
+                )
+              ) : b.type === 'h2' ? (
+                <h2><BlogInline nodes={b.inline} /></h2>
+              ) : b.type === 'h3' ? (
+                <h3><BlogInline nodes={b.inline} /></h3>
+              ) : (
+                <p><BlogInline nodes={b.inline} /></p>
+              ),
+            )}
+          </div>
+          <div class="blog-end mx-auto mt-14 max-w-3xl">
+            <p class="font-display text-2xl text-earth">Walk it yourself</p>
+            <p class="mt-2 font-body text-charcoal/80">
+              Three nights and three days on foot through a private Big 5 reserve in the Waterberg, with two trail guides and every meal included.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <a href={withBase('/rates')} class="btn btn-primary">See dates and book</a>
+              <a href={withBase('/blog')} class="btn btn-secondary">More from the blog</a>
+            </div>
+          </div>
+        </Section>
+      </article>
+    ) : (
+      <Section bg="cream" labelledby="blog-missing">
+        <div class="mx-auto max-w-3xl">
+          <p class="eyebrow">Blog</p>
+          <h1 id="blog-missing" class="font-display text-4xl text-earth sm:text-5xl">
+            {failed ? 'This article is not available right now' : 'We could not find that article'}
+          </h1>
+          <p class="mt-4 font-body text-charcoal/80">
+            {failed ? 'Please try again in a moment.' : 'It may have moved. Every article is listed on the blog.'}
+          </p>
+          <p class="mt-8">
+            <a href={withBase('/blog')} class="btn btn-primary">Go to the blog</a>
+          </p>
+        </div>
+      </Section>
+    )
+  }
+</Layout>
+
+<style>
+  .eyebrow {
+    margin: 0 0 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-ochre);
+  }
+  .blog-crumb {
+    color: inherit;
+    text-decoration: none;
+  }
+  .blog-crumb:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .blog-meta {
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: color-mix(in srgb, var(--color-charcoal) 65%, transparent);
+  }
+  :global(.blog-cover) {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    border-radius: 1.5rem;
+  }
+  .blog-body {
+    font-family: var(--font-body);
+    color: var(--color-charcoal);
+  }
+  .blog-body :global(h2) {
+    margin: 2.75rem 0 0.85rem;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    line-height: 1.15;
+    color: var(--color-earth);
+  }
+  .blog-body :global(h3) {
+    margin: 2rem 0 0.6rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.2;
+    color: var(--color-earth);
+  }
+  .blog-body :global(p),
+  .blog-body :global(ul),
+  .blog-body :global(ol) {
+    margin: 0 0 1.15rem;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+  }
+  .blog-body :global(ul),
+  .blog-body :global(ol) {
+    padding-left: 1.35rem;
+  }
+  .blog-body :global(ul) {
+    list-style: disc;
+  }
+  .blog-body :global(ol) {
+    list-style: decimal;
+  }
+  .blog-body :global(li) {
+    margin-bottom: 0.4rem;
+  }
+  .blog-body :global(li::marker) {
+    color: var(--color-ochre);
+  }
+  .blog-body :global(a) {
+    color: var(--color-green);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .blog-body :global(a:hover) {
+    color: var(--color-earth);
+  }
+  .blog-end {
+    padding-top: 2.5rem;
+    border-top: 1px solid var(--color-hairline);
+  }
+</style>

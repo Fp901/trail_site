@@ -103,3 +103,46 @@ export const touristTripSchema = {
   touristType: ['Walking safari', 'Multi-day hiking trail', 'Point-to-point trail'],
   provider: { '@id': ORG_ID },
 };
+
+// BlogPosting for one published article on /blog (CLAUDE.md Part 18, migration 0025). Built only
+// from the article's own published fields; the publisher is the Organization above.
+export function blogPostingSchema(opts: { path: string; headline: string; description: string; datePublished: string; image?: string }) {
+  const url = new URL(opts.path, site.url).href;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    '@id': `${url}#article`,
+    mainEntityOfPage: url,
+    url,
+    headline: opts.headline,
+    description: opts.description,
+    datePublished: opts.datePublished,
+    dateModified: opts.datePublished,
+    inLanguage: site.locale,
+    ...(opts.image ? { image: new URL(opts.image, site.url).href } : {}),
+    author: { '@id': ORG_ID },
+    publisher: { '@id': ORG_ID },
+    isPartOf: { '@id': `${new URL('/blog', site.url).href}#blog` },
+  };
+}
+
+// The blog itself, listing its articles.
+export function blogSchema(opts: { description: string; posts: { path: string; headline: string; datePublished: string }[] }) {
+  const url = new URL('/blog', site.url).href;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    '@id': `${url}#blog`,
+    url,
+    name: `${site.name} blog`,
+    description: opts.description,
+    inLanguage: site.locale,
+    publisher: { '@id': ORG_ID },
+    blogPost: opts.posts.map((p) => ({
+      '@type': 'BlogPosting',
+      headline: p.headline,
+      url: new URL(p.path, site.url).href,
+      datePublished: p.datePublished,
+    })),
+  };
+}

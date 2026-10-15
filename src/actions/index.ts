@@ -62,7 +62,9 @@ import {
   type MarketingDraftKind,
   type MarketingPostFormat,
 } from '../lib/db.types';
-import { MARKETING_PHOTO_BUCKET, checkPhotoUpload, photoUrlsForPosting } from '../lib/marketing-photos';
+import { MARKETING_PHOTO_BUCKET, UPLOAD_ID_PREFIX, checkPhotoUpload, photoUrlsForPosting } from '../lib/marketing-photos';
+import { blogDescription, blogUrl, slugify, uniqueSlug } from '../lib/blog';
+import { photoLibrary } from '../data/photo-library';
 import { MetaPublishError, metaCredentials, publishFacebook, publishInstagram } from '../lib/meta-publish';
 import { site } from '../data/site';
 import { MIN_GUEST_AGE } from '../data/policies';
@@ -1578,6 +1580,87 @@ export const server = {
         }
       }
       return { ok: true, posted: results };
+    },
+  }),
+
+  // The owner's Publish button for the blog (CLAUDE.md Part 18, migration 0025): puts an approved
+  // blog draft live at /blog/<slug>, the same way adminPublishDraft posts a social draft. Admin
+  // only, rate-limited. The agents cannot reach it. The claim on marketing.posts (draft_id, 'blog')
+  // comes first, so a double click cannot publish twice; the article row is a copy of the approved
+  // title and text, so what is live never changes behind the owner's back.
+  adminPublishBlog: defineAction({
+    accept: 'json',
+    input: z.object({ draftId: z.string().uuid() }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+
+      const mk = getSupabaseAdmin().schema('marketing');
+      const { data: draft, error: loadErr } = await mk
+        .from('drafts')
+        .select('id, kind, title, body, status, photo_ids')
+        .eq('id', input.draftId)
+        .maybeSingle();
+      if (loadErr || !draft) throw new ActionError({ code: 'NOT_FOUND', message: 'Draft not found.' });
+      if (draft.status !== 'approved') throw new ActionError({ code: 'CONFLICT', message: 'Only an approved draft can be published.' });
+      if (draft.kind !== 'blog_draft') throw new ActionError({ code: 'BAD_REQUEST', message: 'Only a blog draft can be published to the blog.' });
+      const title = String(draft.title ?? '').trim();
+      const body = String(draft.body ?? '').trim();
+      if (!title) throw new ActionError({ code: 'BAD_REQUEST', message: 'This blog has no title. Withdraw it and the team will write it again.' });
+      // The code rules once more, on exactly the text that goes live.
+      const violations = checkDraft([title, body].join('\n'), 'blog_draft', null);
+      if (violations.length) throw new ActionError({ code: 'BAD_REQUEST', message: describeViolations(violations) });
+      const description = blogDescription(body);
+      if (!description) throw new ActionError({ code: 'BAD_REQUEST', message: 'This blog has no opening paragraph to show in search results.' });
+
+      // The cover: the draft's first photo, with its alt text from the library or the upload.
+      const coverId = ((draft.photo_ids ?? []) as string[])[0] ?? null;
+      let coverAlt: string | null = null;
+      if (coverId) {
+        const lib = photoLibrary.find((p) => p.id === coverId);
+        if (lib) coverAlt = lib.alt;
+        else if (coverId.startsWith(UPLOAD_ID_PREFIX)) {
+          const { data: up } = await mk.from('photos').select('alt').eq('id', coverId.slice(UPLOAD_ID_PREFIX.length)).maybeSingle();
+          if (!up) throw new ActionError({ code: 'BAD_REQUEST', message: 'The cover photo is no longer in the library.' });
+          coverAlt = String(up.alt);
+        } else throw new ActionError({ code: 'BAD_REQUEST', message: 'The cover photo is no longer in the library.' });
+      }
+
+      const { data: claim, error: claimErr } = await mk.from('posts').insert({ draft_id: input.draftId, channel: 'blog' }).select('id').single();
+      if (claimErr || !claim) {
+        throw new ActionError({ code: 'CONFLICT', message: 'This blog is already published, or being published. Refresh the page in a moment.' });
+      }
+      try {
+        const base = slugify(title);
+        const { data: clash, error: clashErr } = await mk.from('blog_posts').select('slug').like('slug', `${base.slice(0, 70)}%`);
+        if (clashErr) throw clashErr;
+        const slug = uniqueSlug(base, new Set(((clash ?? []) as { slug: string }[]).map((r) => r.slug)));
+        const publishedAt = new Date().toISOString();
+        const { error: insErr } = await mk.from('blog_posts').insert({
+          draft_id: input.draftId,
+          slug,
+          title,
+          description,
+          body,
+          cover_photo_id: coverId,
+          cover_alt: coverAlt,
+          published_at: publishedAt,
+          published_by: admin.email,
+        });
+        if (insErr) throw insErr;
+        const url = blogUrl(slug);
+        await mk.from('posts').update({ external_id: slug, url, published_at: publishedAt }).eq('id', claim.id);
+        await recordAdminEvent({
+          adminEmail: admin.email,
+          action: 'marketing_blog_publish',
+          after: { draft_id: input.draftId, slug },
+        });
+        return { ok: true, url };
+      } catch (e) {
+        await mk.from('posts').delete().eq('id', claim.id);
+        console.error('[marketing] blog publish failed', e instanceof Error ? e.message : 'unknown error');
+        throw new ActionError({ code: 'INTERNAL_SERVER_ERROR', message: 'The blog could not be published. Please try again.' });
+      }
     },
   }),
 

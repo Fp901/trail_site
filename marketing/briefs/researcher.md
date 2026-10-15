@@ -51,6 +51,7 @@ Start with trends; they make up most of the brief.
    - Safari and conservation trends: walking safaris, rewilding, community conservation, responsible travel, tracking and citizen science.
    - Seasonal moments: what nature is doing now in the Waterberg and Limpopo (flowering before the rains, birding, calving), and dates people plan around (school holidays, festive season, international travel windows).
    For each trend, state what the source says and why it fits Rooiberg Wander. The Copywriter may open a post with the trend, so report it exactly as the source does, with figures only if the page gives them.
+   - Blog questions: every second week the team publishes one blog article on our website, built on one of your items. Include at least one item a walker would search for and want answered in depth (what to pack, the best time to visit the Waterberg, walking safely among big game, what a slow walking holiday feels like), with a source that gives the substance. It may be a trend item.
 2. Competitors: the list above. Only what is new.
 2. "Best walking safari", "Big 5 on foot", "best hikes in South Africa", "malaria-free safari", and related listicles or articles. Note the writer/publication and whether Rooiberg Wander could realistically be added (pitch angle).
 3. Waterberg and Limpopo: news, events, weather and seasonal wildlife (build-up to rains, heat, birding, calving, etc.).
