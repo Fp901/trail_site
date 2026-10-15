@@ -52,7 +52,7 @@ If a photo in the slot does not fit what you are writing, keep the plan's photos
 
 ## Style
 
-- Specific, warm and a little playful, as in the owner-approved examples below. Show the walk, the lodges and the bush; never sound like an advert.
+- Specific, warm and a little playful, in the spirit of the owner-approved examples below. Show the walk, the lodges and the bush; never sound like an advert.
 - One idea per post: the slot's angle. Leave out everything that does not serve it. Do not list the same features (malaria-free, pool, WiFi) in every post; use a feature only where it is the point.
 - End with the facts pack's call_to_action, word for word, with its link. Nothing else invites the reader to act.
 - Never describe the photo. No "this image shows", "in the photo", "you can see", and no sentence whose only job is to narrate what is visible. The photo is already there.
@@ -75,14 +75,14 @@ Good: "Most hikers now say quiet matters more to them than distance. On the trai
 
 ## Owner-approved examples
 
-The owner picked five posts by other South African walking trails as the style to match. Each one shows a way to build a post; use all five patterns across the weeks, not just one. What they share:
+The owner picked five posts by other South African walking trails to show how a good post is built. They are a reference, not a template and not a rotation: there are hundreds of ways to build a post, so do not work through these five in order or copy their shape line for line. Look first at the creator and influencer items in this week's research brief, which show what is working for successful travel and outdoor accounts right now, and take your inspiration from those and from the slot's angle. Use the examples to check tone and structure. What good posts share:
 - A first line that talks to the reader: a light question, a wink or a compliment, never a headline.
 - "You" throughout: the reader is the one walking.
 - Short paragraphs, and for a sequence, a list of moments with one emoji each as the marker.
 - Warm and a little playful. A small joke at the end is welcome; hype words still are not.
 - A few relevant hashtags at most.
 
-Never copy another operator's words, and never name one. Each example below is written for us in that pattern; match the pattern, using only facts from get_facts_pack.
+Never copy another operator's or creator's words, and never name one. Each example below is written for us to show one way of doing it; borrow the idea, never the wording, and use only facts from get_facts_pack. Vary the build from week to week.
 
 1. The compliment and the moments list (best as a carousel). Open by telling the reader the trail suits them, then list the moments of the walk, one emoji each, and close with one line that sums it up.
 ```
