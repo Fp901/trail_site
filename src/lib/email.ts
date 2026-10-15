@@ -62,6 +62,14 @@ export function adminEmailList(): string[] {
   return [...new Set(list)];
 }
 
+// Who gets the daily marketing digest: MARKETING_NOTIFY_TO (comma-separated) when set, so the owner
+// can take someone off the marketing emails without removing their admin sign-in; else every admin.
+export function marketingEmailList(): string[] {
+  const raw = String(import.meta.env.MARKETING_NOTIFY_TO ?? '').trim();
+  const list = [...new Set(raw.split(',').map((e) => e.trim().toLowerCase()).filter((e) => e.length > 0))];
+  return list.length > 0 ? list : adminEmailList();
+}
+
 export function pretripUrl(token: string): string {
   const base = (import.meta.env.PUBLIC_SITE_URL ?? site.url).replace(/\/$/, '');
   return `${base}/pretrip/${token}`;

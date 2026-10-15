@@ -1,11 +1,11 @@
 // Daily marketing digest (CLAUDE.md Part 18; Vercel Cron, see vercel.json). prerender=false.
-// Emails every admin (ADMIN_EMAILS) the number of marketing drafts waiting at /admin/marketing.
+// Emails MARKETING_NOTIFY_TO (else every admin in ADMIN_EMAILS) the number of marketing drafts waiting at /admin/marketing.
 // Sends nothing when none are waiting. Counts, plus the title and channel (kind) of any draft the
 // Editor has still not reviewed 24 hours after it was saved: never the draft text.
 import type { APIRoute } from 'astro';
 import crypto from 'node:crypto';
 import { getSupabaseAdmin } from '../../../lib/supabase';
-import { adminEmailList, sendMarketingDraftsDigest } from '../../../lib/email';
+import { marketingEmailList, sendMarketingDraftsDigest } from '../../../lib/email';
 
 export const prerender = false;
 
@@ -40,7 +40,7 @@ export const GET: APIRoute = async ({ request }) => {
   if (rows.length === 0) return new Response(JSON.stringify({ waiting: 0, sent: false }), { status: 200 });
 
   await sendMarketingDraftsDigest({
-    tos: adminEmailList(),
+    tos: marketingEmailList(),
     waiting: rows.length,
     flagged: rows.filter((r) => r.editor_status === 'flagged').length,
     oldestCreatedAt: rows[0]?.created_at ?? null,
