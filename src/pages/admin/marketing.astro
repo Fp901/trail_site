@@ -39,6 +39,8 @@ let approvedWaiting = 0;
 type PostLink = { channel: string; url: string | null; published_at: string | null };
 const postsByDraft = new Map<string, PostLink[]>();
 const SHOW_READY = 5;
+// Recently posted: the last five drafts that went out, with links to the live posts.
+let posted: { title: string | null; kind: string; links: PostLink[] }[] = [];
 let loadError = false;
 const PHOTO_COLS = ['id', 'created_at', 'category', 'lodge', 'alt', 'uploaded_by'] as const satisfies readonly (typeof MARKETING_PHOTO_COLUMNS)[number][];
 type PhotoListRow = Pick<MarketingPhotoRow, (typeof PHOTO_COLS)[number]>;
@@ -71,6 +73,25 @@ try {
   approved = notPosted.slice(0, SHOW_READY);
   pending = (p.data as unknown as MarketingDraftRow[]) ?? [];
   recent = (r.data as unknown as MarketingDraftRow[]) ?? [];
+  const { data: latest, error: latestErr } = await mk
+    .from('posts')
+    .select('draft_id, channel, url, published_at')
+    .not('published_at', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(20);
+  if (latestErr) throw latestErr;
+  const byDraft = new Map<string, PostLink[]>();
+  for (const row of (latest ?? []) as (PostLink & { draft_id: string | null })[]) {
+    if (!row.draft_id) continue;
+    if (!byDraft.has(row.draft_id) && byDraft.size === 5) continue;
+    byDraft.set(row.draft_id, [...(byDraft.get(row.draft_id) ?? []), row]);
+  }
+  if (byDraft.size) {
+    const { data: titles, error: titlesErr } = await mk.from('drafts').select('id, title, kind').in('id', [...byDraft.keys()]);
+    if (titlesErr) throw titlesErr;
+    const draftOf = new Map(((titles ?? []) as { id: string; title: string | null; kind: string }[]).map((t) => [t.id, t]));
+    posted = [...byDraft].map(([id, links]) => ({ title: draftOf.get(id)?.title ?? null, kind: draftOf.get(id)?.kind ?? '', links }));
+  }
 } catch {
   loadError = true;
 }
@@ -380,6 +401,28 @@ const fmtDateTime = (v: string | null) =>
                       </div>
                       <p class="bform__status" data-status role="status" aria-live="polite" />
                     </form>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {posted.length > 0 && (
+            <div class="mt-12">
+              <h2 class="font-display text-2xl text-earth">Recently posted</h2>
+              <ol class="admin-inqs mt-4">
+                {posted.map((d) => (
+                  <li class="admin-inq admin-inq--handled">
+                    <p class="admin-name">{d.title || KIND_LABEL[d.kind as MarketingDraftKind] || 'Post'}</p>
+                    <p class="admin-sub">
+                      {d.links.map((p, i) => (
+                        <>
+                          {i > 0 && ', '}
+                          {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.channel === 'instagram' ? 'Instagram' : 'Facebook'}</a> : (p.channel === 'instagram' ? 'Instagram' : 'Facebook')}
+                        </>
+                      ))}
+                      {d.links[0]?.published_at && `, ${fmtDateTime(d.links[0].published_at)}`}
+                    </p>
                   </li>
                 ))}
               </ol>
