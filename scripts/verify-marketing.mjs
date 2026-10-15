@@ -894,6 +894,7 @@ section('10. The owner\'s Post button (adminPublishDraft, migration 0024)');
   assert('0024 adds marketing_post_publish to the audit actions', /'marketing_post_publish'/.test(mig));
   const pub = read('src/lib/meta-publish.ts');
   assert('the publisher calls only graph.facebook.com (www.facebook.com is the post link), token in a header', /const GRAPH = 'https:\/\/graph\.facebook\.com\/v\d+\.0'/.test(pub) && /fetch\(url, init\)/.test(pub) && /new URL\(`\$\{GRAPH\}\//.test(pub) && [...pub.matchAll(/https:\/\/[a-z0-9.-]+/g)].every((m) => ['https://graph.facebook.com', 'https://www.facebook.com'].includes(m[0])) && /Authorization: `Bearer \$\{token\}`/.test(pub) && !/access_token', /.test(pub));
+  assert('a Page token (no access_token field) still posts: the field is asked for on its own, with a fallback', /fields: 'access_token' \}, c\.token\);[\s\S]{0,200}\} catch \{/.test(pub) && !/fields: 'access_token,/.test(pub));
   assert('errors are cleaned of the tokens', /function clean\(/.test(pub) && /clean\(e\.message, secrets\)/.test(pub));
   const page = read('src/pages/admin/marketing.astro');
   assert('the page asks before posting', /data-publish/.test(page) && /window\.confirm\(/.test(page));
