@@ -83,12 +83,19 @@ const PROMPTS = {
     `Today is ${today()}, Monday planning for cycle week ${week}. Write ${PLAN_PATH} in the team playbook exactly in the format your instructions give, with ids P-${week}-1 upwards. ` +
     (research.ids.length
       ? `This week's research items are ${research.ids.join(', ')} in the Researcher's ${BRIEF_PATH}` +
-        (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at least ${Math.min(PLAN_MIN_TREND_SLOTS, research.trends.length)} post slots must be based on one.` : '.')
-      : `There is no research brief for this week, so base every slot on "facts: ..." from get_facts_pack.`) +
+        (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at least ${Math.min(PLAN_MIN_TREND_SLOTS, research.trends.length)} post slots must be based on one.` : '.') +
+        ` Every slot, the blog included, must be based on one of these research items, and the plan has exactly one blog slot.`
+      : `There is no research brief for this week, so base every slot on "facts: ..." from get_facts_pack. The plan still has exactly one blog slot.`) +
     ` Reply with the plan's headline ideas.` +
     (results ? `\n\n${results}` : ''),
-  write: (week: string, slots: PlanSlot[]) =>
-    `Today is ${today()}. Write and save one draft for each slot in ${PLAN_PATH} (cycle week ${week}): ${slots.map((s) => `${s.id} (${s.channel})`).join(', ')}. Put "Plan slot: <id>" in each draft's notes. Reply with a list of what you saved.`,
+  write: (week: string, slots: PlanSlot[], search = '') =>
+    `Today is ${today()}. Write and save one draft for each slot in ${PLAN_PATH} (cycle week ${week}): ${slots.map((s) => `${s.id} (${s.channel})`).join(', ')}. Put "Plan slot: <id>" in each draft's notes. ` +
+    slots
+      .filter((s) => s.searchTerms)
+      .map((s) => `The blog slot ${s.id} is written to be found for these searches: ${s.searchTerms}. Use the first in the title and in the opening paragraph, and the others in at least one "## " heading, in natural words; never repeat a phrase just to repeat it. `)
+      .join('') +
+    `Reply with a list of what you saved.` +
+    (search && slots.some((s) => s.searchTerms) ? `\n\n${search}` : ''),
   review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
     `Review these ${drafts.length} new drafts against the facts pack and the brand. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
     JSON.stringify(drafts, null, 2),
@@ -619,7 +626,7 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const n = await syncFeedback(ctx);
       console.log(`  feedback: ${n} new decision(s) synced`);
       const writingFrom = new Date().toISOString();
-      await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots), checks.drafts(ctx, slots));
+      await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots, await searchResults()), checks.drafts(ctx, slots));
       await editorReview(ctx);
       await fixRound(ctx, writingFrom);
     },

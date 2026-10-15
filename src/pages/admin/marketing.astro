@@ -67,8 +67,9 @@ try {
       postsByDraft.set(row.draft_id, [...(postsByDraft.get(row.draft_id) ?? []), row]);
     }
   }
-  // Ready to post: approved and not yet on both channels, oldest first, five at a time.
-  const notPosted = allApproved.filter((d) => (postsByDraft.get(d.id) ?? []).length < 2);
+  // Ready to post: approved and not yet live everywhere it goes (a blog on the blog; a social post
+  // on both Instagram and Facebook), oldest first, five at a time.
+  const notPosted = allApproved.filter((d) => (postsByDraft.get(d.id) ?? []).length < (d.kind === 'blog_draft' ? 1 : 2));
   approvedWaiting = notPosted.length;
   approved = notPosted.slice(0, SHOW_READY);
   pending = (p.data as unknown as MarketingDraftRow[]) ?? [];
@@ -141,6 +142,7 @@ const KIND_LABEL: Record<MarketingDraftKind, string> = {
   enquiry_reply: 'Enquiry reply',
   weekly_report: 'Weekly report',
 };
+const CHANNEL_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook', blog: 'Blog' };
 const FORMAT_LABEL: Record<string, string> = {
   single: 'Single photo post',
   carousel: 'Carousel (swipe through the photos in this order)',
@@ -271,7 +273,7 @@ const fmtDateTime = (v: string | null) =>
                   <form data-decide novalidate class="mk-decide">
                     <div class="form-field">
                       <label for={`mk-body-${d.id}`}>Text (edit before approving if you like)</label>
-                      <textarea id={`mk-body-${d.id}`} name="body" rows="10" maxlength="20000" class="mk-body">{d.body}</textarea>
+                      <textarea id={`mk-body-${d.id}`} name="body" rows={d.kind === 'blog_draft' ? 24 : 10} maxlength="20000" class="mk-body">{d.body}</textarea>
                     </div>
                     <div class="form-field">
                       <label for={`mk-reason-${d.id}`}>Reason (optional)</label>
@@ -354,7 +356,8 @@ const fmtDateTime = (v: string | null) =>
             <div class="mt-12">
               <h2 class="font-display text-2xl text-earth">Ready to post</h2>
               <p class="mt-2 font-body text-charcoal/75">
-                Post sends the text and photos to Instagram and your Facebook Page straight away. Stories
+                Post sends the text and photos to Instagram and your Facebook Page straight away. Publish
+                puts a blog article live on the website's blog, with its photo as the cover. Stories
                 need the text on the photo, so post those from your phone. Withdraw a post you do not
                 want: its photos and its slot are free again and the team can write it afresh.
                 {approvedWaiting > approved.length && ` Showing ${approved.length} of ${approvedWaiting}, oldest first.`}
@@ -383,7 +386,15 @@ const fmtDateTime = (v: string | null) =>
                         <p class="bform__status" data-status role="status" aria-live="polite" />
                       </form>
                     )}
-                    {(postsByDraft.get(d.id) ?? []).length === 1 && (
+                    {d.kind === 'blog_draft' && (postsByDraft.get(d.id) ?? []).length === 0 && (
+                      <form data-publish-blog novalidate class="mk-withdraw">
+                        <div class="admin-actions">
+                          <button type="submit" class="btn btn-primary">Publish to the blog</button>
+                        </div>
+                        <p class="bform__status" data-status role="status" aria-live="polite" />
+                      </form>
+                    )}
+                    {d.kind !== 'blog_draft' && (postsByDraft.get(d.id) ?? []).length === 1 && (
                       <form data-publish novalidate class="mk-withdraw">
                         <div class="admin-actions">
                           <button type="submit" class="btn btn-primary">Post to {(postsByDraft.get(d.id) ?? [])[0].channel === 'instagram' ? 'Facebook' : 'Instagram'}</button>
@@ -418,7 +429,7 @@ const fmtDateTime = (v: string | null) =>
                       {d.links.map((p, i) => (
                         <>
                           {i > 0 && ', '}
-                          {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.channel === 'instagram' ? 'Instagram' : 'Facebook'}</a> : (p.channel === 'instagram' ? 'Instagram' : 'Facebook')}
+                          {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{CHANNEL_LABEL[p.channel] ?? p.channel}</a> : (CHANNEL_LABEL[p.channel] ?? p.channel)}
                         </>
                       ))}
                       {d.links[0]?.published_at && `, ${fmtDateTime(d.links[0].published_at)}`}
@@ -555,6 +566,35 @@ const fmtDateTime = (v: string | null) =>
     });
   }
 
+  function initPublishBlog() {
+    document.querySelectorAll<HTMLElement>('[data-approved-id]').forEach((row) => {
+      const form = row.querySelector<HTMLFormElement>('form[data-publish-blog]');
+      if (!form || form.dataset.bound === 'true') return;
+      form.dataset.bound = 'true';
+      const statusEl = form.querySelector<HTMLElement>('[data-status]');
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (!window.confirm('Publish this article now? It goes live on the website\'s blog straight away.')) return;
+        const button = form.querySelector<HTMLButtonElement>('button');
+        if (button) button.disabled = true;
+        if (statusEl) {
+          statusEl.textContent = 'Publishing.';
+          statusEl.dataset.kind = 'ok';
+        }
+        const { error } = await actions.adminPublishBlog({ draftId: row.dataset.approvedId! });
+        if (error) {
+          if (statusEl) {
+            statusEl.textContent = error.message || 'Something went wrong.';
+            statusEl.dataset.kind = 'error';
+          }
+          if (button) button.disabled = false;
+          return;
+        }
+        window.location.reload();
+      });
+    });
+  }
+
   function initPhotoUpload() {
     const form = document.querySelector<HTMLFormElement>('form[data-photo-upload]');
     if (!form || form.dataset.bound === 'true') return;
@@ -591,5 +631,6 @@ const fmtDateTime = (v: string | null) =>
   initDrafts();
   initWithdraw();
   initPublish();
+  initPublishBlog();
   initPhotoUpload();
 </script>

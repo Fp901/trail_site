@@ -53,6 +53,8 @@ export const ADMIN_ACTIONS = [
   'marketing_photo_upload',
   // 0024: the owner posted an approved draft to Instagram or Facebook.
   'marketing_post_publish',
+  // 0025: the owner published an approved blog draft to /blog.
+  'marketing_blog_publish',
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
@@ -516,6 +518,36 @@ export const MARKETING_POST_COLUMNS = [
   'url',
   'published_at',
 ] as const;
+
+// marketing.blog_posts (0025): each published blog article, a copy of the approved draft taken
+// when the owner pressed Publish. Read on the server by the public /blog pages.
+export const MARKETING_BLOG_POST_COLUMNS = [
+  'id',
+  'created_at',
+  'draft_id',
+  'slug',
+  'title',
+  'description',
+  'body',
+  'cover_photo_id',
+  'cover_alt',
+  'published_at',
+  'published_by',
+] as const;
+
+export interface MarketingBlogPostRow {
+  id: string;
+  created_at: string;
+  draft_id: string;
+  slug: string;
+  title: string;
+  description: string;
+  body: string;
+  cover_photo_id: string | null;
+  cover_alt: string | null;
+  published_at: string;
+  published_by: string;
+}
 
 export const MARKETING_METRIC_COLUMNS = [
   'id',

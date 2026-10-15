@@ -21,10 +21,12 @@ export const BRIEF_MIN_TRENDS = 3;
 export const PLAN_MIN_TREND_SLOTS = 2;
 export const CHANNELS = ['instagram', 'facebook', 'blog'] as const;
 export const POST_CHANNELS = ['instagram', 'facebook'] as const;
-// Owner decision (design doc section 8): three Instagram or Facebook posts a week, plus at most
-// one blog post (one a month, which the Head of Marketing judges from get_results).
+// Owner decisions: three Instagram or Facebook posts a week (design doc section 8), plus one blog
+// post every week (15 October 2026, when the site gained its blog; it was one a month).
 export const PLAN_POSTS_PER_WEEK = 3;
-export const PLAN_MAX_BLOGS = 1;
+export const PLAN_BLOGS_PER_WEEK = 1;
+// A blog slot names exactly one photo: the article's cover on the website.
+export const BLOG_PHOTOS = 1;
 export const PLAYBOOK_SECTIONS = [
   'What works',
   'What does not work',
@@ -41,6 +43,7 @@ const CAPS: Record<string, number> = {
   'why now': 300,
   angle: 300,
   'call to action': 160,
+  'search terms': 160,
 };
 
 // ---- Weeks --------------------------------------------------------------------------------
@@ -217,7 +220,13 @@ export interface PlanSlot {
   id: string;
   channel: string;
   format: PostFormat | null;
+  // Blog slots only: the searches the article is written to rank for (owner request, 15 October
+  // 2026), chosen from the Search Console results the planner reads.
+  searchTerms?: string | null;
 }
+
+// A blog slot's "search terms": one to three phrases, comma separated, each a real search.
+export const BLOG_SEARCH_TERMS_MAX = 3;
 
 export interface PlanCheck {
   errors: string[];
@@ -254,6 +263,10 @@ export function checkPlan(
       const r = basis.match(/^R-\d{6}-\d+$/);
       if (r && !briefs.has(basis)) {
         errors.push(`${item.id}: "${basis}" is not an item in this week's research brief.`);
+      } else if (!r && briefs.size > 0) {
+        // Owner decision (15 October 2026): every slot, the blog included, is built on the
+        // Researcher's work. "facts: ..." is only the fallback for a week with no valid brief.
+        errors.push(`${item.id}: "based on" must be one of this week's research items (${[...briefs].join(', ')}); every slot rests on the Researcher's brief.`);
       } else if (!r && !/^facts:\s*\S/.test(basis)) {
         errors.push(`${item.id}: "based on" must be a research item id (R-${week}-n) or "facts: <what in the facts pack>".`);
       }
@@ -264,6 +277,12 @@ export function checkPlan(
       errors.push(`${item.id}: format "${f.format}" must be one of ${POST_FORMATS.join(', ')}.`);
     } else if (f.format && !isPost && fmt !== 'none') {
       errors.push(`${item.id}: a blog slot has format "none".`);
+    }
+    if ((f.channel ?? '').toLowerCase() === 'blog') {
+      const terms = (f['search terms'] ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+      if (terms.length === 0 || terms.length > BLOG_SEARCH_TERMS_MAX || terms.some((t) => t.length > 60)) {
+        errors.push(`${item.id}: a blog slot needs "search terms": 1 to ${BLOG_SEARCH_TERMS_MAX} searches, comma separated, each under 60 characters, taken from the Search Console results where they show any.`);
+      }
     }
     if (f.departure && !/^(\d{4}-\d{2}-\d{2}|none)$/.test(f.departure)) {
       errors.push(`${item.id}: departure must be a start date (YYYY-MM-DD) from get_open_departures, or "none".`);
@@ -281,13 +300,16 @@ export function checkPlan(
         const e = photoCountError(fmt as PostFormat, ids.length);
         if (e) errors.push(`${item.id}: ${e}`);
       }
+      if (!isPost && (f.channel ?? '').toLowerCase() === 'blog' && ids.length !== BLOG_PHOTOS) {
+        errors.push(`${item.id}: a blog slot takes exactly ${BLOG_PHOTOS} photo, its cover on the website.`);
+      }
     }
   });
   const channels = items.map((i) => (i.fields.channel ?? '').toLowerCase());
   const posts = channels.filter((c) => (POST_CHANNELS as readonly string[]).includes(c)).length;
   const blogs = channels.filter((c) => c === 'blog').length;
   if (posts !== PLAN_POSTS_PER_WEEK) errors.push(`${posts} Instagram or Facebook slots; the owner wants exactly ${PLAN_POSTS_PER_WEEK}.`);
-  if (blogs > PLAN_MAX_BLOGS) errors.push(`${blogs} blog slots; at most ${PLAN_MAX_BLOGS}.`);
+  if (blogs !== PLAN_BLOGS_PER_WEEK) errors.push(`${blogs} blog slots; the owner wants exactly ${PLAN_BLOGS_PER_WEEK} every week.`);
   if (trendIds.length > 0) {
     const trendSet = new Set(trendIds);
     const onTrend = items.filter(
@@ -309,7 +331,7 @@ export function checkPlan(
   return { errors, slots: errors.length ? [] : items.map((i) => {
     const channel = i.fields.channel.toLowerCase();
     const format = (POST_CHANNELS as readonly string[]).includes(channel) ? (i.fields.format.toLowerCase() as PostFormat) : null;
-    return { id: i.id, channel, format };
+    return { id: i.id, channel, format, searchTerms: channel === 'blog' ? i.fields['search terms'].trim() : null };
   }) };
 }
 

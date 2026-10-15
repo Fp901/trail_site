@@ -1,0 +1,28 @@
+---
+// Renders one run of blog text (lib/blog.ts parseInline). Every value goes through an ordinary
+// Astro expression, so it is escaped; nothing here uses set:html (Part 11.3). Links are https or
+// paths on this site only; an outside link opens in a new tab and carries no referrer or ranking.
+import type { BlogInline } from '../../lib/blog';
+import { withBase } from '../../data/site';
+
+interface Props {
+  nodes: BlogInline[];
+}
+const { nodes } = Astro.props;
+---
+
+{
+  nodes.map((n) =>
+    n.t === 'strong' ? (
+      <strong>{n.v}</strong>
+    ) : n.t === 'link' ? (
+      n.external ? (
+        <a href={n.href} target="_blank" rel="nofollow noopener noreferrer">{n.v}</a>
+      ) : (
+        <a href={withBase(n.href)}>{n.v}</a>
+      )
+    ) : (
+      n.v
+    ),
+  )
+}

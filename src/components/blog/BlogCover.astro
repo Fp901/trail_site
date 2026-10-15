@@ -1,0 +1,29 @@
+---
+// A blog article's cover photo (lib/blog-posts.ts coverFor). A site asset is optimised by
+// astro:assets; a shoot photo is a plain file with its real size; an upload comes through
+// /blog/cover/<slug>. Explicit dimensions or an aspect box on every kind, so nothing shifts (CLS).
+import { Image } from 'astro:assets';
+import type { BlogCover } from '../../lib/blog-posts';
+import { withBase } from '../../data/site';
+
+interface Props {
+  cover: BlogCover;
+  alt: string;
+  eager?: boolean;
+  sizes: string;
+  class?: string;
+}
+const { cover, alt, eager = false, sizes, class: cls } = Astro.props;
+const loading = eager ? 'eager' : 'lazy';
+const fetchpriority = eager ? 'high' : 'auto';
+---
+
+{
+  cover.kind === 'asset' ? (
+    <Image src={cover.image} alt={alt} widths={[480, 800, 1200, 1600]} sizes={sizes} loading={loading} fetchpriority={fetchpriority} class={cls} />
+  ) : cover.kind === 'file' ? (
+    <img src={withBase(cover.src)} alt={alt} width={cover.width} height={cover.height} loading={loading} fetchpriority={fetchpriority} decoding="async" class={cls} />
+  ) : (
+    <img src={withBase(cover.src)} alt={alt} width="1200" height="800" loading={loading} fetchpriority={fetchpriority} decoding="async" class={cls} />
+  )
+}

@@ -306,6 +306,11 @@ async function saveDraft(input: z.infer<typeof saveDraftInput>, caller: Employee
     const e = photoCountError(format, input.photo_ids.length);
     if (e) return fail(`Photo count: ${e}`);
   }
+  // A blog article is published on the website (0025): it needs its title and one cover photo.
+  if (input.kind === 'blog_draft') {
+    if (!input.title?.trim()) return fail('A blog_draft needs a title: the question the article answers.');
+    if (input.photo_ids.length !== 1) return fail('A blog_draft takes exactly one photo, its cover on the website.');
+  }
 
   const violations = checkDraft([input.title ?? '', input.body].join('\n'), input.kind, format);
   if (violations.length) {

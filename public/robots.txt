@@ -37,3 +37,4 @@ Allow: /
 
 # PLACEHOLDER domain — keep in sync with `site` in astro.config.mjs.
 Sitemap: https://rooibergwander.co.za/sitemap-index.xml
+Sitemap: https://rooibergwander.co.za/sitemap-blog.xml
