@@ -69,10 +69,20 @@ const idOf = (b: Json): string => {
   return id;
 };
 
+// The token may be a system-user token (Meta hands back a Page token for it) or already a Page
+// token, which has no access_token field to read: Meta answers "(#100) Tried accessing nonexisting
+// field (access_token)". So the Page token is asked for on its own, and the token itself is used
+// when there is none to give.
 async function pageAccess(c: MetaCredentials): Promise<{ pageToken: string; igId: string | null }> {
-  const page = await call('GET', c.pageId, { fields: 'access_token,instagram_business_account{id}' }, c.token);
-  const pageToken = typeof page.access_token === 'string' ? page.access_token : c.token;
+  const page = await call('GET', c.pageId, { fields: 'instagram_business_account{id}' }, c.token);
   const ig = page.instagram_business_account as Json | undefined;
+  let pageToken = c.token;
+  try {
+    const t = await call('GET', c.pageId, { fields: 'access_token' }, c.token);
+    if (typeof t.access_token === 'string') pageToken = t.access_token;
+  } catch {
+    // Already a Page token.
+  }
   return { pageToken, igId: typeof ig?.id === 'string' ? ig.id : null };
 }
 
