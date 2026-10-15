@@ -236,6 +236,8 @@ function auditLabel(e: TimelineAuditEvent): string {
       return 'Marketing draft rejected';
     case 'marketing_photo_upload':
       return 'Marketing photo uploaded';
+    case 'marketing_post_publish':
+      return 'Marketing post published';
     default: {
       const unhandled: never = action;
       return unhandled;

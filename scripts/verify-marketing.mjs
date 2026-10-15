@@ -190,7 +190,7 @@ section('2. Migrations 0021 and 0022: marketing tables === db.types.ts, all defa
 const migPath = 'supabase/migrations/0021_marketing.sql';
 assert('0021_marketing.sql exists', existsSync(new URL(`../${migPath}`, import.meta.url)));
 const migFiles = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
-assert('0023 is the latest migration', migFiles[migFiles.length - 1] === '0023_marketing_post_format.sql');
+assert('0024 is the latest migration', migFiles[migFiles.length - 1] === '0024_marketing_publish.sql');
 const sql = read(migPath).replace(/--[^\n]*/g, '');
 
 const tables = {};
@@ -505,10 +505,12 @@ assert('DRY_RUN is true unless a manual run unticks it or MARKETING_LIVE is true
 assert('the manual dry_run input defaults to true', /dry_run:[\s\S]*?default: true/.test(wf));
 assert('the workflow never touches X credentials', !/X_API|X_ACCESS|X_BEARER/.test(wf));
 {
-  // The Meta token is in the workflow for reading results only: no code but marketing/meta.ts reads it.
+  // The Meta token: the workflow reads results with it (marketing/meta.ts), and only the owner's Post
+  // button (src/lib/meta-publish.ts, typed in env.d.ts) posts with it. Nothing else may read it.
   const tsFiles = (dir) => readdirSync(new URL(dir, import.meta.url), { recursive: true }).filter((f) => /\.(ts|mjs|astro)$/.test(f)).map((f) => dir + f);
   const users = [...tsFiles('../marketing/'), ...tsFiles('../src/')].filter((f) => /META_ACCESS_TOKEN|META_PAGE_ID/.test(readFileSync(new URL(f, import.meta.url), 'utf8')));
-  assert('only marketing/meta.ts reads the Meta secrets', users.length === 1 && users[0] === '../marketing/meta.ts');
+  assert('only meta.ts (reading) and meta-publish.ts (the Post button) read the Meta secrets', sameSet(users, ['../marketing/meta.ts', '../src/lib/meta-publish.ts', '../src/env.d.ts']));
+  assert('the marketing runner and the tool server never import the publisher', ![...tsFiles('../marketing/'), '../src/lib/marketing-tools.ts', '../src/pages/api/marketing/mcp/[employee].ts'].some((f) => /meta-publish/.test(readFileSync(new URL(f, import.meta.url), 'utf8'))));
 }
 assert('no workflow step publishes, posts or sends', !/^\s*- name: .*(publish|post|send|tweet)/im.test(wf));
 assert('the workflow is read-only on the repository', /permissions:\s*\n\s*contents: read/.test(wf));
@@ -871,6 +873,30 @@ section('9. The launch set: nine opening grid posts, one-off');
   assert('it skips slots already waiting or approved, matched exactly', /\.like\('notes', `%Plan slot: \$\{LAUNCH_SLOT_PREFIX\}%`\)/.test(runL) && /Plan slot: \(L-\\d\+\)\\b/.test(runL));
   assert('it refuses only when every slot is covered', /if \(missing\.length === 0\) \{\s*ctx\.failures\.push/.test(runL));
   assert('its drafts go through the Editor and the fix round', /launch_set: \{[\s\S]*?await editorReview\(ctx\);\s*await fixRound\(ctx, writingFrom\);/.test(runL));
+}
+
+// ---------------------------------------------------------------------------------------------
+section('10. The owner\'s Post button (adminPublishDraft, migration 0024)');
+{
+  const act = read('src/actions/index.ts');
+  const start = act.indexOf('adminPublishDraft: defineAction(');
+  const body = act.slice(start, act.indexOf('defineAction(', start + 30) > -1 ? act.indexOf('defineAction(', start + 30) : undefined);
+  assert('adminPublishDraft exists', start > -1);
+  assert('it requires an admin and the admin rate limit first', body.indexOf('requireAdmin(') > -1 && body.indexOf('adminActionRate') > body.indexOf('requireAdmin(') && body.indexOf('adminActionRate') < body.indexOf('publishInstagram('));
+  assert('it only posts an approved draft', /\.status !== 'approved'/.test(body));
+  assert('it refuses stories and non-social kinds', /format === 'story'/.test(body) && /instagram_caption/.test(body) && /facebook_post/.test(body));
+  assert('it re-runs the code rules before posting', body.indexOf('checkDraft(') > -1 && body.indexOf('checkDraft(') < body.indexOf('publishInstagram('));
+  assert('it claims the channel before calling Meta, and frees the claim on failure', body.indexOf("from('posts')") > -1 && body.indexOf('.insert(') < body.indexOf('publishInstagram(') && /\.delete\(\)/.test(body));
+  assert('every post is in the audit log', /recordAdminEvent\([\s\S]*?'marketing_post_publish'/.test(body));
+  assert('a draft already posted cannot be withdrawn', /withdraw[\s\S]{0,600}from\('posts'\)/.test(act));
+  const mig = read('supabase/migrations/0024_marketing_publish.sql');
+  assert('0024 makes one post per draft and channel unique', /create unique index if not exists posts_draft_channel_key on marketing\.posts \(draft_id, channel\)/.test(mig));
+  assert('0024 adds marketing_post_publish to the audit actions', /'marketing_post_publish'/.test(mig));
+  const pub = read('src/lib/meta-publish.ts');
+  assert('the publisher calls only graph.facebook.com (www.facebook.com is the post link), token in a header', /const GRAPH = 'https:\/\/graph\.facebook\.com\/v\d+\.0'/.test(pub) && /fetch\(url, init\)/.test(pub) && /new URL\(`\$\{GRAPH\}\//.test(pub) && [...pub.matchAll(/https:\/\/[a-z0-9.-]+/g)].every((m) => ['https://graph.facebook.com', 'https://www.facebook.com'].includes(m[0])) && /Authorization: `Bearer \$\{token\}`/.test(pub) && !/access_token', /.test(pub));
+  assert('errors are cleaned of the tokens', /function clean\(/.test(pub) && /clean\(e\.message, secrets\)/.test(pub));
+  const page = read('src/pages/admin/marketing.astro');
+  assert('the page asks before posting', /data-publish/.test(page) && /window\.confirm\(/.test(page));
 }
 
 console.log(failed === 0 ? '\nALL MARKETING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);

@@ -15,6 +15,7 @@ import {
   type PhotoCategory,
   type PhotoLodge,
   type PhotoUploadType,
+  photoLibrary,
 } from '../data/photo-library';
 import { MARKETING_PHOTO_COLUMNS, sel, type MarketingPhotoRow } from './db.types';
 import { PHOTO_USED_STATUSES } from '../../marketing/contracts';
@@ -117,4 +118,36 @@ export async function usedPhotoIds(exceptDraft?: string): Promise<Set<string>> {
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return new Set(((data ?? []) as { photo_ids: string[] | null }[]).flatMap((r) => r.photo_ids ?? []));
+}
+
+// Public https URLs Meta can fetch, in the draft's order, for the owner's Post button (0024).
+// Site photos and the owner's shoot are served by the site itself; uploads get a signed URL long
+// enough for Meta to fetch them. Instagram takes JPEG only, so any other format is refused here
+// with a plain reason rather than failing inside Meta.
+export async function photoUrlsForPosting(ids: string[], siteUrl: string): Promise<{ ok: true; urls: string[] } | { ok: false; message: string }> {
+  const base = siteUrl.replace(/\/$/, '');
+  const library = new Map(photoLibrary.map((p) => [p.id, p]));
+  const uploadIds = ids.filter((id) => id.startsWith(UPLOAD_ID_PREFIX)).map((id) => id.slice(UPLOAD_ID_PREFIX.length));
+  const uploads = new Map<string, { storage_path: string; content_type: string }>();
+  if (uploadIds.length) {
+    const { data, error } = await getSupabaseAdmin().schema('marketing').from('photos').select('id, storage_path, content_type').in('id', uploadIds);
+    if (error) return { ok: false, message: 'The photos could not be read. Please try again.' };
+    for (const r of (data ?? []) as { id: string; storage_path: string; content_type: string }[]) uploads.set(r.id, r);
+  }
+  const urls: string[] = [];
+  for (const id of ids) {
+    const site = library.get(id);
+    if (site) {
+      if (!/\.jpe?g$/i.test(site.image.src.split('?')[0])) return { ok: false, message: `Photo ${id} is not a JPEG, which Instagram needs.` };
+      urls.push(new URL(site.image.src, `${base}/`).toString());
+      continue;
+    }
+    const up = id.startsWith(UPLOAD_ID_PREFIX) ? uploads.get(id.slice(UPLOAD_ID_PREFIX.length)) : undefined;
+    if (!up) return { ok: false, message: `Photo ${id} is no longer in the library.` };
+    if (up.content_type !== 'image/jpeg') return { ok: false, message: 'One of the uploaded photos is not a JPEG, which Instagram needs. Upload it again as a JPEG.' };
+    const { data, error } = await getSupabaseAdmin().storage.from(MARKETING_PHOTO_BUCKET).createSignedUrl(up.storage_path, SIGNED_URL_SECONDS);
+    if (error || !data?.signedUrl) return { ok: false, message: 'An uploaded photo could not be shared with Meta. Please try again.' };
+    urls.push(data.signedUrl);
+  }
+  return { ok: true, urls };
 }

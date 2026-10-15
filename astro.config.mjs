@@ -72,7 +72,8 @@ export default defineConfig({
   // Marketing pages stay prerendered (static); booking + API routes opt into SSR via
   // `export const prerender = false`. SSR needs a server adapter (Part 2).
   // Adapter = Vercel (swap to @astrojs/netlify in one line if preferred). Omitted for static.
-  ...(isStatic ? {} : { adapter: vercel() }),
+  // maxDuration: the owner's Post button waits on Meta while a carousel is processed (up to ~30s).
+  ...(isStatic ? {} : { adapter: vercel({ maxDuration: 60 }) }),
 
   // Inline the site stylesheet into each page instead of a separate render-blocking request
   // (PageSpeed: "Render-blocking requests", ~300ms on the 25 KB Section.css). The native CSP hashes

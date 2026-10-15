@@ -29,6 +29,9 @@ interface ImportMetaEnv {
   // Marketing team (Part 18): the secret each employee's tool server token is derived from
   // (/api/marketing/mcp/<employee>, lib/marketing-auth.ts).
   readonly MARKETING_TOOLS_TOKEN?: string;
+  // The owner's Post button (Part 18, 0024): the Meta system-user token and the Facebook Page id.
+  readonly META_ACCESS_TOKEN?: string;
+  readonly META_PAGE_ID?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

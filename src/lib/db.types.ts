@@ -51,6 +51,8 @@ export const ADMIN_ACTIONS = [
   'marketing_draft_edit',
   'marketing_draft_reject',
   'marketing_photo_upload',
+  // 0024: the owner posted an approved draft to Instagram or Facebook.
+  'marketing_post_publish',
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
