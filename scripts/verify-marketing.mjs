@@ -625,9 +625,19 @@ assert('the three post slots must be one single, one carousel and one story', C.
 assert('an unknown format, or a blog with a post format, is refused', C.checkPlan(plan([slot(1, { format: 'reel' }), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', format: 'single' })]), W, [`R-${W}-1`], photos).errors.some((e) => /"reel"/.test(e)) && C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', format: 'single' })]), W, [`R-${W}-1`], photos).errors.some((e) => /blog slot has format "none"/.test(e)));
 assert('photo counts per format: single and story 1, carousel 3 to 5', C.checkPlan(mix({ photos: three }, { format: 'carousel' }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.filter((e) => /takes/.test(e)).length === 2 && C.photoCountError('carousel', 5) === null && C.photoCountError('carousel', 6) !== null && C.photoCountError('story', 1) === null);
 assert('the plan needs exactly three Instagram or Facebook slots', C.checkPlan(plan([slot(1), slot(2)]), W, [`R-${W}-1`], photos).errors.some((e) => /exactly 3/.test(e)));
-assert('the plan needs exactly one blog slot every week (owner decision, 15 October 2026)',
-  C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' })]), W, [`R-${W}-1`], photos).errors.some((e) => /exactly 1 every week/.test(e)) &&
-  C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog' }), slot(5, { channel: 'blog' })]), W, [`R-${W}-1`], photos).errors.some((e) => /exactly 1 every week/.test(e)));
+{
+  const threePosts = plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' })]);
+  const twoBlogs = plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog' }), slot(5, { channel: 'blog' })]);
+  assert('in a blog week the plan needs exactly one blog slot',
+    C.checkPlan(threePosts, W, [`R-${W}-1`], photos).errors.some((e) => /needs exactly 1/.test(e)) && C.checkPlan(twoBlogs, W, [`R-${W}-1`], photos).errors.some((e) => /needs exactly 1/.test(e)));
+  assert('in the other week the plan has no blog slot', C.checkPlan(threePosts, W, [`R-${W}-1`], photos, [], new Set(), false).errors.length === 0 && C.checkPlan(okPlanMd, W, [`R-${W}-1`], photos, [], new Set(), false).errors.some((e) => /no blog this week/.test(e)));
+  const day = 86_400_000;
+  const now = new Date('2026-10-19T05:00:00Z');
+  assert('a blog every second week (owner decision, 15 October 2026): due after 14 days or with none, not after 7',
+    C.blogDue(null, now) && C.blogDue(new Date(now.getTime() - 14 * day + 3600_000), now) && !C.blogDue(new Date(now.getTime() - 7 * day), now));
+  const runSrc = read('marketing/run.ts');
+  assert('the runner decides the blog week from pending or approved blog drafts and tells the planner', /blogDue\(await lastBlogAt\(ctx\), new Date\(\)\)/.test(runSrc) && /\.eq\('kind', 'blog_draft'\)\s*\.in\('status', \['pending', 'approved'\]\)/.test(runSrc) && /checks\.plan\(ctx, week, research, all, used, withBlog, slots\)/.test(runSrc));
+}
 assert('a slot must rest on this week\'s research or a named fact', C.checkPlan(mix({ 'based on': `R-${W}-9` }, { 'based on': 'a hunch', format: 'carousel', photos: three }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.length === 2);
 assert('with a valid brief every slot, the blog included, rests on a research item', C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', 'based on': 'facts: the itinerary' })]), W, [`R-${W}-1`], photos).errors.some((e) => /P-\d+-4: "based on" must be one of this week's research items/.test(e)));
 assert('with no valid brief "facts: ..." is the fallback', C.checkPlan(mix({ 'based on': 'facts: the route' }, { format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }, { format: 'story', 'based on': 'facts: the lodges' }).replace(`based on: R-${W}-1`, 'based on: facts: the trail'), W, [], photos).errors.length === 0);
@@ -656,7 +666,7 @@ assert('unknown photo ids and malformed departures are refused', C.checkPlan(mix
   const saveFn = tools.slice(tools.indexOf('async function saveDraft('), tools.indexOf('const saveDraftInput'));
   assert('save_draft refuses a used photo, except on the flagged draft it replaces', /usedPhotoIds\(input\.replaces\)/.test(saveFn) && /never used twice/.test(saveFn));
   const runSrc = read('marketing/run.ts');
-  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
+  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used, withBlog\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
 }
 assert('X is no longer a planned channel (owner decision: Instagram and Facebook)', C.checkPlan(plan([slot(1, { channel: 'x' }), slot(2), slot(3)]), W, [`R-${W}-1`], photos).errors.some((e) => /channel "x"/.test(e)));
 
@@ -756,7 +766,7 @@ section('7. Meta results (marketing/meta.ts): read-only, best-effort, the token 
   const wfMeta = read('.github/workflows/marketing-team.yml');
   assert('the workflow passes the Meta secrets and offers meta_check', /META_ACCESS_TOKEN: \$\{\{ secrets\.META_ACCESS_TOKEN \}\}/.test(wfMeta) && /META_PAGE_ID: \$\{\{ secrets\.META_PAGE_ID \}\}/.test(wfMeta) && /options: \[[^\]]*\bmeta_check\b/.test(wfMeta));
   const runMeta = read('marketing/run.ts');
-  assert('the Analyst, the Sunday playbook and the Monday plan all get the Meta and search results', /const channelResults = async \(\) => \[await metaResults\(\), await searchResults\(\)\]/.test(runMeta) && /PROMPTS\.analyse\(results\)/.test(runMeta) && /PROMPTS\.playbook\(results\)/.test(runMeta) && /PROMPTS\.plan\(week, research, await channelResults\(\)\)/.test(runMeta));
+  assert('the Analyst, the Sunday playbook and the Monday plan all get the Meta and search results', /const channelResults = async \(\) => \[await metaResults\(\), await searchResults\(\)\]/.test(runMeta) && /PROMPTS\.analyse\(results\)/.test(runMeta) && /PROMPTS\.playbook\(results\)/.test(runMeta) && /PROMPTS\.plan\(week, research, withBlog, await channelResults\(\)\)/.test(runMeta));
 
   assert('no token: a one-line note, no call', (await M.metaResults({})).startsWith('Meta results unavailable'));
 

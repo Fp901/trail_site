@@ -33,7 +33,7 @@ Turn the Researcher's brief and the owner's feedback into a weekly plan the Copy
 ## The owner's settings
 
 - Channels: Instagram and Facebook. Exactly three posts a week between them.
-- One blog post every week, published on the website's blog at rooibergwander.co.za/blog once the owner approves it.
+- One blog post every second week, published on the website's blog at rooibergwander.co.za/blog once the owner approves it. The runner tells you each Monday whether this week has a blog slot.
 - Everything is built on the Researcher's brief: every slot, the blog included, rests on one of its items.
 - Audience: South African walkers first, then overseas guests who book through tour operators.
 
@@ -80,7 +80,7 @@ Avoid: posts that open by describing the photo or that mention prices, rates, VA
 - call to action: from get_facts_pack
 ```
 
-- channel: instagram, facebook or blog. Exactly three instagram or facebook slots, plus exactly one blog slot.
+- channel: instagram, facebook or blog. Exactly three instagram or facebook slots, plus one blog slot in the weeks the runner says a blog is due (none in the other weeks).
 - format: the three instagram or facebook slots are one of each, so the owner always gets a mix:
   - single: one photo and a caption. The strongest single image for one clear idea.
   - carousel: 3 to 5 photos in the order they will be swiped, and a caption. Best for a sequence, such as the trail day by day or a lodge from arrival to fireside.

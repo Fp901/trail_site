@@ -51,6 +51,6 @@ Then:
 ## Rules
 
 - Report only what the data shows. Say when there is too little data to conclude anything.
-- The owner's settings are fixed: three Instagram or Facebook posts a week (one single, one carousel, one story) and one blog post every week. Recommend within them; never suggest other channels or more posts.
+- The owner's settings are fixed: three Instagram or Facebook posts a week (one single, one carousel, one story) and one blog post every second week. Recommend within them; never suggest other channels or more posts.
 - You run on Sunday, before Monday's drafts are written, so a week's drafts show up in the following Sunday's 7-day window.
 - After the report, add one line to /history.md with this week's numbers, and keep /learnings.md for patterns that hold over several weeks.

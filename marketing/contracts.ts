@@ -22,9 +22,16 @@ export const PLAN_MIN_TREND_SLOTS = 2;
 export const CHANNELS = ['instagram', 'facebook', 'blog'] as const;
 export const POST_CHANNELS = ['instagram', 'facebook'] as const;
 // Owner decisions: three Instagram or Facebook posts a week (design doc section 8), plus one blog
-// post every week (15 October 2026, when the site gained its blog; it was one a month).
+// post every second week (15 October 2026, when the site gained its blog; it was one a month).
 export const PLAN_POSTS_PER_WEEK = 3;
-export const PLAN_BLOGS_PER_WEEK = 1;
+export const BLOG_EVERY_DAYS = 14;
+// A blog is due unless one was written (pending or approved) in the last 10 days: the Mondays are 7
+// and 14 days apart, so last week's blog skips this week and the one before it does not. A rejected
+// blog never went out, so the next Monday writes another.
+export const BLOG_RECENT_DAYS = 10;
+export function blogDue(lastBlogAt: Date | null, now: Date): boolean {
+  return !lastBlogAt || now.getTime() - lastBlogAt.getTime() >= BLOG_RECENT_DAYS * 86_400_000;
+}
 // A blog slot names exactly one photo: the article's cover on the website.
 export const BLOG_PHOTOS = 1;
 export const PLAYBOOK_SECTIONS = [
@@ -245,6 +252,8 @@ export function checkPlan(
   photoIds: ReadonlySet<string>,
   trendIds: readonly string[] = [],
   usedPhotos: ReadonlySet<string> = new Set(),
+  // Whether this week has a blog slot (blogDue); the runner decides from the drafts table.
+  withBlog = true,
 ): PlanCheck {
   const errors: string[] = [];
   const planned = new Set<string>();
@@ -309,7 +318,10 @@ export function checkPlan(
   const posts = channels.filter((c) => (POST_CHANNELS as readonly string[]).includes(c)).length;
   const blogs = channels.filter((c) => c === 'blog').length;
   if (posts !== PLAN_POSTS_PER_WEEK) errors.push(`${posts} Instagram or Facebook slots; the owner wants exactly ${PLAN_POSTS_PER_WEEK}.`);
-  if (blogs !== PLAN_BLOGS_PER_WEEK) errors.push(`${blogs} blog slots; the owner wants exactly ${PLAN_BLOGS_PER_WEEK} every week.`);
+  const wantBlogs = withBlog ? 1 : 0;
+  if (blogs !== wantBlogs) {
+    errors.push(withBlog ? `${blogs} blog slots; this week needs exactly 1 (a blog every second week).` : `${blogs} blog slots; there is no blog this week (a blog every second week, and the last one was written recently).`);
+  }
   if (trendIds.length > 0) {
     const trendSet = new Set(trendIds);
     const onTrend = items.filter(
