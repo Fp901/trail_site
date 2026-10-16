@@ -198,8 +198,10 @@ export function staticPhotoLibrary() {
 }
 
 // A photo is used once and never again: photos already on a pending or approved draft are left
-// out, so the list is exactly what may still be planned.
-async function getPhotoLibrary(): Promise<ToolResult> {
+// out, so the list is exactly what may still be planned. Given ids, it instead looks up exactly
+// those photos, used or not: a saved draft's photos are used, so the Editor checks them this way.
+async function getPhotoLibrary(input: { ids?: string[] }): Promise<ToolResult> {
+  if (input.ids?.length) return lookUpPhotos(input.ids);
   let used: Set<string>;
   try {
     used = await usedPhotoIds();
@@ -223,6 +225,24 @@ async function getPhotoLibrary(): Promise<ToolResult> {
     note:
       'Only photos never used before are listed: a photo is used once and never again. Refer to photos by id. Uploaded photos have signed URLs that expire; never copy a URL into a draft.' +
       uploadNote,
+  });
+}
+
+async function lookUpPhotos(ids: string[]): Promise<ToolResult> {
+  let used: Set<string>;
+  let uploads: Awaited<ReturnType<typeof uploadedPhotos>>;
+  try {
+    [used, uploads] = await Promise.all([usedPhotoIds(), uploadedPhotos()]);
+  } catch {
+    return fail('Could not read the photos right now. Try again shortly.');
+  }
+  const all = [...uploads.map((u) => ({ ...u, source: 'upload' as const })), ...staticPhotoLibrary()];
+  const photos = ids.flatMap((id) => all.filter((p) => p.id === id)).map((p) => ({ ...p, used: used.has(p.id) }));
+  const missing = ids.filter((id) => !all.some((p) => p.id === id));
+  return json({
+    photos,
+    ...(missing.length ? { not_found: missing } : {}),
+    note: 'These are the photos you asked for, used or not. A photo on a saved draft counts as used, so it is not in the full list; that is expected and is not a problem.',
   });
 }
 
@@ -471,8 +491,10 @@ export const TOOLS = [
   {
     name: 'get_photo_library',
     description:
-      'Every usable photograph (trail, lodges, landscape, wildlife, guides) with id, category, lodge, alt text and URL, including photos the owner uploaded. Refer to photos by id in save_draft. Read-only.',
-    input: z.object({}).strict(),
+      'Every photograph not yet used (trail, lodges, landscape, wildlife, guides) with id, category, lodge, alt text and URL, including photos the owner uploaded. Refer to photos by id in save_draft. Pass ids to look up exactly those photos instead, used or not (how to check the photos on a saved draft). Read-only.',
+    input: z
+      .object({ ids: z.array(z.string().max(80)).max(10).optional().describe('Look up only these photo ids, used or not.') })
+      .strict(),
     run: getPhotoLibrary,
   },
   {
