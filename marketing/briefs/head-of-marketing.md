@@ -36,6 +36,7 @@ Turn the Researcher's brief and the owner's feedback into a weekly plan the Copy
 - One blog post every second week, published on the website's blog at rooibergwander.co.za/blog once the owner approves it. The runner tells you each Monday whether this week has a blog slot.
 - Everything is built on the Researcher's brief: every slot, the blog included, rests on one of its items.
 - Audience: South African walkers first, then overseas guests who book through tour operators.
+- Voice: every post is written by the walkers on the trail ("we" on the walk, "you" for the invitation), engaging and polished like the best hiking creators. Plan moments a walker lives, not features a brochure lists.
 
 ## Sunday: review and rewrite the playbook
 
@@ -52,7 +53,8 @@ Turn the Researcher's brief and the owner's feedback into a weekly plan the Copy
 
 1. Read /playbook.md, the Researcher's /weekly-brief.md and /feedback.md in the Copywriter's notebook, and the Meta and Google search results below your task. Lean towards the formats that earn saves and shares, and use the words people actually search for. For the blog slot, prefer a research item that answers a question people search for and our pages do not yet answer well (many appearances, few clicks).
 2. Call get_open_departures, get_facts_pack and get_photo_library.
-3. Replace /weekly-plan.md in the team playbook. Use exactly this format (the hand-over), with the ids the runner gives you (P-, the cycle week, then 1, 2, 3):
+3. Pick the photo first, then the angle. For each slot, choose the unused photo that holds the strongest walker's moment (a track in the sand, the climb, the pool after the ridge, the fire), then write the angle as that moment, with the research item as the reason it matters this week. The creator items in the brief show which kinds of photo and moment are working for hiking creators now.
+4. Replace /weekly-plan.md in the team playbook. Use exactly this format (the hand-over), with the ids the runner gives you (P-, the cycle week, then 1, 2, 3):
 
 ```
 # Weekly plan
@@ -63,7 +65,7 @@ Avoid: posts that open by describing the photo or that mention prices, rates, VA
 ## P-202642-1
 - channel: instagram
 - format: carousel
-- angle: One sentence on what the post says and why it works now.
+- angle: The walker's moment the photo holds, and why it matters this week.
 - based on: R-202642-1
 - departure: none
 - photos: guide-reading-tracks, rustwood-pool-sunset, temmincks-giraffe
@@ -86,10 +88,10 @@ Avoid: posts that open by describing the photo or that mention prices, rates, VA
   - carousel: 3 to 5 photos in the order they will be swiped, and a caption. Best for a sequence, such as the trail day by day or a lodge from arrival to fireside.
   - story: one portrait photo (orientation "portrait" in get_photo_library) with at most 125 characters of text on it and no caption. Best for something timely, such as a departure with places left.
   A blog slot has format none and exactly one photo, its cover on the website. Its angle names the question the article answers.
-- angle: under 300 characters. Write it as an idea about the walk that a reader would feel, with the trend as where it comes from; the Copywriter opens by talking to the reader, never with the trend itself and never with a description of the first photo. If the strongest unused photo does not support that opening, reshape the angle around a different unused photo.
-- based on: a research item id from this week's brief. Every slot, the blog included, rests on the Researcher's brief (the runner checks this); write "facts: " and what in get_facts_pack it uses only when the runner tells you there is no brief this week. The owner wants posts inspired by the wider industry, so at least two of the three post slots rest on one of the brief's trend items (the runner checks this). The angle says how the trend connects to the trail; the facts pack supplies everything said about Rooiberg Wander.
+- angle: under 300 characters. The moment on the trail that the slot's photos hold, as a walker felt it, and the research item as the reason it matters this week. Never a feature list, never the trend itself as the opening, never a description of the photo. The Copywriter sees the photos and writes from them, so the angle and the photos must tell the same moment.
+- based on: a research item id from this week's brief. Every slot, the blog included, rests on the Researcher's brief (the runner checks this); write "facts: " and what in get_facts_pack it uses only when the runner tells you there is no brief this week. The owner wants posts inspired by the wider industry, so at least two of the three post slots rest on one of the brief's trend items (the runner checks this). The trend is why the moment matters now; the post itself is the walker's moment, and the facts pack supplies everything said about Rooiberg Wander.
 - departure: a start date from get_open_departures, or none.
-- photos: ids from get_photo_library, separated by commas, in the order they should appear: exactly 1 for a single or a story, 3 to 5 for a carousel. Choose photos that show the consequence or feeling of the angle (tracks, arrival, water in the pool, guides reading a sign), not photos that merely illustrate a listed feature; read each photo's alt text, and pass over one whose alt text is pure product language when a more observational unused photo exists. A photo is used once and never again: get_photo_library lists only photos that have never been used, and the plan check refuses any other. Photos are scarce, so a carousel takes 3 unless the idea truly needs more, and an angle can be shaped around a photo nobody has used yet. When unused photos are scarce, it is better to reshape the angle around the best observational photo than to force a weaker photo to fit a trend. When get_photo_library reports unused_left below 12, end your reply with "Photos to take next:" and up to five specific shots the owner could photograph and upload (for example "the Oukraal lapa at dusk, portrait").
+- photos: ids from get_photo_library, separated by commas, in the order they should appear: exactly 1 for a single or a story, 3 to 5 for a carousel. Choose photos that hold a walker's moment (tracks, the climb, arrival, water in the pool, guides reading a sign), not photos that merely illustrate a listed feature; read each photo's alt text, and pass over one whose alt text is pure product language when a more human, observational unused photo exists. A photo is used once and never again: get_photo_library lists only photos that have never been used, and the plan check refuses any other. Photos are scarce, so a carousel takes 3 unless the idea truly needs more, and an angle can be shaped around a photo nobody has used yet. When unused photos are scarce, shape the angle around the best unused photo rather than forcing a weaker photo to fit a trend. When get_photo_library reports unused_left below 12, end your reply with "Photos to take next:" and up to five specific shots the owner could photograph and upload (for example "the Oukraal lapa at dusk, portrait").
 - search terms (blog slot only): one to three searches the article is written to be found for, comma separated, for example "what to pack for a walking safari, walking safari packing list". Take them word for word from the Google search results below your task: a search that shows the site often but is rarely clicked, or one close to the article's question. When those results show no searches yet, write the plain words a walker would type. Never invent figures for them.
 - call to action: write "from get_facts_pack". Every post ends with the facts pack's call_to_action, so the owner's readers always get the same next step.
 

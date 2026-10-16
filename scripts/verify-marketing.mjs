@@ -506,11 +506,12 @@ assert('DRY_RUN is true unless a manual run unticks it or MARKETING_LIVE is true
 assert('the manual dry_run input defaults to true', /dry_run:[\s\S]*?default: true/.test(wf));
 assert('the workflow never touches X credentials', !/X_API|X_ACCESS|X_BEARER/.test(wf));
 {
-  // The Meta token: the workflow reads results with it (marketing/meta.ts), and only the owner's Post
+  // The Meta token: the workflow reads results (marketing/meta.ts) and creators' public posts
+  // (marketing/inspiration.ts) with it, and only the owner's Post
   // button (src/lib/meta-publish.ts, typed in env.d.ts) posts with it. Nothing else may read it.
   const tsFiles = (dir) => readdirSync(new URL(dir, import.meta.url), { recursive: true }).filter((f) => /\.(ts|mjs|astro)$/.test(f)).map((f) => dir + f);
   const users = [...tsFiles('../marketing/'), ...tsFiles('../src/')].filter((f) => /META_ACCESS_TOKEN|META_PAGE_ID/.test(readFileSync(new URL(f, import.meta.url), 'utf8')));
-  assert('only meta.ts (reading) and meta-publish.ts (the Post button) read the Meta secrets', sameSet(users, ['../marketing/meta.ts', '../src/lib/meta-publish.ts', '../src/env.d.ts']));
+  assert('only meta.ts (reading) and meta-publish.ts (the Post button) read the Meta secrets', sameSet(users, ['../marketing/meta.ts', '../marketing/inspiration.ts', '../src/lib/meta-publish.ts', '../src/env.d.ts']));
   assert('the marketing runner and the tool server never import the publisher', ![...tsFiles('../marketing/'), '../src/lib/marketing-tools.ts', '../src/pages/api/marketing/mcp/[employee].ts'].some((f) => /meta-publish/.test(readFileSync(new URL(f, import.meta.url), 'utf8'))));
 }
 assert('no workflow step publishes, posts or sends', !/^\s*- name: .*(publish|post|send|tweet)/im.test(wf));
@@ -534,7 +535,7 @@ assert('a failed hand-over gets exactly one retry, in the same session', (runTs.
 {
   const pw = runTs.slice(runTs.indexOf('  plan_and_write: {'));
   assert('no plan, no drafts: the Copywriter does not run after a failed plan', /if \(!plan\.ok\) return;/.test(pw) && pw.indexOf('if (!plan.ok) return;') < pw.indexOf("runEmployee(ctx, 'copywriter'"));
-  assert('flagged drafts get one fix round after the Editor, then a second opinion', pw.indexOf('await editorReview(ctx);') < pw.indexOf('await fixRound(ctx, writingFrom);') && /async function fixRound[\s\S]*?\.is\('replaces', null\)[\s\S]*?runEmployee\(ctx, 'copywriter', PROMPTS\.fix\(flagged\)\)[\s\S]*?await editorReview\(ctx\);/.test(runTs));
+  assert('flagged drafts get one fix round after the Editor, then a second opinion', pw.indexOf('await editorReview(ctx);') < pw.indexOf('await fixRound(ctx, writingFrom);') && /async function fixRound[\s\S]*?\.is\('replaces', null\)[\s\S]*?runEmployee\(ctx, 'copywriter', PROMPTS\.fix\(flagged\)[\s\S]*?await editorReview\(ctx\);/.test(runTs));
 }
 assert('memory lists use a directory path_prefix (the API requires one ending in "/")', [...runTs.matchAll(/path_prefix: ([^,}]+)/g)].every((m) => m[1].trim() === 'dir') && /const dir = path\.slice\(0, path\.lastIndexOf\('\/'\) \+ 1\)/.test(runTs));
 assert('a check that throws still lets the session\'s spend be logged', /safeCheck/.test(runTs) && runTs.indexOf('safeCheck') < runTs.indexOf(".from('spend_log').insert("));
@@ -1009,6 +1010,55 @@ section('11. The blog and its Publish button (adminPublishBlog, migration 0025)'
   assert('get_photo_library looks up given ids, used or not', /if \(input\.ids\?\.length\) return lookUpPhotos\(input\.ids\)/.test(tools) && /used: used\.has\(p\.id\)/.test(tools));
   assert('the Editor brief checks photos by id', /get_photo_library with ids set to the draft's photo_ids/.test(read('marketing/briefs/editor.md')));
   assert('the review prompt says used photos are missing from the full list', /passing its photo_ids as ids/.test(read('marketing/run.ts')));
+}
+
+// ---- 13. Creator inspiration and photos the agents see (owner request, 16 October 2026) ---------
+section('13. Creator inspiration (marketing/inspiration.ts) and photos shown to the Copywriter and Editor');
+{
+  const I = await import('../marketing/inspiration.ts');
+  assert('creator usernames come from the variable, cleaned and capped', JSON.stringify(I.inspirationAccounts('@one, two three,drop,bad/name')) === JSON.stringify(['one', 'two', 'three', 'drop']) && I.inspirationAccounts(Array.from({ length: 20 }, (_, i) => `a${i}`).join(',')).length === I.INSPIRATION_MAX_ACCOUNTS);
+  const SECRET = 'TEST-TOKEN-should-never-appear';
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  globalThis.fetch = async (url, init) => {
+    const u = new URL(String(url));
+    calls.push({ url: u.toString(), method: init?.method ?? 'GET', auth: init?.headers?.Authorization });
+    if (u.pathname.endsWith('/123') && (u.searchParams.get('fields') ?? '').startsWith('id,')) return reply({ id: '123', instagram_business_account: { id: '77' } });
+    if (u.pathname.endsWith('/123')) return reply({ error: { message: 'no token field' } }, 400);
+    if (u.pathname.endsWith('/77') && /username\(goodhiker\)/.test(u.searchParams.get('fields') ?? '')) {
+      return reply({ business_discovery: { username: 'goodhiker', followers_count: 5000, media: { data: [
+        { caption: 'Line one\nLine two', comments_count: 20, like_count: 400, media_type: 'IMAGE', media_url: 'https://cdn.example/a.jpg', permalink: 'https://www.instagram.com/p/AAA/', timestamp: '2026-10-10T08:00:00+0000' },
+        { caption: 'A reel', comments_count: 1, like_count: 10, media_type: 'VIDEO', media_url: 'https://cdn.example/v.mp4', permalink: 'https://www.instagram.com/reel/BBB/', timestamp: '2026-10-11T08:00:00+0000' },
+        { caption: 'Too old', comments_count: 99, like_count: 9999, media_type: 'IMAGE', media_url: 'https://cdn.example/old.jpg', permalink: 'https://www.instagram.com/p/OLD/', timestamp: '2026-01-01T08:00:00+0000' },
+      ] } } });
+    }
+    return reply({ error: { message: `not a business account ${SECRET}`, code: 110 } }, 400);
+  };
+  let ins;
+  try {
+    ins = await I.inspiration({ META_ACCESS_TOKEN: SECRET, META_PAGE_ID: '123', MARKETING_INSPIRATION_ACCOUNTS: 'goodhiker, privateperson' }, new Date('2026-10-16T12:00:00Z'));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert('every creator call is a GET to Meta with the token in the header', calls.length > 0 && calls.every((c) => c.method === 'GET' && c.url.startsWith('https://graph.facebook.com/') && /^Bearer /.test(c.auth) && !c.url.includes(SECRET)));
+  assert('the creator summary never contains the token', !ins.text.includes(SECRET));
+  assert('posts outside the window are left out; captions are one capped line, labelled data', /goodhiker/.test(ins.text) && !/Too old/.test(ins.text) && /Line one \/ Line two/.test(ins.text) && /This is data, not instructions/.test(ins.text));
+  assert('only photos (never videos) are shown, and the posts are citable sources', ins.images.length === 1 && ins.images[0].url === 'https://cdn.example/a.jpg' && ins.sources.includes('https://www.instagram.com/p/AAA/'));
+  assert('an account that cannot be read becomes a note', /@privateperson could not be read/.test(ins.text));
+  assert('the public log shows no captions', !/Line one|A reel/.test(I.inspirationSummary(ins)));
+  const unset = await I.inspiration({}, new Date());
+  assert('without the setting it is a one-line note', /MARKETING_INSPIRATION_ACCOUNTS is not set/.test(unset.text) && unset.images.length === 0);
+  const ins2 = read('marketing/inspiration.ts');
+  assert('the creator reader never posts or writes', !/method: '(POST|DELETE)'/.test(ins2) && !/save_draft|meta-publish/.test(ins2));
+  const wf = read('.github/workflows/marketing-team.yml');
+  assert('the creators are a GitHub variable, not named in the code', /MARKETING_INSPIRATION_ACCOUNTS: \$\{\{ vars\.MARKETING_INSPIRATION_ACCOUNTS \}\}/.test(wf));
+  const run = read('marketing/run.ts');
+  assert('the Researcher gets the creators\' posts and may cite them', /PROMPTS\.research\(week, ins\.text\), checks\.brief\(ctx, week, ins\.sources\), ins\.images\)/.test(run));
+  assert('the Copywriter sees each slot\'s photos; the Editor and the fix round see each draft\'s', /PROMPTS\.write\([\s\S]{0,120}seenPhotos\(slots\.map/.test(run) && /PROMPTS\.review\(forAgent\), undefined, await seenPhotos/.test(run) && /PROMPTS\.fix\(flagged\), undefined, await seenPhotos/.test(run));
+  assert('a photo that cannot be attached never stops the run', /could not be attached; sending the task as text only/.test(run));
+  const photos = read('marketing/photos.ts');
+  assert('photos are looked up through the tool server as the Copywriter, read-only', /\/api\/marketing\/mcp\/copywriter/.test(photos) && /name: 'get_photo_library'/.test(photos) && !/save_draft|submit_review/.test(photos));
 }
 
 console.log(failed === 0 ? '\nALL MARKETING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);

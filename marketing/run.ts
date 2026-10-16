@@ -62,6 +62,8 @@ import { memoryPlan, memoryResources } from './build';
 import { anthropic, findAgent, findEnvironment, findMemoryStores, findVault, requireEnv } from './resources';
 import { checkDraft, describeViolations } from '../src/lib/brand-rules';
 import { metaResults } from './meta';
+import { inspiration, inspirationSummary, type Inspiration } from './inspiration';
+import { photosById } from './photos';
 import { searchResults } from './search-console';
 
 // Everything the team reads about how we are doing out there: our own Instagram and Facebook posts,
@@ -78,8 +80,9 @@ const FEEDBACK_KEEP_LINES = 200;
 const today = () => new Date().toISOString().slice(0, 10);
 
 const PROMPTS = {
-  research: (week: string) =>
-    `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.`,
+  research: (week: string, creators = '') =>
+    `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.` +
+    (creators ? `\n\n${creators}` : ''),
   plan: (week: string, research: { ids: string[]; trends: string[] }, withBlog: boolean, results = '') =>
     `Today is ${today()}, Monday planning for cycle week ${week}. Write ${PLAN_PATH} in the team playbook exactly in the format your instructions give, with ids P-${week}-1 upwards. ` +
     (research.ids.length
@@ -165,7 +168,11 @@ function capFor(key: EmployeeKey): number {
 
 // Send one message and wait for the session to go idle. Idle events from earlier turns (seen) are
 // skipped in case the stream replays them.
-async function turn(client: Anthropic, sessionId: string, prompt: string, seen: Set<string>): Promise<string> {
+// Photos (ours or a creator's) go with a task as labelled images, so the agent sees the picture
+// and not only its description.
+type TaskImage = { label: string; url: string };
+
+async function turn(client: Anthropic, sessionId: string, prompt: string, seen: Set<string>, images: TaskImage[] = []): Promise<string> {
   // Open the stream before sending, so no event is missed.
   const stream = await client.beta.sessions.events.stream(sessionId);
   let timedOut = false;
@@ -179,9 +186,22 @@ async function turn(client: Anthropic, sessionId: string, prompt: string, seen: 
     stream.controller.abort();
   }, RUN_TIMEOUT_MINUTES * 60 * 1000);
 
-  await client.beta.sessions.events.send(sessionId, {
-    events: [{ type: 'user.message', content: [{ type: 'text', text: prompt }] }],
-  });
+  const text = { type: 'text' as const, text: prompt };
+  const withImages = [
+    text,
+    ...images.flatMap((im) => [
+      { type: 'text' as const, text: im.label },
+      { type: 'image' as const, source: { type: 'url' as const, url: im.url } },
+    ]),
+  ];
+  try {
+    await client.beta.sessions.events.send(sessionId, { events: [{ type: 'user.message', content: withImages }] });
+  } catch (err) {
+    // A photo that cannot be fetched must not cost the week's work: send the task without them.
+    if (images.length === 0) throw err;
+    console.log(`  ${images.length} photo(s) could not be attached; sending the task as text only.`);
+    await client.beta.sessions.events.send(sessionId, { events: [{ type: 'user.message', content: [text] }] });
+  }
 
   let stopReason = 'unknown';
   try {
@@ -243,7 +263,7 @@ async function readLog(client: Anthropic, sessionId: string, seen: Set<string>) 
 
 // Run one employee. With a check, the runner reads the hand-over after the first turn; if it
 // fails, the employee gets the problems and one chance to fix them in the same session.
-async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string, check?: HandOverCheck): Promise<RunResult> {
+async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string, check?: HandOverCheck, images: TaskImage[] = []): Promise<RunResult> {
   const { client, sb } = ctx;
   const spent = await weeklySpendCents(sb);
   const cap = capFor(key);
@@ -271,7 +291,7 @@ async function runEmployee(ctx: Ctx, key: EmployeeKey, prompt: string, check?: H
   console.log(`  session ${session.id} (${agentName(key)}, cap ${cap} cents)`);
 
   const seen = new Set<string>();
-  let stopReason = await turn(client, session.id, prompt, seen);
+  let stopReason = await turn(client, session.id, prompt, seen, images);
   let log = await readLog(client, session.id, seen);
   let ok = true;
   // A check that throws (a read failed) counts as a failed hand-over, so the spend below is
@@ -397,10 +417,11 @@ async function usedPhotos(ctx: Ctx): Promise<Set<string>> {
 }
 
 const checks = {
-  brief: (ctx: Ctx, week: string): HandOverCheck => async ({ fetchedUrls }) => {
+  // creatorPosts: the creators' post addresses the runner gave the Researcher, citable as sources.
+  brief: (ctx: Ctx, week: string, creatorPosts: string[] = []): HandOverCheck => async ({ fetchedUrls }) => {
     const md = await readMemory(ctx, notebookStoreName('researcher'), BRIEF_PATH);
     if (md === null) return missing(BRIEF_PATH);
-    return { path: BRIEF_PATH, errors: checkBrief(md, week, fetchedUrls).errors };
+    return { path: BRIEF_PATH, errors: checkBrief(md, week, [...fetchedUrls, ...creatorPosts]).errors };
   },
   plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, used: Set<string>, withBlog: boolean, out: PlanSlot[]): HandOverCheck => async () => {
     const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAN_PATH);
@@ -469,6 +490,27 @@ async function syncFeedback(ctx: Ctx): Promise<number> {
   return rows.length;
 }
 
+// The creators' best recent posts, for the Researcher. Logged as a count only: captions are other
+// people's words and the workflow log is public.
+async function creatorInspiration(): Promise<Inspiration> {
+  const ins = await inspiration();
+  const n = (ins.text.match(/^- C\d+ /gm) ?? []).length;
+  console.log(`  creator inspiration: ${n} post(s), ${ins.images.length} photo(s)${n === 0 ? `: ${ins.text.split('\n')[0]}` : ''}`);
+  return ins;
+}
+
+// ---- Photos the agents see -------------------------------------------------------------------
+
+// Each photo labelled with what it belongs to and its id, in order.
+async function seenPhotos(groups: { label: string; ids: string[] }[]): Promise<TaskImage[]> {
+  const found = new Map((await photosById(groups.flatMap((g) => g.ids))).map((p) => [p.id, p]));
+  const images = groups.flatMap((g) =>
+    g.ids.flatMap((id, n) => (found.has(id) ? [{ label: `${g.label}, photo ${n + 1} of ${g.ids.length} (${id}):`, url: found.get(id)!.url }] : [])),
+  );
+  console.log(`  photos shown: ${images.length} of ${groups.reduce((t, g) => t + g.ids.length, 0)}`);
+  return images;
+}
+
 // ---- The fix round: flagged drafts go back to their author once ---------------------------
 
 async function fixRound(ctx: Ctx, since: string): Promise<void> {
@@ -487,7 +529,7 @@ async function fixRound(ctx: Ctx, since: string): Promise<void> {
     return;
   }
   console.log(`  fix round: ${flagged.length} flagged draft(s) back to the Copywriter`);
-  await runEmployee(ctx, 'copywriter', PROMPTS.fix(flagged));
+  await runEmployee(ctx, 'copywriter', PROMPTS.fix(flagged), undefined, await seenPhotos(flagged.map((d) => ({ label: `Draft ${d.id}`, ids: d.photo_ids ?? [] }))));
   const { data: left } = await ctx.sb.from('drafts').select('id').in('id', flagged.map((d) => d.id)).eq('status', 'pending');
   console.log(`  fix round: ${flagged.length - (left?.length ?? 0)} of ${flagged.length} replaced`);
   // The Editor's second opinion on the fixes; whatever it says, the owner sees them next.
@@ -527,7 +569,7 @@ async function editorReview(ctx: Ctx): Promise<void> {
 
   // The Editor records each verdict itself through submit_review (the tool server's fixed-format,
   // Editor-only tool), so there is no free text to parse here. Count what landed.
-  await runEmployee(ctx, 'editor', PROMPTS.review(forAgent));
+  await runEmployee(ctx, 'editor', PROMPTS.review(forAgent), undefined, await seenPhotos(forAgent.map((d) => ({ label: `Draft ${d.id}`, ids: d.photo_ids ?? [] }))));
   const { data: after, error: afterErr } = await sb
     .from('drafts')
     .select('id, editor_status')
@@ -544,7 +586,8 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
     steps: ['researcher (brief checked)'],
     run: async (ctx) => {
       const week = cycleWeek(new Date());
-      await runEmployee(ctx, 'researcher', PROMPTS.research(week), checks.brief(ctx, week));
+      const ins = await creatorInspiration();
+      await runEmployee(ctx, 'researcher', PROMPTS.research(week, ins.text), checks.brief(ctx, week, ins.sources), ins.images);
     },
   },
   weekly_review: {
@@ -552,12 +595,19 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
     run: async (ctx) => {
       const week = cycleWeek(new Date());
       // The research brief is for Monday's plan; a failure is reported but does not stop the review.
-      await runEmployee(ctx, 'researcher', PROMPTS.research(week), checks.brief(ctx, week));
+      const ins = await creatorInspiration();
+      await runEmployee(ctx, 'researcher', PROMPTS.research(week, ins.text), checks.brief(ctx, week, ins.sources), ins.images);
       // How our own posts did on Instagram and Facebook, and what people searched for in Google.
       const results = await channelResults();
       for (const line of results.split('\n').filter((l) => /^(## |Meta results unavailable|Search Console results unavailable)/.test(l))) console.log(`  ${line}`);
       await runEmployee(ctx, 'analyst', PROMPTS.analyse(results));
       await runEmployee(ctx, 'head_of_marketing', PROMPTS.playbook(results), checks.playbook(ctx));
+    },
+  },
+  inspiration_check: {
+    steps: ['read the creators\' recent posts (no agents, nothing written)'],
+    run: async () => {
+      console.log(inspirationSummary(await inspiration()));
     },
   },
   meta_check: {
@@ -646,7 +696,7 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const n = await syncFeedback(ctx);
       console.log(`  feedback: ${n} new decision(s) synced`);
       const writingFrom = new Date().toISOString();
-      await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots, await searchResults()), checks.drafts(ctx, slots));
+      await runEmployee(ctx, 'copywriter', PROMPTS.write(week, slots, await searchResults()), checks.drafts(ctx, slots), await seenPhotos(slots.map((sl) => ({ label: `Slot ${sl.id}`, ids: sl.photos ?? [] }))));
       await editorReview(ctx);
       await fixRound(ctx, writingFrom);
     },
@@ -664,6 +714,10 @@ async function main() {
   console.log(`Job ${job} (${when}), cycle week ${cycleWeek(new Date())}: ${plan.steps.join(' -> ')}`);
 
   // Read-only and free (no agents): run even in a dry run, to check the Meta token and the Google key.
+  if (job === 'inspiration_check') {
+    console.log(inspirationSummary(await inspiration()));
+    return;
+  }
   if (job === 'meta_check' || job === 'search_check') {
     console.log(job === 'meta_check' ? await metaResults() : await searchResults());
     return;

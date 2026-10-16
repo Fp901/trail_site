@@ -29,12 +29,12 @@ export interface PostResult {
 type Json = Record<string, unknown>;
 
 // Meta error text can echo the request; keep only the message and never the token.
-function cleanError(e: unknown, token: string): string {
+export function cleanError(e: unknown, token: string): string {
   const msg = e instanceof Error ? e.message : String(e);
   return msg.split(token).join('[token]').slice(0, 200);
 }
 
-async function graph(path: string, params: Record<string, string>, token: string): Promise<Json> {
+export async function graph(path: string, params: Record<string, string>, token: string): Promise<Json> {
   const url = new URL(`${GRAPH}/${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
@@ -157,7 +157,7 @@ export function formatResults(account: { igUsername: string | null; igFollowers:
 // posts also reads: a system-user token with META_PAGE_ID, a Page token (which has no access_token
 // field to read, and answers /me as the Page), or a user token that manages the Page.
 const PAGE_FIELDS = 'id,followers_count,instagram_business_account{id,username,followers_count}';
-async function findPage(pageId: string, token: string): Promise<{ page: Json; pageToken: string }> {
+export async function findPage(pageId: string, token: string): Promise<{ page: Json; pageToken: string }> {
   try {
     const page = await graph(pageId, { fields: PAGE_FIELDS }, token);
     let pageToken = token;
