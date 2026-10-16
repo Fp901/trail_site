@@ -1001,5 +1001,15 @@ section('11. The blog and its Publish button (adminPublishBlog, migration 0025)'
   assert('no agent can publish: the tool server has no blog tool', !/blog_posts/.test(tools) && !/adminPublishBlog/.test(tools));
 }
 
+// ---- 12. The Editor checks a saved draft's photos by id ----------------------------------------
+// A photo on a saved draft is used, so the full library leaves it out; the Editor once flagged
+// every draft as "photo not in the library" for that reason. It looks photos up by id instead.
+{
+  const tools = read('src/lib/marketing-tools.ts');
+  assert('get_photo_library looks up given ids, used or not', /if \(input\.ids\?\.length\) return lookUpPhotos\(input\.ids\)/.test(tools) && /used: used\.has\(p\.id\)/.test(tools));
+  assert('the Editor brief checks photos by id', /get_photo_library with ids set to the draft's photo_ids/.test(read('marketing/briefs/editor.md')));
+  assert('the review prompt says used photos are missing from the full list', /passing its photo_ids as ids/.test(read('marketing/run.ts')));
+}
+
 console.log(failed === 0 ? '\nALL MARKETING CHECKS PASSED' : `\n${failed} CHECK(S) FAILED`);
 process.exit(failed === 0 ? 0 : 1);
