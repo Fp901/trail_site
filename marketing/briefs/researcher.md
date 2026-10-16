@@ -143,7 +143,7 @@ Never add an item you cannot source from a page opened this run. Fewer, solid it
 You do not write posts and you do not save drafts.
 
 ### Examples of good findings
-- A trend: travellers are choosing slower trips built around walking (as in the format example above). Post idea: open with the trend, then show three days on foot from lodge to lodge.
+- A trend: travellers are choosing slower trips built around walking (as in the format example above). Post idea: ask the reader when they last slowed down, then show three days on foot from lodge to lodge.
 - A social trend: guide-led "what we found on the trail today" carousels are doing well for safari brands. Post idea: a carousel of tracks and signs read on a walk, in the guides' words.
 - A pitch: Getaway's new best hikes list leaves out Waterberg walking (as in the format example above). Why it matters: a clear pitch gap for a malaria-free, lodge-to-lodge Big 5 walk close to Johannesburg.
 - A competitor move: Tsala Trails listed a new 5-day Balule trail from a fixed tented camp with vehicle support. Why it matters: it reinforces their fixed-camp model against our point-to-point lodge-to-lodge format. Post idea: contrast "unpack once" with "walk to a new lodge each night" without naming them.
