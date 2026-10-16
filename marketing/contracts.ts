@@ -230,6 +230,8 @@ export interface PlanSlot {
   // Blog slots only: the searches the article is written to rank for (owner request, 15 October
   // 2026), chosen from the Search Console results the planner reads.
   searchTerms?: string | null;
+  // The slot's photo ids in order, so the runner can show the Copywriter the photos themselves.
+  photos?: string[];
 }
 
 // A blog slot's "search terms": one to three phrases, comma separated, each a real search.
@@ -343,7 +345,7 @@ export function checkPlan(
   return { errors, slots: errors.length ? [] : items.map((i) => {
     const channel = i.fields.channel.toLowerCase();
     const format = (POST_CHANNELS as readonly string[]).includes(channel) ? (i.fields.format.toLowerCase() as PostFormat) : null;
-    return { id: i.id, channel, format, searchTerms: channel === 'blog' ? i.fields['search terms'].trim() : null };
+    return { id: i.id, channel, format, searchTerms: channel === 'blog' ? i.fields['search terms'].trim() : null, photos: (i.fields.photos ?? '').split(',').map((x) => x.trim()).filter(Boolean) };
   }) };
 }
 
