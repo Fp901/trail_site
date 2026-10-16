@@ -153,6 +153,37 @@ export function formatResults(account: { igUsername: string | null; igFollowers:
   return lines.join('\n');
 }
 
+// The same Page lookup as the owner's Post button uses, so a token that
+// posts also reads: a system-user token with META_PAGE_ID, a Page token (which has no access_token
+// field to read, and answers /me as the Page), or a user token that manages the Page.
+const PAGE_FIELDS = 'id,followers_count,instagram_business_account{id,username,followers_count}';
+async function findPage(pageId: string, token: string): Promise<{ page: Json; pageToken: string }> {
+  try {
+    const page = await graph(pageId, { fields: PAGE_FIELDS }, token);
+    let pageToken = token;
+    try {
+      const t = await graph(pageId, { fields: 'access_token' }, token);
+      if (typeof t.access_token === 'string') pageToken = t.access_token;
+    } catch {
+      // Already a Page token.
+    }
+    return { page, pageToken };
+  } catch (e) {
+    if (!/nonexisting field|does not exist/i.test(e instanceof Error ? e.message : '')) throw e;
+  }
+  try {
+    const me = await graph('me', { fields: PAGE_FIELDS }, token);
+    if (me.instagram_business_account || typeof me.followers_count === 'number') return { page: me, pageToken: token };
+  } catch {
+    // Not a Page token: look through the Pages it manages.
+  }
+  const list = await graph('me/accounts', { fields: `${PAGE_FIELDS},access_token` }, token);
+  const pages = (Array.isArray(list.data) ? list.data : []) as Json[];
+  const page = pages.find((p) => p.id === pageId) ?? (pages.length === 1 ? pages[0] : undefined);
+  if (!page) throw new Error('META_PAGE_ID is not your Facebook Page, and the token does not point to one Page');
+  return { page, pageToken: typeof page.access_token === 'string' ? page.access_token : token };
+}
+
 export async function metaResults(env: NodeJS.ProcessEnv = process.env, now = new Date()): Promise<string> {
   const token = env.META_ACCESS_TOKEN?.trim();
   const pageId = env.META_PAGE_ID?.trim();
@@ -160,12 +191,17 @@ export async function metaResults(env: NodeJS.ProcessEnv = process.env, now = ne
   const since = new Date(now.getTime() - META_WINDOW_DAYS * 86_400_000);
   const notes: string[] = [];
   let page: Json;
+  let pageToken: string;
   try {
-    page = await graph(pageId, { fields: 'access_token,followers_count,instagram_business_account{id,username,followers_count}' }, token);
+    ({ page, pageToken } = await findPage(pageId, token));
   } catch (e) {
-    return `Meta results unavailable: ${cleanError(e, token)}`;
+    const msg = cleanError(e, token);
+    // Code 190 is Meta's "this token is invalid or expired": the GitHub secret, not the code.
+    const hint = /code 190\b|Meta 401/.test(msg)
+      ? ' The META_ACCESS_TOKEN GitHub secret is invalid or expired; copy the token that works for the Post button in Vercel into it.'
+      : '';
+    return `Meta results unavailable: ${msg}.${hint}`;
   }
-  const pageToken = typeof page.access_token === 'string' ? page.access_token : token;
   const ig = page.instagram_business_account as Json | undefined;
   const posts: PostResult[] = [];
   if (ig?.id) {
@@ -178,7 +214,7 @@ export async function metaResults(env: NodeJS.ProcessEnv = process.env, now = ne
     notes.push('No Instagram account is linked to the Facebook Page.');
   }
   try {
-    posts.push(...(await facebookPosts(pageId, pageToken, since)));
+    posts.push(...(await facebookPosts(String(page.id ?? pageId), pageToken, since)));
   } catch (e) {
     notes.push(`Facebook posts could not be read: ${cleanError(cleanError(e, token), pageToken)}`);
   }

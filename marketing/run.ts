@@ -101,7 +101,7 @@ const PROMPTS = {
     `Reply with a list of what you saved.` +
     (search && slots.some((s) => s.searchTerms) ? `\n\n${search}` : ''),
   review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
-    `Review these ${drafts.length} new drafts against the facts pack and the brand. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
+    `Review these ${drafts.length} new drafts against the facts pack and the brand. Check each draft's photos with get_photo_library, passing its photo_ids as ids: every photo on a saved draft is used, so it is missing from the full list by design. Record each verdict with submit_review (one call per draft), then reply with one line of totals.\n\n` +
     JSON.stringify(drafts, null, 2),
   fix: (drafts: { id: string; kind: string; format: string | null; title: string | null; body: string; notes: string | null; photo_ids: string[]; editor_notes: string | null }[]) =>
     `The Editor flagged ${drafts.length} of your drafts. Fix each one now: save a corrected version with save_draft, passing the flagged draft's id as "replaces" and keeping its kind, format, plan slot note, departure and photos unless the Editor's notes say to change them. Fix exactly what the notes name; if a fact is not in get_facts_pack, take it out rather than reword it. This is the only round: the owner sees your fix and the Editor's second opinion. Reply with one line per draft.\n\n` +
