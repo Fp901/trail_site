@@ -128,11 +128,17 @@ export async function inspiration(env: NodeJS.ProcessEnv = process.env, now = ne
   return formatInspiration(posts, notes);
 }
 
-// For the manual check job: what was read, without the captions (the workflow log is public).
-export function inspirationSummary(i: Inspiration): string {
-  return i.text
-    .split('\n')
-    .map((l) => l.replace(/ \| caption: ".*"$/, ''))
-    .filter((l, n) => n !== 1)
+// For the manual check job: one line per listed account, by its place in the list, with how many
+// posts were read. The workflow log is public, so no username and no caption is printed.
+export function inspirationSummary(i: Inspiration, env: NodeJS.ProcessEnv = process.env): string {
+  const accounts = inspirationAccounts(env.MARKETING_INSPIRATION_ACCOUNTS);
+  if (accounts.length === 0 || !i.text.startsWith('## ')) return i.text;
+  const lines = i.text.split('\n');
+  return accounts
+    .map((a, n) => {
+      const posts = lines.filter((l) => l.startsWith('- C') && l.includes(` @${a} (`)).length;
+      const failed = lines.some((l) => l.startsWith(`Note: @${a} `));
+      return `Account ${n + 1}: ${failed ? 'could not be read (not a public Business or Creator account, or the name is wrong)' : posts > 0 ? `readable, ${posts} of its best recent posts used` : 'readable, but no photo posts in the last 90 days made the top list'}`;
+    })
     .join('\n');
 }
