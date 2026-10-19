@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/cron/marketing-drafts",
-      "schedule": "0 6 * * *"
+      "schedule": "0 10 * * 1"
     }
   ],
   "headers": [

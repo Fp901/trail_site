@@ -1,4 +1,5 @@
-// Daily marketing digest (CLAUDE.md Part 18; Vercel Cron, see vercel.json). prerender=false.
+// Weekly marketing digest, Monday 12:00 SAST after the week's drafts are written (owner request,
+// 19 October 2026; CLAUDE.md Part 18; Vercel Cron, see vercel.json). prerender=false.
 // Emails MARKETING_NOTIFY_TO (else every admin in ADMIN_EMAILS) the number of marketing drafts waiting at /admin/marketing.
 // Sends nothing when none are waiting. Counts, plus the title and channel (kind) of any draft the
 // Editor has still not reviewed 24 hours after it was saved: never the draft text.
