@@ -4,6 +4,7 @@
 //   npx tsx marketing/run.ts weekly_review   Sunday: Researcher, Analyst, then Head of Marketing (playbook)
 //   npx tsx marketing/run.ts plan_and_write  Monday: Head of Marketing plans, Copywriter drafts, Editor checks
 //   npx tsx marketing/run.ts research        Manual only: the Researcher on its own, for testing its brief
+//   npx tsx marketing/run.ts blog            Manual only: one blog on BLOG_TOPIC for BLOG_SEARCH_TERMS
 //
 // Each hand-over (design doc section 3, marketing/contracts.ts) is checked in code before the next
 // employee starts. A failing hand-over goes back to its employee once with the reasons; a second
@@ -45,6 +46,7 @@ import {
   type LaunchSlot,
   checkPlan,
   blogDue,
+  blogSlot,
   PLAN_MIN_TREND_SLOTS,
   checkPlaybook,
   cycleWeek,
@@ -140,6 +142,14 @@ const PROMPTS = {
   launch: (slots: readonly LaunchSlot[]) =>
     `Today is ${today()}. Rooiberg Wander's Instagram and Facebook accounts are new and empty. Write ${slots.length} of the nine opening posts that will fill the profile grid, one draft per slot below, as channel instagram (the owner posts the same text to Facebook). A stranger reads them first, so introduce rather than assume they know us. Take every fact from get_facts_pack. Choose the photos yourself from get_photo_library, reading each alt text so the photos show what the slot is about: a single takes exactly 1 photo, a carousel 3 to 5; never use one photo twice. Put "Plan slot: <id>" in each draft's notes. Leave the booking line off: these posts introduce the trail, and the profile link takes people to the rates page. Reply with a list of what you saved.\n\n` +
     slots.map((s) => `${s.id} (${s.format}): ${s.angle}`).join('\n'),
+  blog: (slot: PlanSlot, topic: string, search = '') =>
+    `Today is ${today()}. The owner has asked for one blog article now, outside the weekly plan: write and save exactly one blog_draft for slot ${slot.id}. The topic, in the owner's words: ${topic}\n` +
+    `It is written to be found for these searches: ${slot.searchTerms}. Use the first in the title and in the opening paragraph, and the others in at least one "## " heading, in natural words; never repeat a phrase just to repeat it. ` +
+    `Follow your instructions for a blog. Take every fact from get_facts_pack; leave out anything it does not give you. Choose one cover photo yourself from get_photo_library, reading its alt text so it shows the place the article is about. ` +
+    `Begin the notes with "Plan slot: ${slot.id}", then "Topic: " and the topic, so the Editor can check the article against it. ` +
+    bookingLineNote([slot]) +
+    `Reply with the title you saved.` +
+    (search ? `\n\n${search}` : ''),
   analyse: (results: string) =>
     `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.\n\n${results}`,
   playbook: (results: string) =>
@@ -710,6 +720,33 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
         const batch = missing.slice(i, i + 3);
         await runEmployee(ctx, 'copywriter', PROMPTS.launch(batch), checks.drafts(ctx, [...batch]));
       }
+      await editorReview(ctx);
+      await fixRound(ctx, writingFrom);
+    },
+  },
+  // Manual (owner request, 19 October 2026): one blog on the topic and searches the owner gives
+  // in the workflow form. Counts as the blog for the every-second-week rule, so Monday's plan
+  // skips its blog slot while this one is waiting or approved.
+  blog: {
+    steps: [
+      'feedback -> copywriter notebook',
+      'copywriter (one blog draft on the owner\'s topic, checked)',
+      'editor (after the code rules)',
+      'copywriter (fix round: each flagged draft once)',
+      'editor (second opinion on the fixes)',
+    ],
+    run: async (ctx) => {
+      const topic = process.env.BLOG_TOPIC ?? '';
+      const { slot, errors } = blogSlot(topic, process.env.BLOG_SEARCH_TERMS ?? '', new Date());
+      if (!slot) {
+        ctx.failures.push(...errors);
+        return;
+      }
+      console.log(`  blog ${slot.id}: ${slot.searchTerms}`);
+      const n = await syncFeedback(ctx);
+      console.log(`  feedback: ${n} new decision(s) synced`);
+      const writingFrom = new Date().toISOString();
+      await runEmployee(ctx, 'copywriter', PROMPTS.blog(slot, topic.replace(/\s+/g, ' ').trim(), await searchResults()), checks.drafts(ctx, [slot]));
       await editorReview(ctx);
       await fixRound(ctx, writingFrom);
     },

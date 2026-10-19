@@ -24,7 +24,17 @@ on:
         required: true
         default: weekly_review
         type: choice
-        options: [weekly_review, plan_and_write, research, meta_check, search_check, inspiration_check, launch_set, sync]
+        options: [weekly_review, plan_and_write, research, meta_check, search_check, inspiration_check, launch_set, blog, sync]
+      blog_topic:
+        description: 'Job "blog" only: what the article is about'
+        required: false
+        default: 'Where is Rooiberg, and how do you get there? Rooiberg town, RoiSan Reserve and the drive from Johannesburg and Pretoria.'
+        type: string
+      blog_search_terms:
+        description: 'Job "blog" only: 1 to 3 searches, separated by commas'
+        required: false
+        default: 'where is rooiberg, roisan reserve, rooiberg limpopo'
+        type: string
       dry_run:
         description: 'Dry run: print the plan only, no API calls'
         required: true
@@ -99,4 +109,7 @@ jobs:
         if: steps.pick.outputs.job != 'sync'
         env:
           JOB: ${{ steps.pick.outputs.job }}
+          # Owner-typed text for the "blog" job; passed as env, never pasted into the shell.
+          BLOG_TOPIC: ${{ inputs.blog_topic }}
+          BLOG_SEARCH_TERMS: ${{ inputs.blog_search_terms }}
         run: npx tsx marketing/run.ts "$JOB"
