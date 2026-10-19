@@ -14,6 +14,8 @@ export const organizationSchema = {
   url: site.url,
   description: site.defaultDescription,
   areaServed: 'Waterberg, Limpopo, South Africa',
+  // The brand's other official pages, so search engines treat them and the site as one entity.
+  sameAs: [site.googleBusinessUrl, site.social.instagram, site.social.facebook].filter(Boolean),
   address: {
     '@type': 'PostalAddress',
     addressRegion: 'Limpopo',

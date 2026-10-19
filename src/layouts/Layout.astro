@@ -7,6 +7,9 @@ import Seo from '../components/Seo.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import WhatsAppButton from '../components/WhatsAppButton.astro';
+// Vercel Web Analytics: cookie-free page views, script served from our own domain
+// (/_vercel/insights), so the CSP needs no new source. Switched on in the Vercel dashboard.
+import Analytics from '@vercel/analytics/astro';
 
 // Self-hosted fonts via Fontsource (no Google CDN — Part 2). font-display: swap built in.
 // Inter (variable) for body/UI; Fraunces (full variable: opsz, wght, SOFT, WONK) for display.
@@ -44,6 +47,9 @@ const {
   navOverHero = false,
   footerHook,
 } = Astro.props;
+// Never count private pages: the admin, and links that carry a guest's token or booking reference
+// in the address (the path is what Vercel records).
+const track = !/^\/(admin|pretrip|trip-info|booking)(\/|$)/.test(Astro.url.pathname);
 ---
 
 <!doctype html>
@@ -79,5 +85,6 @@ const {
     </main>
     <WhatsAppButton />
     <Footer hook={footerHook} />
+    {track && <Analytics />}
   </body>
 </html>

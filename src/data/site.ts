@@ -40,6 +40,10 @@ export const site = {
   // "write a review" URL, e.g. https://g.page/r/XXXX/review), the homepage review band appears.
   googleReviewUrl: '',
 
+  // The Google Business Profile (its Google Maps share link). Shown in the footer and listed in the
+  // Organization schema's sameAs, so Google ties the profile and the site together.
+  googleBusinessUrl: 'https://maps.app.goo.gl/UPdAGfH6o8KnfUzD6',
+
   // Social profiles. Empty until the pages exist. Each footer icon renders only when its URL is
   // set, so no dead links are ever shown. Paste the full profile URL to switch each one on.
   social: {
