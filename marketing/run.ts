@@ -47,7 +47,9 @@ import {
   checkPlan,
   blogDue,
   blogSlot,
-  PLAN_MIN_TREND_SLOTS,
+  PLAN_MAX_TREND_SLOTS,
+  QUESTION_EVERY_POSTS,
+  questionDue,
   checkPlaybook,
   cycleWeek,
   fixPrompt,
@@ -90,6 +92,14 @@ const bookingLineNote = (slots: PlanSlot[]) => {
     : `No draft this week ends with the booking line; end each one on the moment itself. `;
 };
 
+// Which post ends with a question to the reader: at most one, one post in every five.
+const questionNote = (slots: PlanSlot[]) => {
+  const on = slots.filter((s) => s.question).map((s) => s.id);
+  return on.length
+    ? `End ${on[0]} with one natural, specific question a walker might ask a friend (never "comment below", "tag a friend" or "DM us"); no other post ends with a question. `
+    : `No post ends with a question this week. `;
+};
+
 // The manual check jobs fail when their source cannot be read, and leave a one-line annotation on
 // the run, so the outcome shows on the run's page without opening the log. The line carries the
 // reader's own cleaned note (never a token) or the per-account counts, never post text.
@@ -112,13 +122,16 @@ const PROMPTS = {
   research: (week: string, creators = '') =>
     `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.` +
     (creators ? `\n\n${creators}` : ''),
-  plan: (week: string, research: { ids: string[]; trends: string[] }, withBlog: boolean, results = '') =>
+  plan: (week: string, research: { ids: string[]; trends: string[] }, withBlog: boolean, question: boolean, results = '') =>
     `Today is ${today()}, Monday planning for cycle week ${week}. Write ${PLAN_PATH} in the team playbook exactly in the format your instructions give, with ids P-${week}-1 upwards. ` +
     (research.ids.length
       ? `This week's research items are ${research.ids.join(', ')} in the Researcher's ${BRIEF_PATH}` +
-        (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at least ${Math.min(PLAN_MIN_TREND_SLOTS, research.trends.length)} post slots must be based on one.` : '.') +
-        ` Every slot${withBlog ? ', the blog included,' : ''} must be based on one of these research items.`
+        (research.trends.length ? `; the trend items are ${research.trends.join(', ')}, and at most ${PLAN_MAX_TREND_SLOTS} post slot may be based on one.` : '.') +
+        ` Base each slot on a research item or on "facts: ..." from get_facts_pack (the season, a question people ask, a trail moment).`
       : `There is no research brief for this week, so base every slot on "facts: ..." from get_facts_pack.`) +
+    (question
+      ? ` One post this week may end with a natural question to the reader (the owner allows one in every ${QUESTION_EVERY_POSTS} posts): mark that slot "closing question: yes" and the others "no". Never the story, never the post with the booking line.`
+      : ` No post ends with a question this week (one in every ${QUESTION_EVERY_POSTS} posts, and a recent post had one): every slot is "closing question: no".`) +
     (withBlog
       ? ` This week has a blog: the plan has exactly one blog slot.`
       : ` This week has no blog (one every second week, and the last was written recently): plan the three posts only.`) +
@@ -131,6 +144,7 @@ const PROMPTS = {
       .map((s) => `The blog slot ${s.id} is written to be found for these searches: ${s.searchTerms}. Use the first in the title and in the opening paragraph, and the others in at least one "## " heading, in natural words; never repeat a phrase just to repeat it. `)
       .join('') +
     bookingLineNote(slots) +
+    questionNote(slots) +
     `Reply with a list of what you saved.` +
     (search && slots.some((s) => s.searchTerms) ? `\n\n${search}` : ''),
   review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
@@ -462,6 +476,20 @@ async function lastBlogAt(ctx: Ctx): Promise<Date | null> {
   return row ? new Date(row.created_at) : null;
 }
 
+// The newest Instagram and Facebook drafts (pending or approved), newest first, for the
+// one-question-in-five rule (questionDue).
+async function recentPosts(ctx: Ctx): Promise<string[]> {
+  const { data, error } = await ctx.sb
+    .from('drafts')
+    .select('body')
+    .in('kind', ['instagram_caption', 'facebook_post'])
+    .in('status', ['pending', 'approved'])
+    .order('created_at', { ascending: false })
+    .limit(QUESTION_EVERY_POSTS - 1);
+  if (error) throw new Error(`drafts read failed: ${error.message}`);
+  return ((data ?? []) as { body: string }[]).map((d) => d.body ?? '');
+}
+
 // A photo the owner banned at /admin/marketing (0026) counts as used too. Before the migration is
 // applied the table is missing, which means no bans.
 async function usedPhotos(ctx: Ctx): Promise<Set<string>> {
@@ -483,17 +511,17 @@ const checks = {
     if (md === null) return missing(BRIEF_PATH);
     return { path: BRIEF_PATH, errors: checkBrief(md, week, [...fetchedUrls, ...creatorPosts]).errors };
   },
-  plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, used: Set<string>, withBlog: boolean, out: PlanSlot[]): HandOverCheck => async () => {
+  plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, used: Set<string>, withBlog: boolean, question: boolean, out: PlanSlot[]): HandOverCheck => async () => {
     const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAN_PATH);
     if (md === null) return missing(PLAN_PATH);
-    const r = checkPlan(md, week, research.ids, photos, research.trends, used, withBlog, await photoLodges(ctx));
+    const r = checkPlan(md, week, research.ids, photos, research.trends, used, withBlog, await photoLodges(ctx), question);
     out.splice(0, out.length, ...r.slots);
     return { path: PLAN_PATH, errors: r.errors };
   },
   drafts: (ctx: Ctx, slots: PlanSlot[]): HandOverCheck => async ({ startedAt }) => {
     const { data, error } = await ctx.sb
       .from('drafts')
-      .select('kind, notes, format, photo_ids')
+      .select('kind, notes, format, photo_ids, body')
       .eq('author', 'copywriter')
       .gte('created_at', startedAt);
     if (error) throw new Error(`drafts read failed: ${error.message}`);
@@ -767,6 +795,8 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const [all, used] = [await photoIds(ctx), await usedPhotos(ctx)];
       const withBlog = blogDue(await lastBlogAt(ctx), new Date());
       console.log(`  blog: ${withBlog ? 'due this week' : 'not this week (one every second week)'}`);
+      const question = questionDue(await recentPosts(ctx));
+      console.log(`  closing question: ${question ? 'one post may end with one' : 'not this week (one post in every five)'}`);
       const left = [...all].filter((id) => !used.has(id)).length;
       console.log(`  photos: ${left} never used, of ${all.size}`);
       if (left < PHOTOS_LOW_WARNING) {
@@ -775,8 +805,8 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       const plan = await runEmployee(
         ctx,
         'head_of_marketing',
-        PROMPTS.plan(week, research, withBlog, await channelResults()),
-        checks.plan(ctx, week, research, all, used, withBlog, slots),
+        PROMPTS.plan(week, research, withBlog, question, await channelResults()),
+        checks.plan(ctx, week, research, all, used, withBlog, question, slots),
       );
       // No valid plan, no drafts: the Copywriter would only guess.
       if (!plan.ok) return;
