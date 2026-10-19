@@ -475,6 +475,50 @@ export function blogSlot(topic: string, terms: string, now: Date): { slot?: Plan
   return { slot: { id, channel: 'blog', format: null, searchTerms: list.join(', '), cta: true }, errors };
 }
 
+// ---- Researcher (blog on demand): /blog-research.md -----------------------------------------
+// Owner decision, 19 October 2026: the first on-demand blog only restated the website, because
+// the Copywriter may use nothing beyond the facts pack. A blog may now also use outside facts the
+// Researcher found and opened this run, each with its source, and the owner's own notes.
+
+export const BLOG_RESEARCH_PATH = '/blog-research.md';
+export const BLOG_RESEARCH_MAX_FACTS = 12;
+export const BLOG_FACT_MAX = 300;
+export const BLOG_NOTES_MAX = 2000;
+
+export interface BlogFact {
+  fact: string;
+  source: string;
+}
+
+// One fact per line: "- <fact> | <https source>". "None found." is a valid answer.
+export function checkBlogResearch(md: string, fetchedUrls: readonly string[]): { facts: BlogFact[]; errors: string[] } {
+  const opened = new Set(fetchedUrls.map(normaliseUrl));
+  const errors: string[] = [];
+  const facts: BlogFact[] = [];
+  const lines = md.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('- '));
+  if (!lines.length && !/none found/i.test(md)) errors.push('List each fact as "- <fact> | <source URL>", or write "None found."');
+  if (lines.length > BLOG_RESEARCH_MAX_FACTS) errors.push(`At most ${BLOG_RESEARCH_MAX_FACTS} facts; keep the strongest.`);
+  lines.slice(0, BLOG_RESEARCH_MAX_FACTS).forEach((line, i) => {
+    const m = /^- (.+?)\s*\|\s*(https:\/\/\S+)$/.exec(line);
+    if (!m) {
+      errors.push(`Fact ${i + 1}: write it as "- <fact> | <one https source URL>".`);
+      return;
+    }
+    const [, fact, source] = m;
+    if (fact.length > BLOG_FACT_MAX) errors.push(`Fact ${i + 1}: over ${BLOG_FACT_MAX} characters.`);
+    if (!opened.has(normaliseUrl(source))) errors.push(`Fact ${i + 1}: you did not open ${source} with web_fetch in this run. Open it now, or drop the fact.`);
+    facts.push({ fact, source });
+  });
+  commonText(md, errors);
+  return { facts: errors.length ? [] : facts, errors };
+}
+
+// The owner's notes from the workflow form: one capped block of plain text.
+export function blogNotes(raw: string): string {
+  const t = raw.replace(/\r\n?/g, '\n').replace(/\t/g, ' ').replace(/[ ]{2,}/g, ' ').trim();
+  return t.length > BLOG_NOTES_MAX ? t.slice(0, BLOG_NOTES_MAX) : t;
+}
+
 // ---- Head of Marketing (Sunday): /playbook.md ---------------------------------------------
 
 export function checkPlaybook(md: string): string[] {

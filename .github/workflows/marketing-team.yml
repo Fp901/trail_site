@@ -35,6 +35,11 @@ on:
         required: false
         default: 'where is rooiberg, roisan reserve, rooiberg limpopo'
         type: string
+      blog_notes:
+        description: 'Job "blog" only, optional: what you know that the website does not say (local history, the road in, what is nearby)'
+        required: false
+        default: ''
+        type: string
       dry_run:
         description: 'Dry run: print the plan only, no API calls'
         required: true
@@ -116,4 +121,5 @@ jobs:
           # Owner-typed text for the "blog" job; passed as env, never pasted into the shell.
           BLOG_TOPIC: ${{ inputs.blog_topic }}
           BLOG_SEARCH_TERMS: ${{ inputs.blog_search_terms }}
+          BLOG_NOTES: ${{ inputs.blog_notes }}
         run: npx tsx marketing/run.ts "$JOB"
