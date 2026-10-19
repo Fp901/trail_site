@@ -51,6 +51,7 @@ import {
   fixPrompt,
   parseItems,
   photoIdsFromSource,
+  photoLodgesFromSource,
   PHOTO_LIBRARY_SOURCES,
   PHOTO_USED_STATUSES,
   PHOTOS_LOW_WARNING,
@@ -79,6 +80,14 @@ const FEEDBACK_KEEP_LINES = 200;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// Which drafts end with the facts pack's booking line: the blog and at most one post a week.
+const bookingLineNote = (slots: PlanSlot[]) => {
+  const on = slots.filter((s) => s.cta).map((s) => s.id);
+  return on.length
+    ? `End ${on.join(' and ')} with the facts pack's call_to_action; every other draft ends without it, on the moment itself. `
+    : `No draft this week ends with the booking line; end each one on the moment itself. `;
+};
+
 const PROMPTS = {
   research: (week: string, creators = '') =>
     `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.` +
@@ -101,6 +110,7 @@ const PROMPTS = {
       .filter((s) => s.searchTerms)
       .map((s) => `The blog slot ${s.id} is written to be found for these searches: ${s.searchTerms}. Use the first in the title and in the opening paragraph, and the others in at least one "## " heading, in natural words; never repeat a phrase just to repeat it. `)
       .join('') +
+    bookingLineNote(slots) +
     `Reply with a list of what you saved.` +
     (search && slots.some((s) => s.searchTerms) ? `\n\n${search}` : ''),
   review: (drafts: { id: string; kind: string; title: string | null; body: string; notes: string | null; format: string | null; photo_ids: string[] }[]) =>
@@ -110,7 +120,7 @@ const PROMPTS = {
     `The Editor flagged ${drafts.length} of your drafts. Fix each one now: save a corrected version with save_draft, passing the flagged draft's id as "replaces" and keeping its kind, format, plan slot note, departure and photos unless the Editor's notes say to change them. Fix exactly what the notes name; if a fact is not in get_facts_pack, take it out rather than reword it. This is the only round: the owner sees your fix and the Editor's second opinion. Reply with one line per draft.\n\n` +
     JSON.stringify(drafts, null, 2),
   launch: (slots: readonly LaunchSlot[]) =>
-    `Today is ${today()}. Rooiberg Wander's Instagram and Facebook accounts are new and empty. Write ${slots.length} of the nine opening posts that will fill the profile grid, one draft per slot below, as channel instagram (the owner posts the same text to Facebook). A stranger reads them first, so introduce rather than assume they know us. Take every fact from get_facts_pack. Choose the photos yourself from get_photo_library, reading each alt text so the photos show what the slot is about: a single takes exactly 1 photo, a carousel 3 to 5; never use one photo twice. Put "Plan slot: <id>" in each draft's notes. Reply with a list of what you saved.\n\n` +
+    `Today is ${today()}. Rooiberg Wander's Instagram and Facebook accounts are new and empty. Write ${slots.length} of the nine opening posts that will fill the profile grid, one draft per slot below, as channel instagram (the owner posts the same text to Facebook). A stranger reads them first, so introduce rather than assume they know us. Take every fact from get_facts_pack. Choose the photos yourself from get_photo_library, reading each alt text so the photos show what the slot is about: a single takes exactly 1 photo, a carousel 3 to 5; never use one photo twice. Put "Plan slot: <id>" in each draft's notes. Leave the booking line off: these posts introduce the trail, and the profile link takes people to the rates page. Reply with a list of what you saved.\n\n` +
     slots.map((s) => `${s.id} (${s.format}): ${s.angle}`).join('\n'),
   analyse: (results: string) =>
     `Today is ${today()}, Sunday. Write this week's report as your instructions describe. Reply with its headline.\n\n${results}`,
@@ -395,6 +405,20 @@ async function photoIds(ctx: Ctx): Promise<Set<string>> {
   return ids;
 }
 
+// Each photo's lodge (site and shoot photos from the source, uploads from marketing.photos), so the
+// plan check can hold a post to one lodge. Names are normalised to the upload keys.
+const LODGE_KEY: Record<string, string> = { T: 'temmincks', O: 'oukraal', R: 'rustwood' };
+async function photoLodges(ctx: Ctx): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  for (const f of PHOTO_LIBRARY_SOURCES) {
+    for (const [id, l] of photoLodgesFromSource(readFileSync(f, 'utf8'))) map.set(id, l ? (LODGE_KEY[l] ?? l) : null);
+  }
+  const { data, error } = await ctx.sb.from('photos').select('id, lodge');
+  if (error) throw new Error(`photos read failed: ${error.message}`);
+  for (const r of (data ?? []) as { id: string; lodge: string | null }[]) map.set(UPLOAD_PHOTO_PREFIX + r.id, r.lodge);
+  return map;
+}
+
 // Photos already on a pending or approved draft: never planned again (a photo is used once).
 // The newest blog draft that is pending or approved, for the every-second-week rule (blogDue).
 async function lastBlogAt(ctx: Ctx): Promise<Date | null> {
@@ -410,10 +434,18 @@ async function lastBlogAt(ctx: Ctx): Promise<Date | null> {
   return row ? new Date(row.created_at) : null;
 }
 
+// A photo the owner banned at /admin/marketing (0026) counts as used too. Before the migration is
+// applied the table is missing, which means no bans.
 async function usedPhotos(ctx: Ctx): Promise<Set<string>> {
   const { data, error } = await ctx.sb.from('drafts').select('photo_ids').in('status', [...PHOTO_USED_STATUSES]);
   if (error) throw new Error(`drafts read failed: ${error.message}`);
-  return new Set(((data ?? []) as { photo_ids: string[] | null }[]).flatMap((r) => r.photo_ids ?? []));
+  const used = new Set(((data ?? []) as { photo_ids: string[] | null }[]).flatMap((r) => r.photo_ids ?? []));
+  const bans = await ctx.sb.from('photo_bans').select('photo_id');
+  if (bans.error && !/42P01|PGRST205/.test(bans.error.code ?? '') && !/does not exist|could not find the table/i.test(bans.error.message)) {
+    throw new Error(`photo bans read failed: ${bans.error.message}`);
+  }
+  for (const r of (bans.data ?? []) as { photo_id: string }[]) used.add(r.photo_id);
+  return used;
 }
 
 const checks = {
@@ -426,7 +458,7 @@ const checks = {
   plan: (ctx: Ctx, week: string, research: { ids: string[]; trends: string[] }, photos: Set<string>, used: Set<string>, withBlog: boolean, out: PlanSlot[]): HandOverCheck => async () => {
     const md = await readMemory(ctx, PLAYBOOK_STORE_NAME, PLAN_PATH);
     if (md === null) return missing(PLAN_PATH);
-    const r = checkPlan(md, week, research.ids, photos, research.trends, used, withBlog);
+    const r = checkPlan(md, week, research.ids, photos, research.trends, used, withBlog, await photoLodges(ctx));
     out.splice(0, out.length, ...r.slots);
     return { path: PLAN_PATH, errors: r.errors };
   },

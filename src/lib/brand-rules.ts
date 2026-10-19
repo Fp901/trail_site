@@ -24,7 +24,8 @@ export type BrandRule =
   | 'unpublished_price'
   | 'two_man_rule'
   | 'x_length'
-  | 'story_length';
+  | 'story_length'
+  | 'caption_length';
 
 export interface RuleViolation {
   rule: BrandRule;
@@ -38,6 +39,17 @@ const INTERNAL_KINDS: ReadonlySet<MarketingDraftKind> = new Set(['weekly_report'
 export const X_MAX_CHARS = 280;
 // A story has no caption: its text is the short line on the photo, read in a second or two.
 export const STORY_MAX_CHARS = 125;
+// A single or carousel caption (owner, 19 October 2026: "too long and article like", "needs to be
+// shorter"). Hashtag-only lines do not count.
+export const CAPTION_MAX_CHARS = 500;
+const SOCIAL_CAPTION_KINDS: ReadonlySet<MarketingDraftKind> = new Set(['instagram_caption', 'facebook_post']);
+
+export const captionLength = (text: string) =>
+  [...text
+    .split('\n')
+    .filter((l) => !/^\s*(#\S+\s*)+$/.test(l))
+    .join('\n')
+    .trim()].length;
 
 // The exact memo line (Part 17.4), with the counts filled in from get_open_departures.
 export const DEPARTURE_LINE = /Guaranteed Departure: ([1-8]) of 8 spots booked\. ([0-8]) spots available\./g;
@@ -143,6 +155,10 @@ export function checkDraft(text: string, kind: MarketingDraftKind, format?: Mark
   }
   if (format === 'story' && [...text.trim()].length > STORY_MAX_CHARS) {
     add('story_length', `A story's text is at most ${STORY_MAX_CHARS} characters (this one is ${[...text.trim()].length}).`);
+  }
+
+  if (SOCIAL_CAPTION_KINDS.has(kind) && format !== 'story' && captionLength(text) > CAPTION_MAX_CHARS) {
+    add('caption_length', `A caption is at most ${CAPTION_MAX_CHARS} characters, hashtags aside (this one is ${captionLength(text)}). Keep one moment and cut the rest.`);
   }
 
   return v;

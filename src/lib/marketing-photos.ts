@@ -110,14 +110,31 @@ export async function existingUploadIds(ids: string[]): Promise<Set<string>> {
   return new Set(((data ?? []) as { id: string }[]).map((r) => UPLOAD_ID_PREFIX + r.id));
 }
 
-// Every photo id already on a pending or approved draft. A photo is used once and never again
-// (CLAUDE.md Part 18); exceptDraft leaves out the flagged draft a fix is replacing.
+// Photos the owner banned at /admin/marketing (0026): never offered to the team again. Until the
+// migration is applied the table is missing, which means no bans; any other error is thrown.
+export async function bannedPhotoIds(): Promise<Set<string>> {
+  const { data, error } = await getSupabaseAdmin().schema('marketing').from('photo_bans').select('photo_id');
+  if (error) {
+    if (isMissingTable(error)) return new Set();
+    throw new Error(error.message);
+  }
+  return new Set(((data ?? []) as { photo_id: string }[]).map((r) => r.photo_id));
+}
+
+export const isMissingTable = (e: { code?: string; message?: string }) =>
+  e.code === '42P01' || e.code === 'PGRST205' || /does not exist|could not find the table/i.test(e.message ?? '');
+
+// Every photo id already on a pending or approved draft, plus every photo the owner banned. A
+// photo is used once and never again (CLAUDE.md Part 18); exceptDraft leaves out the flagged draft
+// a fix is replacing.
 export async function usedPhotoIds(exceptDraft?: string): Promise<Set<string>> {
   let q = getSupabaseAdmin().schema('marketing').from('drafts').select('id, photo_ids').in('status', [...PHOTO_USED_STATUSES]);
   if (exceptDraft) q = q.neq('id', exceptDraft);
-  const { data, error } = await q;
+  const [{ data, error }, banned] = await Promise.all([q, bannedPhotoIds()]);
   if (error) throw new Error(error.message);
-  return new Set(((data ?? []) as { photo_ids: string[] | null }[]).flatMap((r) => r.photo_ids ?? []));
+  const used = new Set(((data ?? []) as { photo_ids: string[] | null }[]).flatMap((r) => r.photo_ids ?? []));
+  for (const id of banned) used.add(id);
+  return used;
 }
 
 // Public https URLs Meta can fetch, in the draft's order, for the owner's Post button (0024).

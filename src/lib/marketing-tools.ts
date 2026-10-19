@@ -297,7 +297,7 @@ async function getResults(input: { days: number }): Promise<ToolResult> {
     },
     posts_published: (posts.data ?? []).filter((p) => p.published_at).length,
     metrics: totals,
-    note: 'Publishing is not built yet, so posts and metrics stay empty until it is.',
+    note: 'posts_published counts posts the owner sent with the Post button at /admin/marketing in this window. metrics is not filled yet: reach, saves and shares come from the Meta results in your task, when Meta can be read.',
   });
 }
 

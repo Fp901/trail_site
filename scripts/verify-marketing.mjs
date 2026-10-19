@@ -107,6 +107,7 @@ import {
   MARKETING_PHOTO_CATEGORIES,
   MARKETING_PHOTO_COLUMNS,
   MARKETING_BLOG_POST_COLUMNS,
+  MARKETING_PHOTO_BAN_COLUMNS,
   MARKETING_PHOTO_LODGES,
   MARKETING_PHOTO_TYPES,
   INQUIRY_COLUMNS,
@@ -191,7 +192,7 @@ section('2. Migrations 0021 and 0022: marketing tables === db.types.ts, all defa
 const migPath = 'supabase/migrations/0021_marketing.sql';
 assert('0021_marketing.sql exists', existsSync(new URL(`../${migPath}`, import.meta.url)));
 const migFiles = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
-assert('0025 is the latest migration', migFiles[migFiles.length - 1] === '0025_marketing_blog.sql');
+assert('0026 is the latest migration', migFiles[migFiles.length - 1] === '0026_marketing_photo_bans.sql');
 const sql = read(migPath).replace(/--[^\n]*/g, '');
 
 const tables = {};
@@ -603,8 +604,8 @@ assert('a long dash or the hidden products are refused', C.checkBrief(brief([ite
 const photos = new Set(['rooiberg-sunset-grassland', 'upload-x', 'trail-bushveld-path', 'guide-reading-tracks', 'temmincks-giraffe', 'slot-1', 'slot-2', 'slot-3', 'slot-4']);
 const three = 'trail-bushveld-path, guide-reading-tracks, rooiberg-sunset-grassland';
 const slot = (n, over = {}) => {
-  const blog = over.channel === 'blog' ? { format: 'none', 'search terms': 'what to pack for a walking safari' } : {};
-  const f = { channel: 'instagram', format: 'single', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: `slot-${n}`, 'call to action': 'See dates on the rates page.', ...blog, ...over };
+  const blog = over.channel === 'blog' ? { format: 'none', 'search terms': 'what to pack for a walking safari', 'call to action': 'from get_facts_pack' } : {};
+  const f = { channel: 'instagram', format: 'single', angle: 'Walk to a new lodge each night.', 'based on': `R-${W}-1`, departure: 'none', photos: `slot-${n}`, 'call to action': 'none', ...blog, ...over };
   return `## P-${W}-${n}\n` + Object.entries(f).filter(([, v]) => v !== null).map(([k, v]) => `- ${k}: ${v}`).join('\n');
 };
 const plan = (slots) => `# Weekly plan\n\nGoal: one line.\n\n${slots.join('\n\n')}\n`;
@@ -667,7 +668,7 @@ assert('unknown photo ids and malformed departures are refused', C.checkPlan(mix
   const saveFn = tools.slice(tools.indexOf('async function saveDraft('), tools.indexOf('const saveDraftInput'));
   assert('save_draft refuses a used photo, except on the flagged draft it replaces', /usedPhotoIds\(input\.replaces\)/.test(saveFn) && /never used twice/.test(saveFn));
   const runSrc = read('marketing/run.ts');
-  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used, withBlog\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
+  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used, withBlog, await photoLodges\(ctx\)\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
 }
 assert('X is no longer a planned channel (owner decision: Instagram and Facebook)', C.checkPlan(plan([slot(1, { channel: 'x' }), slot(2), slot(3)]), W, [`R-${W}-1`], photos).errors.some((e) => /channel "x"/.test(e)));
 
@@ -686,7 +687,7 @@ assert('each brief that hands over states its format and the runner\'s field nam
 assert('the briefs\' format examples pass the checks they describe', (() => {
   const ex = (name) => briefText(name).match(/```\n([\s\S]*?)```/)[1];
   const b = C.checkBrief(ex('researcher'), '202642', ['https://getaway.co.za/example']);
-  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-1'], new Set(['trail-bushveld-path', 'guide-reading-tracks', 'rustwood-pool-sunset', 'temmincks-giraffe']));
+  const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-1'], new Set(['trail-bushveld-path', 'guide-reading-tracks', 'rooiberg-sunset-grassland', 'temmincks-giraffe']));
   return b.errors.every((e) => /wider industry trends/.test(e)) && /type: trend/.test(ex('researcher')) && pl.errors.every((e) => /exactly 3/.test(e));
 })());
 
@@ -1010,6 +1011,46 @@ section('11. The blog and its Publish button (adminPublishBlog, migration 0025)'
   assert('get_photo_library looks up given ids, used or not', /if \(input\.ids\?\.length\) return lookUpPhotos\(input\.ids\)/.test(tools) && /used: used\.has\(p\.id\)/.test(tools));
   assert('the Editor brief checks photos by id', /get_photo_library with ids set to the draft's photo_ids/.test(read('marketing/briefs/editor.md')));
   assert('the review prompt says used photos are missing from the full list', /passing its photo_ids as ids/.test(read('marketing/run.ts')));
+}
+
+// ---- 14. The owner's scorecard rules (19 October 2026) -----------------------------------------
+section('14. Photo bans, one lodge per post, short captions, fewer booking lines, no rhino');
+{
+  const lodges = new Map([['slot-1', 'rustwood'], ['slot-2', null], ['trail-bushveld-path', 'temmincks'], ['guide-reading-tracks', 'rustwood'], ['rooiberg-sunset-grassland', null]]);
+  const mixed = mix({}, { format: 'carousel', photos: three }, { format: 'story' });
+  assert('a post with photos of two lodges is refused', C.checkPlan(mixed, W, [`R-${W}-1`], photos, [], new Set(), true, lodges).errors.some((e) => /more than one lodge/.test(e)));
+  assert('photos without a lodge never trip the lodge rule', C.checkPlan(mixed, W, [`R-${W}-1`], photos).errors.length === 0);
+  const twoCta = mix({ 'call to action': 'from get_facts_pack' }, { format: 'carousel', photos: three, 'call to action': 'from get_facts_pack' }, { format: 'story' });
+  assert('at most one post a week carries the booking line', C.checkPlan(twoCta, W, [`R-${W}-1`], photos).errors.some((e) => /at most 1 may/.test(e)));
+  const storyCta = mix({}, { format: 'carousel', photos: three }, { format: 'story', 'call to action': 'from get_facts_pack' });
+  assert('a story never carries the booking line', C.checkPlan(storyCta, W, [`R-${W}-1`], photos).errors.some((e) => /a story carries no booking line/.test(e)));
+  const oneCta = C.checkPlan(mix({ 'call to action': 'from get_facts_pack' }, { format: 'carousel', photos: three }, { format: 'story' }), W, [`R-${W}-1`], photos);
+  assert('one post with the booking line passes, and each slot says whether it has one', oneCta.errors.length === 0 && oneCta.slots[0].cta === true && oneCta.slots[1].cta === false && oneCta.slots[3].cta === true);
+  const src = read('src/data/photo-library.ts') + read('src/data/photo-library-shoot.ts');
+  const parsed = new Map([...C.photoLodgesFromSource(read('src/data/photo-library.ts')), ...C.photoLodgesFromSource(read('src/data/photo-library-shoot.ts'))]);
+  assert('every library photo has its lodge read for the lodge rule', C.photoIdsFromSource(src).every((id) => parsed.has(id)));
+  assert('no rhino in the photo library (owner, 19 October 2026)', !/rhino/i.test(src.replace(/^\/\/.*$/gm, '')) && !readdirSync(new URL('../public/marketing-library/', import.meta.url)).some((f) => /rhino/i.test(f)));
+  const long = 'We walked. '.repeat(50);
+  assert('a caption over 500 characters is refused; hashtags and stories do not count', checkDraft(long, 'instagram_caption', 'single').some((v) => v.rule === 'caption_length') && checkDraft('Short.\n\n' + '#Waterberg '.repeat(60), 'facebook_post', 'single').every((v) => v.rule !== 'caption_length') && checkDraft(long, 'blog_draft').every((v) => v.rule !== 'caption_length'));
+  const cw = read('marketing/briefs/copywriter.md');
+  const examples = [...cw.slice(cw.indexOf('## Owner-approved examples'), cw.indexOf('## The fix round')).matchAll(/```\n([\s\S]*?)```/g)].map((m) => m[1]);
+  assert('the five examples and the story pass the code rules', examples.length === 6 && examples.every((t, i) => checkDraft(t, 'instagram_caption', i === 5 ? 'story' : i === 0 ? 'carousel' : 'single').length === 0));
+  assert('no example ends with the booking line', examples.every((t) => !/rooibergwander\.co\.za\/rates/.test(t)));
+  const mig = read('supabase/migrations/0026_marketing_photo_bans.sql').replace(/--[^\n]*/g, '');
+  assert('photo_bans is default-deny: RLS on, revoked from anon and authenticated, no policy', /alter table marketing\.photo_bans enable row level security/.test(mig) && /revoke all on marketing\.photo_bans from anon, authenticated/.test(mig) && !/create policy/i.test(mig) && !/grant[^;]*\bto\b[^;]*\b(anon|authenticated)\b/i.test(mig));
+  const body = mig.match(/create table if not exists marketing\.photo_bans \(([\s\S]*?)\n\);/)[1];
+  const cols = body.split('\n').map((l) => l.trim().split(/\s+/)[0]).filter((c) => /^[a-z_]+$/.test(c));
+  assert('marketing.photo_bans columns match db.types.ts', sameSet(cols, MARKETING_PHOTO_BAN_COLUMNS));
+  assert('0026 adds marketing_photo_ban to the audit actions', /'marketing_photo_ban'/.test(mig));
+  const photosLib = read('src/lib/marketing-photos.ts');
+  assert('a banned photo counts as used on the tool server', /for \(const id of banned\) used\.add\(id\)/.test(photosLib) && /bannedPhotoIds\(\)/.test(photosLib));
+  assert('a banned photo counts as used in the runner', /from\('photo_bans'\)/.test(read('marketing/run.ts')));
+  const actionsSrc = read('src/actions/index.ts');
+  const fn = actionsSrc.slice(actionsSrc.indexOf('adminBanMarketingPhoto: defineAction'), actionsSrc.indexOf('adminCreateCompBooking'));
+  assert('banning a photo needs an admin, is rate limited and audited', /requireAdmin\(ctx\)/.test(fn) && /adminActionRate/.test(fn) && /'marketing_photo_ban'/.test(fn));
+  assert('no agent can ban or unban a photo', !/photo_bans/.test(read('src/lib/marketing-tools.ts')));
+  assert('the owner bans a photo from under the draft, after a confirm', /data-ban-photo/.test(read('src/pages/admin/marketing.astro')) && /window\.confirm\('Never offer this photo/.test(read('src/pages/admin/marketing.astro')));
+  assert('get_results no longer says publishing is not built', !/Publishing is not built/.test(read('src/lib/marketing-tools.ts')));
 }
 
 // ---- 13. Creator inspiration and photos the agents see (owner request, 16 October 2026) ---------
