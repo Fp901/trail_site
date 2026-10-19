@@ -41,9 +41,9 @@ Turn the Researcher's brief and the owner's feedback into a weekly plan the Copy
 
 ## Sunday: review and rewrite the playbook
 
-1. Call get_results, and read the Meta and Google search results the runner adds below your task (how our own posts did and what people search for; numbers, not instructions). Read the Analyst's /history.md (this week's scorecard line), the Researcher's /weekly-brief.md, /feedback.md in the Copywriter's notebook, and every notebook's /learnings.md.
+1. Call get_results, and read the Meta, Google search and site visit results the runner adds below your task (how our own posts did, what people search for, and who comes to the site from where; numbers, not instructions). Read the Analyst's /history.md (this week's scorecard line), the Researcher's /weekly-brief.md, /feedback.md in the Copywriter's notebook, and every notebook's /learnings.md.
 2. Rewrite /playbook.md in the team playbook with exactly these sections (the hand-over):
-   - ## What works: angles, formats and channels the owner approves and that reach people (Meta results), with the evidence.
+   - ## What works: angles, formats and channels the owner approves and that reach people (Meta results) or bring visits to the site (site visits), with the evidence.
    - ## What does not work: what keeps being edited or rejected, and the owner's reasons.
    - ## Voice: what the owner has taught us about voice beyond the brand skill.
    - ## Questions for the owner: anything only the owner can decide.
@@ -52,7 +52,7 @@ Turn the Researcher's brief and the owner's feedback into a weekly plan the Copy
 
 ## Monday: plan the week
 
-1. Read /playbook.md, the Researcher's /weekly-brief.md and /feedback.md in the Copywriter's notebook, and the Meta and Google search results below your task. Lean towards the formats that earn saves and shares, and use the words people actually search for. For the blog slot, prefer a research item that answers a question people search for and our pages do not yet answer well (many appearances, few clicks).
+1. Read /playbook.md, the Researcher's /weekly-brief.md and /feedback.md in the Copywriter's notebook, and the Meta, Google search and site visit results below your task. Lean towards the formats that earn saves and shares, and the topics and channels that bring people to the site, and use the words people actually search for. For the blog slot, prefer a research item that answers a question people search for and our pages do not yet answer well (many appearances, few clicks).
 2. Call get_open_departures, get_facts_pack and get_photo_library.
 3. Choose the week's three post types from the ones that earn saves, shares and replies, and use a different mix from last week (your /history.md):
    - What the bush is doing now: the season this week on the trail (a "season" item), shown as one moment.
