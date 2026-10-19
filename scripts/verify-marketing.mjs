@@ -992,6 +992,22 @@ section('Blog on demand (manual job "blog")');
   assert('the job is checked, then goes through the Editor and the fix round', /blog: \{[\s\S]*?checks\.drafts\(ctx, \[slot\]\)\);\s*await editorReview\(ctx\);\s*await fixRound\(ctx, writingFrom\);/.test(runB));
   const wfB = read('.github/workflows/marketing-team.yml');
   assert('the workflow passes the topic and terms as env, never into the shell line', /BLOG_TOPIC: \$\{\{ inputs\.blog_topic \}\}/.test(wfB) && /BLOG_SEARCH_TERMS: \$\{\{ inputs\.blog_search_terms \}\}/.test(wfB) && !/run:.*inputs\.blog/.test(wfB));
+
+  // Outside facts (owner decision, 19 October 2026): the first article only restated the website.
+  const URL1 = 'https://example.org/rooiberg-history';
+  const good = C.checkBlogResearch(`- Rooiberg grew up around a tin mine. | ${URL1}\n- The R516 runs west from Bela-Bela. | ${URL1}/`, [URL1]);
+  assert('sourced facts from pages opened this run pass', good.errors.length === 0 && good.facts.length === 2 && good.facts[0].source === URL1);
+  assert('a fact from a page not opened this run is refused', C.checkBlogResearch(`- A claim. | https://example.org/other`, [URL1]).errors.some((e) => /did not open/.test(e)));
+  assert('a fact without a source is refused', C.checkBlogResearch('- A claim with no source.', [URL1]).errors.length > 0);
+  assert('"None found." is a valid answer with no facts', C.checkBlogResearch('None found.', []).errors.length === 0);
+  assert('more than the maximum is refused', C.checkBlogResearch(Array.from({ length: C.BLOG_RESEARCH_MAX_FACTS + 1 }, (_, i) => `- Fact ${i}. | ${URL1}`).join('\n'), [URL1]).errors.some((e) => /At most/.test(e)));
+  assert('a long dash or SADC in a fact is refused', C.checkBlogResearch(`- A town \u2014 old. | ${URL1}`, [URL1]).errors.length > 0 && C.checkBlogResearch(`- SADC residents. | ${URL1}`, [URL1]).errors.length > 0);
+  assert('a failing research file hands on no facts', C.checkBlogResearch(`- Good. | ${URL1}\n- Bad. | https://x.org/y`, [URL1]).facts.length === 0);
+  assert('the owner\'s notes are capped', C.blogNotes('x'.repeat(C.BLOG_NOTES_MAX + 50)).length === C.BLOG_NOTES_MAX && C.blogNotes('  a\r\nb  ') === 'a\nb');
+  assert('the blog job researches first, then writes from the facts and the notes', /checks\.blogResearch\(ctx, facts\)\);[\s\S]*?blogNotes\(process\.env\.BLOG_NOTES[\s\S]*?PROMPTS\.blog\(slot, cleanTopic, await searchResults\(\), facts, notes\)/.test(runB));
+  assert('the Copywriter must list each outside source and add no other', /"Sources:"/.test(runB) && /Use no other outside fact/.test(runB) && /Sources:/.test(read('marketing/briefs/copywriter.md')));
+  assert('the Editor flags unsourced claims and a blog that only retells the website', /"Sources:" list does not back/.test(read('marketing/briefs/editor.md')) && /only retells the website/.test(read('marketing/briefs/editor.md')));
+  assert('the workflow passes the owner\'s notes as env', /BLOG_NOTES: \$\{\{ inputs\.blog_notes \}\}/.test(wfB));
 }
 
 // ---------------------------------------------------------------------------------------------

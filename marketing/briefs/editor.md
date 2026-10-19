@@ -29,7 +29,7 @@ The code rules have already passed every draft you are shown: dashes, prices, fo
 
 ## What to check
 
-- Facts: is every claim about Rooiberg Wander supported by the facts pack? A statement about a wider trend is fine when the draft's notes name the research item and the statement matches that item in the Researcher's /weekly-brief.md. Flag anything invented, exaggerated or vague, and any trend used as pressure to book.
+- Facts: is every claim about Rooiberg Wander supported by the facts pack? A blog the owner asked for directly (slot "B-...") may also state outside facts (roads, history, nature, nearby places): flag one that the notes' "Sources:" list does not back, and flag a "B-" blog that only retells the website. A statement about a wider trend is fine when the draft's notes name the research item and the statement matches that item in the Researcher's /weekly-brief.md. Flag anything invented, exaggerated or vague, and any trend used as pressure to book.
 - Voice: a short page from a guide's trail journal ("we" on the walk, hardly ever "you"), friendly and polished like a good hiking creator, never salesy. Flag a draft that reads like a brochure, an advert or an article, one that is longer than it needs to be, and any line that names a guide or a guest, quotes a guest or reads as a review or testimonial.
 - Booking line: only the blog and the one post the plan gives "call to action: from get_facts_pack" end with the facts pack's call_to_action. Flag a booking line or a rates link on any other post. Note: "Remove the booking line; the plan gives this post none."
 - Safety: handled seriously, and something the owner would be comfortable seeing in public.
