@@ -12,7 +12,7 @@
 //   4. The employees: the agreed models, caps under the hard cap, no shell, web for the
 //      Researcher only, save_draft never given to the Editor.
 //   5. The schedule: dry run by default, a budget on every session, crons that match config.ts;
-//      the owner review, its admin_audit entries (0022) and the daily digest.
+//      the owner review, its admin_audit entries (0022) and the weekly digest.
 //   6. The photo library covers every site photo but the logos, and owner uploads are checked
 //      (type from magic bytes, size, the no-hunting-trophies tick) into a private bucket.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -563,7 +563,7 @@ assert('the audit row carries ids and the decision, never the draft text', !/bod
 }
 assert('the admin nav links the marketing page', /id: 'marketing'.*href: '\/admin\/marketing'/.test(read('src/components/AdminNav.astro')));
 const digest = read('src/pages/api/cron/marketing-drafts.ts');
-assert('the digest cron is scheduled in vercel.json', JSON.parse(read('vercel.json')).crons.some((c) => c.path === '/api/cron/marketing-drafts'));
+assert('the digest cron is scheduled once a week, Monday after plan_and_write (owner request, 19 October 2026)', JSON.parse(read('vercel.json')).crons.some((c) => c.path === '/api/cron/marketing-drafts' && c.schedule === '0 10 * * 1'));
 assert('the digest route is CRON_SECRET-gated in constant time', /import\.meta\.env\.CRON_SECRET/.test(digest) && /crypto\.timingSafeEqual\(/.test(digest) && /if \(!secret\) return false;/.test(digest));
 assert('the digest goes to MARKETING_NOTIFY_TO, else ADMIN_EMAILS, through the existing email helper', /marketingEmailList\(\)/.test(digest) && /MARKETING_NOTIFY_TO[\s\S]{0,400}adminEmailList\(\)/.test(read('src/lib/email.ts')) && /sendMarketingDraftsDigest/.test(read('src/lib/email.ts')));
 assert('the digest never emails draft text', !/select\('[^']*body/.test(digest));

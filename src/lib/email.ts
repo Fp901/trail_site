@@ -62,7 +62,7 @@ export function adminEmailList(): string[] {
   return [...new Set(list)];
 }
 
-// Who gets the daily marketing digest: MARKETING_NOTIFY_TO (comma-separated) when set, so the owner
+// Who gets the weekly marketing digest: MARKETING_NOTIFY_TO (comma-separated) when set, so the owner
 // can take someone off the marketing emails without removing their admin sign-in; else every admin.
 export function marketingEmailList(): string[] {
   const raw = String(import.meta.env.MARKETING_NOTIFY_TO ?? '').trim();
@@ -869,7 +869,7 @@ export async function sendBlockedDatesAdminAlert(opts: {
 }
 
 // ---- Marketing team digest (CLAUDE.md Part 18) ----------------------------------------
-// Once a day, to every admin, only when drafts are waiting. Counts only: no draft text in email.
+// Once a week (Monday), to every admin, only when drafts are waiting. Counts only: no draft text in email.
 
 export async function sendMarketingDraftsDigest(opts: {
   tos: string[];
