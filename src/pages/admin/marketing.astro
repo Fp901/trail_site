@@ -260,9 +260,13 @@ const fmtDateTime = (v: string | null) =>
                                     <img src={p.image.src} alt={p.alt} width={160} height={Math.round((160 * p.image.height) / p.image.width)} loading="lazy" decoding="async" />
                                   </a>
                                   <span class="admin-sub">{id}</span>
+                                  <button type="button" class="mk-ban" data-ban-photo={id}>Never use this photo</button>
                                 </li>
                               ) : (
-                                <li class="admin-sub">Uploaded photo: {uploadAlt.get(id) ?? id}</li>
+                                <li class="admin-sub">
+                                  Uploaded photo: {uploadAlt.get(id) ?? id}
+                                  <button type="button" class="mk-ban" data-ban-photo={id}>Never use this photo</button>
+                                </li>
                               );
                             })}
                           </ol>
@@ -628,7 +632,31 @@ const fmtDateTime = (v: string | null) =>
     });
   }
 
+  // "Never use this photo" (0026): the photo leaves the team's library for good. The draft it is
+  // on stays as it is, so the owner still approves or rejects that draft.
+  function initBanPhoto() {
+    document.querySelectorAll<HTMLButtonElement>('button[data-ban-photo]').forEach((button) => {
+      if (button.dataset.bound === 'true') return;
+      button.dataset.bound = 'true';
+      button.addEventListener('click', async () => {
+        if (!window.confirm('Never offer this photo to the team again? This draft stays as it is: approve or reject it as usual.')) return;
+        button.disabled = true;
+        const { error } = await actions.adminBanMarketingPhoto({ photoId: button.dataset.banPhoto! });
+        if (error) {
+          button.disabled = false;
+          window.alert(error.message || 'Something went wrong.');
+          return;
+        }
+        document.querySelectorAll<HTMLButtonElement>(`button[data-ban-photo="${CSS.escape(button.dataset.banPhoto!)}"]`).forEach((b) => {
+          b.disabled = true;
+          b.textContent = 'Never used again';
+        });
+      });
+    });
+  }
+
   initDrafts();
+  initBanPhoto();
   initWithdraw();
   initPublish();
   initPublishBlog();

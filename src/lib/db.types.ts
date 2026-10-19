@@ -55,6 +55,8 @@ export const ADMIN_ACTIONS = [
   'marketing_post_publish',
   // 0025: the owner published an approved blog draft to /blog.
   'marketing_blog_publish',
+  // 0026: the owner told the team never to use a photo again.
+  'marketing_photo_ban',
 ] as const;
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 
@@ -518,6 +520,10 @@ export const MARKETING_POST_COLUMNS = [
   'url',
   'published_at',
 ] as const;
+
+// marketing.photo_bans (0026): photos the owner never wants the team to use. A banned photo
+// counts as used everywhere the team checks.
+export const MARKETING_PHOTO_BAN_COLUMNS = ['photo_id', 'created_at', 'reason', 'banned_by'] as const;
 
 // marketing.blog_posts (0025): each published blog article, a copy of the approved draft taken
 // when the owner pressed Publish. Read on the server by the public /blog pages.

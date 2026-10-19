@@ -74,6 +74,9 @@ export const cycleWeek = (date: Date): string => isoWeekKey(new Date(date.getTim
 // the owner's photographs): photo-library.ts imports images, which load only inside Vite.
 export const PHOTO_LIBRARY_SOURCES = ['src/data/photo-library.ts', 'src/data/photo-library-shoot.ts'] as const;
 export const photoIdsFromSource = (src: string): string[] => [...src.matchAll(/^\s+id: '([^']+)',$/gm)].map((m) => m[1]);
+// Each library photo's lodge as written in the source (T, O, R or null), for the one-lodge rule.
+export const photoLodgesFromSource = (src: string): Map<string, string | null> =>
+  new Map([...src.matchAll(/^\s+id: '([^']+)',\n\s+category: [^\n]+\n\s+lodge: ([^,\n]+),$/gm)].map((m) => [m[1], m[2] === 'null' ? null : m[2]]));
 
 // An uploaded photo's id is this prefix and its marketing.photos row id (UPLOAD_ID_PREFIX in
 // src/lib/marketing-photos.ts, which verify-marketing.mjs checks is the same).
@@ -212,6 +215,9 @@ export const FORMAT_PHOTOS: Record<PostFormat, { min: number; max: number }> = {
 // A photo is used once and never again (owner, 14 October 2026). Used means it is on a draft that
 // is pending or approved; a rejected or superseded draft never went out, so its photos are free.
 export const PHOTO_USED_STATUSES = ['pending', 'approved'] as const;
+// The booking line goes on at most this many of the week's posts (owner, 19 October 2026: "too
+// pushy with the bookings links"). A story never carries it; the blog always ends with it.
+export const PLAN_MAX_CTA_POSTS = 1;
 // The runner warns in its log when fewer unused photos than this are left (about two weeks).
 export const PHOTOS_LOW_WARNING = 12;
 
@@ -232,6 +238,8 @@ export interface PlanSlot {
   searchTerms?: string | null;
   // The slot's photo ids in order, so the runner can show the Copywriter the photos themselves.
   photos?: string[];
+  // Whether the post ends with the facts pack's booking line (at most one post a week, and the blog).
+  cta?: boolean;
 }
 
 // A blog slot's "search terms": one to three phrases, comma separated, each a real search.
@@ -256,6 +264,8 @@ export function checkPlan(
   usedPhotos: ReadonlySet<string> = new Set(),
   // Whether this week has a blog slot (blogDue); the runner decides from the drafts table.
   withBlog = true,
+  // Each photo's lodge, when known: a post shows one lodge at a time (owner, 19 October 2026).
+  photoLodges: ReadonlyMap<string, string | null> = new Map(),
 ): PlanCheck {
   const errors: string[] = [];
   const planned = new Set<string>();
@@ -307,6 +317,8 @@ export function checkPlan(
         else if (planned.has(id)) errors.push(`${item.id}: "${id}" is already in another slot this week.`);
         planned.add(id);
       }
+      const lodges = new Set(ids.map((id) => photoLodges.get(id)).filter((l): l is string => !!l));
+      if (lodges.size > 1) errors.push(`${item.id}: its photos show more than one lodge; a post shows one lodge at a time (the owner's rule).`);
       if (isPost && (POST_FORMATS as readonly string[]).includes(fmt)) {
         const e = photoCountError(fmt as PostFormat, ids.length);
         if (e) errors.push(`${item.id}: ${e}`);
@@ -341,11 +353,22 @@ export function checkPlan(
   if (posts === PLAN_POSTS_PER_WEEK && missingFormats.length) {
     errors.push(`The ${PLAN_POSTS_PER_WEEK} post slots must be one single, one carousel and one story; missing: ${missingFormats.join(', ')}.`);
   }
+  const noCta = (i: (typeof items)[number]) => /^none\b/i.test((i.fields['call to action'] ?? '').trim());
+  const postItems = items.filter((i) => (POST_CHANNELS as readonly string[]).includes((i.fields.channel ?? '').toLowerCase()));
+  for (const i of postItems) {
+    if ((i.fields.format ?? '').toLowerCase() === 'story' && i.fields['call to action'] && !noCta(i)) {
+      errors.push(`${i.id}: a story carries no booking line; its call to action is "none".`);
+    }
+  }
+  const withCta = postItems.filter((i) => i.fields['call to action'] && !noCta(i)).length;
+  if (withCta > PLAN_MAX_CTA_POSTS) {
+    errors.push(`${withCta} post slots carry the booking line; at most ${PLAN_MAX_CTA_POSTS} may (the owner finds more too pushy). Write "none" for the others.`);
+  }
   commonText(md, errors);
   return { errors, slots: errors.length ? [] : items.map((i) => {
     const channel = i.fields.channel.toLowerCase();
     const format = (POST_CHANNELS as readonly string[]).includes(channel) ? (i.fields.format.toLowerCase() as PostFormat) : null;
-    return { id: i.id, channel, format, searchTerms: channel === 'blog' ? i.fields['search terms'].trim() : null, photos: (i.fields.photos ?? '').split(',').map((x) => x.trim()).filter(Boolean) };
+    return { id: i.id, channel, format, searchTerms: channel === 'blog' ? i.fields['search terms'].trim() : null, photos: (i.fields.photos ?? '').split(',').map((x) => x.trim()).filter(Boolean), cta: !noCta(i) };
   }) };
 }
 

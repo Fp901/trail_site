@@ -62,7 +62,7 @@ import {
   type MarketingDraftKind,
   type MarketingPostFormat,
 } from '../lib/db.types';
-import { MARKETING_PHOTO_BUCKET, UPLOAD_ID_PREFIX, checkPhotoUpload, photoUrlsForPosting } from '../lib/marketing-photos';
+import { MARKETING_PHOTO_BUCKET, UPLOAD_ID_PREFIX, checkPhotoUpload, existingUploadIds, isMissingTable, photoUrlsForPosting } from '../lib/marketing-photos';
 import { blogDescription, blogUrl, slugify, uniqueSlug } from '../lib/blog';
 import { photoLibrary } from '../data/photo-library';
 import { MetaPublishError, metaCredentials, publishFacebook, publishInstagram } from '../lib/meta-publish';
@@ -1739,6 +1739,45 @@ export const server = {
         },
       });
       return { ok: true, id: `upload-${row.id}` };
+    },
+  }),
+
+  // "Never use this photo" (0026): the owner bans a photo from the team's library for good, from
+  // under any draft at /admin/marketing. A banned photo counts as used everywhere the team checks
+  // (get_photo_library, the plan check, save_draft), so no agent can pick it again. The draft it
+  // sits on is unchanged: the owner still approves or rejects that as usual.
+  adminBanMarketingPhoto: defineAction({
+    accept: 'json',
+    input: z.object({
+      photoId: z.string().trim().regex(/^[a-z0-9-]{1,120}$/, 'Unknown photo.'),
+      reason: z.string().trim().max(300).optional(),
+    }),
+    handler: async (input, ctx) => {
+      const admin = await requireAdmin(ctx);
+      await adminActionRate(admin.email);
+      const known =
+        photoLibrary.some((p) => p.id === input.photoId) ||
+        (input.photoId.startsWith(UPLOAD_ID_PREFIX) && (await existingUploadIds([input.photoId])).has(input.photoId));
+      if (!known) throw new ActionError({ code: 'BAD_REQUEST', message: 'That photo is not in the library.' });
+      const { error } = await getSupabaseAdmin()
+        .schema('marketing')
+        .from('photo_bans')
+        .upsert({ photo_id: input.photoId, reason: input.reason || null, banned_by: admin.email }, { onConflict: 'photo_id', ignoreDuplicates: true });
+      if (error) {
+        console.error('[marketing] photo ban failed', error.message);
+        throw new ActionError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: isMissingTable(error)
+            ? 'Photo bans need migration 0026_marketing_photo_bans.sql applied in Supabase first.'
+            : 'The photo could not be banned. Please try again.',
+        });
+      }
+      await recordAdminEvent({
+        adminEmail: admin.email,
+        action: 'marketing_photo_ban',
+        after: { photo_id: input.photoId, reason: input.reason || null },
+      });
+      return { ok: true };
     },
   }),
 

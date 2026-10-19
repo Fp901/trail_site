@@ -1,4 +1,4 @@
-// The owner's own photographs (CLAUDE.md Part 18): 164 resized shots of the three lodges, the
+// The owner's own photographs (CLAUDE.md Part 18): 162 resized shots of the three lodges, the
 // reserve and the trail, screened by eye from the owner's folder on 13 October 2026. Marketing
 // only: the website never shows them. The files are in public/marketing-library (EXIF stripped, so
 // no location data), served at /marketing-library/<id>.jpg; photo-library.ts merges these into the
@@ -6,7 +6,8 @@
 //
 // RULES (as photo-library.ts): no hunting trophies, ever (29 trophy shots were excluded at
 // screening, and this set was checked again before it was added); lodges are Temminck's Lodge,
-// Oukraal and Rustwood only; ids are stable. Shots with a recognisable guest were left out until
+// Oukraal and Rustwood only; ids are stable. No rhino, ever (owner, 19 October 2026): the two
+// rhino shots were removed. Shots with a recognisable guest were left out until
 // the owner confirms a release. Generated from the screening list; edit by hand only to remove.
 import type { PhotoCategory, PhotoLodge } from './photo-library';
 
@@ -933,22 +934,6 @@ export const shootPhotos: readonly ShootPhoto[] = [
     category: 'wildlife',
     lodge: null,
     alt: 'Flock of helmeted guineafowl feeding in grass beneath a flat topped acacia tree',
-    width: 1200,
-    height: 800,
-  },
-  {
-    id: 'reserve-rhino-grassland',
-    category: 'wildlife',
-    lodge: null,
-    alt: 'White rhino grazing in golden grassland with bushveld hills behind',
-    width: 1200,
-    height: 800,
-  },
-  {
-    id: 'reserve-rhino-thornveld',
-    category: 'wildlife',
-    lodge: null,
-    alt: 'White rhino walking through dry grass among thorn trees',
     width: 1200,
     height: 800,
   },
