@@ -10,7 +10,7 @@
 // What comes back is other people's work: the Researcher studies how each post is built (the
 // opening, the length, the format, how the photo and the words fit) and never copies a caption or
 // a photo. Captions are written by strangers, so they are cut short and labelled data.
-import { cleanError, findPage, graph } from './meta';
+import { cleanError, cleanToken, findPage, graph, tokenShape } from './meta';
 
 export const INSPIRATION_MAX_ACCOUNTS = 10;
 export const INSPIRATION_WINDOW_DAYS = 90;
@@ -103,7 +103,7 @@ export function formatInspiration(posts: InspirationPost[], notes: string[]): In
 export async function inspiration(env: NodeJS.ProcessEnv = process.env, now = new Date()): Promise<Inspiration> {
   const accounts = inspirationAccounts(env.MARKETING_INSPIRATION_ACCOUNTS);
   if (accounts.length === 0) return { text: 'Creator inspiration unavailable: MARKETING_INSPIRATION_ACCOUNTS is not set.', images: [], sources: [] };
-  const token = env.META_ACCESS_TOKEN?.trim();
+  const token = cleanToken(env.META_ACCESS_TOKEN);
   const pageId = env.META_PAGE_ID?.trim();
   if (!token || !pageId) return { text: 'Creator inspiration unavailable: META_ACCESS_TOKEN or META_PAGE_ID is not set.', images: [], sources: [] };
   let igId: string;
