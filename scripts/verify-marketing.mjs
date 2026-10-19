@@ -908,6 +908,21 @@ section('9. The launch set: nine opening grid posts, one-off');
 }
 
 // ---------------------------------------------------------------------------------------------
+section('Blog on demand (manual job "blog")');
+{
+  const now = new Date('2026-10-19T10:00:00Z');
+  const ok = C.blogSlot('Where is Rooiberg?', 'where is rooiberg, roisan reserve', now);
+  assert('a topic and terms make one blog slot with the booking line', ok.slot?.id === 'B-20261019' && ok.slot.channel === 'blog' && ok.slot.cta === true && ok.slot.searchTerms === 'where is rooiberg, roisan reserve');
+  assert('no topic is refused', !C.blogSlot('  ', 'rooiberg', now).slot);
+  assert('more than three search terms are refused', !C.blogSlot('x', 'a, b, c, d', now).slot);
+  assert('its draft is matched by its slot note', C.checkDrafts([ok.slot], [{ kind: 'blog_draft', notes: 'Plan slot: B-20261019\nTopic: x', format: null }]).length === 0);
+  const runB = read('marketing/run.ts');
+  assert('the job is checked, then goes through the Editor and the fix round', /blog: \{[\s\S]*?checks\.drafts\(ctx, \[slot\]\)\);\s*await editorReview\(ctx\);\s*await fixRound\(ctx, writingFrom\);/.test(runB));
+  const wfB = read('.github/workflows/marketing-team.yml');
+  assert('the workflow passes the topic and terms as env, never into the shell line', /BLOG_TOPIC: \$\{\{ inputs\.blog_topic \}\}/.test(wfB) && /BLOG_SEARCH_TERMS: \$\{\{ inputs\.blog_search_terms \}\}/.test(wfB) && !/run:.*inputs\.blog/.test(wfB));
+}
+
+// ---------------------------------------------------------------------------------------------
 section('10. The owner\'s Post button (adminPublishDraft, migration 0024)');
 {
   const act = read('src/actions/index.ts');

@@ -65,8 +65,8 @@ export type ScheduleKey = keyof typeof SCHEDULES;
 // Jobs that run only when started by hand (GitHub Actions > Run workflow): the Researcher alone,
 // for trying out a change to its brief, and meta_check and search_check, which only read the Meta
 // and Search Console results (no agents) to check the token and the Google key, and launch_set, the
-// one-off nine opening posts for the new accounts.
-export const MANUAL_JOBS = ['research', 'meta_check', 'search_check', 'inspiration_check', 'launch_set'] as const;
+// one-off nine opening posts for the new accounts, and blog, one article on a topic the owner names.
+export const MANUAL_JOBS = ['research', 'meta_check', 'search_check', 'inspiration_check', 'launch_set', 'blog'] as const;
 export type JobKey = ScheduleKey | (typeof MANUAL_JOBS)[number];
 
 // Managed Agents resource names. The sync script finds or creates each by name; the runner looks

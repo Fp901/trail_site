@@ -420,6 +420,27 @@ export const LAUNCH_SLOTS: readonly LaunchSlot[] = [
   { id: 'L-9', channel: 'instagram', format: 'single', angle: 'Day 1: arrive at Temminck\'s Lodge, no walking yet, and sundowners at Matopo Lookout Point before the first walk.' },
 ];
 
+// ---- One blog on demand (owner request, 19 October 2026) -------------------------------
+// The manual job "blog": one article on a topic the owner names when starting the run, written
+// for one to three searches, without waiting for the planner's every-second-week slot. The
+// topic and the terms come from the workflow form (BLOG_TOPIC, BLOG_SEARCH_TERMS).
+export const BLOG_SLOT_PREFIX = 'B-';
+export const BLOG_TOPIC_MAX = 300;
+export const BLOG_TERM_MAX = 80;
+
+export function blogSlot(topic: string, terms: string, now: Date): { slot?: PlanSlot; errors: string[] } {
+  const t = topic.replace(/\s+/g, ' ').trim();
+  const list = terms.split(',').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const errors: string[] = [];
+  if (!t) errors.push('blog: give a topic (blog_topic).');
+  else if (t.length > BLOG_TOPIC_MAX) errors.push(`blog: the topic is over ${BLOG_TOPIC_MAX} characters.`);
+  if (list.length < 1 || list.length > BLOG_SEARCH_TERMS_MAX) errors.push(`blog: give 1 to ${BLOG_SEARCH_TERMS_MAX} search terms, separated by commas (blog_search_terms).`);
+  if (list.some((x) => x.length > BLOG_TERM_MAX)) errors.push(`blog: a search term is over ${BLOG_TERM_MAX} characters.`);
+  if (errors.length) return { errors };
+  const id = `${BLOG_SLOT_PREFIX}${now.toISOString().slice(0, 10).replace(/-/g, '')}`;
+  return { slot: { id, channel: 'blog', format: null, searchTerms: list.join(', '), cta: true }, errors };
+}
+
 // ---- Head of Marketing (Sunday): /playbook.md ---------------------------------------------
 
 export function checkPlaybook(md: string): string[] {
