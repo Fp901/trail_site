@@ -63,6 +63,17 @@ async function top(t: Target, by: string, since: string, until: string, limit: n
   return rows.map((r) => ({ key: String(r[by] ?? ''), pageviews: num(r.pageviews), visitors: num(r.visitors) }));
 }
 
+// A breakdown the plan does not include (Vercel answers 402) is left out, not a failed run. UTM tags
+// are not queried at all: they need Enterprise or the Web Analytics Plus add-on (owner's run, 19 October 2026).
+async function optional(rows: Promise<VisitRow[]>): Promise<VisitRow[] | null> {
+  try {
+    return await rows;
+  } catch (e) {
+    if (e instanceof Error && /^Vercel Analytics 402\b/.test(e.message)) return null;
+    throw e;
+  }
+}
+
 // Paths and referrer hosts come from strangers' browsers: one line, no table breaks, capped.
 const text = (s: string) => {
   const t = s.replace(/[\r\n|]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -75,8 +86,8 @@ const source = (host: string) => {
 };
 
 export interface VisitSummary {
-  week: { start: string; end: string; total: VisitRow; sources: VisitRow[] };
-  month: { start: string; end: string; total: VisitRow; sources: VisitRow[]; pages: VisitRow[]; campaigns: VisitRow[] };
+  week: { start: string; end: string; total: VisitRow; sources: VisitRow[] | null };
+  month: { start: string; end: string; total: VisitRow; sources: VisitRow[] | null; pages: VisitRow[] | null };
 }
 
 export function formatVisits(s: VisitSummary): string {
@@ -93,7 +104,11 @@ export function formatVisits(s: VisitSummary): string {
     `Last ${VISITS_WINDOW_DAYS} days: ${s.month.total.visitors} visitors, ${s.month.total.pageviews} page views.`,
     'Admin, booking and guest-only pages are not counted.',
   );
-  const table = (title: string, head: string, rows: VisitRow[], label: (k: string) => string) => {
+  const table = (title: string, head: string, rows: VisitRow[] | null, label: (k: string) => string) => {
+    if (rows === null) {
+      lines.push('', `${title} not available on this Vercel plan.`);
+      return;
+    }
     if (!rows.length) return;
     lines.push('', title, '', `| ${head} | Visitors | Page views |`, '|---|---|---|');
     for (const r of rows) lines.push(`| ${r.key === 'Others' ? 'Others' : label(r.key)} | ${r.visitors} | ${r.pageviews} |`);
@@ -101,7 +116,6 @@ export function formatVisits(s: VisitSummary): string {
   table(`Where visitors came from, last ${WEEK_DAYS} days:`, 'Source', s.week.sources, source);
   table(`Where visitors came from, last ${VISITS_WINDOW_DAYS} days:`, 'Source', s.month.sources, source);
   table(`Pages read, last ${VISITS_WINDOW_DAYS} days:`, 'Page', s.month.pages, (k) => text(k) || '/');
-  table(`Tagged links (utm_source), last ${VISITS_WINDOW_DAYS} days:`, 'Tag', s.month.campaigns.filter((r) => r.key), text);
   return lines.join('\n');
 }
 
@@ -113,17 +127,16 @@ export async function visitResults(env: NodeJS.ProcessEnv = process.env, now = n
   const weekStart = day(new Date(now.getTime() - (WEEK_DAYS - 1) * 86_400_000));
   const monthStart = day(new Date(now.getTime() - (VISITS_WINDOW_DAYS - 1) * 86_400_000));
   try {
-    const [weekTotal, weekSources, monthTotal, monthSources, pages, campaigns] = await Promise.all([
+    const [weekTotal, weekSources, monthTotal, monthSources, pages] = await Promise.all([
       total(t, weekStart, until),
-      top(t, 'referrerHostname', weekStart, until, TOP_SOURCES),
+      optional(top(t, 'referrerHostname', weekStart, until, TOP_SOURCES)),
       total(t, monthStart, until),
-      top(t, 'referrerHostname', monthStart, until, TOP_SOURCES),
-      top(t, 'requestPath', monthStart, until, TOP_PAGES),
-      top(t, 'utmSource', monthStart, until, TOP_SOURCES),
+      optional(top(t, 'referrerHostname', monthStart, until, TOP_SOURCES)),
+      optional(top(t, 'requestPath', monthStart, until, TOP_PAGES)),
     ]);
     return formatVisits({
       week: { start: weekStart, end: until, total: weekTotal, sources: weekSources },
-      month: { start: monthStart, end: until, total: monthTotal, sources: monthSources, pages, campaigns },
+      month: { start: monthStart, end: until, total: monthTotal, sources: monthSources, pages },
     });
   } catch (e) {
     const note = cleanError(e, [token]);
