@@ -70,10 +70,11 @@ import { metaResults } from './meta';
 import { inspiration, inspirationSummary, type Inspiration } from './inspiration';
 import { photosById } from './photos';
 import { searchResults } from './search-console';
+import { visitResults } from './vercel-analytics';
 
 // Everything the team reads about how we are doing out there: our own Instagram and Facebook posts,
-// then Google searches. Both read-only and best-effort (a problem is a note, not a stop).
-const channelResults = async () => [await metaResults(), await searchResults()].join('\n\n');
+// Google searches, then visits to the site. All read-only and best-effort (a problem is a note, not a stop).
+const channelResults = async () => [await metaResults(), await searchResults(), await visitResults()].join('\n\n');
 import type { MarketingDraftKind, MarketingPostFormat } from '../src/lib/db.types';
 
 const DRY_RUN = process.env.DRY_RUN !== 'false';
@@ -105,7 +106,7 @@ const questionNote = (slots: PlanSlot[]) => {
 // reader's own cleaned note (never a token) or the per-account counts, never post text.
 function reportCheck(job: string, out: string) {
   const first = out.split('\n')[0].replace(/[\r\n%]/g, ' ').slice(0, 300);
-  const failed = /^(Meta results|Search Console results|Creator inspiration) unavailable/.test(out);
+  const failed = /^(Meta results|Search Console results|Vercel Analytics results|Creator inspiration) unavailable/.test(out);
   const unreadable = (out.match(/could not be read/g) ?? []).length;
   if (failed) {
     console.log(`::error title=${job}::${first}`);
@@ -687,7 +688,7 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
       await runEmployee(ctx, 'researcher', PROMPTS.research(week, ins.text), checks.brief(ctx, week, ins.sources), ins.images);
       // How our own posts did on Instagram and Facebook, and what people searched for in Google.
       const results = await channelResults();
-      for (const line of results.split('\n').filter((l) => /^(## |Meta results unavailable|Search Console results unavailable)/.test(l))) console.log(`  ${line}`);
+      for (const line of results.split('\n').filter((l) => /^(## |Meta results unavailable|Search Console results unavailable|Vercel Analytics results unavailable)/.test(l))) console.log(`  ${line}`);
       await runEmployee(ctx, 'analyst', PROMPTS.analyse(results));
       await runEmployee(ctx, 'head_of_marketing', PROMPTS.playbook(results), checks.playbook(ctx));
     },
@@ -708,6 +709,12 @@ const JOBS: Record<JobKey, { steps: string[]; run: (ctx: Ctx) => Promise<void> }
     steps: ['read Search Console results (no agents, nothing written)'],
     run: async () => {
       console.log(await searchResults());
+    },
+  },
+  analytics_check: {
+    steps: ['read Vercel Analytics site visits (no agents, nothing written)'],
+    run: async () => {
+      console.log(await visitResults());
     },
   },
   // One-off (owner request, 14 October 2026): the nine opening posts. In sessions of three, so
@@ -837,8 +844,8 @@ async function main() {
     reportCheck(job, out);
     return;
   }
-  if (job === 'meta_check' || job === 'search_check') {
-    const out = job === 'meta_check' ? await metaResults() : await searchResults();
+  if (job === 'meta_check' || job === 'search_check' || job === 'analytics_check') {
+    const out = job === 'meta_check' ? await metaResults() : job === 'search_check' ? await searchResults() : await visitResults();
     console.log(out);
     reportCheck(job, out);
     return;
