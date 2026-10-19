@@ -14,11 +14,16 @@ export const LEARNINGS_PATH = '/learnings.md';
 export const HISTORY_PATH = '/history.md';
 
 export const BRIEF_MAX_ITEMS = 5;
-export const BRIEF_ITEM_TYPES = ['trend', 'angle', 'competitor', 'pitch', 'hook', 'site issue'] as const;
-// Owner decision (13 October 2026): posts are inspired by the wider industry, not by our own site.
-// So most of each brief is trends, and most post slots rest on one.
-export const BRIEF_MIN_TRENDS = 3;
-export const PLAN_MIN_TREND_SLOTS = 2;
+export const BRIEF_ITEM_TYPES = ['trend', 'season', 'search', 'angle', 'competitor', 'pitch', 'hook', 'site issue'] as const;
+// Owner decision (19 October 2026, replacing "trends first" of 13 October): posts come from the
+// trail, the season and the questions people ask, so a trend is optional in the brief and at most
+// one post slot a week rests on one. Trend-led openings were what the owner kept rejecting as
+// "article like" and "promotional".
+export const BRIEF_MIN_TRENDS = 0;
+export const PLAN_MAX_TREND_SLOTS = 1;
+// Owner decision (19 October 2026): one post in every five may end with a natural question to the
+// reader. The runner allows it this week when none of the last four posts ended with one.
+export const QUESTION_EVERY_POSTS = 5;
 export const CHANNELS = ['instagram', 'facebook', 'blog'] as const;
 export const POST_CHANNELS = ['instagram', 'facebook'] as const;
 // Owner decisions: three Instagram or Facebook posts a week (design doc section 8), plus one blog
@@ -240,6 +245,21 @@ export interface PlanSlot {
   photos?: string[];
   // Whether the post ends with the facts pack's booking line (at most one post a week, and the blog).
   cta?: boolean;
+  // Plan slots only: whether the post ends with a question to the reader (one post in every five).
+  // Undefined for the launch and blog jobs, whose drafts are not checked for it.
+  question?: boolean;
+}
+
+// The last line of a post, hashtag lines aside, ends with a question mark.
+export function endsWithQuestion(body: string): boolean {
+  const lines = body.split('\n').map((l) => l.trim()).filter((l) => l && !/^(#\S+\s*)+$/.test(l));
+  return /\?[\s\p{Extended_Pictographic}\uFE0F\u200D]*$/u.test(lines[lines.length - 1] ?? '');
+}
+
+// recentPosts: the bodies of the newest Instagram or Facebook drafts (pending or approved), newest
+// first. A question is due when none of the last QUESTION_EVERY_POSTS - 1 posts ended with one.
+export function questionDue(recentPosts: readonly string[]): boolean {
+  return !recentPosts.slice(0, QUESTION_EVERY_POSTS - 1).some(endsWithQuestion);
 }
 
 // A blog slot's "search terms": one to three phrases, comma separated, each a real search.
@@ -253,8 +273,8 @@ export interface PlanCheck {
 // briefIds: this cycle's valid research item ids (empty when the brief failed its check).
 // photoIds: every id get_photo_library can return.
 // usedPhotos: ids already on a pending or approved draft; none may be planned again.
-// trendIds: the brief items of type trend. When the brief has them, at least
-// PLAN_MIN_TREND_SLOTS of the post slots must rest on one; with no valid brief the rule is off.
+// trendIds: the brief items of type trend; at most PLAN_MAX_TREND_SLOTS post slots rest on one.
+// questionAllowed: whether one post this week may end with a question (questionDue).
 export function checkPlan(
   md: string,
   week: string,
@@ -266,6 +286,7 @@ export function checkPlan(
   withBlog = true,
   // Each photo's lodge, when known: a post shows one lodge at a time (owner, 19 October 2026).
   photoLodges: ReadonlyMap<string, string | null> = new Map(),
+  questionAllowed = false,
 ): PlanCheck {
   const errors: string[] = [];
   const planned = new Set<string>();
@@ -284,10 +305,6 @@ export function checkPlan(
       const r = basis.match(/^R-\d{6}-\d+$/);
       if (r && !briefs.has(basis)) {
         errors.push(`${item.id}: "${basis}" is not an item in this week's research brief.`);
-      } else if (!r && briefs.size > 0) {
-        // Owner decision (15 October 2026): every slot, the blog included, is built on the
-        // Researcher's work. "facts: ..." is only the fallback for a week with no valid brief.
-        errors.push(`${item.id}: "based on" must be one of this week's research items (${[...briefs].join(', ')}); every slot rests on the Researcher's brief.`);
       } else if (!r && !/^facts:\s*\S/.test(basis)) {
         errors.push(`${item.id}: "based on" must be a research item id (R-${week}-n) or "facts: <what in the facts pack>".`);
       }
@@ -341,9 +358,8 @@ export function checkPlan(
     const onTrend = items.filter(
       (i) => (POST_CHANNELS as readonly string[]).includes((i.fields.channel ?? '').toLowerCase()) && trendSet.has(i.fields['based on'] ?? ''),
     ).length;
-    const need = Math.min(PLAN_MIN_TREND_SLOTS, trendIds.length);
-    if (onTrend < need) {
-      errors.push(`${onTrend} post slot(s) rest on a trend; at least ${need} must be "based on" one of this week's trend items (${trendIds.join(', ')}).`);
+    if (onTrend > PLAN_MAX_TREND_SLOTS) {
+      errors.push(`${onTrend} post slots rest on a trend item; at most ${PLAN_MAX_TREND_SLOTS} may. Base the others on the season, a question people ask, or a trail moment ("facts: ...").`);
     }
   }
   const formats = items
@@ -360,6 +376,17 @@ export function checkPlan(
       errors.push(`${i.id}: a story carries no booking line; its call to action is "none".`);
     }
   }
+  const asks = (i: (typeof items)[number]) => /^yes\b/i.test((i.fields['closing question'] ?? '').trim());
+  const asking = postItems.filter(asks);
+  if (asking.length > (questionAllowed ? 1 : 0)) {
+    errors.push(questionAllowed
+      ? `${asking.length} post slots end with a question; at most 1 may (one post in every ${QUESTION_EVERY_POSTS}).`
+      : `No post ends with a question this week (one post in every ${QUESTION_EVERY_POSTS}, and a recent post had one); write "closing question: no".`);
+  }
+  for (const i of asking) {
+    if ((i.fields.format ?? '').toLowerCase() === 'story') errors.push(`${i.id}: a story never ends with a question to the reader.`);
+    else if (i.fields['call to action'] && !noCta(i)) errors.push(`${i.id}: the post with the booking line does not also end with a question.`);
+  }
   const withCta = postItems.filter((i) => i.fields['call to action'] && !noCta(i)).length;
   if (withCta > PLAN_MAX_CTA_POSTS) {
     errors.push(`${withCta} post slots carry the booking line; at most ${PLAN_MAX_CTA_POSTS} may (the owner finds more too pushy). Write "none" for the others.`);
@@ -368,7 +395,7 @@ export function checkPlan(
   return { errors, slots: errors.length ? [] : items.map((i) => {
     const channel = i.fields.channel.toLowerCase();
     const format = (POST_CHANNELS as readonly string[]).includes(channel) ? (i.fields.format.toLowerCase() as PostFormat) : null;
-    return { id: i.id, channel, format, searchTerms: channel === 'blog' ? i.fields['search terms'].trim() : null, photos: (i.fields.photos ?? '').split(',').map((x) => x.trim()).filter(Boolean), cta: !noCta(i) };
+    return { id: i.id, channel, format, searchTerms: channel === 'blog' ? i.fields['search terms'].trim() : null, photos: (i.fields.photos ?? '').split(',').map((x) => x.trim()).filter(Boolean), cta: !noCta(i), question: format !== null && asks(i) };
   }) };
 }
 
@@ -384,7 +411,7 @@ export const KIND_FOR_CHANNEL: Record<(typeof CHANNELS)[number], string> = {
 // per slot with no draft of the right kind.
 export function checkDrafts(
   slots: readonly PlanSlot[],
-  drafts: readonly { kind: string; notes: string | null; format?: string | null }[],
+  drafts: readonly { kind: string; notes: string | null; format?: string | null; body?: string }[],
 ): string[] {
   const errors: string[] = [];
   for (const slot of slots) {
@@ -393,6 +420,13 @@ export function checkDrafts(
     if (mine.length === 0) errors.push(`${slot.id}: no ${want} draft with "Plan slot: ${slot.id}" in its notes.`);
     else if (slot.format && !mine.some((d) => d.format === slot.format)) {
       errors.push(`${slot.id}: the plan asks for a ${slot.format}; save the draft with format "${slot.format}".`);
+    } else if (slot.question !== undefined && slot.format !== null) {
+      const asked = mine.some((d) => d.body !== undefined && endsWithQuestion(d.body));
+      if (slot.question && !asked && mine.every((d) => d.body !== undefined)) {
+        errors.push(`${slot.id}: the plan marks this post "closing question: yes"; end it with one natural question to the reader.`);
+      } else if (!slot.question && asked) {
+        errors.push(`${slot.id}: this post ends with a question, but only the slot marked "closing question: yes" may (one post in every ${QUESTION_EVERY_POSTS}). End it on the moment instead.`);
+      }
     }
   }
   return errors;

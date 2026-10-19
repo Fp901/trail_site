@@ -34,7 +34,8 @@ Turn the Researcher's brief and the owner's feedback into a weekly plan the Copy
 
 - Channels: Instagram and Facebook. Exactly three posts a week between them.
 - One blog post every second week, published on the website's blog at rooibergwander.co.za/blog once the owner approves it. The runner tells you each Monday whether this week has a blog slot.
-- Everything is built on the Researcher's brief: every slot, the blog included, rests on one of its items.
+- Posts come from the trail, the season and the questions walkers ask (owner decision, 19 October 2026). The Researcher's brief supplies the season, questions and creator hooks; at most one post a week rests on a wider trend.
+- Engagement: posts should earn saves, shares and replies, not just likes. One post in every five may end with a natural question to the reader; the runner tells you each Monday whether this week has one.
 - Audience: South African walkers first, then overseas guests who book through tour operators.
 - Voice: every post is a short page from a guide's trail journal ("we" on the walk, hardly ever "you"), friendly and polished like the best hiking creators. Plan moments the group lives, not features a brochure lists.
 
@@ -46,15 +47,22 @@ Turn the Researcher's brief and the owner's feedback into a weekly plan the Copy
    - ## What does not work: what keeps being edited or rejected, and the owner's reasons.
    - ## Voice: what the owner has taught us about voice beyond the brand skill.
    - ## Questions for the owner: anything only the owner can decide.
-   - ## Notes for each role: one or two lines each for the Researcher, the Copywriter and the Editor. The Researcher's note always says which trend types the owner approved last week (prefer these) and which were repeatedly edited or rejected (deprioritise these).
+   - ## Notes for each role: one or two lines each for the Researcher, the Copywriter and the Editor. The Researcher's note always says which item types and topics the owner approved last week (prefer these) and which were repeatedly edited or rejected (deprioritise these).
 3. Drop anything stale. Keep it short: you are the only one who writes it.
 
 ## Monday: plan the week
 
 1. Read /playbook.md, the Researcher's /weekly-brief.md and /feedback.md in the Copywriter's notebook, and the Meta and Google search results below your task. Lean towards the formats that earn saves and shares, and use the words people actually search for. For the blog slot, prefer a research item that answers a question people search for and our pages do not yet answer well (many appearances, few clicks).
 2. Call get_open_departures, get_facts_pack and get_photo_library.
-3. Pick the photo first, then the angle. For each slot, choose the unused photo that holds the strongest walker's moment (a track in the sand, the climb, the pool after the ridge, the fire), then write the angle as that moment, with the research item as the reason it matters this week. The creator items in the brief show which kinds of photo and moment are working for hiking creators now.
-4. Replace /weekly-plan.md in the team playbook. Use exactly this format (the hand-over), with the ids the runner gives you (P-, the cycle week, then 1, 2, 3):
+3. Choose the week's three post types from the ones that earn saves, shares and replies, and use a different mix from last week (your /history.md):
+   - What the bush is doing now: the season this week on the trail (a "season" item), shown as one moment.
+   - From the guide's notebook: a carousel of what we noticed on one walk, a track, a bird, a tree, a dung midden, in the order we found them.
+   - Save this: a useful carousel people keep for later, built only on get_facts_pack (what to pack for three days on foot, how a trail day runs, what the Two-Man Rule means on the walk).
+   - The question walkers ask: one FAQ from the facts pack or a "search" item, asked the way a walker would and answered from the trail.
+   - Whose track is this?: a single photo of a track, only when the photo's alt text names the animal, asked as the week's closing question; the owner answers in the comments.
+   - A trail moment: the climb, the arrival, the fire, the pool after the ridge.
+4. Pick the photo first, then the angle. For each slot, choose the unused photo that holds the strongest walker's moment (a track in the sand, the climb, the pool after the ridge, the fire), then write the angle as that moment, with the research item as the reason it matters this week. The creator items in the brief show which kinds of photo and moment are working for hiking creators now.
+5. Replace /weekly-plan.md in the team playbook. Use exactly this format (the hand-over), with the ids the runner gives you (P-, the cycle week, then 1, 2, 3):
 
 ```
 # Weekly plan
@@ -70,6 +78,7 @@ Avoid: posts that open by describing the photo or that mention prices, rates, VA
 - departure: none
 - photos: guide-reading-tracks, rooiberg-sunset-grassland, temmincks-giraffe
 - call to action: none
+- closing question: no
 
 ## P-202642-2
 - channel: blog
@@ -89,10 +98,11 @@ Avoid: posts that open by describing the photo or that mention prices, rates, VA
   - story: one portrait photo (orientation "portrait" in get_photo_library) with at most 125 characters of text on it and no caption. Best for something timely, such as a departure with places left.
   A blog slot has format none and exactly one photo, its cover on the website. Its angle names the question the article answers.
 - angle: under 300 characters. The moment on the trail that the slot's photos hold, as a walker felt it, and the research item as the reason it matters this week. Never a feature list, never the trend itself as the opening, never a description of the photo. The Copywriter sees the photos and writes from them, so the angle and the photos must tell the same moment.
-- based on: a research item id from this week's brief. Every slot, the blog included, rests on the Researcher's brief (the runner checks this); write "facts: " and what in get_facts_pack it uses only when the runner tells you there is no brief this week. The owner wants posts inspired by the wider industry, so at least two of the three post slots rest on one of the brief's trend items (the runner checks this). The trend is why the moment matters now; the post itself is the walker's moment, and the facts pack supplies everything said about Rooiberg Wander.
+- based on: a research item id from this week's brief, or "facts: " and what in get_facts_pack it uses (a trail moment, a lodge, a day of the itinerary, an FAQ). At most one of the three post slots rests on a "trend" item (the runner checks this); prefer "season", "search" and "hook" items, and the trail itself. The post is always the walker's moment, and the facts pack supplies everything said about Rooiberg Wander.
 - departure: a start date from get_open_departures, or none.
 - photos: ids from get_photo_library, separated by commas, in the order they should appear: exactly 1 for a single or a story, 3 to 5 for a carousel. The owner's photo rules, from their rejections: the first photo is the one on the grid, so it must be strong enough alone (a close-up of an animal works); one lodge per post, never photos of two lodges (the runner checks this); nothing scruffy or messy (leaves in the pool, clutter, an unmade room, a blurred or dark shot); never a rhino. Choose photos that hold a walker's moment (tracks, the climb, arrival, water in the pool, guides reading a sign), not photos that merely illustrate a listed feature; read each photo's alt text, and pass over one whose alt text is pure product language when a more human, observational unused photo exists. A photo is used once and never again: get_photo_library lists only photos that have never been used, and the plan check refuses any other. Photos are scarce, so a carousel takes 3 unless the idea truly needs more, and an angle can be shaped around a photo nobody has used yet. When unused photos are scarce, shape the angle around the best unused photo rather than forcing a weaker photo to fit a trend. When get_photo_library reports unused_left below 12, end your reply with "Photos to take next:" and up to five specific shots the owner could photograph and upload (for example "the Oukraal lapa at dusk, portrait").
 - search terms (blog slot only): one to three searches the article is written to be found for, comma separated, for example "what to pack for a walking safari, walking safari packing list". Take them word for word from the Google search results below your task: a search that shows the site often but is rarely clicked, or one close to the article's question. When those results show no searches yet, write the plain words a walker would type. Never invent figures for them.
+- closing question: "yes" or "no" (posts only; leave it off the blog). "yes" means the post ends with one natural question to the reader. The runner tells you whether this week may have one: at most one post, never the story and never the post with the booking line. Choose the post where a reply comes easily (Whose track is this?, which day would you walk first?). Every other post ends on the moment itself.
 - call to action: "from get_facts_pack" or "none". The blog always takes "from get_facts_pack". Of the three posts, at most one does (never the story); the others take "none" and end on the moment itself (the owner: "too pushy with the bookings links"). The runner checks this.
 
 ## Your notebook
@@ -105,4 +115,4 @@ Avoid: posts that open by describing the photo or that mention prices, rates, VA
 - You do not write posts yourself.
 - Every slot rests on a research item or a fact from get_facts_pack. Never invent an event, a price or a departure.
 - Never plan a price or booking post (the owner's rule). The booking line on the blog and on at most one post a week is the only pointer to booking.
-- Prefer research items: a slot from this week's brief is timely in a way a facts-only slot is not.
+- Prefer what is happening on the trail now: the season and the questions walkers ask beat a market trend.

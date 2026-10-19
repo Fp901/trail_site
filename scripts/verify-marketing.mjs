@@ -589,7 +589,7 @@ const brief = (items) => `# Weekly brief\n\n${items.join('\n\n')}\n`;
 const opened = ['https://www.getaway.co.za/p1/', 'https://getaway.co.za/p2', 'https://getaway.co.za/p3'];
 const good = C.checkBrief(brief([item(1, { type: 'trend' }), item(2, { type: 'trend', channel: 'instagram' }), item(3, { type: 'trend' })]), W, opened);
 assert('a well-formed, sourced brief passes and yields its ids and trend ids', good.errors.length === 0 && good.ids.join() === `R-${W}-1,R-${W}-2,R-${W}-3` && good.trendIds.length === 3);
-assert('a brief with fewer than three trend items is refused (owner decision)', C.checkBrief(brief([item(1, { type: 'trend' }), item(2), item(3)]), W, opened).errors.some((e) => /at least 3 of the items must be wider industry trends/.test(e)));
+assert('a brief needs no trend items (owner decision, 19 October 2026: trail, season and questions first)', C.BRIEF_MIN_TRENDS === 0 && C.checkBrief(brief([item(1, { type: 'season' }), item(2, { type: 'search' }), item(3, { type: 'hook' })]), W, opened).errors.length === 0);
 assert('a source not opened this run is refused', C.checkBrief(brief([item(1, { source: 'https://getaway.co.za/old' })]), W, opened).errors.some((e) => /did not open/.test(e)));
 assert('an empty brief is refused', C.checkBrief('# Weekly brief\n', W, opened).errors.length > 0);
 assert('more than five items are refused', C.checkBrief(brief([1, 2, 3, 4, 5, 6].map((n) => item(n))), W, [1, 2, 3, 4, 5, 6].map((n) => `https://getaway.co.za/p${n}`)).errors.some((e) => /at most 5/.test(e)));
@@ -616,10 +616,10 @@ const mix = (a, b, c) => plan([slot(1, a), slot(2, b), slot(3, c), slot(4, { cha
   const trendIds = [`R-${W}-1`, `R-${W}-2`];
   const research = [`R-${W}-1`, `R-${W}-2`, `R-${W}-3`];
   const onTrends = mix({}, { format: 'carousel', photos: three, 'based on': `R-${W}-2` }, { format: 'story', 'based on': `R-${W}-3` });
-  assert('two post slots on trend items pass the trend rule', C.checkPlan(onTrends, W, research, photos, trendIds).errors.length === 0);
-  const offTrends = mix({ 'based on': `R-${W}-3` }, { format: 'carousel', photos: three, 'based on': `R-${W}-3` }, { format: 'story', 'based on': `R-${W}-1` });
-  assert('a plan with fewer than two post slots on trends is refused', C.checkPlan(offTrends, W, research, photos, trendIds).errors.some((e) => /rest on a trend/.test(e)));
-  assert('with no trend items (no valid brief) the trend rule is off', C.checkPlan(offTrends, W, research, photos, []).errors.length === 0);
+  assert('two post slots on trend items are refused (at most one a week)', C.checkPlan(onTrends, W, research, photos, trendIds).errors.some((e) => /at most 1 may/.test(e)));
+  const offTrends = mix({ 'based on': `R-${W}-3` }, { format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }, { format: 'story', 'based on': `R-${W}-1` });
+  assert('one post slot on a trend, the rest on research or facts, passes', C.checkPlan(offTrends, W, research, photos, trendIds).errors.length === 0);
+  assert('with no trend items (no valid brief) the trend rule is off', C.checkPlan(onTrends, W, research, photos, []).errors.length === 0);
 }
 assert('a well-formed plan passes and yields its slots', okPlan.errors.length === 0 && okPlan.slots.map((s) => s.channel).join() === 'instagram,facebook,instagram,blog');
 assert('a plan slot carries its format', okPlan.slots.map((s) => s.format).join() === 'single,carousel,story,');
@@ -638,10 +638,10 @@ assert('the plan needs exactly three Instagram or Facebook slots', C.checkPlan(p
   assert('a blog every second week (owner decision, 15 October 2026): due after 14 days or with none, not after 7',
     C.blogDue(null, now) && C.blogDue(new Date(now.getTime() - 14 * day + 3600_000), now) && !C.blogDue(new Date(now.getTime() - 7 * day), now));
   const runSrc = read('marketing/run.ts');
-  assert('the runner decides the blog week from pending or approved blog drafts and tells the planner', /blogDue\(await lastBlogAt\(ctx\), new Date\(\)\)/.test(runSrc) && /\.eq\('kind', 'blog_draft'\)\s*\.in\('status', \['pending', 'approved'\]\)/.test(runSrc) && /checks\.plan\(ctx, week, research, all, used, withBlog, slots\)/.test(runSrc));
+  assert('the runner decides the blog week from pending or approved blog drafts and tells the planner', /blogDue\(await lastBlogAt\(ctx\), new Date\(\)\)/.test(runSrc) && /\.eq\('kind', 'blog_draft'\)\s*\.in\('status', \['pending', 'approved'\]\)/.test(runSrc) && /checks\.plan\(ctx, week, research, all, used, withBlog, question, slots\)/.test(runSrc));
 }
 assert('a slot must rest on this week\'s research or a named fact', C.checkPlan(mix({ 'based on': `R-${W}-9` }, { 'based on': 'a hunch', format: 'carousel', photos: three }, { format: 'story' }), W, [`R-${W}-1`], photos).errors.length === 2);
-assert('with a valid brief every slot, the blog included, rests on a research item', C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', 'based on': 'facts: the itinerary' })]), W, [`R-${W}-1`], photos).errors.some((e) => /P-\d+-4: "based on" must be one of this week's research items/.test(e)));
+assert('with a valid brief a slot may still rest on a named fact (owner decision, 19 October 2026)', C.checkPlan(plan([slot(1), slot(2, { format: 'carousel', photos: three }), slot(3, { format: 'story' }), slot(4, { channel: 'blog', 'based on': 'facts: the itinerary' })]), W, [`R-${W}-1`], photos).errors.length === 0);
 assert('with no valid brief "facts: ..." is the fallback', C.checkPlan(mix({ 'based on': 'facts: the route' }, { format: 'carousel', photos: three, 'based on': 'facts: the itinerary' }, { format: 'story', 'based on': 'facts: the lodges' }).replace(`based on: R-${W}-1`, 'based on: facts: the trail'), W, [], photos).errors.length === 0);
 assert('a blog slot needs one to three search terms (Search Console, owner request 15 October 2026)',
   C.checkPlan(mix({}, { format: 'carousel', photos: three }, { format: 'story' }).replace(/- search terms: .*\n/, ''), W, [`R-${W}-1`], photos).errors.some((e) => /search terms/.test(e)) &&
@@ -668,7 +668,7 @@ assert('unknown photo ids and malformed departures are refused', C.checkPlan(mix
   const saveFn = tools.slice(tools.indexOf('async function saveDraft('), tools.indexOf('const saveDraftInput'));
   assert('save_draft refuses a used photo, except on the flagged draft it replaces', /usedPhotoIds\(input\.replaces\)/.test(saveFn) && /never used twice/.test(saveFn));
   const runSrc = read('marketing/run.ts');
-  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used, withBlog, await photoLodges\(ctx\)\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
+  assert('the runner checks the plan against used photos and warns when few are left', /checkPlan\(md, week, research\.ids, photos, research\.trends, used, withBlog, await photoLodges\(ctx\), question\)/.test(runSrc) && /PHOTOS_LOW_WARNING/.test(runSrc));
 }
 assert('X is no longer a planned channel (owner decision: Instagram and Facebook)', C.checkPlan(plan([slot(1, { channel: 'x' }), slot(2), slot(3)]), W, [`R-${W}-1`], photos).errors.some((e) => /channel "x"/.test(e)));
 
@@ -688,7 +688,7 @@ assert('the briefs\' format examples pass the checks they describe', (() => {
   const ex = (name) => briefText(name).match(/```\n([\s\S]*?)```/)[1];
   const b = C.checkBrief(ex('researcher'), '202642', ['https://getaway.co.za/example']);
   const pl = C.checkPlan(ex('head-of-marketing'), '202642', ['R-202642-1'], new Set(['trail-bushveld-path', 'guide-reading-tracks', 'rooiberg-sunset-grassland', 'temmincks-giraffe']));
-  return b.errors.every((e) => /wider industry trends/.test(e)) && /type: trend/.test(ex('researcher')) && pl.errors.every((e) => /exactly 3/.test(e));
+  return b.errors.length === 0 && /type: season/.test(ex('researcher')) && pl.errors.every((e) => /exactly 3/.test(e));
 })());
 
 section('6. The photo library and owner uploads');
@@ -771,7 +771,7 @@ section('7. Meta results (marketing/meta.ts): read-only, best-effort, the token 
   const wfMeta = read('.github/workflows/marketing-team.yml');
   assert('the workflow passes the Meta secrets and offers meta_check', /META_ACCESS_TOKEN: \$\{\{ secrets\.META_ACCESS_TOKEN \}\}/.test(wfMeta) && /META_PAGE_ID: \$\{\{ secrets\.META_PAGE_ID \}\}/.test(wfMeta) && /options: \[[^\]]*\bmeta_check\b/.test(wfMeta));
   const runMeta = read('marketing/run.ts');
-  assert('the Analyst, the Sunday playbook and the Monday plan all get the Meta and search results', /const channelResults = async \(\) => \[await metaResults\(\), await searchResults\(\)\]/.test(runMeta) && /PROMPTS\.analyse\(results\)/.test(runMeta) && /PROMPTS\.playbook\(results\)/.test(runMeta) && /PROMPTS\.plan\(week, research, withBlog, await channelResults\(\)\)/.test(runMeta));
+  assert('the Analyst, the Sunday playbook and the Monday plan all get the Meta and search results', /const channelResults = async \(\) => \[await metaResults\(\), await searchResults\(\)\]/.test(runMeta) && /PROMPTS\.analyse\(results\)/.test(runMeta) && /PROMPTS\.playbook\(results\)/.test(runMeta) && /PROMPTS\.plan\(week, research, withBlog, question, await channelResults\(\)\)/.test(runMeta));
 
   assert('no token: a one-line note, no call', (await M.metaResults({})).startsWith('Meta results unavailable'));
 
@@ -920,6 +920,28 @@ section('Blog on demand (manual job "blog")');
   assert('the job is checked, then goes through the Editor and the fix round', /blog: \{[\s\S]*?checks\.drafts\(ctx, \[slot\]\)\);\s*await editorReview\(ctx\);\s*await fixRound\(ctx, writingFrom\);/.test(runB));
   const wfB = read('.github/workflows/marketing-team.yml');
   assert('the workflow passes the topic and terms as env, never into the shell line', /BLOG_TOPIC: \$\{\{ inputs\.blog_topic \}\}/.test(wfB) && /BLOG_SEARCH_TERMS: \$\{\{ inputs\.blog_search_terms \}\}/.test(wfB) && !/run:.*inputs\.blog/.test(wfB));
+}
+
+// ---------------------------------------------------------------------------------------------
+section('A closing question in one post of every five (owner decision, 19 October 2026)');
+{
+  assert('a question at the end is found past hashtags and an emoji', C.endsWithQuestion('We stopped.\n\nWhose track is this? 👀\n\n#Waterberg #WalkingSafari') && !C.endsWithQuestion('Is it safe? Yes.\n\n#Waterberg') && !C.endsWithQuestion(''));
+  assert('due when none of the last four posts ended with one', C.QUESTION_EVERY_POSTS === 5 && C.questionDue([]) && C.questionDue(['a.', 'b.', 'c.', 'd.', 'e?']) && !C.questionDue(['a.', 'b.', 'c.', 'd?']));
+  const q = (over) => mix(over[0] ?? {}, { format: 'carousel', photos: three, ...(over[1] ?? {}) }, { format: 'story', ...(over[2] ?? {}) });
+  const one = q([{ 'closing question': 'yes' }, { 'closing question': 'no' }, { 'closing question': 'no' }]);
+  const ok = C.checkPlan(one, W, [`R-${W}-1`], photos, [], new Set(), true, new Map(), true);
+  assert('one marked post passes when a question is due, and its slot carries it', ok.errors.length === 0 && ok.slots[0].question === true && ok.slots[1].question === false && ok.slots[3].question === false);
+  assert('a marked post is refused when no question is due', C.checkPlan(one, W, [`R-${W}-1`], photos).errors.some((e) => /No post ends with a question this week/.test(e)));
+  assert('two marked posts are refused', C.checkPlan(q([{ 'closing question': 'yes' }, { 'closing question': 'yes' }]), W, [`R-${W}-1`], photos, [], new Set(), true, new Map(), true).errors.some((e) => /at most 1 may/.test(e)));
+  assert('never the story, never the booking-line post', C.checkPlan(q([{}, {}, { 'closing question': 'yes' }]), W, [`R-${W}-1`], photos, [], new Set(), true, new Map(), true).errors.some((e) => /story never ends with a question/.test(e)) && C.checkPlan(q([{ 'closing question': 'yes', 'call to action': 'from get_facts_pack' }]), W, [`R-${W}-1`], photos, [], new Set(), true, new Map(), true).errors.some((e) => /booking line does not also/.test(e)));
+  const [s1, s2] = ok.slots;
+  const d = (slotId, body, format) => ({ kind: s1.channel === 'facebook' ? 'facebook_post' : 'instagram_caption', notes: `Plan slot: ${slotId}`, format, body });
+  const d2 = (slotId, body, format) => ({ kind: C.KIND_FOR_CHANNEL[s2.channel], notes: `Plan slot: ${slotId}`, format, body });
+  assert('the marked post must end with a question, and no other post may', C.checkDrafts([s1], [d(s1.id, 'We stopped.', 'single')]).some((e) => /end it with one natural question/.test(e)) && C.checkDrafts([s2], [d2(s2.id, 'Which day first?', 'carousel')]).some((e) => /only the slot marked/.test(e)) && C.checkDrafts([s1, s2], [d(s1.id, 'Whose track is this?', 'single'), d2(s2.id, 'We walked.', 'carousel')]).length === 0);
+  assert('launch slots are not checked for it', C.checkDrafts([C.LAUNCH_SLOTS[0]], [{ kind: 'instagram_caption', notes: 'Plan slot: L-1', format: 'single', body: 'Ready?' }]).length === 0);
+  const runQ = read('marketing/run.ts');
+  assert('the runner decides it from the newest posts and tells the planner and the Copywriter', /const question = questionDue\(await recentPosts\(ctx\)\)/.test(runQ) && /questionNote\(slots\)/.test(runQ) && /\.select\('kind, notes, format, photo_ids, body'\)/.test(runQ));
+  assert('the briefs document it', /- closing question: no/.test(briefText('head-of-marketing')) && /closing question: yes/.test(briefText('copywriter')));
 }
 
 // ---------------------------------------------------------------------------------------------
