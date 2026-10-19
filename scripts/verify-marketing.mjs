@@ -762,6 +762,9 @@ section('7. Meta results (marketing/meta.ts): read-only, best-effort, the token 
 {
   const metaSrc = read('marketing/meta.ts');
   const M = await import('../marketing/meta.ts');
+  assert('a pasted token loses its label, quotes, "Bearer " and line breaks', M.cleanToken(' META_ACCESS_TOKEN="EAAb\ncd" ') === 'EAAbcd' && M.cleanToken('Bearer EAAx') === 'EAAx' && M.cleanToken('  ') === undefined);
+  const shape = M.tokenShape('"abcdefgh"');
+  assert('the token shape names length and prefix, never the value', /8 characters/.test(shape) && /does not start with EAA/.test(shape) && /were removed/.test(shape) && !/abcdefgh/.test(shape));
   assert('meta.ts only ever reads (no POST, no publish, comment or reply calls)', !/method:\s*'(POST|DELETE|PUT)'/i.test(metaSrc) && !/\/(media_publish|comments|replies|feed)\b/.test(metaSrc.replace(/comments\.summary|comments_count/g, '')));
   assert('meta.ts talks only to graph.facebook.com', [...metaSrc.matchAll(/https:\/\/[a-z0-9.-]+/g)].every((m) => m[0] === 'https://graph.facebook.com'));
   assert('the token goes in a header, never in the URL', /Authorization: `Bearer \$\{token\}`/.test(metaSrc) && !/searchParams\.set\('access_token'/.test(metaSrc));

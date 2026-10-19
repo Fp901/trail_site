@@ -184,8 +184,25 @@ export async function findPage(pageId: string, token: string): Promise<{ page: J
   return { page, pageToken: typeof page.access_token === 'string' ? page.access_token : token };
 }
 
+// People paste secrets with the name, quotes or "Bearer " still on, or with a line break inside.
+// Meta then answers "Cannot parse access token". Strip what can only be packaging.
+export function cleanToken(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  let t = raw.trim().replace(/^META_ACCESS_TOKEN\s*[=:]\s*/i, '').replace(/^Bearer\s+/i, '');
+  t = t.replace(/^["'`]+|["'`]+$/g, '').replace(/\s+/g, '');
+  return t || undefined;
+}
+
+// What the secret looks like, never what it is: safe to print to a public log.
+export function tokenShape(raw: string | undefined): string {
+  const t = cleanToken(raw) ?? '';
+  const changed = (raw ?? '').trim() !== t ? ', had spaces, quotes or a label that were removed' : '';
+  const start = /^EAA/.test(t) ? 'starts with EAA as a Meta token should' : 'does not start with EAA, so it is not a Meta access token';
+  return `the secret is ${t.length} characters long, ${start}${changed}`;
+}
+
 export async function metaResults(env: NodeJS.ProcessEnv = process.env, now = new Date()): Promise<string> {
-  const token = env.META_ACCESS_TOKEN?.trim();
+  const token = cleanToken(env.META_ACCESS_TOKEN);
   const pageId = env.META_PAGE_ID?.trim();
   if (!token || !pageId) return 'Meta results unavailable: META_ACCESS_TOKEN or META_PAGE_ID is not set.';
   const since = new Date(now.getTime() - META_WINDOW_DAYS * 86_400_000);
@@ -198,7 +215,7 @@ export async function metaResults(env: NodeJS.ProcessEnv = process.env, now = ne
     const msg = cleanError(e, token);
     // Code 190 is Meta's "this token is invalid or expired": the GitHub secret, not the code.
     const hint = /code 190\b|Meta 401/.test(msg)
-      ? ' The META_ACCESS_TOKEN GitHub secret is invalid or expired; copy the token that works for the Post button in Vercel into it.'
+      ? ` The META_ACCESS_TOKEN GitHub secret is invalid or expired (${tokenShape(env.META_ACCESS_TOKEN)}); copy the token that works for the Post button in Vercel into it.`
       : '';
     return `Meta results unavailable: ${msg}.${hint}`;
   }

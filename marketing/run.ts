@@ -88,6 +88,24 @@ const bookingLineNote = (slots: PlanSlot[]) => {
     : `No draft this week ends with the booking line; end each one on the moment itself. `;
 };
 
+// The manual check jobs fail when their source cannot be read, and leave a one-line annotation on
+// the run, so the outcome shows on the run's page without opening the log. The line carries the
+// reader's own cleaned note (never a token) or the per-account counts, never post text.
+function reportCheck(job: string, out: string) {
+  const first = out.split('\n')[0].replace(/[\r\n%]/g, ' ').slice(0, 300);
+  const failed = /^(Meta results|Search Console results|Creator inspiration) unavailable/.test(out);
+  const unreadable = (out.match(/could not be read/g) ?? []).length;
+  if (failed) {
+    console.log(`::error title=${job}::${first}`);
+    process.exitCode = 1;
+  } else if (job === 'inspiration_check') {
+    const lines = out.split('\n').filter((l) => /^Account \d+:/.test(l));
+    console.log(`::notice title=${job}::${lines.length - unreadable} of ${lines.length} accounts readable${unreadable ? `; not readable: ${lines.filter((l) => /could not be read/.test(l)).map((l) => l.split(':')[0]).join(', ')}` : ''}`);
+  } else {
+    console.log(`::notice title=${job}::read OK`);
+  }
+}
+
 const PROMPTS = {
   research: (week: string, creators = '') =>
     `Today is ${today()}, Sunday research for cycle week ${week}. Write ${BRIEF_PATH} in your notebook exactly in the format your instructions give, with ids R-${week}-1 upwards, then update /history.md and /learnings.md. Reply with the headlines.` +
@@ -747,11 +765,15 @@ async function main() {
 
   // Read-only and free (no agents): run even in a dry run, to check the Meta token and the Google key.
   if (job === 'inspiration_check') {
-    console.log(inspirationSummary(await inspiration()));
+    const out = inspirationSummary(await inspiration());
+    console.log(out);
+    reportCheck(job, out);
     return;
   }
   if (job === 'meta_check' || job === 'search_check') {
-    console.log(job === 'meta_check' ? await metaResults() : await searchResults());
+    const out = job === 'meta_check' ? await metaResults() : await searchResults();
+    console.log(out);
+    reportCheck(job, out);
     return;
   }
 
