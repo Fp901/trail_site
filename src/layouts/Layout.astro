@@ -10,6 +10,9 @@ import WhatsAppButton from '../components/WhatsAppButton.astro';
 // Vercel Web Analytics: cookie-free page views, script served from our own domain
 // (/_vercel/insights), so the CSP needs no new source. Switched on in the Vercel dashboard.
 import Analytics from '@vercel/analytics/astro';
+// Vercel Speed Insights: real-visitor Core Web Vitals (Part 10.3), same own-domain script and
+// cookie-free beacon (/_vercel/speed-insights), same pages skipped. Switched on in the dashboard.
+import SpeedInsights from '@vercel/speed-insights/astro';
 
 // Self-hosted fonts via Fontsource (no Google CDN — Part 2). font-display: swap built in.
 // Inter (variable) for body/UI; Fraunces (full variable: opsz, wght, SOFT, WONK) for display.
@@ -86,5 +89,6 @@ const track = !/^\/(admin|pretrip|trip-info|booking)(\/|$)/.test(Astro.url.pathn
     <WhatsAppButton />
     <Footer hook={footerHook} />
     {track && <Analytics />}
+    {track && <SpeedInsights />}
   </body>
 </html>
