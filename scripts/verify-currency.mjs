@@ -103,8 +103,8 @@ assert('currency chip targets are >= 44px on touch',
   /\.ratetable__curbtn \{[\s\S]{0,400}min-height: 2\.75rem/.test(css) || /\.ratetable__curbtn \{[\s\S]{0,400}min-height:\s*44px/.test(css));
 assert('the tab row scrolls rather than wrapping awkwardly at 380px, OR wraps safely',
   /\.ratetable__currency \{/.test(css));
-assert('the script re-initialises safely across Astro view-transitions (idempotent bind guard)',
-  /wrap\.dataset\.bound === 'true'/.test(table) && /astro:page-load/.test(table));
+assert('the script binds once per page (idempotent bind guard, called directly on load)',
+  /wrap\.dataset\.bound === 'true'/.test(table) && /^\s*initCurrencyTabs\(\);\s*$/m.test(table));
 
 section('6. Numeric reconciliation: every rendered figure matches the constant it claims to');
 let reconciled = 0;

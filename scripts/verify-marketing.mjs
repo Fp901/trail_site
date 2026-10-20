@@ -192,7 +192,7 @@ section('2. Migrations 0021 and 0022: marketing tables === db.types.ts, all defa
 const migPath = 'supabase/migrations/0021_marketing.sql';
 assert('0021_marketing.sql exists', existsSync(new URL(`../${migPath}`, import.meta.url)));
 const migFiles = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).sort();
-assert('0026 is the latest migration', migFiles[migFiles.length - 1] === '0026_marketing_photo_bans.sql');
+assert('0027 is the latest migration', migFiles[migFiles.length - 1] === '0027_explicit_service_role_grants.sql');
 const sql = read(migPath).replace(/--[^\n]*/g, '');
 
 const tables = {};
