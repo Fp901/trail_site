@@ -1,0 +1,21 @@
+# Security and version updates (CLAUDE.md Part 11, A06; SECURITY.md §7). Dependabot only opens PRs;
+# a person reviews and merges each one after `npm run verify` passes.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Tailwind is pinned to an exact version on purpose; upgrade it by hand after reading the changelog.
+      - dependency-name: tailwindcss
+      - dependency-name: '@tailwindcss/vite'
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
