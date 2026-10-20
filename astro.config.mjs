@@ -3,12 +3,31 @@ import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
 import vercel from '@astrojs/vercel';
+import { readdirSync } from 'node:fs';
 
 // Build target:
 //   - default (Vercel / local): SSR adapter, full booking backend.
 //   - BUILD_TARGET=static (GitHub Pages): static-only export; the booking backend is excluded
 //     by the Pages workflow (GitHub Pages cannot run servers). See README "Deploying".
 const isStatic = process.env.BUILD_TARGET === 'static';
+
+// sharp ships both glibc and musl Linux binaries, npm installs both, and the function bundler
+// copies both (~17 MB of the ~36 MB function). Vercel functions run on glibc (Amazon Linux), so
+// the musl copies are dead weight stored with every deployment. Excluded file by file because the
+// adapter's excludeFiles matches exact paths only.
+/** @param {string} dir */
+const listFiles = (dir) => {
+  try {
+    return readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((d) => d.isFile())
+      .map((d) => `${d.parentPath}/${d.name}`);
+  } catch {
+    return [];
+  }
+};
+const muslSharp = ['sharp-linuxmusl-x64', 'sharp-libvips-linuxmusl-x64'].flatMap((pkg) =>
+  listFiles(`./node_modules/@img/${pkg}`),
+);
 
 // On the custom domain (www.rooibergwander.co.za) the site is served from the root, so base is
 // undefined. For a GitHub Pages *project* subpath (e.g. /trail_site, before the domain is wired)
@@ -73,7 +92,7 @@ export default defineConfig({
   // `export const prerender = false`. SSR needs a server adapter (Part 2).
   // Adapter = Vercel (swap to @astrojs/netlify in one line if preferred). Omitted for static.
   // maxDuration: the owner's Post button waits on Meta while a carousel is processed (up to ~30s).
-  ...(isStatic ? {} : { adapter: vercel({ maxDuration: 60 }) }),
+  ...(isStatic ? {} : { adapter: vercel({ maxDuration: 60, excludeFiles: muslSharp }) }),
 
   // Inline the site stylesheet into each page instead of a separate render-blocking request
   // (PageSpeed: "Render-blocking requests", ~300ms on the 25 KB Section.css). The native CSP hashes

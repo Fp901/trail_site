@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude,glob)*.md' ':(exclude,glob)*.docx' ':(exclude)docs' ':(exclude).github' ':(exclude).vscode' ':(exclude).claude' ':(exclude)scripts' ':(exclude)supabase'",
   "crons": [
     {
       "path": "/api/cron/pretrip-reminders",
