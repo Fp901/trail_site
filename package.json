@@ -35,7 +35,7 @@
     "@anthropic-ai/sdk": "^0.135.0",
     "@astrojs/check": "^0.9.11",
     "@tailwindcss/typography": "^0.5.20",
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.6.5",
     "docx": "^9.12.0",
     "prettier": "^3.9.10",
     "prettier-plugin-astro": "^0.14.1",
