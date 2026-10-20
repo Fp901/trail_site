@@ -36,7 +36,7 @@ jobs:
           # have to toggle it in Settings first. Needs the `pages: write` permission (set above).
           enablement: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
