@@ -76,7 +76,7 @@ jobs:
       VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
       PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL || 'https://www.rooibergwander.co.za' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
