@@ -209,11 +209,11 @@ export const CURRENCY_SYMBOLS: Record<'ZAR' | ForeignCurrency, string> = {
   GBP: '£',
   USD: '$',
 };
-export const FX_RATES_AS_OF = '2026-09-30';
+export const FX_RATES_AS_OF = '2026-10-30';
 export const ZAR_TO_FOREIGN: Record<ForeignCurrency, number> = {
-  EUR: 0.05373,
-  GBP: 0.04592,
-  USD: 0.06101,
+  EUR: 0.053632,
+  GBP: 0.044719,
+  USD: 0.059918,
 };
 // "22 September 2026": the snapshot date as the rates table prints it. UTC, so the build
 // machine's timezone can't shift it by a day.
